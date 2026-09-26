@@ -18,51 +18,82 @@
       <ul id="gameList" class="game-list"></ul>
       <p id="galleryStatus" class="status" role="status"></p>
     </section>
-
-    <section id="playerView" hidden aria-label="Now playing">
-      <div class="player-bar">
-        <a class="back" href="#/">&larr; All games</a>
-        <h1 id="playerTitle"></h1>
-        <a id="playerOpen" class="open-link" target="_blank" rel="noopener">Open full screen</a>
-      </div>
-      <div class="frame-wrap">
-        <!-- allow-same-origin lets the gallery size the frame to the game's content
-             so the game never scrolls separately from the page. Games are
-             reviewed code from this repo, so sharing the origin is acceptable. -->
-        <iframe id="gameFrame" title="Game" sandbox="allow-scripts allow-same-origin allow-pointer-lock" scrolling="no"></iframe>
-      </div>
-      <section class="achievements" aria-labelledby="achTitle">
-        <h2 id="achTitle">Achievements <span id="achCount" class="muted"></span></h2>
-        <ul id="achList" class="ach-list"></ul>
-      </section>
-
-      <details class="about" id="playerAbout">
-        <summary>How it's built</summary>
-        <ul id="playerMechanics"></ul>
-        <p id="playerGoal"></p>
-        <p id="playerState"></p>
-      </details>
-
-      <form id="feedbackForm" class="feedback" novalidate>
-        <h2>Rate this game</h2>
-        <fieldset class="stars" id="stars">
-          <legend class="visually-hidden">Rating from 1 to 5</legend>
-        </fieldset>
-        <label for="comment" class="comment-label">Anything to add? <span class="muted">(optional)</span></label>
-        <textarea id="comment" name="comment" rows="3" maxlength="1000" placeholder="What felt good? What felt off? Did the mechanics play off each other?"></textarea>
-        <div class="feedback-actions">
-          <button type="submit" id="submitBtn" disabled>Send feedback</button>
-          <span id="feedbackStatus" class="status" role="status"></span>
-        </div>
-      </form>
-    </section>
   </main>
-
-  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <footer class="site-footer">
     <a id="repoLink" target="_blank" rel="noopener">Source on GitHub</a>
   </footer>
+
+  <!-- The cabinet: fills the screen while a game is open. The game and every
+       panel (how to play, achievements, rating) live inside it, so the page
+       itself never scrolls. -->
+  <section id="cabinet" class="cabinet-backdrop" hidden aria-label="Now playing">
+    <div class="cabinet">
+      <div class="toolbar">
+        <a class="tool back" href="#/" aria-label="Back to all games" title="All games">&larr;</a>
+        <h1 id="cabTitle"></h1>
+        <button class="tool" type="button" data-panel="about" aria-label="How to play" title="How to play">&#9432;</button>
+        <button class="tool" type="button" data-panel="achievements" aria-label="Achievements" title="Achievements">🏆<span id="achBadge" class="badge"></span></button>
+        <button class="tool" type="button" data-panel="rate" aria-label="Rate this game" title="Rate this game">&#9733;</button>
+        <button class="tool" type="button" id="fullscreenBtn" aria-label="Full screen" title="Full screen" hidden>&#x26F6;</button>
+      </div>
+
+      <div class="screen">
+        <iframe id="gameFrame" title="Game" sandbox="allow-scripts allow-pointer-lock"></iframe>
+
+        <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+        <div id="panel" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="panelTitle">
+          <div class="panel-head">
+            <h2 id="panelTitle"></h2>
+            <button type="button" class="tool" id="panelClose" aria-label="Close" title="Close">&times;</button>
+          </div>
+          <div class="panel-body">
+
+            <div data-body="about">
+              <p id="aboutBlurb" class="lead"></p>
+              <h3>How it works</h3>
+              <p id="aboutHow"></p>
+              <ul id="aboutControls" class="controls-list"></ul>
+              <h3>Goal</h3>
+              <p id="aboutGoal"></p>
+              <details class="built">
+                <summary>How it's built</summary>
+                <p id="aboutState"></p>
+              </details>
+              <button type="button" class="primary" id="aboutPlay">Play</button>
+            </div>
+
+            <div data-body="achievements">
+              <p id="achSummary" class="muted"></p>
+              <ul id="achList" class="ach-list"></ul>
+              <div class="reset-row">
+                <button type="button" class="secondary" id="achReset">Reset achievements</button>
+                <div id="achConfirm" class="confirm" hidden>
+                  <span>Erase all achievements for this game?</span>
+                  <button type="button" class="danger" id="achResetYes">Yes, reset</button>
+                  <button type="button" class="secondary" id="achResetNo">Cancel</button>
+                </div>
+              </div>
+            </div>
+
+            <form data-body="rate" id="feedbackForm" class="feedback" novalidate>
+              <fieldset class="stars" id="stars">
+                <legend class="visually-hidden">Rating from 1 to 5</legend>
+              </fieldset>
+              <label for="comment" class="comment-label">Anything to add? <span class="muted">(optional)</span></label>
+              <textarea id="comment" name="comment" rows="4" maxlength="1000" placeholder="What felt good? What felt off? Did the mechanics play off each other?"></textarea>
+              <div class="feedback-actions">
+                <button type="submit" class="primary" id="submitBtn" disabled>Send feedback</button>
+                <span id="feedbackStatus" class="status" role="status"></span>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
 <script src="assets/config.js"></script>
 <script src="assets/feedback.js"></script>

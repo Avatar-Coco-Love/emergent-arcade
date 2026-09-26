@@ -35,5 +35,11 @@ window.ArcadeAchievements = (function () {
     return (game.achievements || []).filter((a) => got[a.id]).length;
   }
 
-  return { load, unlock, count };
+  function reset(gameId) {
+    try {
+      localStorage.removeItem(key(gameId));
+    } catch (_) {}
+  }
+
+  return { load, unlock, count, reset };
 })();

@@ -20,6 +20,7 @@ published from a branch.
      "updated": "YYYY-MM-DD",
      "blurb": "One sentence for the gallery card.",
      "goal": "What the player is trying to do (or say it's a sandbox).",
+     "howToPlay": "A short paragraph shown in the gallery's How to play panel.",
      "mechanics": [
        { "name": "pump", "verb": "tap", "description": "..." },
        { "name": "siphon", "verb": "drag", "description": "..." }
@@ -53,9 +54,27 @@ published from a branch.
    The gallery records unlocks per player (in their browser), shows a popup,
    and lists them under the game. Good achievements reward interplay between
    the mechanics, not just grinding. Achievement ids are permanent too.
-4. Size the game from its **width**, not the screen height (no `vh` or
-   `innerHeight` for layout). The gallery sizes its frame to fit the game's
-   content, so the game never scrolls separately from the page.
+4. Make the game **fill whatever window it's given** and never scroll:
+   `html, body { height: 100%; overflow: hidden }`, then scale the play area
+   to the largest size that fits both the width and the height (see
+   `fitBoard()` in Pressure Grid or `fitSky()` in Orbit Garden). The gallery
+   shows the game inside a "cabinet" that fills the screen.
+   - Keep instructions **out** of the game file. The title, how to play and
+     goal live in the manifest and appear in the cabinet's ⓘ panel.
+   - Only a small status line and buttons (e.g. Reset) belong under the
+     play area.
+   - Pause when the gallery covers the game with a panel:
+
+     ```js
+     let paused = false;
+     window.addEventListener('message', evt => {
+       if (evt.data && evt.data.type === 'arcade:pause') paused = true;
+       if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+     });
+     // skip simulation steps while paused
+     ```
+   - Anything that ends a round (win/lose screen) should ignore input for
+     about a second, so fast tapping can't skip it.
 5. Run `node scripts/validate.mjs` and play it locally
    (`python3 -m http.server`, then open http://localhost:8000).
 6. Open a PR and fill in the template checklist.

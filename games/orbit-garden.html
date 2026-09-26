@@ -13,34 +13,71 @@
     --accent: #8be07a;
   }
   * { box-sizing: border-box; }
-  html { height: 100%; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the sky scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
   body {
-    min-height: 100%;
-    margin: 0;
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: 16px;
-    gap: 10px;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
   }
-  h1 { font-size: 1.1rem; font-weight: 600; margin: 0; letter-spacing: 0.02em; }
-  p.sub { color: var(--muted); font-size: 0.85rem; margin: 0; text-align: center; max-width: 440px; }
-  .legend { display: flex; gap: 16px; font-size: 0.78rem; color: var(--muted); }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
   #sky {
     display: block;
     width: 100%;
-    max-width: 420px;
-    height: auto;
+    height: 100%;
     touch-action: none;
     border-radius: 10px;
     background: #05050a;
   }
-  .hud { display: flex; gap: 14px; font-size: 0.85rem; color: var(--muted); flex-wrap: wrap; justify-content: center; }
-  .hud b { color: var(--text); font-variant-numeric: tabular-nums; }
-  #msg { min-height: 1.3em; font-size: 0.9rem; margin: 0; text-align: center; }
+  #msg {
+    position: absolute;
+    top: 10px;
+    left: 8px;
+    right: 8px;
+    margin: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #d8d8e0;
+    text-shadow: 0 1px 3px #000;
+    pointer-events: none;
+  }
+  #endCard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(86%, 300px);
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(21, 21, 31, 0.94);
+    border: 1px solid #2a2a38;
+    text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #endCard h2.won { color: #8be07a; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #c8c8d2; font-size: 0.9rem; }
+  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
+  #playAgain:disabled { opacity: 0.4; }
+  .bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bar b { color: var(--text); font-variant-numeric: tabular-nums; }
   button {
     background: var(--panel);
     color: var(--text);
@@ -54,20 +91,24 @@
 </style>
 </head>
 <body>
-  <h1>Orbit Garden</h1>
-  <p class="sub">Tap the sky to <b>place</b> a small planet. Drag anywhere to <b>fling</b> a seed from the launcher in that direction. Seeds bend around planets, and every seed that lands makes its planet heavier, so it pulls harder. Unfed planets slowly wither. <b>Goal:</b> get 3 planets blooming at the same time before your seeds run out.</p>
-  <div class="legend">
-    <span>Tap = place planet</span>
-    <span>Drag = fling seed</span>
+  <div id="field">
+    <div id="stage">
+      <canvas id="sky" aria-label="Orbit Garden sky. Tap to place a planet, drag upward to fling a seed."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="playAgain">Play again</button>
+      </div>
+    </div>
   </div>
-  <canvas id="sky"></canvas>
-  <div class="hud">
+  <div class="bar">
     <span>Seeds <b id="hudSeeds"></b></span>
     <span>Blooming <b id="hudBlooms"></b></span>
     <span>Planets <b id="hudPlanets"></b></span>
+    <button id="resetBtn">New garden</button>
   </div>
-  <p id="msg" role="status"></p>
-  <button id="resetBtn">New garden</button>
 
 <script>
 (function() {
@@ -85,9 +126,11 @@
   const DEAD_MASS = 0.3;           // planets below this crumble away
   const G = 400000;                // gravity strength
   const SOFTEN = 15;               // keeps gravity finite near a planet's center
-  const FLING_POWER = 3.2;         // seed speed per px of drag
-  const MAX_DRAG = 160;
-  const DRAG_THRESHOLD_PX = 12;
+  const FLING_POWER = 2.6;         // seed speed per px of drag
+  const MAX_DRAG = 140;            // longer drags don't fling any harder
+  const MAX_AIM_ANGLE = 75 * Math.PI / 180; // flings go upward, at most this far from straight up
+  const DRAG_THRESHOLD_PX = 16;
+  const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win/loss so it can't be skipped
   const SEED_LIFETIME = 10;        // seconds before a drifting seed is lost
   const STEP = 1 / 120;
 
@@ -101,6 +144,7 @@
   // (it records them); harmless when the file is opened on its own.
   const unlocked = new Set();
   function unlock(id) {
+    roundEarned.add(id);
     if (unlocked.has(id)) return;
     unlocked.add(id);
     if (window.parent !== window) {
@@ -114,15 +158,58 @@
   function rand() { rs = (rs * 16807) % 2147483647; return rs / 2147483647; }
   for (let i = 0; i < 90; i++) stars.push([rand() * W, rand() * H, rand() * 1.2 + 0.3]);
 
+  // Scale the sky to the largest 2:3 box that fits the space it's given.
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitSky() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    stage.style.width = Math.max(80, Math.floor(W * scale)) + 'px';
+    stage.style.height = Math.max(120, Math.floor(H * scale)) + 'px';
+  }
+  new ResizeObserver(fitSky).observe(field);
+  fitSky();
+
+  // The gallery pauses the game while one of its panels covers it.
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') paused = true;
+    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+  });
+
+  const endCard = document.getElementById('endCard');
+  const playAgainBtn = document.getElementById('playAgain');
+
   let planets, seeds, seedsLeft, streak, state, msgTimer;
+  const roundEarned = new Set();
 
   function newGarden() {
     planets = [];
     seeds = [];
     seedsLeft = START_SEEDS;
     streak = 0;
+    roundEarned.clear();
     state = 'playing';
+    endCard.hidden = true;
     say('Tap the sky to place your first planet.');
+  }
+
+  function endGame(result) {
+    state = result;
+    msgEl.textContent = '';
+    const title = document.getElementById('endTitle');
+    title.textContent = result === 'won' ? 'Garden complete!' : 'Out of seeds';
+    title.className = result;
+    document.getElementById('endDetail').textContent = result === 'won'
+      ? `Won with ${seedsLeft} seed${seedsLeft === 1 ? '' : 's'} to spare.`
+      : `${planets.filter(blooming).length} of ${GOAL_BLOOMS} planets were blooming.`;
+    const n = roundEarned.size;
+    document.getElementById('endAch').textContent = n
+      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
+      : '';
+    // Taps that were already on their way (fast flinging) must not skip this.
+    playAgainBtn.disabled = true;
+    endCard.hidden = false;
+    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
   }
 
   function say(text, sticky) {
@@ -161,17 +248,23 @@
   }
 
   // ---------- mechanic 2: fling ----------
+  // Drag vector -> launch velocity, or null for a drag that doesn't point upward.
+  // Sideways drags are clamped to MAX_AIM_ANGLE from straight up.
   function flingVelocity(dx, dy) {
-    const len = Math.hypot(dx, dy);
-    const k = Math.min(len, MAX_DRAG) / len * FLING_POWER;
-    return [dx * k, dy * k];
+    if (dy >= 0) return null;
+    let angle = Math.atan2(dx, -dy); // 0 = straight up, positive = right
+    angle = Math.max(-MAX_AIM_ANGLE, Math.min(MAX_AIM_ANGLE, angle));
+    const speed = Math.min(Math.hypot(dx, dy), MAX_DRAG) * FLING_POWER;
+    return [Math.sin(angle) * speed, -Math.cos(angle) * speed];
   }
 
   function fling(dx, dy) {
     if (state !== 'playing') return;
     if (seedsLeft <= 0) return;
     if (!planets.length) return say('Place a planet first: tap the sky.');
-    const [vx, vy] = flingVelocity(dx, dy);
+    const v = flingVelocity(dx, dy);
+    if (!v) return say('Drag upward to fling a seed.');
+    const [vx, vy] = v;
     seeds.push({ x: LAUNCH.x, y: LAUNCH.y, vx, vy, vx0: vx, vy0: vy, t: 0, trail: [] });
     seedsLeft--;
   }
@@ -222,13 +315,11 @@
 
     const blooms = planets.filter(blooming).length;
     if (blooms >= GOAL_BLOOMS) {
-      state = 'won';
       unlock('garden-complete');
       if (seedsLeft >= 15) unlock('frugal');
-      say(`Garden complete with ${seedsLeft} seed${seedsLeft === 1 ? '' : 's'} to spare!`, true);
+      endGame('won');
     } else if (seedsLeft === 0 && seeds.length === 0) {
-      state = 'lost';
-      say('Out of seeds. Try a new garden.', true);
+      endGame('lost');
     }
   }
 
@@ -267,18 +358,6 @@
 
     if (aim) drawAim();
 
-    if (state !== 'playing') {
-      ctx.fillStyle = 'rgba(5,5,10,0.6)';
-      ctx.fillRect(0, H / 2 - 40, W, 80);
-      ctx.fillStyle = state === 'won' ? '#8be07a' : '#ff9a8a';
-      ctx.font = '600 22px -apple-system, Segoe UI, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(state === 'won' ? 'Garden complete!' : 'Out of seeds', W / 2, H / 2 + 2);
-      ctx.fillStyle = '#c8c8d2';
-      ctx.font = '14px -apple-system, Segoe UI, sans-serif';
-      ctx.fillText('Tap to play again', W / 2, H / 2 + 26);
-    }
-
     document.getElementById('hudSeeds').textContent = seedsLeft;
     document.getElementById('hudBlooms').textContent = `${planets.filter(blooming).length}/${GOAL_BLOOMS}`;
     document.getElementById('hudPlanets').textContent = `${planets.length}/${MAX_PLANETS}`;
@@ -315,7 +394,9 @@
 
   // Short dotted preview: shows the first moment of the path, not the whole shot.
   function drawAim() {
-    let [vx, vy] = flingVelocity(aim.dx, aim.dy);
+    const v = flingVelocity(aim.dx, aim.dy);
+    if (!v) return;
+    let [vx, vy] = v;
     let x = LAUNCH.x, y = LAUNCH.y;
     ctx.fillStyle = 'rgba(255,209,102,0.7)';
     for (let i = 0; i < 40; i++) {
@@ -358,8 +439,8 @@
   function onUp() {
     if (!pointerDown) return;
     pointerDown = false;
-    if (state !== 'playing') {
-      newGarden();
+    if (state !== 'playing' || paused) {
+      // the end card's Play again button starts the next round
     } else if (aim) {
       fling(aim.dx, aim.dy);
     } else {
@@ -371,6 +452,7 @@
   canvas.addEventListener('pointercancel', () => { pointerDown = false; aim = null; });
 
   document.getElementById('resetBtn').addEventListener('click', newGarden);
+  playAgainBtn.addEventListener('click', newGarden);
 
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
@@ -378,7 +460,7 @@
     acc += Math.min((now - last) / 1000, 0.1);
     last = now;
     while (acc >= STEP) {
-      if (state === 'playing') step(STEP);
+      if (state === 'playing' && !paused) step(STEP);
       acc -= STEP;
     }
     draw();
