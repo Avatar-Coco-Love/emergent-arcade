@@ -169,7 +169,11 @@ body.playing .site-header, body.playing .site-footer { display: none; }
   cursor: pointer;
   -webkit-tap-highlight-color: transparent; /* the pressed state shows the tap */
 }
-.tool:hover { background: var(--panel-2); }
+/* Touch screens keep :hover after a tap, which would make a button look
+   selected; only show hover where there is a real pointer. */
+@media (hover: hover) {
+  .tool:hover { background: var(--panel-2); }
+}
 .tool[aria-pressed="true"] { background: var(--panel-2); color: var(--accent); }
 .tool:focus-visible { outline: 2px solid var(--accent); }
 .badge {

@@ -28,6 +28,17 @@ jobs:
           mkdir -p _site
           cp -r index.html assets games _site/
           touch _site/.nojekyll
+      - name: Version asset URLs
+        # Pages lets browsers cache files for 10 minutes. Tagging each
+        # assets/ link with the commit makes a fresh index.html load its
+        # matching scripts and styles, never stale cached ones. (Games are
+        # already versioned by gallery.js with ?v=<manifest version>.)
+        run: |
+          sed -i -E "s#(\"assets/[a-z0-9-]+\.(js|css))\"#\1?v=${GITHUB_SHA::7}\"#g" _site/index.html
+          grep -o 'assets/[a-z0-9-]*\.[a-z]*?v=[0-9a-f]*' _site/index.html
+          if grep -qE '"assets/[a-z0-9-]+\.(js|css)"' _site/index.html; then
+            echo "::error::index.html still has an unversioned assets/ link"; exit 1
+          fi
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
