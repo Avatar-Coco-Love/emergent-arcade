@@ -1,7 +1,7 @@
 // Site-wide settings for the gallery. Edit and open a PR to change them.
 window.ARCADE_CONFIG = {
   // GitHub repo used for the "send feedback as a GitHub issue" fallback and
-  // for the "view source" links.
+  // for the "Source on GitHub" footer link.
   repo: "Avatar-Coco-Love/emergent-arcade",
 
   // URL of the deployed Google Apps Script web app that stores feedback in a

@@ -11,10 +11,10 @@ The full spec is in [`docs/PROJECT_BRIEF.md`](docs/PROJECT_BRIEF.md).
 ## Layout
 
 ```
-index.html                 gallery page (scrollable card list + player view)
+index.html                 gallery page (scrollable card list + full-screen cabinet)
 assets/
   config.js                site settings: repo name, feedback endpoint URL
-  gallery.js / .css        gallery, player and feedback form UI
+  gallery.js / .css        gallery, cabinet, panels and feedback form UI
   feedback.js              feedback transport (Apps Script, or GitHub issue fallback)
   achievements.js          records achievement unlocks per player (localStorage)
 games/
@@ -53,10 +53,13 @@ Supabase (free projects pause after a week idle, which means maintenance).
   per game. Selecting a card routes to `#/play/<id>` (a shareable link) and
   opens the **cabinet**: a screen-filling window with the game in a
   sandboxed iframe and a toolbar on top (back, ⓘ how to play, 🏆
-  achievements, ★ rate, ⛶ full screen). Each toolbar button opens a panel
-  over the game and pauses it. Nothing on the page scrolls.
-- **Games stay pure.** A game file knows nothing about the gallery or
-  feedback, so it can still be opened directly (`games/pressure-grid.html`).
+  achievements, ★ rate, ⛶ full screen). The ⓘ, 🏆 and ★ buttons open a
+  panel over the game and pause it. Nothing in the cabinet scrolls except
+  long panel text.
+- **Games stay standalone.** A game file doesn't depend on the gallery, so
+  it can still be opened directly (`games/pressure-grid.html`). Its only
+  contact with the gallery is optional `postMessage`: it listens for
+  `arcade:pause` / `arcade:resume` and sends `arcade:achievement`.
 - **Feedback** (1-5 stars + optional comment) lives in the ★ panel and is
   tagged with the game's `id` and manifest `version`. Revising a game bumps
   its version, so ratings for old and new versions stay separate.

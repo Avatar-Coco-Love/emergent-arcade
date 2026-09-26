@@ -49,6 +49,14 @@ if (!res.ok) {
   process.exit(1);
 }
 if (format === "csv") {
+  // Errors (e.g. a wrong key) come back as JSON with HTTP 200, not as CSV.
+  if (text.startsWith("{")) {
+    const err = JSON.parse(text);
+    if (!err.ok) {
+      console.error(`Endpoint error: ${err.error}`);
+      process.exit(1);
+    }
+  }
   process.stdout.write(text + "\n");
   process.exit(0);
 }
@@ -70,7 +78,7 @@ for (const r of data.rows) {
   if (!groups.has(k)) groups.set(k, []);
   groups.get(k).push(r);
 }
-for (const [k, rows] of [...groups].sort()) {
+for (const [k, rows] of [...groups].sort(([a], [b]) => a.localeCompare(b, "en", { numeric: true }))) {
   const avg = rows.reduce((s, r) => s + Number(r.rating), 0) / rows.length;
   const dist = [1, 2, 3, 4, 5].map((n) => `${n}★:${rows.filter((r) => Number(r.rating) === n).length}`).join(" ");
   console.log(`\n## ${k}: ${rows.length} rating(s), avg ${avg.toFixed(2)}  (${dist})`);
