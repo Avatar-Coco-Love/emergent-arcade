@@ -322,7 +322,14 @@
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointercancel', onPointerUp);
+  // A cancelled pointer (e.g. the browser took over the gesture) does nothing.
+  canvas.addEventListener('pointercancel', () => {
+    pointerDown = false;
+    startCell = null;
+    isDragging = false;
+    dragDir = null;
+    draw();
+  });
 
   document.getElementById('resetBtn').addEventListener('click', () => {
     pressure = makeGrid(0);

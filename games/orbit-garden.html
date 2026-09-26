@@ -133,6 +133,8 @@
   const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win/loss so it can't be skipped
   const SEED_LIFETIME = 10;        // seconds before a drifting seed is lost
   const STEP = 1 / 120;
+  const TRAIL_EVERY = 2;           // record a trail point every N steps
+  const TRAIL_POINTS = 14;
 
   const canvas = document.getElementById('sky');
   const ctx = canvas.getContext('2d');
@@ -212,10 +214,10 @@
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
   }
 
-  function say(text, sticky) {
+  function say(text) {
     msgEl.textContent = text;
     clearTimeout(msgTimer);
-    if (!sticky) msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
+    msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
   }
 
   function radius(p) { return 6 + 5 * Math.sqrt(p.mass); }
@@ -244,6 +246,7 @@
       if (Math.hypot(p.x - x, p.y - y) < radius(p) + radius(probe) + 8) return say('Too close to another planet.');
     }
     planets.push({ x, y, mass: PLANET_START_MASS, flash: 0, bloomedOnce: false });
+    msgEl.textContent = ''; // drop any hint or warning once a planet lands
     if (planets.length >= MAX_PLANETS) unlock('full-sky');
   }
 
@@ -265,7 +268,7 @@
     const v = flingVelocity(dx, dy);
     if (!v) return say('Drag upward to fling a seed.');
     const [vx, vy] = v;
-    seeds.push({ x: LAUNCH.x, y: LAUNCH.y, vx, vy, vx0: vx, vy0: vy, t: 0, trail: [] });
+    seeds.push({ x: LAUNCH.x, y: LAUNCH.y, vx, vy, vx0: vx, vy0: vy, t: 0, steps: 0, trail: [] });
     seedsLeft--;
   }
 
@@ -279,6 +282,10 @@
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       s.t += dt;
+      if (++s.steps % TRAIL_EVERY === 0) {
+        s.trail.push([s.x, s.y]);
+        if (s.trail.length > TRAIL_POINTS) s.trail.shift();
+      }
 
       const hit = planets.find(p => Math.hypot(p.x - s.x, p.y - s.y) < radius(p));
       if (hit) {
@@ -343,8 +350,6 @@
     for (const p of planets) drawPlanet(p);
 
     for (const s of seeds) {
-      s.trail.push([s.x, s.y]);
-      if (s.trail.length > 14) s.trail.shift();
       ctx.strokeStyle = 'rgba(255,209,102,0.35)';
       ctx.lineWidth = 2;
       ctx.beginPath();
