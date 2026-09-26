@@ -1,0 +1,19 @@
+{
+  "games": [
+    {
+      "id": "pressure-grid",
+      "title": "Pressure Grid",
+      "file": "pressure-grid.html",
+      "version": 1,
+      "added": "2026-09-26",
+      "updated": "2026-09-26",
+      "blurb": "Pump pressure into cells, siphon it toward neighbors, and ride the chain reactions when cells erupt.",
+      "mechanics": [
+        { "name": "pump", "verb": "tap", "description": "Tap a cell to add pressure to it." },
+        { "name": "siphon", "verb": "drag", "description": "Drag from a cell to move a fraction of its pressure into the neighbor you dragged toward, losing some to inefficiency." }
+      ],
+      "sharedState": "Pressure per cell: written by pump and siphon, read by siphon and by the passive bleed-and-eruption system.",
+      "accent": "#ff7a3d"
+    }
+  ]
+}
