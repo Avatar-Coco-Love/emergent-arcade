@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pressure Grid</title>
+<style>
+  :root {
+    --bg: #0b0b10;
+    --panel: #16161d;
+    --text: #e8e8ee;
+    --muted: #9a9aa5;
+    --accent: #6fd3ff;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0b10;
+      --panel: #16161d;
+      --text: #e8e8ee;
+      --muted: #9a9aa5;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0b10;
+    --panel: #16161d;
+    --text: #e8e8ee;
+    --muted: #9a9aa5;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+  body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    gap: 12px;
+  }
+  h1 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.02em;
+  }
+  p.sub {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0;
+    text-align: center;
+    max-width: 440px;
+  }
+  #boardWrap {
+    width: 100%;
+    max-width: 480px;
+    overflow-x: auto;
+  }
+  #board {
+    display: block;
+    margin: 0 auto;
+    touch-action: none;
+    border-radius: 8px;
+    max-width: 100%;
+    height: auto;
+  }
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #2a2a34;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+  .stat {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+  <h1>Pressure Grid</h1>
+  <p class="sub">Tap a cell to <b>pump</b> pressure into it. Drag from a cell to <b>siphon</b> a chunk of its pressure into the neighbor you dragged toward. Pressure also bleeds passively each tick, and erupts (flashes white) past threshold, blasting neighbors.</p>
+  <div class="legend">
+    <span>Tap = pump</span>
+    <span>Drag = siphon</span>
+  </div>
+  <div id="boardWrap">
+    <canvas id="board"></canvas>
+  </div>
+  <div class="controls">
+    <button id="resetBtn">Reset</button>
+    <span class="stat" id="stat"></span>
+  </div>
+
+<script>
+(function() {
+  const GRID_SIZE = 10;
+  const CELL_PX = 40;
+  const CLICK_ADD = 30;
+  const BLEED_RATE = 0.15;
+  const ERUPT_THRESHOLD = 100;
+  const ERUPT_BLAST = 40;
+  const TICK_MS = 200;
+  const SIPHON_FRACTION = 0.6;   // fraction of source cell's pressure moved
+  const SIPHON_EFFICIENCY = 0.85; // fraction of siphoned amount that survives the transfer
+  const DRAG_THRESHOLD_PX = 12;   // movement needed before a tap becomes a drag
+
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const statEl = document.getElementById('stat');
+  const size = GRID_SIZE * CELL_PX;
+  canvas.width = size;
+  canvas.height = size;
+
+  let pressure = makeGrid(0);
+  let flash = makeGrid(0);
+  let ticks = 0;
+  let eruptions = 0;
+  let siphons = 0;
+
+  // drag tracking
+  let pointerDown = false;
+  let startCell = null;
+  let startPx = null;
+  let isDragging = false;
+  let dragDir = null; // [dx, dy]
+
+  function makeGrid(fill) {
+    return Array.from({length: GRID_SIZE}, () => Array(GRID_SIZE).fill(fill));
+  }
+
+  function inBounds(x, y) {
+    return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
+  }
+
+  function neighbors(x, y) {
+    const result = [];
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (inBounds(nx, ny)) result.push([nx, ny]);
+    }
+    return result;
+  }
+
+  function colorFor(p, f) {
+    if (f > 0) return 'rgb(255,255,255)';
+    const t = Math.min(p / ERUPT_THRESHOLD, 1);
+    const r = Math.round(30 + t * 225);
+    const g = Math.round(30 + (1 - Math.abs(t - 0.5) * 2) * 120);
+    const b = Math.round(80 * (1 - t));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function tick() {
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        if (flash[y][x] > 0) flash[y][x]--;
+      }
+    }
+
+    const deltas = makeGrid(0);
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        const p = pressure[y][x];
+        if (p <= 0) continue;
+        const ns = neighbors(x, y);
+        if (ns.length === 0) continue;
+        const amount = p * BLEED_RATE;
+        const per = amount / ns.length;
+        deltas[y][x] -= amount;
+        for (const [nx, ny] of ns) deltas[ny][nx] += per;
+      }
+    }
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        pressure[y][x] = Math.max(0, pressure[y][x] + deltas[y][x]);
+      }
+    }
+
+    resolveEruptions();
+    ticks++;
+    draw();
+  }
+
+  function resolveEruptions() {
+    let eruptedAny = true;
+    let guard = 0;
+    while (eruptedAny && guard < 20) {
+      eruptedAny = false;
+      guard++;
+      for (let y = 0; y < GRID_SIZE; y++) {
+        for (let x = 0; x < GRID_SIZE; x++) {
+          if (pressure[y][x] >= ERUPT_THRESHOLD) {
+            pressure[y][x] = 0;
+            flash[y][x] = 3;
+            eruptions++;
+            for (const [nx, ny] of neighbors(x, y)) pressure[ny][nx] += ERUPT_BLAST;
+            eruptedAny = true;
+          }
+        }
+      }
+    }
+  }
+
+  function draw() {
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        ctx.fillStyle = colorFor(pressure[y][x], flash[y][x]);
+        ctx.fillRect(x * CELL_PX, y * CELL_PX, CELL_PX, CELL_PX);
+        ctx.strokeStyle = '#222228';
+        ctx.strokeRect(x * CELL_PX, y * CELL_PX, CELL_PX, CELL_PX);
+      }
+    }
+
+    if (isDragging && startCell && dragDir) {
+      const [sx, sy] = startCell;
+      const [dx, dy] = dragDir;
+      const tx = sx + dx, ty = sy + dy;
+      ctx.strokeStyle = 'rgba(111,211,255,0.9)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(sx * CELL_PX + CELL_PX / 2, sy * CELL_PX + CELL_PX / 2);
+      ctx.lineTo(tx * CELL_PX + CELL_PX / 2, ty * CELL_PX + CELL_PX / 2);
+      ctx.stroke();
+    }
+
+    statEl.textContent = `ticks: ${ticks} · eruptions: ${eruptions} · siphons: ${siphons}`;
+  }
+
+  function cellFromClientXY(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const cx = (clientX - rect.left) * scaleX;
+    const cy = (clientY - rect.top) * scaleY;
+    return [Math.floor(cx / CELL_PX), Math.floor(cy / CELL_PX)];
+  }
+
+  function primaryDirection(dx, dy) {
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      return [Math.sign(dx), 0];
+    } else {
+      return [0, Math.sign(dy)];
+    }
+  }
+
+  function doPump(cell) {
+    const [x, y] = cell;
+    if (!inBounds(x, y)) return;
+    pressure[y][x] += CLICK_ADD;
+  }
+
+  function doSiphon(cell, dir) {
+    const [x, y] = cell;
+    const [dx, dy] = dir;
+    const tx = x + dx, ty = y + dy;
+    if (!inBounds(x, y) || !inBounds(tx, ty)) return;
+    const amount = pressure[y][x] * SIPHON_FRACTION;
+    if (amount <= 0.01) return;
+    pressure[y][x] -= amount;
+    pressure[ty][tx] += amount * SIPHON_EFFICIENCY;
+    siphons++;
+    resolveEruptions();
+  }
+
+  function onPointerDown(evt) {
+    evt.preventDefault();
+    canvas.setPointerCapture(evt.pointerId);
+    pointerDown = true;
+    isDragging = false;
+    dragDir = null;
+    startCell = cellFromClientXY(evt.clientX, evt.clientY);
+    startPx = [evt.clientX, evt.clientY];
+  }
+
+  function onPointerMove(evt) {
+    if (!pointerDown || !startCell) return;
+    const dxPx = evt.clientX - startPx[0];
+    const dyPx = evt.clientY - startPx[1];
+    const dist = Math.hypot(dxPx, dyPx);
+    if (dist > DRAG_THRESHOLD_PX) {
+      isDragging = true;
+      dragDir = primaryDirection(dxPx, dyPx);
+      draw();
+    }
+  }
+
+  function onPointerUp(evt) {
+    if (!pointerDown) return;
+    pointerDown = false;
+    if (!startCell) return;
+
+    if (isDragging && dragDir) {
+      doSiphon(startCell, dragDir);
+    } else {
+      doPump(startCell);
+    }
+
+    startCell = null;
+    isDragging = false;
+    dragDir = null;
+    draw();
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointercancel', onPointerUp);
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    pressure = makeGrid(0);
+    flash = makeGrid(0);
+    ticks = 0;
+    eruptions = 0;
+    siphons = 0;
+    draw();
+  });
+
+  draw();
+  setInterval(tick, TICK_MS);
+})();
+</script>
+</body>
+</html>
