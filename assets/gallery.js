@@ -41,9 +41,15 @@
 
   // ---------- gallery ----------
 
-  // Deterministic little pixel pattern per game so cards look distinct
-  // without any image assets.
+  // Card art: the game's own picture from assets/thumbs.js if it has one,
+  // else a deterministic little pixel pattern in its accent color.
   function thumb(game) {
+    const art = window.ArcadeThumbs && window.ArcadeThumbs[game.id];
+    if (art) {
+      const box = el("div", { className: "thumb art", ariaHidden: "true" });
+      box.innerHTML = art();
+      return box;
+    }
     let seed = 0;
     for (const ch of game.id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
     const cells = [];
@@ -106,6 +112,7 @@
       openPanel("about");
     } else {
       closePanel();
+      syncToolbar();
     }
   }
 
@@ -135,13 +142,20 @@
 
   // ---------- panels ----------
 
+  // The toolbar works like tabs: ▶ is pressed while playing, otherwise the
+  // button of the open panel is.
+  function syncToolbar() {
+    $("playBtn").setAttribute("aria-pressed", String(!openPanelName));
+    for (const btn of document.querySelectorAll(".toolbar [data-panel]")) {
+      btn.setAttribute("aria-pressed", String(btn.dataset.panel === openPanelName));
+    }
+  }
+
   function openPanel(name) {
     openPanelName = name;
     $("panelTitle").textContent = PANEL_TITLES[name];
     for (const body of panel.querySelectorAll("[data-body]")) body.hidden = body.dataset.body !== name;
-    for (const btn of document.querySelectorAll(".toolbar [data-panel]")) {
-      btn.setAttribute("aria-pressed", String(btn.dataset.panel === name));
-    }
+    syncToolbar();
     if (name === "achievements") {
       renderAchievements();
       hideResetConfirm();
@@ -155,7 +169,7 @@
     if (!openPanelName) return;
     openPanelName = null;
     panel.hidden = true;
-    for (const btn of document.querySelectorAll(".toolbar [data-panel]")) btn.setAttribute("aria-pressed", "false");
+    syncToolbar();
     tellGame("arcade:resume");
     frame.focus();
   }
@@ -166,6 +180,7 @@
       else openPanel(btn.dataset.panel);
     });
   }
+  $("playBtn").addEventListener("click", closePanel);
   $("panelClose").addEventListener("click", closePanel);
   $("aboutPlay").addEventListener("click", closePanel);
   document.addEventListener("keydown", (evt) => {
