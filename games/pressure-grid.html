@@ -114,6 +114,7 @@
 
 <script>
 (function() {
+  const GAME_ID = 'pressure-grid';
   const GRID_SIZE = 10;
   const CELL_PX = 40;
   const CLICK_ADD = 30;
@@ -144,6 +145,17 @@
   let startPx = null;
   let isDragging = false;
   let dragDir = null; // [dx, dy]
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  function unlock(id) {
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
 
   function makeGrid(fill) {
     return Array.from({length: GRID_SIZE}, () => Array(GRID_SIZE).fill(fill));
@@ -198,11 +210,14 @@
     }
 
     resolveEruptions();
+    if (pressure.every(row => row.every(p => p >= 20))) unlock('full-pressure');
     ticks++;
     draw();
   }
 
+  // Returns how many cells erupted.
   function resolveEruptions() {
+    let count = 0;
     let eruptedAny = true;
     let guard = 0;
     while (eruptedAny && guard < 20) {
@@ -214,12 +229,17 @@
             pressure[y][x] = 0;
             flash[y][x] = 3;
             eruptions++;
+            count++;
             for (const [nx, ny] of neighbors(x, y)) pressure[ny][nx] += ERUPT_BLAST;
             eruptedAny = true;
           }
         }
       }
     }
+    if (count >= 1) unlock('first-eruption');
+    if (count >= 5) unlock('chain-reaction');
+    if (eruptions >= 100) unlock('century');
+    return count;
   }
 
   function draw() {
@@ -280,7 +300,8 @@
     pressure[y][x] -= amount;
     pressure[ty][tx] += amount * SIPHON_EFFICIENCY;
     siphons++;
-    resolveEruptions();
+    if (siphons >= 25) unlock('plumber');
+    if (resolveEruptions() > 0) unlock('siphon-strike');
   }
 
   function onPointerDown(evt) {

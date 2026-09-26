@@ -14,6 +14,8 @@ Design rules (see `docs/PROJECT_BRIEF.md`):
 - [ ] Mechanics share state: each one reads a value another writes
 - [ ] Single scene, primitives only, no external art/audio
 - [ ] One self-contained HTML file in `games/`, playable when opened directly
+- [ ] 3+ achievements, listed in `games/games.json` and unlocked in the game
+- [ ] Layout sized by width (no `vh`), so it fits the gallery frame without inner scrolling
 - [ ] `games/games.json` updated (`version` bumped and `updated` set for a revision)
 - [ ] `node scripts/validate.mjs` passes
 - [ ] Played it on a phone-sized viewport

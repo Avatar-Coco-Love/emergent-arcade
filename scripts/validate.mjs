@@ -28,7 +28,7 @@ const files = new Set();
 for (const [i, g] of games.entries()) {
   const where = `games.json entry ${i} (${g.id ?? "no id"})`;
 
-  for (const key of ["id", "title", "file", "blurb", "sharedState", "added", "updated"]) {
+  for (const key of ["id", "title", "file", "blurb", "goal", "sharedState", "added", "updated"]) {
     if (typeof g[key] !== "string" || !g[key].trim()) fail(`${where}: "${key}" must be a non-empty string`);
   }
   if (typeof g.id === "string" && !/^[a-z0-9-]{1,64}$/.test(g.id)) fail(`${where}: id must be lowercase letters, digits and dashes`);
@@ -59,7 +59,9 @@ for (const [i, g] of games.entries()) {
     fail(`${where}: games/${g.file} does not exist`);
     continue;
   }
-  checkSelfContained(g.file, readFileSync(path, "utf8"));
+  const html = readFileSync(path, "utf8");
+  checkSelfContained(g.file, html);
+  checkAchievements(where, g, html);
 }
 
 // Every game file must be registered, so nothing ships without review metadata.
@@ -68,6 +70,28 @@ for (const f of readdirSync(gamesDir)) {
     fail(`games/${f} is not listed in games.json`);
     checkSelfContained(f, readFileSync(join(gamesDir, f), "utf8"));
   }
+}
+
+// Platform rule: every game declares 3+ achievements in the manifest and
+// announces each one from the game file (see docs/adding-a-game.md).
+function checkAchievements(where, g, html) {
+  const list = Array.isArray(g.achievements) ? g.achievements : [];
+  if (list.length < 3) fail(`${where}: needs at least 3 achievements (has ${list.length})`);
+  const seen = new Set();
+  for (const a of list) {
+    if (!a || !a.id || !a.title || !a.description) {
+      fail(`${where}: each achievement needs id, title and description`);
+      continue;
+    }
+    if (!/^[a-z0-9-]{1,64}$/.test(a.id)) fail(`${where}: achievement id "${a.id}" must be lowercase letters, digits and dashes`);
+    if (seen.has(a.id)) fail(`${where}: duplicate achievement id "${a.id}"`);
+    seen.add(a.id);
+    if (!html.includes(`'${a.id}'`) && !html.includes(`"${a.id}"`)) {
+      fail(`${where}: achievement "${a.id}" is never unlocked in games/${g.file}`);
+    }
+  }
+  if (list.length && !html.includes("arcade:achievement")) fail(`${where}: games/${g.file} never posts "arcade:achievement" messages`);
+  if (list.length && !html.includes(`'${g.id}'`) && !html.includes(`"${g.id}"`)) fail(`${where}: games/${g.file} must identify itself with its id "${g.id}"`);
 }
 
 // Design rule: one self-contained HTML file, primitives only, no external assets.

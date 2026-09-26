@@ -26,11 +26,20 @@
         <a id="playerOpen" class="open-link" target="_blank" rel="noopener">Open full screen</a>
       </div>
       <div class="frame-wrap">
-        <iframe id="gameFrame" title="Game" sandbox="allow-scripts allow-pointer-lock" allow="fullscreen"></iframe>
+        <!-- allow-same-origin lets the gallery size the frame to the game's content
+             so the game never scrolls separately from the page. Games are
+             reviewed code from this repo, so sharing the origin is acceptable. -->
+        <iframe id="gameFrame" title="Game" sandbox="allow-scripts allow-same-origin allow-pointer-lock" scrolling="no"></iframe>
       </div>
+      <section class="achievements" aria-labelledby="achTitle">
+        <h2 id="achTitle">Achievements <span id="achCount" class="muted"></span></h2>
+        <ul id="achList" class="ach-list"></ul>
+      </section>
+
       <details class="about" id="playerAbout">
         <summary>How it's built</summary>
         <ul id="playerMechanics"></ul>
+        <p id="playerGoal"></p>
         <p id="playerState"></p>
       </details>
 
@@ -49,12 +58,15 @@
     </section>
   </main>
 
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
   <footer class="site-footer">
     <a id="repoLink" target="_blank" rel="noopener">Source on GitHub</a>
   </footer>
 
 <script src="assets/config.js"></script>
 <script src="assets/feedback.js"></script>
+<script src="assets/achievements.js"></script>
 <script src="assets/gallery.js"></script>
 </body>
 </html>
