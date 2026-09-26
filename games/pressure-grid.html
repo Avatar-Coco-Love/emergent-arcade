@@ -87,19 +87,20 @@
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
   const statEl = document.getElementById('stat');
-  const size = GRID_SIZE * CELL_PX;
-  canvas.width = size;
-  canvas.height = size;
+  const size = GRID_SIZE * CELL_PX; // board size in game units; drawing uses these
 
-  // Scale the board to the largest square that fits the space it's given.
+  // Scale the board to the largest square that fits the space it's given, and
+  // give the canvas one pixel per screen pixel so it stays sharp at any size.
   const wrap = document.getElementById('boardWrap');
   function fitBoard() {
     const side = Math.max(120, Math.floor(Math.min(wrap.clientWidth, wrap.clientHeight)));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
     canvas.style.width = side + 'px';
     canvas.style.height = side + 'px';
+    canvas.width = canvas.height = Math.round(side * dpr);
+    ctx.setTransform(canvas.width / size, 0, 0, canvas.height / size, 0, 0);
+    draw(); // resizing a canvas clears it
   }
-  new ResizeObserver(fitBoard).observe(wrap);
-  fitBoard();
 
   // The gallery pauses the game while one of its panels covers it.
   let paused = false;
@@ -224,6 +225,7 @@
         ctx.fillStyle = colorFor(pressure[y][x], flash[y][x]);
         ctx.fillRect(x * CELL_PX, y * CELL_PX, CELL_PX, CELL_PX);
         ctx.strokeStyle = '#222228';
+        ctx.lineWidth = 1;
         ctx.strokeRect(x * CELL_PX, y * CELL_PX, CELL_PX, CELL_PX);
       }
     }
@@ -245,8 +247,8 @@
 
   function cellFromClientXY(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const scaleX = size / rect.width;
+    const scaleY = size / rect.height;
     const cx = (clientX - rect.left) * scaleX;
     const cy = (clientY - rect.top) * scaleY;
     return [Math.floor(cx / CELL_PX), Math.floor(cy / CELL_PX)];
@@ -340,7 +342,9 @@
     draw();
   });
 
-  draw();
+  new ResizeObserver(fitBoard).observe(wrap);
+  window.addEventListener('resize', fitBoard); // browser zoom changes devicePixelRatio
+  fitBoard();
   setInterval(tick, TICK_MS);
 })();
 </script>
