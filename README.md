@@ -51,16 +51,19 @@ Supabase (free projects pause after a week idle, which means maintenance).
 
 - **Gallery** (`index.html`) loads `games/games.json` and renders one card
   per game. Selecting a card routes to `#/play/<id>` (a shareable link) and
-  embeds the game in an iframe that the gallery sizes to fit the game, so
-  the whole page scrolls as one.
+  opens the **cabinet**: a screen-filling window with the game in a
+  sandboxed iframe and a toolbar on top (back, ⓘ how to play, 🏆
+  achievements, ★ rate, ⛶ full screen). Each toolbar button opens a panel
+  over the game and pauses it. Nothing on the page scrolls.
 - **Games stay pure.** A game file knows nothing about the gallery or
   feedback, so it can still be opened directly (`games/pressure-grid.html`).
-- **Feedback** (1-5 stars + optional comment) is shown under the game and
+- **Feedback** (1-5 stars + optional comment) lives in the ★ panel and is
   tagged with the game's `id` and manifest `version`. Revising a game bumps
   its version, so ratings for old and new versions stay separate.
 - **Achievements**: each game lists 3+ achievements in `games.json` and
   announces unlocks to the gallery with `postMessage`. The gallery saves them
-  in the player's browser, shows a popup, and shows progress on the cards.
+  in the player's browser, shows a popup, and shows progress on the cards
+  and in the 🏆 panel, which can also reset them.
 
 ## One-time setup (maintainer)
 

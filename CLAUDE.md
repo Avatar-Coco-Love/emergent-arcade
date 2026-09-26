@@ -7,8 +7,10 @@
   `games/games.json`. The gallery embeds it in a sandboxed iframe; games must
   not depend on the gallery.
 - Every game has 3+ achievements (manifest + `unlock()` postMessage snippet,
-  see `docs/adding-a-game.md`) and a `goal` in the manifest. Size games by
-  width, never `vh`: the gallery auto-fits the iframe to content height.
+  see `docs/adding-a-game.md`), plus `goal` and `howToPlay` in the manifest.
+  Games fill their window with no scrolling (the gallery shows them in a
+  full-screen "cabinet" with a toolbar and panels) and must handle
+  `arcade:pause` / `arcade:resume` messages.
 - A game's `id` is its permanent feedback key; never rename it. Revisions
   edit the file in place and bump `version` + `updated` in the manifest.
 - Always run `node scripts/validate.mjs` before pushing.

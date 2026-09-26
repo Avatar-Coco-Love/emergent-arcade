@@ -3,23 +3,25 @@
   const $ = (id) => document.getElementById(id);
 
   const galleryView = $("galleryView");
-  const playerView = $("playerView");
   const gameList = $("gameList");
   const galleryStatus = $("galleryStatus");
+  const cabinet = $("cabinet");
   const frame = $("gameFrame");
+  const panel = $("panel");
   const stars = $("stars");
   const comment = $("comment");
   const submitBtn = $("submitBtn");
   const feedbackStatus = $("feedbackStatus");
 
+  const PANEL_TITLES = { about: "How to play", achievements: "Achievements", rate: "Rate this game" };
+
   let games = [];
   let current = null;
+  let openPanelName = null;
   let rating = 0;
   let toastTimer = null;
 
   if (config.repo) $("repoLink").href = `https://github.com/${config.repo}`;
-
-  // ---------- gallery ----------
 
   function el(tag, props, children) {
     const node = document.createElement(tag);
@@ -29,6 +31,15 @@
     }
     return node;
   }
+
+  function storageGet(key) {
+    try { return localStorage.getItem(key); } catch (_) { return null; }
+  }
+  function storageSet(key, value) {
+    try { localStorage.setItem(key, value); } catch (_) {}
+  }
+
+  // ---------- gallery ----------
 
   // Deterministic little pixel pattern per game so cards look distinct
   // without any image assets.
@@ -72,75 +83,132 @@
     galleryStatus.textContent = games.length ? "" : "No games yet.";
   }
 
-  // ---------- player ----------
+  // ---------- cabinet ----------
 
-  function showPlayer(game) {
-    current = game;
+  function openCabinet(game) {
     const src = `games/${game.file}?v=${game.version}`;
+    const switching = !current || current.id !== game.id;
+    current = game;
     document.title = `${game.title} · Emergent Arcade`;
-    $("playerTitle").textContent = game.title;
-    $("playerOpen").href = src;
-    $("playerMechanics").replaceChildren(
-      ...game.mechanics.map((m) =>
-        el("li", {}, [el("b", { textContent: m.name }), ` (${m.verb}): ${m.description}`])
-      )
-    );
-    $("playerGoal").textContent = game.goal ? `Goal: ${game.goal}` : "";
-    $("playerState").textContent = `Shared state: ${game.sharedState}`;
+    $("cabTitle").textContent = game.title;
     frame.title = game.title;
     if (frame.getAttribute("src") !== src) frame.src = src;
+    renderAbout();
     renderAchievements();
-    resetFeedback();
+    if (switching) resetFeedback();
+    document.body.classList.add("playing");
+    cabinet.hidden = false;
     galleryView.hidden = true;
-    playerView.hidden = false;
-    window.scrollTo(0, 0);
+
+    const introKey = `arcade.seenIntro.${game.id}`;
+    if (!storageGet(introKey)) {
+      storageSet(introKey, "1");
+      openPanel("about");
+    } else {
+      closePanel();
+    }
   }
 
-  function showGallery() {
+  function closeCabinet() {
     current = null;
     document.title = "Emergent Arcade";
     frame.removeAttribute("src"); // stop the running game
-    playerView.hidden = true;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    closePanel();
+    document.body.classList.remove("playing");
+    cabinet.hidden = true;
     galleryView.hidden = false;
     renderGallery(); // refresh achievement counts
   }
 
-  // ---------- frame sizing ----------
-  // The frame is resized to the game's content height so the game never
-  // scrolls separately from the page. Game pages often use height: 100% for
-  // standalone play, which would grow with the frame forever, so the gallery
-  // switches them to natural height while embedded.
-
-  const MAX_FRAME_PX = 3000;
-
-  function fitFrame() {
-    let doc;
-    try { doc = frame.contentDocument; } catch (_) { return; }
-    if (!doc || !doc.body) return;
-    const body = doc.body;
-    const bottom = body.getBoundingClientRect().bottom + parseFloat(getComputedStyle(body).marginBottom || 0);
-    const h = Math.min(Math.ceil(bottom + (frame.contentWindow.scrollY || 0)), MAX_FRAME_PX);
-    if (h > 0 && frame.style.height !== `${h}px`) frame.style.height = `${h}px`;
+  function route() {
+    const match = location.hash.match(/^#\/play\/([a-z0-9-]+)/);
+    const game = match && games.find((g) => g.id === match[1]);
+    if (game) openCabinet(game);
+    else closeCabinet();
   }
 
-  frame.addEventListener("load", () => {
-    let doc;
-    try { doc = frame.contentDocument; } catch (_) { return; }
-    if (!doc || !doc.body) return;
-    const style = doc.createElement("style");
-    style.textContent = "html, body { height: auto !important; min-height: 0 !important; overflow: hidden !important; }";
-    doc.head.append(style);
-    fitFrame();
-    const RO = frame.contentWindow.ResizeObserver;
-    if (RO) new RO(fitFrame).observe(doc.body);
+  // Games listen for these to freeze while a panel covers them.
+  function tellGame(type) {
+    if (frame.contentWindow) frame.contentWindow.postMessage({ type }, "*");
+  }
+
+  // ---------- panels ----------
+
+  function openPanel(name) {
+    openPanelName = name;
+    $("panelTitle").textContent = PANEL_TITLES[name];
+    for (const body of panel.querySelectorAll("[data-body]")) body.hidden = body.dataset.body !== name;
+    for (const btn of document.querySelectorAll(".toolbar [data-panel]")) {
+      btn.setAttribute("aria-pressed", String(btn.dataset.panel === name));
+    }
+    if (name === "achievements") {
+      renderAchievements();
+      hideResetConfirm();
+    }
+    panel.hidden = false;
+    panel.querySelector(".panel-body").scrollTop = 0;
+    tellGame("arcade:pause");
+  }
+
+  function closePanel() {
+    if (!openPanelName) return;
+    openPanelName = null;
+    panel.hidden = true;
+    for (const btn of document.querySelectorAll(".toolbar [data-panel]")) btn.setAttribute("aria-pressed", "false");
+    tellGame("arcade:resume");
+    frame.focus();
+  }
+
+  for (const btn of document.querySelectorAll(".toolbar [data-panel]")) {
+    btn.addEventListener("click", () => {
+      if (openPanelName === btn.dataset.panel) closePanel();
+      else openPanel(btn.dataset.panel);
+    });
+  }
+  $("panelClose").addEventListener("click", closePanel);
+  $("aboutPlay").addEventListener("click", closePanel);
+  document.addEventListener("keydown", (evt) => {
+    if (evt.key === "Escape" && openPanelName) closePanel();
   });
+
+  // A game that loads while a panel is open (first-time intro) starts paused.
+  frame.addEventListener("load", () => {
+    if (openPanelName) tellGame("arcade:pause");
+  });
+
+  // ---------- full screen ----------
+
+  const fullscreenBtn = $("fullscreenBtn");
+  // iPhone Safari has no element full screen, so the button only appears where it works.
+  fullscreenBtn.hidden = !document.fullscreenEnabled;
+  fullscreenBtn.addEventListener("click", () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else cabinet.requestFullscreen().catch(() => {});
+  });
+
+  // ---------- about ----------
+
+  function renderAbout() {
+    $("aboutBlurb").textContent = current.blurb;
+    $("aboutHow").textContent = current.howToPlay || "";
+    $("aboutControls").replaceChildren(
+      ...current.mechanics.map((m) =>
+        el("li", {}, [el("span", { className: "verb", textContent: m.verb }), el("b", { textContent: m.name }), ` ${m.description}`])
+      )
+    );
+    $("aboutGoal").textContent = current.goal;
+    $("aboutState").textContent = `Shared state: ${current.sharedState}`;
+  }
 
   // ---------- achievements ----------
 
   function renderAchievements() {
     const list = current.achievements || [];
     const got = window.ArcadeAchievements.load(current.id);
-    $("achCount").textContent = list.length ? `${window.ArcadeAchievements.count(current)}/${list.length}` : "";
+    const n = window.ArcadeAchievements.count(current);
+    $("achBadge").textContent = list.length ? `${n}/${list.length}` : "";
+    $("achSummary").textContent = `${n} of ${list.length} unlocked. Saved in this browser.`;
     $("achList").replaceChildren(
       ...list.map((a) =>
         el("li", { className: `ach${got[a.id] ? " got" : ""}` }, [
@@ -152,8 +220,27 @@
         ])
       )
     );
-    $("achTitle").parentElement.hidden = list.length === 0;
+    $("achReset").disabled = n === 0;
   }
+
+  function hideResetConfirm() {
+    $("achConfirm").hidden = true;
+    $("achReset").hidden = false;
+  }
+
+  $("achReset").addEventListener("click", () => {
+    $("achReset").hidden = true;
+    $("achConfirm").hidden = false;
+  });
+  $("achResetNo").addEventListener("click", hideResetConfirm);
+  $("achResetYes").addEventListener("click", () => {
+    window.ArcadeAchievements.reset(current.id);
+    hideResetConfirm();
+    renderAchievements();
+    // The running game remembers what it already announced; reload it so
+    // achievements can be earned again right away.
+    frame.src = frame.getAttribute("src");
+  });
 
   function showToast(text) {
     const toast = $("toast");
@@ -173,14 +260,7 @@
     renderAchievements();
   });
 
-  function route() {
-    const match = location.hash.match(/^#\/play\/([a-z0-9-]+)/);
-    const game = match && games.find((g) => g.id === match[1]);
-    if (game) showPlayer(game);
-    else showGallery();
-  }
-
-  // ---------- feedback form ----------
+  // ---------- rating ----------
 
   function ratedKey(game) {
     return `arcade.rated.${game.id}.v${game.version}`;
@@ -204,8 +284,7 @@
   function resetFeedback() {
     setRating(0);
     comment.value = "";
-    let already = false;
-    try { already = !!localStorage.getItem(ratedKey(current)); } catch (_) {}
+    const already = !!storageGet(ratedKey(current));
     setStatus(already ? "You've already rated this version. Feel free to send more." : "");
   }
 
@@ -225,7 +304,7 @@
     setStatus("Sending…");
     const result = await window.ArcadeFeedback.submit(game, rating, comment.value);
     if (result.via === "sheet") {
-      try { localStorage.setItem(ratedKey(game), "1"); } catch (_) {}
+      storageSet(ratedKey(game), "1");
       setRating(0);
       comment.value = "";
       setStatus("Thanks! Feedback recorded.", "ok");

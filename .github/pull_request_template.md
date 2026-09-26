@@ -15,7 +15,9 @@ Design rules (see `docs/PROJECT_BRIEF.md`):
 - [ ] Single scene, primitives only, no external art/audio
 - [ ] One self-contained HTML file in `games/`, playable when opened directly
 - [ ] 3+ achievements, listed in `games/games.json` and unlocked in the game
-- [ ] Layout sized by width (no `vh`), so it fits the gallery frame without inner scrolling
+- [ ] Fills its window without scrolling (scales to width and height); no instructions text in the game itself
+- [ ] Pauses on `arcade:pause`, resumes on `arcade:resume`
+- [ ] `howToPlay` and `goal` written in `games/games.json`
 - [ ] `games/games.json` updated (`version` bumped and `updated` set for a revision)
 - [ ] `node scripts/validate.mjs` passes
 - [ ] Played it on a phone-sized viewport

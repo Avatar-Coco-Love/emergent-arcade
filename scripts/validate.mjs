@@ -28,7 +28,7 @@ const files = new Set();
 for (const [i, g] of games.entries()) {
   const where = `games.json entry ${i} (${g.id ?? "no id"})`;
 
-  for (const key of ["id", "title", "file", "blurb", "goal", "sharedState", "added", "updated"]) {
+  for (const key of ["id", "title", "file", "blurb", "goal", "howToPlay", "sharedState", "added", "updated"]) {
     if (typeof g[key] !== "string" || !g[key].trim()) fail(`${where}: "${key}" must be a non-empty string`);
   }
   if (typeof g.id === "string" && !/^[a-z0-9-]{1,64}$/.test(g.id)) fail(`${where}: id must be lowercase letters, digits and dashes`);
@@ -62,6 +62,10 @@ for (const [i, g] of games.entries()) {
   const html = readFileSync(path, "utf8");
   checkSelfContained(g.file, html);
   checkAchievements(where, g, html);
+  // Platform rule: the gallery pauses games while a panel covers them.
+  if (!html.includes("arcade:pause") || !html.includes("arcade:resume")) {
+    fail(`${where}: games/${g.file} must handle "arcade:pause" and "arcade:resume" messages`);
+  }
 }
 
 // Every game file must be registered, so nothing ships without review metadata.
