@@ -113,7 +113,8 @@ a { color: var(--accent); }
   overflow: hidden;
   background: #0b0b10;
 }
-#gameFrame { display: block; width: 100%; height: min(78vh, 760px); min-height: 480px; border: 0; }
+/* Height is set from the game's content by gallery.js (fitFrame). */
+#gameFrame { display: block; width: 100%; height: 640px; border: 0; }
 
 .about { margin: 12px 0; font-size: 0.9rem; color: var(--muted); }
 .about summary { cursor: pointer; color: var(--text); }
@@ -151,3 +152,32 @@ textarea {
 .status { font-size: 0.88rem; color: var(--muted); margin: 0; }
 .status.ok { color: var(--good); }
 .status.err { color: var(--bad); }
+
+.card-meta { font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+
+/* Achievements */
+.achievements { margin: 16px 0 0; }
+.achievements h2 { font-size: 1rem; margin: 0 0 8px; }
+.ach-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.ach {
+  display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: center;
+  padding: 10px 12px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.ach .icon { font-size: 1.2rem; text-align: center; filter: grayscale(1); opacity: 0.4; }
+.ach b { display: block; }
+.ach span.desc { color: var(--muted); }
+.ach.got { border-color: var(--star); }
+.ach.got .icon { filter: none; opacity: 1; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 10px 16px; border-radius: 10px;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--star);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+  font-size: 0.9rem; z-index: 10;
+}

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Orbit Garden</title>
+<style>
+  :root {
+    --bg: #07070d;
+    --panel: #15151f;
+    --text: #e8e8ee;
+    --muted: #9a9aa5;
+    --accent: #8be07a;
+  }
+  * { box-sizing: border-box; }
+  html { height: 100%; }
+  body {
+    min-height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    gap: 10px;
+  }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0; letter-spacing: 0.02em; }
+  p.sub { color: var(--muted); font-size: 0.85rem; margin: 0; text-align: center; max-width: 440px; }
+  .legend { display: flex; gap: 16px; font-size: 0.78rem; color: var(--muted); }
+  #sky {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    height: auto;
+    touch-action: none;
+    border-radius: 10px;
+    background: #05050a;
+  }
+  .hud { display: flex; gap: 14px; font-size: 0.85rem; color: var(--muted); flex-wrap: wrap; justify-content: center; }
+  .hud b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #msg { min-height: 1.3em; font-size: 0.9rem; margin: 0; text-align: center; }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #2a2a38;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <h1>Orbit Garden</h1>
+  <p class="sub">Tap the sky to <b>place</b> a small planet. Drag anywhere to <b>fling</b> a seed from the launcher in that direction. Seeds bend around planets, and every seed that lands makes its planet heavier, so it pulls harder. Unfed planets slowly wither. <b>Goal:</b> get 3 planets blooming at the same time before your seeds run out.</p>
+  <div class="legend">
+    <span>Tap = place planet</span>
+    <span>Drag = fling seed</span>
+  </div>
+  <canvas id="sky"></canvas>
+  <div class="hud">
+    <span>Seeds <b id="hudSeeds"></b></span>
+    <span>Blooming <b id="hudBlooms"></b></span>
+    <span>Planets <b id="hudPlanets"></b></span>
+  </div>
+  <p id="msg" role="status"></p>
+  <button id="resetBtn">New garden</button>
+
+<script>
+(function() {
+  const GAME_ID = 'orbit-garden';
+  const W = 400, H = 600;
+  const LAUNCH = { x: W / 2, y: H - 34 };
+  const NO_PLANET_BELOW = H - 100;  // keep the launcher area clear
+  const START_SEEDS = 40;
+  const MAX_PLANETS = 5;
+  const GOAL_BLOOMS = 3;
+  const PLANET_START_MASS = 1.5;
+  const SEED_MASS = 1;             // mass a landed seed adds to its planet
+  const BLOOM_MASS = 5;            // a planet at or above this is blooming
+  const WITHER_PER_SEC = 0.06;     // passive mass loss per planet
+  const DEAD_MASS = 0.3;           // planets below this crumble away
+  const G = 400000;                // gravity strength
+  const SOFTEN = 15;               // keeps gravity finite near a planet's center
+  const FLING_POWER = 3.2;         // seed speed per px of drag
+  const MAX_DRAG = 160;
+  const DRAG_THRESHOLD_PX = 12;
+  const SEED_LIFETIME = 10;        // seconds before a drifting seed is lost
+  const STEP = 1 / 120;
+
+  const canvas = document.getElementById('sky');
+  const ctx = canvas.getContext('2d');
+  canvas.width = W;
+  canvas.height = H;
+  const msgEl = document.getElementById('msg');
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  function unlock(id) {
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Fixed backdrop stars (drawn from a tiny seeded PRNG so it never changes).
+  const stars = [];
+  let rs = 7;
+  function rand() { rs = (rs * 16807) % 2147483647; return rs / 2147483647; }
+  for (let i = 0; i < 90; i++) stars.push([rand() * W, rand() * H, rand() * 1.2 + 0.3]);
+
+  let planets, seeds, seedsLeft, streak, state, msgTimer;
+
+  function newGarden() {
+    planets = [];
+    seeds = [];
+    seedsLeft = START_SEEDS;
+    streak = 0;
+    state = 'playing';
+    say('Tap the sky to place your first planet.');
+  }
+
+  function say(text, sticky) {
+    msgEl.textContent = text;
+    clearTimeout(msgTimer);
+    if (!sticky) msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
+  }
+
+  function radius(p) { return 6 + 5 * Math.sqrt(p.mass); }
+  function blooming(p) { return p.mass >= BLOOM_MASS; }
+
+  // Gravity from every planet: reads the mass that both player verbs write.
+  function accel(x, y) {
+    let ax = 0, ay = 0;
+    for (const p of planets) {
+      const dx = p.x - x, dy = p.y - y;
+      const d2 = dx * dx + dy * dy + SOFTEN * SOFTEN;
+      const f = G * p.mass / (d2 * Math.sqrt(d2));
+      ax += f * dx;
+      ay += f * dy;
+    }
+    return [ax, ay];
+  }
+
+  // ---------- mechanic 1: place ----------
+  function placePlanet(x, y) {
+    if (state !== 'playing') return;
+    if (y > NO_PLANET_BELOW) return say('Too close to the launcher.');
+    if (planets.length >= MAX_PLANETS) return say(`The sky holds at most ${MAX_PLANETS} planets.`);
+    const probe = { mass: PLANET_START_MASS };
+    for (const p of planets) {
+      if (Math.hypot(p.x - x, p.y - y) < radius(p) + radius(probe) + 8) return say('Too close to another planet.');
+    }
+    planets.push({ x, y, mass: PLANET_START_MASS, flash: 0, bloomedOnce: false });
+    if (planets.length >= MAX_PLANETS) unlock('full-sky');
+  }
+
+  // ---------- mechanic 2: fling ----------
+  function flingVelocity(dx, dy) {
+    const len = Math.hypot(dx, dy);
+    const k = Math.min(len, MAX_DRAG) / len * FLING_POWER;
+    return [dx * k, dy * k];
+  }
+
+  function fling(dx, dy) {
+    if (state !== 'playing') return;
+    if (seedsLeft <= 0) return;
+    if (!planets.length) return say('Place a planet first: tap the sky.');
+    const [vx, vy] = flingVelocity(dx, dy);
+    seeds.push({ x: LAUNCH.x, y: LAUNCH.y, vx, vy, vx0: vx, vy0: vy, t: 0, trail: [] });
+    seedsLeft--;
+  }
+
+  // ---------- simulation ----------
+  function step(dt) {
+    for (let i = seeds.length - 1; i >= 0; i--) {
+      const s = seeds[i];
+      const [ax, ay] = accel(s.x, s.y);
+      s.vx += ax * dt;
+      s.vy += ay * dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.t += dt;
+
+      const hit = planets.find(p => Math.hypot(p.x - s.x, p.y - s.y) < radius(p));
+      if (hit) {
+        hit.mass += SEED_MASS;
+        hit.flash = 0.25;
+        seeds.splice(i, 1);
+        streak++;
+        if (streak >= 5) unlock('green-thumb');
+        // Landed while heading more than 90 degrees away from where it was flung.
+        if (s.vx * s.vx0 + s.vy * s.vy0 < 0) unlock('gravity-assist');
+        continue;
+      }
+      const out = s.x < -60 || s.x > W + 60 || s.y < -60 || s.y > H + 60;
+      if (out || s.t > SEED_LIFETIME) {
+        seeds.splice(i, 1);
+        streak = 0;
+      }
+    }
+
+    // Passive system: every planet withers; blooming is read from mass.
+    for (let i = planets.length - 1; i >= 0; i--) {
+      const p = planets[i];
+      p.mass -= WITHER_PER_SEC * dt;
+      if (p.flash > 0) p.flash -= dt;
+      if (blooming(p) && !p.bloomedOnce) {
+        p.bloomedOnce = true;
+        unlock('first-bloom');
+      }
+      if (p.mass < DEAD_MASS) {
+        planets.splice(i, 1);
+        say('A planet withered away.');
+      }
+    }
+
+    const blooms = planets.filter(blooming).length;
+    if (blooms >= GOAL_BLOOMS) {
+      state = 'won';
+      unlock('garden-complete');
+      if (seedsLeft >= 15) unlock('frugal');
+      say(`Garden complete with ${seedsLeft} seed${seedsLeft === 1 ? '' : 's'} to spare!`, true);
+    } else if (seedsLeft === 0 && seeds.length === 0) {
+      state = 'lost';
+      say('Out of seeds. Try a new garden.', true);
+    }
+  }
+
+  // ---------- drawing ----------
+  function draw() {
+    ctx.fillStyle = '#05050a';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    for (const [x, y, r] of stars) ctx.fillRect(x, y, r, r);
+
+    // launcher
+    ctx.fillStyle = '#2b2b3d';
+    ctx.beginPath();
+    ctx.arc(LAUNCH.x, H, 40, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = seedsLeft > 0 && state === 'playing' ? '#ffd166' : '#555';
+    ctx.beginPath();
+    ctx.arc(LAUNCH.x, LAUNCH.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (const p of planets) drawPlanet(p);
+
+    for (const s of seeds) {
+      s.trail.push([s.x, s.y]);
+      if (s.trail.length > 14) s.trail.shift();
+      ctx.strokeStyle = 'rgba(255,209,102,0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      s.trail.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.stroke();
+      ctx.fillStyle = '#ffd166';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (aim) drawAim();
+
+    if (state !== 'playing') {
+      ctx.fillStyle = 'rgba(5,5,10,0.6)';
+      ctx.fillRect(0, H / 2 - 40, W, 80);
+      ctx.fillStyle = state === 'won' ? '#8be07a' : '#ff9a8a';
+      ctx.font = '600 22px -apple-system, Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(state === 'won' ? 'Garden complete!' : 'Out of seeds', W / 2, H / 2 + 2);
+      ctx.fillStyle = '#c8c8d2';
+      ctx.font = '14px -apple-system, Segoe UI, sans-serif';
+      ctx.fillText('Tap to play again', W / 2, H / 2 + 26);
+    }
+
+    document.getElementById('hudSeeds').textContent = seedsLeft;
+    document.getElementById('hudBlooms').textContent = `${planets.filter(blooming).length}/${GOAL_BLOOMS}`;
+    document.getElementById('hudPlanets').textContent = `${planets.length}/${MAX_PLANETS}`;
+  }
+
+  function drawPlanet(p) {
+    const r = radius(p);
+    const t = Math.min(p.mass / BLOOM_MASS, 1);
+    if (blooming(p)) {
+      // petals
+      ctx.fillStyle = '#ff8fb8';
+      for (let k = 0; k < 6; k++) {
+        const a = k * Math.PI / 3 + performance.now() / 4000;
+        ctx.beginPath();
+        ctx.arc(p.x + Math.cos(a) * (r + 4), p.y + Math.sin(a) * (r + 4), r * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    // body: dusty brown -> living green as mass grows
+    const cr = Math.round(120 - 60 * t), cg = Math.round(90 + 120 * t), cb = Math.round(70 - 10 * t);
+    ctx.fillStyle = p.flash > 0 ? '#ffffff' : `rgb(${cr},${cg},${cb})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    // progress ring toward bloom
+    if (!blooming(p)) {
+      ctx.strokeStyle = 'rgba(139,224,122,0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r + 5, -Math.PI / 2, -Math.PI / 2 + t * Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  // Short dotted preview: shows the first moment of the path, not the whole shot.
+  function drawAim() {
+    let [vx, vy] = flingVelocity(aim.dx, aim.dy);
+    let x = LAUNCH.x, y = LAUNCH.y;
+    ctx.fillStyle = 'rgba(255,209,102,0.7)';
+    for (let i = 0; i < 40; i++) {
+      const [ax, ay] = accel(x, y);
+      vx += ax * STEP * 2; vy += ay * STEP * 2;
+      x += vx * STEP * 2; y += vy * STEP * 2;
+      if (i % 4 === 3) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // ---------- input ----------
+  let pointerDown = false, startPx = null, startPt = null, aim = null;
+
+  function toCanvas(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return [(evt.clientX - rect.left) * W / rect.width, (evt.clientY - rect.top) * H / rect.height];
+  }
+
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    canvas.setPointerCapture(evt.pointerId);
+    pointerDown = true;
+    startPx = [evt.clientX, evt.clientY];
+    startPt = toCanvas(evt);
+    aim = null;
+  });
+
+  canvas.addEventListener('pointermove', evt => {
+    if (!pointerDown) return;
+    if (Math.hypot(evt.clientX - startPx[0], evt.clientY - startPx[1]) > DRAG_THRESHOLD_PX) {
+      const [x, y] = toCanvas(evt);
+      aim = { dx: x - startPt[0], dy: y - startPt[1] };
+    }
+  });
+
+  function onUp() {
+    if (!pointerDown) return;
+    pointerDown = false;
+    if (state !== 'playing') {
+      newGarden();
+    } else if (aim) {
+      fling(aim.dx, aim.dy);
+    } else {
+      placePlanet(startPt[0], startPt[1]);
+    }
+    aim = null;
+  }
+  canvas.addEventListener('pointerup', onUp);
+  canvas.addEventListener('pointercancel', () => { pointerDown = false; aim = null; });
+
+  document.getElementById('resetBtn').addEventListener('click', newGarden);
+
+  // ---------- loop ----------
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    acc += Math.min((now - last) / 1000, 0.1);
+    last = now;
+    while (acc >= STEP) {
+      if (state === 'playing') step(STEP);
+      acc -= STEP;
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  newGarden();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

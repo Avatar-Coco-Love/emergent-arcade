@@ -15,6 +15,7 @@
   let games = [];
   let current = null;
   let rating = 0;
+  let toastTimer = null;
 
   if (config.repo) $("repoLink").href = `https://github.com/${config.repo}`;
 
@@ -44,6 +45,12 @@
     return el("div", { className: "thumb", ariaHidden: "true" }, cells);
   }
 
+  function cardMeta(game) {
+    const total = (game.achievements || []).length;
+    const text = total ? `🏆 ${window.ArcadeAchievements.count(game)}/${total} achievements` : "";
+    return el("div", { className: "card-meta", textContent: text });
+  }
+
   function renderGallery() {
     gameList.replaceChildren();
     for (const game of games) {
@@ -56,6 +63,7 @@
           el("h2", { textContent: game.title }),
           el("p", { textContent: game.blurb }),
           el("div", { className: "chips" }, chips),
+          cardMeta(game),
         ]),
       ]);
       if (game.accent) card.style.setProperty("--card-accent", game.accent);
@@ -77,9 +85,11 @@
         el("li", {}, [el("b", { textContent: m.name }), ` (${m.verb}): ${m.description}`])
       )
     );
+    $("playerGoal").textContent = game.goal ? `Goal: ${game.goal}` : "";
     $("playerState").textContent = `Shared state: ${game.sharedState}`;
     frame.title = game.title;
     if (frame.getAttribute("src") !== src) frame.src = src;
+    renderAchievements();
     resetFeedback();
     galleryView.hidden = true;
     playerView.hidden = false;
@@ -92,7 +102,76 @@
     frame.removeAttribute("src"); // stop the running game
     playerView.hidden = true;
     galleryView.hidden = false;
+    renderGallery(); // refresh achievement counts
   }
+
+  // ---------- frame sizing ----------
+  // The frame is resized to the game's content height so the game never
+  // scrolls separately from the page. Game pages often use height: 100% for
+  // standalone play, which would grow with the frame forever, so the gallery
+  // switches them to natural height while embedded.
+
+  const MAX_FRAME_PX = 3000;
+
+  function fitFrame() {
+    let doc;
+    try { doc = frame.contentDocument; } catch (_) { return; }
+    if (!doc || !doc.body) return;
+    const body = doc.body;
+    const bottom = body.getBoundingClientRect().bottom + parseFloat(getComputedStyle(body).marginBottom || 0);
+    const h = Math.min(Math.ceil(bottom + (frame.contentWindow.scrollY || 0)), MAX_FRAME_PX);
+    if (h > 0 && frame.style.height !== `${h}px`) frame.style.height = `${h}px`;
+  }
+
+  frame.addEventListener("load", () => {
+    let doc;
+    try { doc = frame.contentDocument; } catch (_) { return; }
+    if (!doc || !doc.body) return;
+    const style = doc.createElement("style");
+    style.textContent = "html, body { height: auto !important; min-height: 0 !important; overflow: hidden !important; }";
+    doc.head.append(style);
+    fitFrame();
+    const RO = frame.contentWindow.ResizeObserver;
+    if (RO) new RO(fitFrame).observe(doc.body);
+  });
+
+  // ---------- achievements ----------
+
+  function renderAchievements() {
+    const list = current.achievements || [];
+    const got = window.ArcadeAchievements.load(current.id);
+    $("achCount").textContent = list.length ? `${window.ArcadeAchievements.count(current)}/${list.length}` : "";
+    $("achList").replaceChildren(
+      ...list.map((a) =>
+        el("li", { className: `ach${got[a.id] ? " got" : ""}` }, [
+          el("span", { className: "icon", textContent: "🏆", ariaHidden: "true" }),
+          el("div", {}, [
+            el("b", { textContent: a.title }),
+            el("span", { className: "desc", textContent: a.description }),
+          ]),
+        ])
+      )
+    );
+    $("achTitle").parentElement.hidden = list.length === 0;
+  }
+
+  function showToast(text) {
+    const toast = $("toast");
+    toast.textContent = text;
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, 3500);
+  }
+
+  window.addEventListener("message", (evt) => {
+    const data = evt.data;
+    if (!current || evt.source !== frame.contentWindow) return;
+    if (!data || data.type !== "arcade:achievement" || data.game !== current.id) return;
+    if (!window.ArcadeAchievements.unlock(current, data.id)) return;
+    const a = current.achievements.find((x) => x.id === data.id);
+    showToast(`🏆 Achievement unlocked: ${a.title}`);
+    renderAchievements();
+  });
 
   function route() {
     const match = location.hash.match(/^#\/play\/([a-z0-9-]+)/);

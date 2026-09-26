@@ -16,9 +16,11 @@ assets/
   config.js                site settings: repo name, feedback endpoint URL
   gallery.js / .css        gallery, player and feedback form UI
   feedback.js              feedback transport (Apps Script, or GitHub issue fallback)
+  achievements.js          records achievement unlocks per player (localStorage)
 games/
   games.json               manifest: one entry per game (id, version, mechanics, ...)
   pressure-grid.html       each game is ONE self-contained HTML file
+  orbit-garden.html
 feedback/apps-script/
   Code.gs                  Google Apps Script backend that stores feedback in a Sheet
 scripts/
@@ -49,12 +51,16 @@ Supabase (free projects pause after a week idle, which means maintenance).
 
 - **Gallery** (`index.html`) loads `games/games.json` and renders one card
   per game. Selecting a card routes to `#/play/<id>` (a shareable link) and
-  embeds the game in a sandboxed iframe.
+  embeds the game in an iframe that the gallery sizes to fit the game, so
+  the whole page scrolls as one.
 - **Games stay pure.** A game file knows nothing about the gallery or
   feedback, so it can still be opened directly (`games/pressure-grid.html`).
 - **Feedback** (1-5 stars + optional comment) is shown under the game and
   tagged with the game's `id` and manifest `version`. Revising a game bumps
   its version, so ratings for old and new versions stay separate.
+- **Achievements**: each game lists 3+ achievements in `games.json` and
+  announces unlocks to the gallery with `postMessage`. The gallery saves them
+  in the player's browser, shows a popup, and shows progress on the cards.
 
 ## One-time setup (maintainer)
 
@@ -83,6 +89,7 @@ merge deploys it.
 
 ## Games
 
-| Game | Mechanics | Shared state |
-|---|---|---|
-| [Pressure Grid](games/pressure-grid.html) | **pump** (tap a cell to add pressure), **siphon** (drag to move a fraction of a cell's pressure into a neighbor, with loss) | Pressure per cell, also read by the passive bleed-and-eruption system |
+| Game | Mechanics | Shared state | Goal |
+|---|---|---|---|
+| [Pressure Grid](games/pressure-grid.html) | **pump** (tap a cell to add pressure), **siphon** (drag to move a fraction of a cell's pressure into a neighbor, with loss) | Pressure per cell, also read by the passive bleed-and-eruption system | Sandbox |
+| [Orbit Garden](games/orbit-garden.html) | **place** (tap to add a planet), **fling** (drag to launch a seed that curves under gravity) | Planet mass: created by placing, grown by landed seeds, sets gravity, drained by a passive wither | 3 planets blooming at once within 40 seeds |

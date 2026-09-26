@@ -4,16 +4,113 @@
       "id": "pressure-grid",
       "title": "Pressure Grid",
       "file": "pressure-grid.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-09-26",
       "updated": "2026-09-26",
       "blurb": "Pump pressure into cells, siphon it toward neighbors, and ride the chain reactions when cells erupt.",
       "mechanics": [
-        { "name": "pump", "verb": "tap", "description": "Tap a cell to add pressure to it." },
-        { "name": "siphon", "verb": "drag", "description": "Drag from a cell to move a fraction of its pressure into the neighbor you dragged toward, losing some to inefficiency." }
+        {
+          "name": "pump",
+          "verb": "tap",
+          "description": "Tap a cell to add pressure to it."
+        },
+        {
+          "name": "siphon",
+          "verb": "drag",
+          "description": "Drag from a cell to move a fraction of its pressure into the neighbor you dragged toward, losing some to inefficiency."
+        }
       ],
       "sharedState": "Pressure per cell: written by pump and siphon, read by siphon and by the passive bleed-and-eruption system.",
-      "accent": "#ff7a3d"
+      "accent": "#ff7a3d",
+      "goal": "Sandbox, with no win condition. Chase the achievements.",
+      "achievements": [
+        {
+          "id": "first-eruption",
+          "title": "First Pop",
+          "description": "Make a cell erupt."
+        },
+        {
+          "id": "chain-reaction",
+          "title": "Chain Reaction",
+          "description": "Set off 5 or more eruptions at once."
+        },
+        {
+          "id": "siphon-strike",
+          "title": "Siphon Strike",
+          "description": "Cause an eruption with a siphon."
+        },
+        {
+          "id": "plumber",
+          "title": "Plumber",
+          "description": "Siphon 25 times in one game."
+        },
+        {
+          "id": "full-pressure",
+          "title": "Full Pressure",
+          "description": "Get every cell on the board to 20+ pressure at once."
+        },
+        {
+          "id": "century",
+          "title": "Century",
+          "description": "Reach 100 eruptions in one game."
+        }
+      ]
+    },
+    {
+      "id": "orbit-garden",
+      "title": "Orbit Garden",
+      "file": "orbit-garden.html",
+      "version": 1,
+      "added": "2026-09-26",
+      "updated": "2026-09-26",
+      "blurb": "Place planets, fling seeds around them, and grow a garden in orbit. Every seed that lands makes its planet pull harder.",
+      "goal": "Get 3 planets blooming at the same time before your 40 seeds run out.",
+      "mechanics": [
+        {
+          "name": "place",
+          "verb": "tap",
+          "description": "Tap the sky to add a small planet (a gravity well)."
+        },
+        {
+          "name": "fling",
+          "verb": "drag",
+          "description": "Drag to launch a seed from the launcher; it curves around planets and adds mass to the one it lands on."
+        }
+      ],
+      "sharedState": "Planet mass: placing creates it, landed seeds add to it, and it sets how hard each planet pulls on every seed. A passive wither drains it, and blooming is read from it.",
+      "accent": "#8be07a",
+      "achievements": [
+        {
+          "id": "first-bloom",
+          "title": "First Bloom",
+          "description": "Grow a planet until it blooms."
+        },
+        {
+          "id": "garden-complete",
+          "title": "Gardener",
+          "description": "Get 3 planets blooming at once."
+        },
+        {
+          "id": "frugal",
+          "title": "Frugal Gardener",
+          "description": "Complete a garden with 15 or more seeds left."
+        },
+        {
+          "id": "gravity-assist",
+          "title": "Gravity Assist",
+          "description": "Land a seed that swung more than 90° away from where you flung it."
+        },
+        {
+          "id": "green-thumb",
+          "title": "Green Thumb",
+          "description": "Land 5 seeds in a row without a miss."
+        },
+        {
+          "id": "full-sky",
+          "title": "Full Sky",
+          "description": "Have 5 planets in the sky at once."
+        }
+      ]
     }
   ]
 }

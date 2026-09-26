@@ -19,20 +19,46 @@ published from a branch.
      "added": "YYYY-MM-DD",
      "updated": "YYYY-MM-DD",
      "blurb": "One sentence for the gallery card.",
+     "goal": "What the player is trying to do (or say it's a sandbox).",
      "mechanics": [
        { "name": "pump", "verb": "tap", "description": "..." },
        { "name": "siphon", "verb": "drag", "description": "..." }
      ],
      "sharedState": "Which value(s) the mechanics read and write.",
-     "accent": "#hex color for the card"
+     "accent": "#hex color for the card",
+     "achievements": [
+       { "id": "first-pop", "title": "First Pop", "description": "Make a cell erupt." }
+     ]
    }
    ```
 
-   `id` is the game's permanent identity: feedback is keyed on it, so never
-   rename it.
-3. Run `node scripts/validate.mjs` and play it locally
+   `id` is the game's permanent identity: feedback and achievements are keyed
+   on it, so never rename it.
+3. Add achievements (at least 3). List them in the manifest, then
+   announce each one from the game with this snippet (see either existing game):
+
+   ```js
+   const GAME_ID = 'my-game';
+   const unlocked = new Set();
+   function unlock(id) {
+     if (unlocked.has(id)) return;
+     unlocked.add(id);
+     if (window.parent !== window) {
+       window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+     }
+   }
+   // ...later: unlock('first-pop');
+   ```
+
+   The gallery records unlocks per player (in their browser), shows a popup,
+   and lists them under the game. Good achievements reward interplay between
+   the mechanics, not just grinding. Achievement ids are permanent too.
+4. Size the game from its **width**, not the screen height (no `vh` or
+   `innerHeight` for layout). The gallery sizes its frame to fit the game's
+   content, so the game never scrolls separately from the page.
+5. Run `node scripts/validate.mjs` and play it locally
    (`python3 -m http.server`, then open http://localhost:8000).
-4. Open a PR and fill in the template checklist.
+6. Open a PR and fill in the template checklist.
 
 ## Revising a game from feedback
 
