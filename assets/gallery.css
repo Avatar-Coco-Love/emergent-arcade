@@ -95,6 +95,8 @@ a { color: var(--accent); }
   background: var(--panel-2);
 }
 .thumb span { border-radius: 2px; background: var(--card-accent, var(--accent)); }
+.thumb.art { display: block; padding: 0; overflow: hidden; }
+.thumb.art svg { display: block; width: 100%; height: 100%; }
 .game-card h2 { margin: 0; font-size: 1.05rem; }
 .game-card p { margin: 4px 0 8px; color: var(--muted); font-size: 0.9rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -165,6 +167,7 @@ body.playing .site-header, body.playing .site-footer { display: none; }
   line-height: 1;
   text-decoration: none;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent; /* the pressed state shows the tap */
 }
 .tool:hover { background: var(--panel-2); }
 .tool[aria-pressed="true"] { background: var(--panel-2); color: var(--accent); }

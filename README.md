@@ -17,6 +17,7 @@ assets/
   gallery.js / .css        gallery, cabinet, panels and feedback form UI
   feedback.js              feedback transport (Apps Script, or GitHub issue fallback)
   achievements.js          records achievement unlocks per player (localStorage)
+  thumbs.js                gallery card art per game (inline SVG from primitives)
 games/
   games.json               manifest: one entry per game (id, version, mechanics, ...)
   pressure-grid.html       each game is ONE self-contained HTML file
@@ -52,9 +53,9 @@ Supabase (free projects pause after a week idle, which means maintenance).
 - **Gallery** (`index.html`) loads `games/games.json` and renders one card
   per game. Selecting a card routes to `#/play/<id>` (a shareable link) and
   opens the **cabinet**: a screen-filling window with the game in a
-  sandboxed iframe and a toolbar on top (back, ⓘ how to play, 🏆
+  sandboxed iframe and a toolbar on top (back, ▶ play, ⓘ how to play, 🏆
   achievements, ★ rate, ⛶ full screen). The ⓘ, 🏆 and ★ buttons open a
-  panel over the game and pause it. Nothing in the cabinet scrolls except
+  panel over the game and pause it; ▶ closes the panel and resumes. Nothing in the cabinet scrolls except
   long panel text.
 - **Games stay standalone.** A game file doesn't depend on the gallery, so
   it can still be opened directly (`games/pressure-grid.html`). Its only

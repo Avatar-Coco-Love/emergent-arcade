@@ -75,9 +75,13 @@ published from a branch.
      ```
    - Anything that ends a round (win/lose screen) should ignore input for
      about a second, so fast tapping can't skip it.
-5. Run `node scripts/validate.mjs` and play it locally
+5. Optional: give the game its own gallery card art by adding an entry for
+   its `id` to `assets/thumbs.js` (a function returning a 72×72 inline SVG
+   drawn from primitives). Without one, the card shows a generated pixel
+   pattern in the game's `accent` color.
+6. Run `node scripts/validate.mjs` and play it locally
    (`python3 -m http.server`, then open http://localhost:8000).
-6. Open a PR and fill in the template checklist.
+7. Open a PR and fill in the template checklist.
 
 ## Revising a game from feedback
 
