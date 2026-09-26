@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Emergent Arcade</title>
+<meta name="description" content="Tiny browser games built on emergent, shared-state mechanics. Playable instantly, no installs.">
+<link rel="stylesheet" href="assets/gallery.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#/">Emergent Arcade</a>
+    <p class="tagline">Tiny games, two or three verbs each, all tangled in the same state.</p>
+  </header>
+
+  <main>
+    <section id="galleryView" aria-label="Game gallery">
+      <ul id="gameList" class="game-list"></ul>
+      <p id="galleryStatus" class="status" role="status"></p>
+    </section>
+
+    <section id="playerView" hidden aria-label="Now playing">
+      <div class="player-bar">
+        <a class="back" href="#/">&larr; All games</a>
+        <h1 id="playerTitle"></h1>
+        <a id="playerOpen" class="open-link" target="_blank" rel="noopener">Open full screen</a>
+      </div>
+      <div class="frame-wrap">
+        <iframe id="gameFrame" title="Game" sandbox="allow-scripts allow-pointer-lock" allow="fullscreen"></iframe>
+      </div>
+      <details class="about" id="playerAbout">
+        <summary>How it's built</summary>
+        <ul id="playerMechanics"></ul>
+        <p id="playerState"></p>
+      </details>
+
+      <form id="feedbackForm" class="feedback" novalidate>
+        <h2>Rate this game</h2>
+        <fieldset class="stars" id="stars">
+          <legend class="visually-hidden">Rating from 1 to 5</legend>
+        </fieldset>
+        <label for="comment" class="comment-label">Anything to add? <span class="muted">(optional)</span></label>
+        <textarea id="comment" name="comment" rows="3" maxlength="1000" placeholder="What felt good? What felt off? Did the mechanics play off each other?"></textarea>
+        <div class="feedback-actions">
+          <button type="submit" id="submitBtn" disabled>Send feedback</button>
+          <span id="feedbackStatus" class="status" role="status"></span>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a id="repoLink" target="_blank" rel="noopener">Source on GitHub</a>
+  </footer>
+
+<script src="assets/config.js"></script>
+<script src="assets/feedback.js"></script>
+<script src="assets/gallery.js"></script>
+</body>
+</html>
