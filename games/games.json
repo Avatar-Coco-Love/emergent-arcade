@@ -118,12 +118,12 @@
       "id": "murmuration",
       "title": "Murmuration",
       "file": "murmuration.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-09-27",
       "updated": "2026-09-27",
-      "blurb": "Lure a flock of starlings through a string of gates. Startle them to steer, but panic spreads from bird to bird.",
-      "goal": "Fly 15 birds through each of the 5 gates, in order and close together, before the flock drops below 15 birds.",
-      "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. Hold anywhere and calm birds fly toward your finger; keep holding and move it to lead them. Tap to startle the birds near the tap: they panic (turning red) and burst away from it, which can shove the flock through a gate. A gate only counts birds that flew through it in the last few seconds, so bring the flock through together. Fear spreads to neighbors and fades over time. Scared birds ignore your lure, birds packed too tightly get scared on their own, and panicked birds can fly off the edge of the sky and be lost.",
+      "blurb": "Lure a flock of starlings through a string of gates before night falls. Startle them for speed, but panic spreads from bird to bird.",
+      "goal": "Fly 15 birds through each of the 5 gates, in order and close together, before night falls (70 seconds of light) and before the flock drops below 15 birds.",
+      "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. Hold anywhere and calm birds fly toward your finger; keep holding and move it to lead them. The lure pulls hardest on birds near it, but birds that get too close are spooked. Tap to startle the birds near the tap: they panic (turning red) and burst away from it. Scared birds still match their neighbors' heading, so a tap just behind the flock sends it surging forward, the fastest way across open sky. A gate only counts birds that flew through it in the last few seconds, so bring the flock through together. The sky darkens as the light runs out (the time left is in the bottom bar); if the flock hasn't cleared all 5 gates by nightfall, the round is lost. Fear spreads to neighbors and fades over time. Scared birds ignore your lure, birds packed too tightly get scared on their own, and panicked birds can fly off the edge of the sky and be lost, so be careful startling near the edges.",
       "mechanics": [
         {
           "name": "lure",
@@ -133,10 +133,10 @@
         {
           "name": "startle",
           "verb": "tap",
-          "description": "Tap to scare the birds nearby, sending them bursting away from the tap."
+          "description": "Tap to scare the birds nearby, sending them bursting away from the tap. Tap behind the flock to speed it up."
         }
       ],
-      "sharedState": "Each bird's fear: startling raises it, it spreads from bird to bird, and crowding around the lure raises it. The lure's pull fades as fear rises, and panicked birds stop avoiding the edges of the sky.",
+      "sharedState": "Each bird's fear: startling raises it, it spreads from bird to bird, and crowding around the lure raises it. The lure's pull fades as fear rises, scared birds stop sticking together (but keep matching heading) and fly faster, and panicked birds stop avoiding the edges of the sky.",
       "accent": "#a78bfa",
       "achievements": [
         {
@@ -167,7 +167,12 @@
         {
           "id": "swift",
           "title": "Swift",
-          "description": "Clear all 5 gates in under 90 seconds."
+          "description": "Clear all 5 gates with at least 15 seconds of daylight left."
+        },
+        {
+          "id": "last-light",
+          "title": "Last Light",
+          "description": "Clear the last gate with under 5 seconds of daylight left."
         }
       ]
     }
