@@ -54,5 +54,25 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden };
+  function murmuration() {
+    let body = `<defs><linearGradient id="mm-sky" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0" stop-color="#5b4b8a"/><stop offset="0.55" stop-color="#c0708a"/>` +
+      `<stop offset="1" stop-color="#f6b26b"/></linearGradient></defs>`;
+    body += `<rect width="72" height="72" fill="url(#mm-sky)"/>`;
+    // A gate: two posts and a dashed line.
+    body += `<line x1="44" y1="16" x2="66" y2="28" stroke="#fff" stroke-width="1.4" stroke-dasharray="3 3" opacity="0.85"/>`;
+    body += `<circle cx="44" cy="16" r="2" fill="#fff"/><circle cx="66" cy="28" r="2" fill="#fff"/>`;
+    // The flock sweeping up toward it along a curve, a few birds flushed red.
+    for (let i = 0; i < 26; i++) {
+      const t = i / 25;
+      const x = 12 + 44 * t + Math.sin(i * 2.3) * (5 - 3 * t);
+      const y = 60 - 40 * t * t - 6 * t + Math.cos(i * 1.7) * (5 - 3 * t);
+      const a = Math.atan2(-80 * t - 6, 44) * 180 / Math.PI;
+      const fill = i % 9 === 4 ? "#e0444e" : "#1b1626";
+      body += `<path d="M 2.6 0 L -1.8 1.6 L -0.9 0 L -1.8 -1.6 Z" fill="${fill}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${a.toFixed(0)})"/>`;
+    }
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration };
 })();
