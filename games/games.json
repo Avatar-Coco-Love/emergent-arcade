@@ -237,6 +237,63 @@
           "description": "Win with 20 or more seconds of daylight left."
         }
       ]
+    },
+    {
+      "id": "wildfire-line",
+      "title": "Wildfire Line",
+      "file": "wildfire-line.html",
+      "version": 1,
+      "added": "2026-09-27",
+      "updated": "2026-09-27",
+      "blurb": "A grass fire is running at the village. Cut firebreaks, fight fire with fire, and watch the wind.",
+      "goal": "Let the fire burn itself out with at least 3 of the 4 houses still standing. Losing a second house ends the round.",
+      "howToPlay": "Fire spreads from patch to patch of grass, fastest downwind and on tall grass, and it can't cross bare ground. Drag to cut a firebreak: it clears a one-patch-wide strip of grass along your stroke but costs stamina (more in tall grass), which refills slowly. Draw over a line again to widen it. Tap to light a backburn: it's free and wide, and it burns up the grass before the main fire gets there, but it's real fire and it spreads like the rest. Burning out right against a cut line is the safe way to do it. The arrow in the corner shows the wind. It shifts every 20 seconds or so, and the next direction flashes 4 seconds before it turns. Watch for sparks: the leading edge of the main fire throws embers several patches downwind, so thin lines can be jumped.",
+      "mechanics": [
+        {
+          "name": "cut",
+          "verb": "drag",
+          "description": "Drag to clear a one-cell-wide firebreak along your stroke, removing the grass. Costs stamina by how much grass you clear; stamina refills over time."
+        },
+        {
+          "name": "backburn",
+          "verb": "tap",
+          "description": "Tap to light a small fire that burns up grass ahead of the main fire. Free, with a short cooldown, but it spreads with the wind like any fire."
+        }
+      ],
+      "sharedState": "Fuel (grass) per patch of ground: cutting removes it and costs stamina by how much there is, backburns and the main fire burn it to ash, and fire can only spread, and only spreads fast, where fuel is left.",
+      "accent": "#e2483d",
+      "achievements": [
+        {
+          "id": "whole-village",
+          "title": "Not a Scratch",
+          "description": "Win with all 4 houses standing."
+        },
+        {
+          "id": "hold-the-line",
+          "title": "Hold the Line",
+          "description": "Let your firebreaks turn the main fire back again and again in one round."
+        },
+        {
+          "id": "fire-with-fire",
+          "title": "Fight Fire with Fire",
+          "description": "Starve the main fire by running it into ground your backburns already burned."
+        },
+        {
+          "id": "read-the-wind",
+          "title": "Read the Wind",
+          "description": "Light a backburn during a wind-shift warning that later meets the main fire."
+        },
+        {
+          "id": "backfired",
+          "title": "Backfired",
+          "description": "Lose a house to your own backburn."
+        },
+        {
+          "id": "swift",
+          "title": "Swift",
+          "description": "Put the whole fire out in under 60 seconds."
+        }
+      ]
     }
   ]
 }
