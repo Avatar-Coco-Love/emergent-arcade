@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hourglass Delivery</title>
+<style>
+  :root {
+    --bg: #1b1418;
+    --panel: #2b1f22;
+    --text: #f6ecdf;
+    --muted: #bba89a;
+    --accent: #e0b25c;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the works scale to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #works {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    border-radius: 10px;
+  }
+  #msg {
+    position: absolute;
+    top: 30px;
+    left: 40px;
+    right: 40px;
+    margin: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+  }
+  #endCard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(86%, 300px);
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(43, 31, 34, 0.95);
+    border: 1px solid #5a4236;
+    text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #endCard h2.won { color: #f2cf7a; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #e6d7c8; font-size: 0.9rem; }
+  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
+  #playAgain:disabled { opacity: 0.4; }
+  .bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bar b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .bar b.hurt { color: #ff9a8a; }
+  .meter {
+    display: inline-block;
+    width: 48px;
+    height: 8px;
+    border-radius: 4px;
+    background: #3e2e2a;
+    vertical-align: middle;
+    overflow: hidden;
+  }
+  .meter span { display: block; height: 100%; }
+  #sandFill { background: var(--accent); }
+  #knockFill { background: #9fc6e0; }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #5a4236;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <div id="field">
+    <div id="stage">
+      <canvas id="works" aria-label="Hourglass Delivery sand works. Hold to pour sand, flick to knock settled sand loose."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="playAgain">Play again</button>
+      </div>
+    </div>
+  </div>
+  <div class="bar">
+    <span>Filled <b id="hudFilled"></b></span>
+    <span>Missed <b id="hudMissed"></b></span>
+    <span>Sand <span class="meter"><span id="sandFill"></span></span></span>
+    <span>Knock <span class="meter"><span id="knockFill"></span></span></span>
+    <button id="resetBtn">New order</button>
+  </div>
+
+<script>
+(function() {
+  const GAME_ID = 'hourglass-delivery';
+  const W = 400, H = 600;
+  const CELL = 4, GW = W / CELL, GH = H / CELL; // sand grid: 100 x 150 cells
+
+  // Sand (the shared state)
+  const GRAV = 0.08;               // fall speed gained per step (cells/step)
+  const VMAX = 3;                  // top fall speed (cells/step)
+  const PACK_T = 1.5;              // a grain that rests this long packs: it stops sliding
+  const HOPPER = 2000;             // grains in the hopper each round
+  const POUR_RATE = 60;            // grains per second while you hold
+
+  // Knock
+  const KNOCK_R = 24;              // px around the start of the flick
+  const KNOCK_V = 2.5;             // sideways speed given to knocked grains (cells/step)
+  const KNOCK_FRICT = 0.08;        // sideways speed lost per step
+  const AIR_DRAG = 0.75;           // sideways speed kept per step while falling
+  const PUSH_KEEP = 0.9;           // a shoved grain blocked by sand passes on this share of its push
+  const AVAL_P = 0.3;              // chance a shoved grain loosens a packed neighbor
+  const KNOCK_COOL = 0.8;          // seconds between knocks
+
+  // Level
+  const LEDGE_ROWS = [50, 108]; // grid rows of the ledge rows (±2)
+  const LEDGE_MIN = 12, LEDGE_MAX = 24;     // ledge width in cells
+  const GAP_MIN = 10, GAP_MAX = 20;         // gap between ledges in a row
+  const PEGS = 6;                  // 2x2 pegs scattered between the rows
+  const DUNES = 3, DUNE_N = 80;    // packed dunes on ledges at the start, grains each
+
+  // Belt and hourglasses
+  const MOUTH_ROW = 125;           // glass mouths are at y 500: sand crossing here is caught
+  const BELT_ROW = 140;            // sand reaching the belt (y 560) is spilled
+  const MOUTH_HW = 16;             // half-width of a glass mouth (px)
+  const BELT_V = 40;               // px per second
+  const GLASSES = 8, FIRST = 6, SPACING = 8; // glasses per order, first arrival, seconds apart
+  const LINE = 120, CAP = 150;     // grains to fill a glass / grains it holds
+  const LOSE_AT = 3;               // lose on this many empty glasses
+
+  // Achievements
+  const SLIDE_N = 60;              // Landslide: grains into one glass from one knock
+  const STOCK_N = 400;             // Stockpiler: packed grains resting at once
+  const CLEAN_MAX = 0.15;          // Not a Grain Wasted: spilled share of poured sand
+  const BRIM_TOL = 10;             // Steady Hand: at most this many grains over the line
+
+  const FLICK_PX = 25;             // moving this far...
+  const FLICK_MS = 180;            // ...this soon is a flick; otherwise pouring starts
+  const END_INPUT_LOCK_MS = 1000;
+  const STEP = 1 / 60;
+
+  const EMPTY = 0, LOOSE = 1, PACKED = 2, WALL = 3;
+  const PACK_STEPS = Math.round(PACK_T / STEP);
+
+  const canvas = document.getElementById('works');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  function unlock(id) {
+    roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Scale the works to the largest 2:3 box that fits, one canvas pixel per
+  // screen pixel. Drawing always uses W x H game units.
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitWorks() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(80, Math.floor(W * scale));
+    const h = Math.max(120, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitWorks).observe(field);
+  window.addEventListener('resize', fitWorks);
+  fitWorks();
+
+  // The gallery pauses the game while one of its panels covers it.
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; endGesture(); }
+    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+  });
+
+  const endCard = document.getElementById('endCard');
+  const playAgainBtn = document.getElementById('playAgain');
+
+  const N = GW * GH;
+  const grid = new Uint8Array(N);     // EMPTY, LOOSE, PACKED or WALL
+  const tone = new Uint8Array(N);     // grain color (0-3)
+  const rest = new Uint8Array(N);     // steps a grain has sat still
+  const vy = new Float32Array(N);     // fall speed (cells/step)
+  const vx = new Float32Array(N);     // sideways speed from a knock (cells/step)
+  const tag = new Uint16Array(N);     // which knock last moved this grain (0: never knocked)
+  const stamp = new Uint16Array(N);   // last update step, so a grain moves once per step
+  let tick = 0;
+  let ledges, glasses, nextGlass, hopper, poured, spilled, pourAcc, pouring, spoutX;
+  let knockCool, knockSerial, knocks, filled, missed, elapsed, state, msgTimer, packedCount;
+  let lastKnock, lowSandSaid;
+  const roundEarned = new Set();
+  const puffs = [];
+
+  // ---------- level ----------
+  function idx(cx, cy) { return cy * GW + cx; }
+  function ri(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+
+  function buildLevel() {
+    grid.fill(EMPTY); rest.fill(0); vy.fill(0); vx.fill(0); tag.fill(0); stamp.fill(0);
+    ledges = [];
+    for (const r of LEDGE_ROWS) {
+      const y = r + ri(-2, 2);
+      let x = ri(0, 10);
+      while (x < GW - 6) {
+        const w = Math.min(ri(LEDGE_MIN, LEDGE_MAX), GW - x);
+        if (w >= 6) {
+          ledges.push({ x0: x, x1: x + w - 1, y });
+          for (let cx = x; cx < x + w; cx++) for (let dy = 0; dy < 2; dy++) grid[idx(cx, y + dy)] = WALL;
+        }
+        x += w + ri(GAP_MIN, GAP_MAX);
+      }
+    }
+    // Pegs sit in the open between rows, never touching a ledge.
+    for (let k = 0, tries = 0; k < PEGS && tries < 200; tries++) {
+      const cx = ri(4, GW - 6), cy = ri(LEDGE_ROWS[0] + 6, LEDGE_ROWS[LEDGE_ROWS.length - 1] - 4);
+      let clear = true;
+      for (let dy = -4; dy <= 5 && clear; dy++) for (let dx = -3; dx <= 4; dx++) if (grid[idx(cx + dx, cy + dy)] === WALL) { clear = false; break; }
+      if (!clear) continue;
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) grid[idx(cx + dx, cy + dy)] = WALL;
+      k++;
+    }
+    // A few packed dunes to knock from the first second.
+    const pool = ledges.filter(l => l.y > LEDGE_ROWS[0] + 4 && l.x1 - l.x0 >= 14);
+    for (let k = 0; k < DUNES && pool.length; k++) {
+      const l = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+      let n = 0;
+      for (let h = 1; n < DUNE_N && h < 20; h++) {
+        for (let cx = l.x0 + h - 1; cx <= l.x1 - h + 1 && n < DUNE_N; cx++) {
+          const i = idx(cx, l.y - h);
+          if (grid[i] !== EMPTY) continue;
+          grid[i] = PACKED; tone[i] = ri(0, 3); n++;
+        }
+      }
+    }
+  }
+
+  function newRound() {
+    buildLevel();
+    glasses = []; nextGlass = 0;
+    hopper = HOPPER; poured = 0; spilled = 0; pourAcc = 0; pouring = false; spoutX = W / 2;
+    knockCool = 0; knockSerial = 0; knocks = 0; filled = 0; missed = 0; elapsed = 0;
+    packedCount = 0; lastKnock = null; lowSandSaid = false;
+    puffs.length = 0;
+    roundEarned.clear();
+    state = 'playing';
+    endCard.hidden = true;
+    endGesture();
+    say(`Fill ${GLASSES - LOSE_AT + 1} of ${GLASSES} hourglasses.`);
+  }
+
+  function endGame(result) {
+    state = result;
+    endGesture();
+    msgEl.textContent = '';
+    const title = document.getElementById('endTitle');
+    title.className = result;
+    title.textContent = result === 'won' ? (filled === GLASSES ? 'Full order!' : 'Order delivered!') : 'Order failed';
+    const waste = poured ? Math.round(100 * spilled / poured) : 0;
+    document.getElementById('endDetail').textContent = result === 'won'
+      ? `${filled} of ${GLASSES} hourglasses filled. ${waste}% of your sand hit the floor.`
+      : `${missed} hourglasses left empty. ${filled} filled.`;
+    const n = roundEarned.size;
+    document.getElementById('endAch').textContent = n
+      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
+      : '';
+    playAgainBtn.disabled = true;
+    endCard.hidden = false;
+    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+  }
+
+  function say(text) {
+    msgEl.textContent = text;
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
+  }
+
+  // ---------- sand ----------
+  // A grain crossing the mouth row lands in whichever glass is under it.
+  function catchAt(cx, t) {
+    const x = cx * CELL + CELL / 2;
+    for (const g of glasses) {
+      if (g.gone || Math.abs(x - g.x) > MOUTH_HW) continue;
+      if (g.n >= CAP) { g.over = true; spilled++; return true; }
+      g.n++;
+      if (t) {
+        const c = (g.tags.get(t) || 0) + 1;
+        g.tags.set(t, c);
+        if (c >= SLIDE_N) unlock('one-knock');
+      }
+      return true;
+    }
+    return false;
+  }
+  function spill(cx) {
+    spilled++;
+    if (puffs.length < 60 && Math.random() < 0.3) puffs.push({ x: cx * CELL + 2, y: BELT_ROW * CELL, t: 0 });
+  }
+  function isFree(cx, cy) { return cx >= 0 && cx < GW && grid[idx(cx, cy)] === EMPTY; }
+  function moveData(i, j) {
+    grid[j] = grid[i]; tone[j] = tone[i]; rest[j] = 0; vy[j] = vy[i]; vx[j] = vx[i]; tag[j] = tag[i];
+    stamp[j] = tick;
+    grid[i] = EMPTY; vx[i] = 0; vy[i] = 0; tag[i] = 0; rest[i] = 0;
+  }
+  function removeGrain(i) { grid[i] = EMPTY; vx[i] = 0; vy[i] = 0; tag[i] = 0; rest[i] = 0; }
+
+  // Moves grain i at (x, y); returns false if it left the grid.
+  function updateGrain(x, y, i) {
+    let cx = x, cy = y, moved = false;
+    // Fall.
+    const n = Math.max(1, vy[i] | 0);
+    for (let s = 0; s < n; s++) {
+      const ny = cy + 1;
+      if (ny >= BELT_ROW) { spill(cx); removeGrain(i); return false; }
+      if (ny === MOUTH_ROW && catchAt(cx, tag[i])) { removeGrain(i); return false; }
+      if (grid[idx(cx, ny)] !== EMPTY) break;
+      cy = ny; moved = true;
+    }
+    if (moved) {
+      vy[i] = Math.min(VMAX, Math.max(1, vy[i]) + GRAV);
+      // A shoved grain drifts sideways as it falls.
+      if (Math.abs(vx[i]) >= 1) { const d = Math.sign(vx[i]); if (isFree(cx + d, cy)) cx += d; vx[i] *= AIR_DRAG; }
+    } else {
+      vy[i] = 1;
+      // Slide diagonally off a slope (loose grains only), the way it's being shoved first.
+      if (grid[i] === LOOSE) {
+        const d0 = vx[i] > 0.5 ? 1 : vx[i] < -0.5 ? -1 : (Math.random() < 0.5 ? 1 : -1);
+        for (const d of [d0, -d0]) {
+          const nx = cx + d, ny = cy + 1;
+          if (nx < 0 || nx >= GW) continue;
+          if (ny >= BELT_ROW) { spill(nx); removeGrain(i); return false; }
+          if (ny === MOUTH_ROW && grid[idx(nx, cy)] === EMPTY && catchAt(nx, tag[i])) { removeGrain(i); return false; }
+          if (grid[idx(nx, ny)] === EMPTY && grid[idx(nx, cy)] === EMPTY) { cx = nx; cy = ny; moved = true; break; }
+        }
+      }
+      // Shoved sideways along whatever it's resting on.
+      if (!moved && Math.abs(vx[i]) >= 1) {
+        const d = Math.sign(vx[i]);
+        for (let s = 0; s < Math.floor(Math.abs(vx[i])); s++) {
+          if (!isFree(cx + d, cy)) {
+            // Blocked by sand: the push carries on through it.
+            const j = idx(cx + d, cy);
+            if (cx + d >= 0 && cx + d < GW && (grid[j] === LOOSE || grid[j] === PACKED) && Math.abs(vx[j]) < Math.abs(vx[i]) * PUSH_KEEP) {
+              grid[j] = LOOSE; vx[j] = vx[i] * PUSH_KEEP; tag[j] = tag[i]; rest[j] = 0;
+            }
+            break;
+          }
+          cx += d; moved = true;
+        }
+        // A landslide: shoved grains shake packed neighbors loose.
+        if (moved) for (const [ax, ay] of [[d, 0], [0, -1], [d, -1], [-d, -1]]) {
+          const nx = cx + ax, ny = cy + ay;
+          if (nx < 0 || nx >= GW || ny < 0) continue;
+          const j = idx(nx, ny);
+          if (grid[j] === PACKED && Math.random() < AVAL_P) { grid[j] = LOOSE; vx[j] = vx[i] * 0.8; tag[j] = tag[i]; rest[j] = 0; }
+        }
+      }
+    }
+    if (vx[i] !== 0) {
+      const s = Math.sign(vx[i]);
+      vx[i] -= s * KNOCK_FRICT;
+      if (Math.sign(vx[i]) !== s) vx[i] = 0;
+    }
+    if (moved) {
+      moveData(i, idx(cx, cy));
+      return true;
+    }
+    stamp[i] = tick;
+    if (rest[i] < 255) rest[i]++;
+    if (grid[i] === LOOSE && rest[i] >= PACK_STEPS && Math.abs(vx[i]) < 0.5) { grid[i] = PACKED; vx[i] = 0; }
+    return true;
+  }
+
+  function updateSand() {
+    tick = (tick + 1) & 0xffff;
+    if (tick === 0) { stamp.fill(0); tick = 1; }
+    let packed = 0;
+    for (let y = BELT_ROW - 1; y >= 0; y--) {
+      const ltr = ((y + tick) & 1) === 0;
+      for (let k = 0; k < GW; k++) {
+        const x = ltr ? k : GW - 1 - k, i = y * GW + x, s = grid[i];
+        if (s !== LOOSE && s !== PACKED) continue;
+        if (stamp[i] === tick) continue;
+        if (s === PACKED) {
+          // Packed sand holds its slope but still falls if nothing is under it.
+          if (y + 1 < BELT_ROW && grid[i + GW] !== EMPTY) { packed++; continue; }
+          grid[i] = LOOSE;
+        }
+        updateGrain(x, y, i);
+      }
+    }
+    packedCount = packed;
+  }
+
+  function pour(dt) {
+    if (!pouring || hopper <= 0) { pourAcc = 0; return; }
+    pourAcc += POUR_RATE * dt;
+    const c = Math.floor(spoutX / CELL);
+    while (pourAcc >= 1 && hopper > 0) {
+      pourAcc -= 1;
+      const cx = Math.max(0, Math.min(GW - 1, c + ri(-1, 1))), i = idx(cx, 0);
+      if (grid[i] !== EMPTY) continue;
+      grid[i] = LOOSE; tone[i] = ri(0, 3); vy[i] = 1; vx[i] = 0; tag[i] = 0; rest[i] = 0; stamp[i] = tick;
+      hopper--; poured++;
+    }
+    if (hopper <= 0) say('The hopper is empty.');
+    else if (hopper < HOPPER * 0.15 && !lowSandSaid) { lowSandSaid = true; say('Hopper running low.'); }
+  }
+
+  // Shakes every grain near (x, y) loose and shoves it along (dx, dy).
+  function knock(x, y, dx, dy) {
+    if (knockCool > 0 || state !== 'playing') return 0;
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len; dy /= len;
+    const r = KNOCK_R / CELL, c0 = Math.floor(x / CELL), r0 = Math.floor(y / CELL);
+    const serial = knockSerial + 1;
+    let n = 0;
+    for (let cy = Math.max(0, Math.floor(r0 - r)); cy <= Math.min(BELT_ROW - 1, Math.ceil(r0 + r)); cy++) {
+      for (let cx = Math.max(0, Math.floor(c0 - r)); cx <= Math.min(GW - 1, Math.ceil(c0 + r)); cx++) {
+        if ((cx - c0) ** 2 + (cy - r0) ** 2 > r * r) continue;
+        const i = idx(cx, cy);
+        if (grid[i] !== LOOSE && grid[i] !== PACKED) continue;
+        grid[i] = LOOSE; rest[i] = 0; tag[i] = serial;
+        vx[i] = Math.abs(dx) > 0.3
+          ? dx * KNOCK_V * (0.8 + Math.random() * 0.4)
+          : (Math.random() < 0.5 ? -1 : 1) * KNOCK_V * 0.6;
+        n++;
+      }
+    }
+    lastKnock = { x, y, dx, dy, t: 0, hit: n > 0 };
+    if (n) { knockSerial = serial; knockCool = KNOCK_COOL; knocks++; }
+    return n;
+  }
+
+  function step(dt) {
+    elapsed += dt;
+    if (knockCool > 0) knockCool = Math.max(0, knockCool - dt);
+    pour(dt);
+    updateSand();
+
+    while (nextGlass < GLASSES && elapsed >= FIRST + nextGlass * SPACING) {
+      glasses.push({ id: nextGlass++, x: -MOUTH_HW - 4, n: 0, over: false, gone: false, tags: new Map(), fade: 0 });
+    }
+    for (const g of glasses) {
+      g.x += BELT_V * dt;
+      if (g.gone) { g.fade += dt; continue; }
+      if (g.x - MOUTH_HW > W) {
+        g.gone = true;
+        if (g.n >= LINE) {
+          filled++;
+          unlock('first-delivery');
+          if (!g.over && g.n <= LINE + BRIM_TOL) unlock('brim');
+        } else {
+          missed++;
+          say(missed < LOSE_AT ? `An empty glass! ${LOSE_AT - missed} more and the order fails.` : '');
+        }
+      }
+    }
+    glasses = glasses.filter(g => !g.gone || g.fade < 2);
+    if (packedCount >= STOCK_N) unlock('stockpile');
+    for (const p of puffs) p.t += dt;
+    for (let k = puffs.length - 1; k >= 0; k--) if (puffs[k].t > 0.6) puffs.splice(k, 1);
+    if (lastKnock) lastKnock.t += dt;
+
+    if (missed >= LOSE_AT) { endGame('lost'); return; }
+    if (nextGlass === GLASSES && glasses.every(g => g.gone)) {
+      if (filled === GLASSES) unlock('full-order');
+      if (poured > 0 && spilled / poured < CLEAN_MAX) unlock('clean-floor');
+      endGame('won');
+    }
+  }
+
+  // ---------- drawing ----------
+  const sandImg = document.createElement('canvas');
+  sandImg.width = GW; sandImg.height = GH;
+  const sctx = sandImg.getContext('2d');
+  const img = sctx.createImageData(GW, GH);
+  const px = new Uint32Array(img.data.buffer);
+  function rgba(r, g, b) { return (255 << 24) | (b << 16) | (g << 8) | r; }
+  const TONES = [[232, 196, 124], [218, 174, 98], [240, 210, 148], [206, 160, 88]];
+  const LOOSE_C = TONES.map(([r, g, b]) => rgba(r, g, b));
+  const PACKED_C = TONES.map(([r, g, b]) => rgba(r * 0.78 | 0, g * 0.74 | 0, b * 0.7 | 0));
+  const WALL_TOP = rgba(196, 156, 86), WALL_C = rgba(134, 100, 52);
+
+  function drawGlass(g) {
+    const top = MOUTH_ROW * CELL, bot = BELT_ROW * CELL, x = g.x;
+    ctx.save();
+    ctx.globalAlpha = g.gone ? Math.max(0, 1 - g.fade * 2) : 1;
+    // Hourglass: a wide funnel mouth, a narrow waist, a round bulb.
+    const path = new Path2D();
+    path.moveTo(x - MOUTH_HW, top);
+    path.lineTo(x + MOUTH_HW, top);
+    path.bezierCurveTo(x + MOUTH_HW - 2, top + 16, x + 4, top + 18, x + 4, top + 26);
+    path.bezierCurveTo(x + 4, top + 32, x + 16, top + 36, x + 16, bot - 12);
+    path.quadraticCurveTo(x + 16, bot - 2, x + 6, bot - 2);
+    path.lineTo(x - 6, bot - 2);
+    path.quadraticCurveTo(x - 16, bot - 2, x - 16, bot - 12);
+    path.bezierCurveTo(x - 16, top + 36, x - 4, top + 32, x - 4, top + 26);
+    path.bezierCurveTo(x - 4, top + 18, x - MOUTH_HW + 2, top + 16, x - MOUTH_HW, top);
+    path.closePath();
+    ctx.fillStyle = 'rgba(200,225,240,0.12)';
+    ctx.fill(path);
+    // Sand fills from the bottom; the line mark shows where "filled" is.
+    const hTot = bot - 2 - top, level = bot - 2 - hTot * (g.n / CAP), lineY = bot - 2 - hTot * (LINE / CAP);
+    ctx.save();
+    ctx.clip(path);
+    ctx.fillStyle = '#dcb06a';
+    ctx.fillRect(x - 20, level, 40, bot - level);
+    ctx.restore();
+    const done = g.n >= LINE;
+    ctx.strokeStyle = done ? '#ffd873' : (g.gone ? '#ff7a6a' : 'rgba(220,235,245,0.8)');
+    ctx.lineWidth = done ? 2 : 1.4;
+    ctx.stroke(path);
+    ctx.strokeStyle = done ? 'rgba(255,216,115,0.9)' : 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x - 20, lineY); ctx.lineTo(x - 13, lineY); ctx.moveTo(x + 13, lineY); ctx.lineTo(x + 20, lineY); ctx.stroke();
+    // Brass caps once it's filled.
+    if (done) {
+      ctx.fillStyle = '#b8883e';
+      ctx.fillRect(x - MOUTH_HW - 2, top - 3, MOUTH_HW * 2 + 4, 3);
+      ctx.fillRect(x - 18, bot - 3, 36, 3);
+    }
+    ctx.restore();
+  }
+
+  function draw() {
+    const k = canvas.width / W;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    // Dusky workshop wall.
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#3a2530');
+    bg.addColorStop(0.7, '#4b3033');
+    bg.addColorStop(1, '#2a1c1e');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    for (let i = 0; i < N; i++) {
+      const s = grid[i];
+      px[i] = s === EMPTY ? 0 : s === LOOSE ? LOOSE_C[tone[i]] : s === PACKED ? PACKED_C[tone[i]]
+        : (i >= GW && grid[i - GW] === WALL ? WALL_C : WALL_TOP);
+    }
+    sctx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sandImg, 0, 0, W, H);
+
+    // The belt, rollers ticking along.
+    const by = BELT_ROW * CELL;
+    ctx.fillStyle = '#231718';
+    ctx.fillRect(0, by, W, H - by);
+    ctx.fillStyle = '#4a3a36';
+    ctx.fillRect(0, by, W, 8);
+    ctx.fillStyle = '#6e5a50';
+    const off = (elapsed * BELT_V) % 20;
+    for (let x = -20 + off; x < W; x += 20) ctx.fillRect(x, by + 2, 8, 2);
+    for (let x = 10; x < W; x += 40) {
+      ctx.fillStyle = '#5a4842';
+      ctx.beginPath(); ctx.arc(x, by + 16, 6, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const g of glasses) drawGlass(g);
+
+    // Dust where sand hit the belt.
+    for (const p of puffs) {
+      ctx.fillStyle = `rgba(230,200,150,${0.5 * (1 - p.t / 0.6)})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y - p.t * 10, 2 + p.t * 6, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // The spout, while you pour.
+    if (pouring && state === 'playing') {
+      ctx.fillStyle = hopper > 0 ? '#c9974a' : '#6d5a48';
+      ctx.beginPath();
+      ctx.moveTo(spoutX - 12, 0); ctx.lineTo(spoutX + 12, 0); ctx.lineTo(spoutX + 3, 10); ctx.lineTo(spoutX - 3, 10);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // The last knock: a swoosh arrow that fades.
+    if (lastKnock && lastKnock.t < 0.5) {
+      const a = 1 - lastKnock.t / 0.5, L = lastKnock;
+      ctx.strokeStyle = L.hit ? `rgba(170,215,245,${a})` : `rgba(255,255,255,${0.4 * a})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(L.x, L.y, KNOCK_R * (0.7 + 0.5 * (1 - a)), 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(L.x, L.y); ctx.lineTo(L.x + L.dx * 30, L.y + L.dy * 30); ctx.stroke();
+    }
+
+    // Hopper gauge (top left) and the order (top right).
+    ctx.fillStyle = 'rgba(20,12,14,0.6)';
+    ctx.fillRect(8, 8, 12, 60);
+    ctx.fillStyle = '#e0b25c';
+    const hh = 56 * hopper / HOPPER;
+    ctx.fillRect(10, 66 - hh, 8, hh);
+    for (let k2 = 0; k2 < GLASSES; k2++) {
+      const g = glasses.find(q => q.id === k2);
+      const x = W - 12 - (GLASSES - 1 - k2) * 12, y = 14;
+      let col = 'rgba(255,255,255,0.25)';
+      if (g && g.gone) col = g.n >= LINE ? '#ffd873' : '#ff7a6a';
+      else if (g) col = 'rgba(220,235,245,0.8)';
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    const fEl = document.getElementById('hudFilled'), mEl = document.getElementById('hudMissed');
+    fEl.textContent = `${filled}/${GLASSES}`;
+    mEl.textContent = `${missed}/${LOSE_AT}`;
+    mEl.classList.toggle('hurt', missed > 0);
+    document.getElementById('sandFill').style.width = `${(hopper / HOPPER) * 100}%`;
+    document.getElementById('knockFill').style.width = `${(1 - knockCool / KNOCK_COOL) * 100}%`;
+  }
+
+  // ---------- input ----------
+  // A quick swipe is a knock at the point you started; otherwise, after
+  // FLICK_MS, holding pours from the top at your finger's x (slide to move it).
+  // Only the first pointer down counts.
+  let mode = null, activeId = null, startPt = null, lastPt = null, downAt = 0;
+
+  function toWorks(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return [(evt.clientX - rect.left) * W / rect.width, (evt.clientY - rect.top) * H / rect.height];
+  }
+  function endGesture() { mode = null; activeId = null; pouring = false; }
+  function startPour() { mode = 'pour'; pouring = true; spoutX = lastPt[0]; }
+
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    if (state !== 'playing' || paused || mode) return;
+    canvas.setPointerCapture(evt.pointerId);
+    activeId = evt.pointerId;
+    mode = 'pending';
+    startPt = lastPt = toWorks(evt);
+    downAt = performance.now();
+  });
+
+  canvas.addEventListener('pointermove', evt => {
+    if (!mode || evt.pointerId !== activeId || state !== 'playing' || paused) return;
+    lastPt = toWorks(evt);
+    if (mode === 'pending') {
+      const dx = lastPt[0] - startPt[0], dy = lastPt[1] - startPt[1];
+      if (performance.now() - downAt <= FLICK_MS) {
+        if (Math.hypot(dx, dy) >= FLICK_PX) { knock(startPt[0], startPt[1], dx, dy); mode = 'done'; }
+      } else startPour();
+    } else if (mode === 'pour') spoutX = Math.max(0, Math.min(W - 1, lastPt[0]));
+  });
+
+  canvas.addEventListener('pointerup', evt => { if (evt.pointerId === activeId) endGesture(); });
+  canvas.addEventListener('pointercancel', evt => { if (evt.pointerId === activeId) endGesture(); });
+
+  document.getElementById('resetBtn').addEventListener('click', newRound);
+  playAgainBtn.addEventListener('click', newRound);
+
+  // ---------- loop ----------
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    if (mode === 'pending' && now - downAt > FLICK_MS && state === 'playing' && !paused) startPour();
+    acc += Math.min((now - last) / 1000, 0.1);
+    last = now;
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) step(STEP);
+      acc -= STEP;
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  newRound();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

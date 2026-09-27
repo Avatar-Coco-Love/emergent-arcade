@@ -113,5 +113,20 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine };
+  function hourglassDelivery() {
+    let body = `<rect width="72" height="72" fill="#3f2830"/>`;
+    // A packed pile on a brass ledge, sliding off its end into a glass.
+    body += `<path d="M 4 36 L 14 26 L 22 26 L 34 36 Z" fill="#b98f55"/><path d="M 22 26 L 34 36 L 38 36 Z" fill="#e8c47c"/>`;
+    body += `<rect x="2" y="36" width="36" height="4" fill="#c49c56"/>`;
+    for (const [x, y] of [[39, 38], [41, 41], [40, 44], [42, 39], [41, 47], [43, 52]]) {
+      body += `<rect x="${x}" y="${y}" width="2.5" height="2.5" fill="#e8c47c"/>`;
+    }
+    // The hourglass on the belt, half full.
+    body += `<path d="M 32 47 H 52 Q 51 56 43.5 58 Q 51 60 52 69 H 32 Q 33 60 40.5 58 Q 33 56 32 47 Z" fill="rgba(200,225,240,0.15)" stroke="#dcebf5" stroke-width="1.2"/>`;
+    body += `<path d="M 34 69 Q 35 63 42 61.5 Q 49 63 50 69 Z" fill="#dcb06a"/>`;
+    body += `<rect x="0" y="69" width="72" height="3" fill="#5a4842"/>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery };
 })();
