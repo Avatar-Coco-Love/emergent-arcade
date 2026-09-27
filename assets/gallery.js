@@ -13,6 +13,7 @@
   const submitBtn = $("submitBtn");
   const feedbackStatus = $("feedbackStatus");
 
+  const telemetry = window.ArcadeTelemetry;
   const PANEL_TITLES = { about: "How to play", achievements: "Achievements", rate: "Rate this game" };
 
   let games = [];
@@ -21,6 +22,7 @@
   let rating = 0;
   let toastTimer = null;
 
+  if (window.ArcadeTelemetry.enabled) $("telemetryNote").hidden = false;
   if (config.repo) $("repoLink").href = `https://github.com/${config.repo}`;
 
   function el(tag, props, children) {
@@ -101,7 +103,10 @@
     if (frame.getAttribute("src") !== src) frame.src = src;
     renderAbout();
     renderAchievements();
-    if (switching) resetFeedback();
+    if (switching) {
+      resetFeedback();
+      telemetry.start(game);
+    }
     document.body.classList.add("playing");
     cabinet.hidden = false;
     galleryView.hidden = true;
@@ -117,6 +122,7 @@
   }
 
   function closeCabinet() {
+    telemetry.end();
     current = null;
     document.title = "Emergent Arcade";
     frame.removeAttribute("src"); // stop the running game
@@ -163,6 +169,7 @@
     panel.hidden = false;
     panel.querySelector(".panel-body").scrollTop = 0;
     tellGame("arcade:pause");
+    telemetry.pause();
   }
 
   function closePanel() {
@@ -171,6 +178,7 @@
     panel.hidden = true;
     syncToolbar();
     tellGame("arcade:resume");
+    telemetry.resume();
     frame.focus();
   }
 
@@ -268,8 +276,11 @@
   window.addEventListener("message", (evt) => {
     const data = evt.data;
     if (!current || evt.source !== frame.contentWindow) return;
-    if (!data || data.type !== "arcade:achievement" || data.game !== current.id) return;
+    if (!data || data.game !== current.id) return;
+    if (data.type === "arcade:result") telemetry.result(data);
+    if (data.type !== "arcade:achievement") return;
     if (!window.ArcadeAchievements.unlock(current, data.id)) return;
+    telemetry.achievement(data.id);
     const a = current.achievements.find((x) => x.id === data.id);
     showToast(`🏆 Achievement unlocked: ${a.title}`);
     renderAchievements();
@@ -355,4 +366,15 @@
     });
 
   window.addEventListener("hashchange", route);
+
+  // A hidden tab ends the play session (phones rarely fire unload events);
+  // coming back starts a new one.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") telemetry.end();
+    else if (current) {
+      telemetry.start(current);
+      if (openPanelName) telemetry.pause();
+    }
+  });
+  window.addEventListener("pagehide", () => telemetry.end());
 })();

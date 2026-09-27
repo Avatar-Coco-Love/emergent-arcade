@@ -172,6 +172,15 @@
     }
   }
 
+  // Tell the gallery how a round ended (anonymous play telemetry, see
+  // docs/telemetry.md). time is seconds of unpaused play this round.
+  function report(result) {
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
+        outcome: result === 'won' ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
+    }
+  }
+
   // Scale the sky to the largest 2:3 box that fits the space it's given, and
   // give the canvas one pixel per screen pixel so it stays sharp at any size.
   // Drawing always uses W x H game units (draw() sets the transform).
@@ -235,6 +244,7 @@
 
   function endGame(result) {
     state = result;
+    report(result);
     releaseLure();
     msgEl.textContent = '';
     const title = document.getElementById('endTitle');

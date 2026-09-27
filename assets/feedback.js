@@ -70,5 +70,5 @@ window.ArcadeFeedback = (function () {
     return { via: "github", url: issueUrl(payload) };
   }
 
-  return { submit, MAX_COMMENT };
+  return { submit, clientId, MAX_COMMENT };
 })();

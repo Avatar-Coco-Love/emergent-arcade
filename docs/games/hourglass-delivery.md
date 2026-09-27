@@ -109,3 +109,6 @@ Tuning path:
 ## History
 
 - v1: first version.
+- v2: no gameplay change. Posts `arcade:result` when a round ends, for play
+  telemetry. Bot numbers above still apply; compare humans with
+  `node scripts/fetch-telemetry.mjs --game hourglass-delivery` (see `docs/telemetry.md`).

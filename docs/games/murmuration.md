@@ -60,3 +60,6 @@ Gate 4 spots tried (win @50 s, lure80 vs smart90): (200,420) flat 70/80;
 
 - v1 (PR #8): first version. v2 (PR #9): dusk timer, organic flocking,
   startle rebalance. v3 (PR #10): gate 4 into open sky, dusk 70 → 60 s.
+- v4: no gameplay change. Posts `arcade:result` when a round ends, for play
+  telemetry. Bot numbers above still apply; compare humans with
+  `node scripts/fetch-telemetry.mjs --game murmuration` (see `docs/telemetry.md`).
