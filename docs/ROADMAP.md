@@ -1,11 +1,11 @@
 # Roadmap
 
 Where this project is heading, and why. Written 2026-09-27, about 30 hours
-and 7 games in. Revisit it when a phase's exit condition is met.
+and 6 games in. Revisit it when a phase's exit condition is met.
 
 ## Where we are
 
-- Seven games, 15 merged PRs, and a working pipeline: gallery, cabinet,
+- Six games, 15 merged PRs, and a working pipeline: gallery, cabinet,
   achievements, feedback form, CI validation, Pages deploy.
 - The design rules in `PROJECT_BRIEF.md` (2–3 orthogonal verbs sharing
   state) are the project's identity. They matter more than any one game.
