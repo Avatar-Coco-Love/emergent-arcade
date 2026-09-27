@@ -175,6 +175,68 @@
           "description": "Clear the last gate with under 5 seconds of daylight left."
         }
       ]
+    },
+    {
+      "id": "ant-trails",
+      "title": "Ant Trails",
+      "file": "ant-trails.html",
+      "version": 1,
+      "added": "2026-09-27",
+      "updated": "2026-09-27",
+      "blurb": "Draw scent trails to lead your ants to food. Busy trails grow into highways, and the spider hunts by smell.",
+      "goal": "Carry 60 crumbs into the nest before sundown (90 seconds), without the colony dropping below 8 ants.",
+      "howToPlay": "Ants wander until they smell something. Drag to draw a scent trail (it uses up the scent meter, which refills). Ants follow trails away from the nest, grab a crumb, and walk straight home, laying scent as they go, so busy routes grow into bright highways. Scent fades over time. The spider follows scent too, and moves fastest on the strongest trails. Press and hold to make it rain: rain washes scent away, so you can throw the spider off a trail, but your ants lose that trail as well. Soldiers keep the spider away from the nest, and a new ant hatches for every 10 crumbs.",
+      "mechanics": [
+        {
+          "name": "trail",
+          "verb": "drag",
+          "description": "Drag to lay a scent trail, paid for from a scent meter that refills over time."
+        },
+        {
+          "name": "wash",
+          "verb": "hold",
+          "description": "Press and hold to rain on a spot, washing the scent under it away."
+        }
+      ],
+      "sharedState": "Scent per patch of ground: drawn trails and food-carrying ants add it, rain and time remove it, and both the ants and the spider steer by it (the spider also moves faster on strong scent).",
+      "accent": "#d9a23b",
+      "achievements": [
+        {
+          "id": "first-crumb",
+          "title": "First Crumb",
+          "description": "Bring a crumb home."
+        },
+        {
+          "id": "highway",
+          "title": "Highway",
+          "description": "Have 12 ants marching on strong scent at once."
+        },
+        {
+          "id": "decoy",
+          "title": "Decoy",
+          "description": "Keep the spider on a scent trail for 5 seconds with no ant nearby."
+        },
+        {
+          "id": "rainmaker",
+          "title": "Rainmaker",
+          "description": "Rain on the spider while it's following a trail."
+        },
+        {
+          "id": "long-haul",
+          "title": "Long Haul",
+          "description": "Carry off the whole far pile."
+        },
+        {
+          "id": "untouchable",
+          "title": "Untouchable",
+          "description": "Win without losing an ant."
+        },
+        {
+          "id": "swift",
+          "title": "Swift",
+          "description": "Win with 20 or more seconds of daylight left."
+        }
+      ]
     }
   ]
 }

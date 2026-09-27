@@ -74,5 +74,28 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration };
+  function antTrails() {
+    let body = `<rect width="72" height="72" fill="#7a5a3c"/>`;
+    // A scent highway from the nest up to a food pile.
+    body += `<path d="M 36 64 Q 30 40 52 14" stroke="#ffb454" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.55"/>`;
+    body += `<circle cx="36" cy="64" r="8" fill="#5a3f28"/><circle cx="36" cy="64" r="4" fill="#1c120b"/>`;
+    for (const [x, y] of [[50, 11], [54, 13], [52, 16], [55, 17], [49, 15], [53, 10]]) {
+      body += `<rect x="${x}" y="${y}" width="2.4" height="2.4" fill="#fbf6ea"/>`;
+    }
+    // Ants marching along it.
+    for (let i = 0; i < 6; i++) {
+      const t = 0.12 + i * 0.14, u = 1 - t;
+      const x = u * u * 36 + 2 * u * t * 30 + t * t * 52, y = u * u * 64 + 2 * u * t * 40 + t * t * 14;
+      body += `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="1.8" ry="2.6" fill="#140d08"/>`;
+    }
+    // The spider closing in.
+    body += `<g stroke="#1a0606" stroke-width="1.2">`;
+    for (const a of [-50, -20, 20, 50]) {
+      for (const s of [-1, 1]) body += `<line x1="14" y1="30" x2="${(14 + s * 9 * Math.cos(a * Math.PI / 180)).toFixed(1)}" y2="${(30 + 9 * Math.sin(a * Math.PI / 180)).toFixed(1)}"/>`;
+    }
+    body += `</g><circle cx="14" cy="30" r="4.5" fill="#2a0b0b"/><circle cx="14" cy="30" r="1.3" fill="#ff5d4a"/>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails };
 })();

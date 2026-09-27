@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ant Trails</title>
+<style>
+  :root {
+    --bg: #17110c;
+    --panel: #251b13;
+    --text: #f1e9de;
+    --muted: #b3a491;
+    --accent: #d9a23b;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the ground scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #ground {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    border-radius: 10px;
+  }
+  #msg {
+    position: absolute;
+    top: 10px;
+    left: 8px;
+    right: 8px;
+    margin: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+  }
+  #endCard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(86%, 300px);
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(37, 27, 19, 0.95);
+    border: 1px solid #4a3826;
+    text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #endCard h2.won { color: #f2c46b; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #ddd0bf; font-size: 0.9rem; }
+  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
+  #playAgain:disabled { opacity: 0.4; }
+  .bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bar b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .bar b.late { color: #ffb86b; }
+  #gland {
+    display: inline-block;
+    width: 48px;
+    height: 8px;
+    border-radius: 4px;
+    background: #3a2c1f;
+    vertical-align: middle;
+    overflow: hidden;
+  }
+  #glandFill { display: block; height: 100%; background: var(--accent); }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #4a3826;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <div id="field">
+    <div id="stage">
+      <canvas id="ground" aria-label="Ant Trails ground. Drag to lay a scent trail, hold to wash scent away."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="playAgain">Play again</button>
+      </div>
+    </div>
+  </div>
+  <div class="bar">
+    <span>Crumbs <b id="hudCrumbs"></b></span>
+    <span>Ants <b id="hudAnts"></b></span>
+    <span>Sundown <b id="hudSun"></b></span>
+    <span>Scent <span id="gland"><span id="glandFill"></span></span></span>
+    <button id="resetBtn">New colony</button>
+  </div>
+
+<script>
+(function() {
+  const GAME_ID = 'ant-trails';
+  const W = 400, H = 600;
+  const CELL = 10, GW = W / CELL, GH = H / CELL; // scent grid: 40 x 60 cells
+
+  // Colony and goal
+  const START_ANTS = 22;
+  const GOAL = 60;                 // crumbs home to win...
+  const SUNDOWN = 90;              // ...within this many seconds
+  const MIN_ANTS = 8;              // fewer ants than this and the colony gives up
+  const HATCH_EVERY = 10;          // a new ant hatches for every this many crumbs
+  const SPARE = 20;                // Swift: win with this many seconds left
+  const NEST = { x: 200, y: 555, r: 16 };
+  const PILES = [                  // near and small, middle, far and large
+    { x: 315, y: 420, n: 15 },
+    { x: 85, y: 270, n: 25 },
+    { x: 300, y: 85, n: 40 },
+  ];
+  const FAR = 2;                  // index of the far pile (Long Haul)
+  const PILE_R = 10;               // reach this close to pick up a crumb
+  const SMELL_R = 22;              // searching ants head straight for food this close
+
+  // Scent (the shared state)
+  const EVAP = 0.08;               // scent lost per second (fraction)
+  const DIFFUSE = 0.5;             // how fast scent spreads to neighboring cells
+  const CARRY_LAY = 0.7;           // scent per second a food-carrying ant adds to its cell
+  const DRAW_SCENT = 0.7;          // scent level a drawn trail sets
+  const DRAW_W = 9;                // drawn trail half-width
+  const GLAND_MAX = 100;           // scent you can draw before the gland is empty...
+  const INK_PX = 6;                // ...at one unit per this many pixels of trail
+  const GLAND_REGEN = 7;           // units per second
+  const RAIN_R0 = 22, RAIN_R1 = 48, RAIN_GROW = 0.8; // rain cloud radius grows while held
+  const RAIN_WIPE = 7;             // scent under the rain decays at this rate per second
+
+  // Ants
+  const ANT_SPEED = 36;
+  const FEEL_D = 11, FEEL_A = 0.55; // feeler distance and angle
+  const SCENT_MIN = 0.03;          // ants ignore scent weaker than this
+  const OUT_BIAS = 0.6;            // searching ants prefer the feeler pointing away from the nest
+  const TURN = 6;                  // how hard ants steer toward scent / home / food
+  const WANDER = 5;                // random turning
+  const U_TURN = 0.8;              // chance per second a searcher on scent turns outward again
+
+  // Spider
+  const SP_START = { x: 40, y: 60 };
+  const SP_BASE = 20, SP_SCENT = 55; // speed on bare ground, plus this much on full scent
+  const SP_FEEL_D = 24, SP_FEEL_A = 0.7;
+  const SP_MIN = 0.05;             // the spider notices scent stronger than this
+  const SP_TURN = 3.5;
+  const SP_CATCH = 8;              // eats any ant this close...
+  const EAT_PAUSE = 1.5;           // ...then sits still this long
+  const NEST_GUARD = 80;           // soldiers turn the spider away this close to the nest
+
+  // Achievements
+  const HIGHWAY_N = 12, HIGHWAY_SCENT = 0.5;
+  const DECOY_T = 5, DECOY_R = 80;
+  const RAIN_CHASE_T = 1;
+
+  const HOLD_MS = 150;             // a still press this long starts the rain
+  const MOVE_PX = 10;              // moving further than this first draws a trail
+  const END_INPUT_LOCK_MS = 1000;
+  const STEP = 1 / 60;
+
+  const canvas = document.getElementById('ground');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  function unlock(id) {
+    roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Scale the ground to the largest 2:3 box that fits, one canvas pixel per
+  // screen pixel. Drawing always uses W x H game units.
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitGround() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(80, Math.floor(W * scale));
+    const h = Math.max(120, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitGround).observe(field);
+  window.addEventListener('resize', fitGround);
+  fitGround();
+
+  // The gallery pauses the game while one of its panels covers it.
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; endGesture(); }
+    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+  });
+
+  const endCard = document.getElementById('endCard');
+  const playAgainBtn = document.getElementById('playAgain');
+  const hudSun = document.getElementById('hudSun');
+
+  let scent = new Float32Array(GW * GH), tmp = new Float32Array(GW * GH);
+  let ants, piles, spider, delivered, lost, hatched, gland, elapsed, state, rain, msgTimer;
+  const roundEarned = new Set();
+
+  function newAnt(outward) {
+    const h = outward ? -Math.PI / 2 + (Math.random() - 0.5) * 2.6 : Math.random() * Math.PI * 2;
+    return {
+      x: NEST.x + Math.cos(h) * 6, y: NEST.y + Math.sin(h) * 6, h,
+      carry: false, sp: ANT_SPEED * (0.9 + Math.random() * 0.2), leg: Math.random() * 6,
+    };
+  }
+
+  function newColony() {
+    scent.fill(0);
+    ants = [];
+    for (let i = 0; i < START_ANTS; i++) ants.push(newAnt(true));
+    piles = PILES.map(p => ({ x: p.x, y: p.y, n: p.n, start: p.n }));
+    spider = { x: SP_START.x, y: SP_START.y, h: Math.PI / 4, eat: 0, followT: 0, decoyT: 0, leg: 0 };
+    delivered = 0; lost = 0; hatched = 0;
+    gland = GLAND_MAX;
+    elapsed = 0;
+    rain = null;
+    roundEarned.clear();
+    state = 'playing';
+    endCard.hidden = true;
+    say(`Bring ${GOAL} crumbs home before sundown.`);
+  }
+
+  function endGame(result, why) {
+    state = result;
+    endGesture();
+    msgEl.textContent = '';
+    const title = document.getElementById('endTitle');
+    title.className = result;
+    title.textContent = result === 'won' ? 'Pantry full!' : why === 'sun' ? 'The sun went down' :
+      why === 'ants' ? 'The colony gave up' : 'Not enough food left';
+    document.getElementById('endDetail').textContent = result === 'won'
+      ? `${delivered} crumbs home in ${clock(elapsed)}, ${clock(SUNDOWN - elapsed)} before dark. ${lost} ant${lost === 1 ? '' : 's'} lost.`
+      : why === 'sun'
+        ? `${delivered} of ${GOAL} crumbs made it home.`
+        : why === 'ants'
+          ? `The spider got ${lost} ants; only ${ants.length} left.`
+          : `The spider made ants drop too many crumbs to reach ${GOAL}.`;
+    const n = roundEarned.size;
+    document.getElementById('endAch').textContent = n
+      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
+      : '';
+    playAgainBtn.disabled = true;
+    endCard.hidden = false;
+    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+  }
+
+  function clock(sec) {
+    const t = Math.max(0, Math.ceil(sec));
+    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+  }
+
+  function say(text) {
+    msgEl.textContent = text;
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
+  }
+
+  // ---------- scent ----------
+  function cellOf(x, y) {
+    const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL);
+    if (cx < 0 || cy < 0 || cx >= GW || cy >= GH) return -1;
+    return cy * GW + cx;
+  }
+  function scentAt(x, y) {
+    const i = cellOf(x, y);
+    return i < 0 ? 0 : scent[i];
+  }
+
+  // Paint a trail segment, paid for from the scent gland. Returns pixels drawn.
+  function layTrail(x0, y0, x1, y1) {
+    let len = Math.hypot(x1 - x0, y1 - y0);
+    if (len < 0.01) return 0;
+    const afford = gland * INK_PX;
+    if (afford < 1) return 0;
+    if (len > afford) {
+      const k = afford / len;
+      x1 = x0 + (x1 - x0) * k; y1 = y0 + (y1 - y0) * k;
+      len = afford;
+    }
+    gland = Math.max(0, gland - len / INK_PX);
+    const steps = Math.ceil(len / 3);
+    for (let s = 0; s <= steps; s++) {
+      const px = x0 + (x1 - x0) * s / steps, py = y0 + (y1 - y0) * s / steps;
+      const c0 = Math.floor((px - DRAW_W) / CELL), c1 = Math.floor((px + DRAW_W) / CELL);
+      const r0 = Math.floor((py - DRAW_W) / CELL), r1 = Math.floor((py + DRAW_W) / CELL);
+      for (let cy = Math.max(0, r0); cy <= Math.min(GH - 1, r1); cy++) {
+        for (let cx = Math.max(0, c0); cx <= Math.min(GW - 1, c1); cx++) {
+          const d = Math.hypot((cx + 0.5) * CELL - px, (cy + 0.5) * CELL - py);
+          if (d > DRAW_W) continue;
+          const v = DRAW_SCENT * (1 - 0.4 * d / DRAW_W);
+          const i = cy * GW + cx;
+          if (scent[i] < v) scent[i] = v;
+        }
+      }
+    }
+    return len;
+  }
+
+  function rainRadius() { return RAIN_R0 + (RAIN_R1 - RAIN_R0) * Math.min(1, rain.t / RAIN_GROW); }
+
+  function stepScent(dt) {
+    if (rain) {
+      rain.t += dt;
+      const r = rainRadius(), k = Math.exp(-RAIN_WIPE * dt);
+      const c0 = Math.max(0, Math.floor((rain.x - r) / CELL)), c1 = Math.min(GW - 1, Math.floor((rain.x + r) / CELL));
+      const r0 = Math.max(0, Math.floor((rain.y - r) / CELL)), r1 = Math.min(GH - 1, Math.floor((rain.y + r) / CELL));
+      for (let cy = r0; cy <= r1; cy++) {
+        for (let cx = c0; cx <= c1; cx++) {
+          if (Math.hypot((cx + 0.5) * CELL - rain.x, (cy + 0.5) * CELL - rain.y) <= r) scent[cy * GW + cx] *= k;
+        }
+      }
+    }
+    const keep = Math.exp(-EVAP * dt), mix = DIFFUSE * dt;
+    for (let cy = 0; cy < GH; cy++) {
+      for (let cx = 0; cx < GW; cx++) {
+        const i = cy * GW + cx, s = scent[i];
+        const l = cx > 0 ? scent[i - 1] : s, r = cx < GW - 1 ? scent[i + 1] : s;
+        const u = cy > 0 ? scent[i - GW] : s, d = cy < GH - 1 ? scent[i + GW] : s;
+        const v = (s + mix * ((l + r + u + d) / 4 - s)) * keep;
+        tmp[i] = v < 0.002 ? 0 : v;
+      }
+    }
+    [scent, tmp] = [tmp, scent];
+  }
+
+  // ---------- creatures ----------
+  function angleDiff(a, b) {
+    let d = a - b;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return d;
+  }
+  function steerTo(obj, target, rate, dt) {
+    const d = angleDiff(target, obj.h);
+    obj.h += Math.max(-rate * dt, Math.min(rate * dt, d));
+  }
+  function bounce(obj, m) {
+    if (obj.x < m) { obj.x = m; obj.h = Math.PI - obj.h; }
+    if (obj.x > W - m) { obj.x = W - m; obj.h = Math.PI - obj.h; }
+    if (obj.y < m) { obj.y = m; obj.h = -obj.h; }
+    if (obj.y > H - m) { obj.y = H - m; obj.h = -obj.h; }
+  }
+
+  function stepAnt(a, dt) {
+    a.h += (Math.random() - 0.5) * WANDER * dt * 2;
+    if (a.carry) {
+      // Carriers walk home by dead reckoning, laying scent as they go.
+      steerTo(a, Math.atan2(NEST.y - a.y, NEST.x - a.x), TURN, dt);
+      const i = cellOf(a.x, a.y);
+      if (i >= 0) scent[i] = Math.min(1, scent[i] + CARRY_LAY * dt);
+      if (Math.hypot(a.x - NEST.x, a.y - NEST.y) < NEST.r) {
+        a.carry = false;
+        a.h += Math.PI + (Math.random() - 0.5) * 1.5;
+        delivered++;
+        if (delivered === 1) unlock('first-crumb');
+        if (delivered % HATCH_EVERY === 0) { ants.push(newAnt(true)); hatched++; }
+      }
+    } else {
+      // Food close by? Go straight for it.
+      let food = null, fd = SMELL_R;
+      for (const p of piles) {
+        if (!p.n) continue;
+        const d = Math.hypot(p.x - a.x, p.y - a.y);
+        if (d < fd) { fd = d; food = p; }
+      }
+      if (food) {
+        steerTo(a, Math.atan2(food.y - a.y, food.x - a.x), TURN * 2, dt);
+        if (fd < PILE_R) {
+          food.n--;
+          a.carry = true;
+          a.h += Math.PI;
+          if (food === piles[FAR] && !food.n) unlock('long-haul');
+        }
+      } else {
+        // Follow scent with three feelers, preferring the way out from the nest.
+        let best = null, bestScore = 0, outAhead = 0;
+        for (const fa of [-FEEL_A, 0, FEEL_A]) {
+          const hh = a.h + fa;
+          const px = a.x + Math.cos(hh) * FEEL_D, py = a.y + Math.sin(hh) * FEEL_D;
+          const s = scentAt(px, py);
+          const nd = Math.hypot(px - NEST.x, py - NEST.y) || 1;
+          const out = (Math.cos(hh) * (px - NEST.x) + Math.sin(hh) * (py - NEST.y)) / nd;
+          if (fa === 0) outAhead = out;
+          if (s < SCENT_MIN) continue;
+          const score = s * (1 + OUT_BIAS * out);
+          if (score > bestScore) { bestScore = score; best = fa; }
+        }
+        if (best !== null) {
+          steerTo(a, a.h + best, TURN, dt);
+          if (outAhead < -0.5 && Math.random() < U_TURN * dt) a.h += Math.PI;
+        }
+      }
+    }
+    a.x += Math.cos(a.h) * a.sp * dt;
+    a.y += Math.sin(a.h) * a.sp * dt;
+    a.leg += dt * a.sp * 0.5;
+    bounce(a, 4);
+  }
+
+  function stepSpider(dt) {
+    const s = spider;
+    s.leg += dt * 8;
+    if (s.eat > 0) { s.eat -= dt; return; }
+    let best = null, bestS = SP_MIN;
+    for (const fa of [-SP_FEEL_A, 0, SP_FEEL_A]) {
+      const v = scentAt(s.x + Math.cos(s.h + fa) * SP_FEEL_D, s.y + Math.sin(s.h + fa) * SP_FEEL_D);
+      if (v > bestS) { bestS = v; best = fa; }
+    }
+    const under = scentAt(s.x, s.y);
+    const following = best !== null || under > SP_MIN;
+    s.followT = following ? s.followT + dt : 0;
+    if (best !== null) steerTo(s, s.h + best, SP_TURN, dt);
+    else s.h += (Math.random() - 0.5) * 4 * dt * 2;
+    const nd = Math.hypot(s.x - NEST.x, s.y - NEST.y);
+    if (nd < NEST_GUARD) steerTo(s, Math.atan2(s.y - NEST.y, s.x - NEST.x), SP_TURN * 2, dt);
+    const sp = SP_BASE + SP_SCENT * Math.min(1, under);
+    s.x += Math.cos(s.h) * sp * dt;
+    s.y += Math.sin(s.h) * sp * dt;
+    bounce(s, 8);
+
+    // Decoy: the spider stays on a scent trail with no ants anywhere near it.
+    let near = false;
+    for (const a of ants) if (Math.hypot(a.x - s.x, a.y - s.y) < DECOY_R) { near = true; break; }
+    s.decoyT = following && !near ? s.decoyT + dt : 0;
+    if (s.decoyT >= DECOY_T) unlock('decoy');
+
+    for (let i = ants.length - 1; i >= 0; i--) {
+      const a = ants[i];
+      if (Math.hypot(a.x - s.x, a.y - s.y) < SP_CATCH) {
+        ants.splice(i, 1);
+        lost++;
+        s.eat = EAT_PAUSE;
+        say(a.carry ? 'The spider got an ant, and its crumb.' : 'The spider got an ant!');
+        break;
+      }
+    }
+  }
+
+  function step(dt) {
+    elapsed += dt;
+    gland = Math.min(GLAND_MAX, gland + GLAND_REGEN * dt);
+    if (rain && spider.followT >= RAIN_CHASE_T && Math.hypot(spider.x - rain.x, spider.y - rain.y) < rainRadius()) unlock('rainmaker');
+    stepScent(dt);
+    for (const a of ants) stepAnt(a, dt);
+    stepSpider(dt);
+
+    let onTrail = 0;
+    for (const a of ants) {
+      if (scentAt(a.x, a.y) >= HIGHWAY_SCENT && Math.hypot(a.x - NEST.x, a.y - NEST.y) > 50) onTrail++;
+    }
+    if (onTrail >= HIGHWAY_N) unlock('highway');
+
+    if (delivered >= GOAL) {
+      if (lost === 0) unlock('untouchable');
+      if (SUNDOWN - elapsed >= SPARE) unlock('swift');
+      endGame('won');
+      return;
+    }
+    const reachable = delivered + ants.filter(a => a.carry).length + piles.reduce((n, p) => n + p.n, 0);
+    if (reachable < GOAL) endGame('lost', 'food');
+    else if (ants.length < MIN_ANTS) endGame('lost', 'ants');
+    else if (elapsed >= SUNDOWN) endGame('lost', 'sun');
+  }
+
+  // ---------- drawing ----------
+  // Speckled soil, drawn once.
+  const soil = document.createElement('canvas');
+  soil.width = W; soil.height = H;
+  (function() {
+    const g = soil.getContext('2d');
+    g.fillStyle = '#7a5a3c';
+    g.fillRect(0, 0, W, H);
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 900; i++) {
+      const light = rnd() < 0.5;
+      g.fillStyle = light ? 'rgba(170,135,96,0.35)' : 'rgba(58,40,24,0.35)';
+      g.beginPath();
+      g.arc(rnd() * W, rnd() * H, 0.6 + rnd() * 1.8, 0, Math.PI * 2);
+      g.fill();
+    }
+  })();
+  const glow = document.createElement('canvas');
+  glow.width = GW; glow.height = GH;
+  const glowCtx = glow.getContext('2d');
+  const glowImg = glowCtx.createImageData(GW, GH);
+
+  function drawAnt(a) {
+    ctx.save();
+    ctx.translate(a.x, a.y);
+    ctx.rotate(a.h);
+    ctx.strokeStyle = '#140d08';
+    ctx.lineWidth = 0.8;
+    const sw = Math.sin(a.leg) * 1.2;
+    ctx.beginPath();
+    for (const lx of [-1.5, 0, 1.5]) {
+      const k = lx === 0 ? -sw : sw;
+      ctx.moveTo(lx, 0); ctx.lineTo(lx + k, -3.6);
+      ctx.moveTo(lx, 0); ctx.lineTo(lx - k, 3.6);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#140d08';
+    ctx.beginPath(); ctx.ellipse(-3, 0, 2.6, 1.9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, 1.3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(2.4, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+    if (a.carry) {
+      ctx.fillStyle = '#fbf6ea';
+      ctx.fillRect(3.4, -1.3, 2.6, 2.6);
+    }
+    ctx.restore();
+  }
+
+  function drawSpider() {
+    const s = spider;
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.h);
+    ctx.strokeStyle = '#1a0606';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      // Four legs a side, fanning from forward to backward, twitching as it walks.
+      const bx = 1 - i * 1.6, fan = (1.5 - i) * 4.5;
+      const wig = s.eat > 0 ? 0 : Math.sin(s.leg + i * 1.7) * 1.5;
+      for (const side of [-1, 1]) {
+        ctx.moveTo(bx, 0);
+        ctx.lineTo(bx + fan * 0.6 + wig * side, side * 7);
+        ctx.lineTo(bx + fan * 1.3 + wig * side, side * 11.5);
+      }
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#2a0b0b';
+    ctx.beginPath(); ctx.ellipse(-4, 0, 6, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#3d1010';
+    ctx.beginPath(); ctx.arc(3, 0, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ff5d4a';
+    ctx.beginPath(); ctx.arc(-4, 0, 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function draw() {
+    const k = canvas.width / W;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.drawImage(soil, 0, 0);
+
+    // Scent: an amber glow, one pixel per cell, smoothed up to size.
+    const d = glowImg.data;
+    for (let i = 0; i < scent.length; i++) {
+      const s = Math.min(1, scent[i]);
+      d[i * 4] = 255; d[i * 4 + 1] = 196 - 60 * s; d[i * 4 + 2] = 70;
+      d[i * 4 + 3] = Math.round(Math.min(1, s * 1.3) * 200);
+    }
+    glowCtx.putImageData(glowImg, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(glow, 0, 0, W, H);
+
+    // Nest: a dark mound with an entrance.
+    ctx.fillStyle = '#5a3f28';
+    ctx.beginPath(); ctx.arc(NEST.x, NEST.y, NEST.r + 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1c120b';
+    ctx.beginPath(); ctx.arc(NEST.x, NEST.y, NEST.r - 4, 0, Math.PI * 2); ctx.fill();
+
+    // Food piles: a heap of crumbs that shrinks as it's carried off.
+    for (const p of piles) {
+      if (!p.n) continue;
+      ctx.fillStyle = '#fbf6ea';
+      for (let i = 0; i < p.n; i++) {
+        const a = i * 2.4, r = Math.sqrt(i) * 2.6;
+        ctx.fillRect(p.x + Math.cos(a) * r - 1.3, p.y + Math.sin(a) * r - 1.3, 2.6, 2.6);
+      }
+    }
+
+    for (const a of ants) drawAnt(a);
+    drawSpider();
+
+    if (rain) {
+      const r = rainRadius();
+      ctx.fillStyle = 'rgba(120,170,230,0.28)';
+      ctx.beginPath(); ctx.arc(rain.x, rain.y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(200,225,255,0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < 14; i++) {
+        const a = i * 2.4, rr = r * Math.sqrt((i + 0.5) / 14);
+        const x = rain.x + Math.cos(a) * rr, y = rain.y + Math.sin(a) * rr;
+        const f = ((rain.t * 3 + i * 0.37) % 1) * 8;
+        ctx.moveTo(x, y - 4 + f); ctx.lineTo(x - 1, y + f);
+      }
+      ctx.stroke();
+    }
+
+    // Evening light as sundown nears.
+    const late = Math.max(0, (elapsed - SUNDOWN * 0.6) / (SUNDOWN * 0.4));
+    if (late > 0) {
+      ctx.fillStyle = `rgba(60,20,40,${Math.min(0.45, late * 0.45)})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    document.getElementById('hudCrumbs').textContent = `${delivered}/${GOAL}`;
+    document.getElementById('hudAnts').textContent = ants.length;
+    hudSun.textContent = clock(SUNDOWN - elapsed);
+    hudSun.classList.toggle('late', SUNDOWN - elapsed <= 15);
+    document.getElementById('glandFill').style.width = `${(gland / GLAND_MAX) * 100}%`;
+  }
+
+  // ---------- input ----------
+  // Moving before HOLD_MS draws a trail; staying still that long starts the rain.
+  let mode = null, startPx = null, lastPt = null, holdTimer = null;
+
+  function toGround(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return [(evt.clientX - rect.left) * W / rect.width, (evt.clientY - rect.top) * H / rect.height];
+  }
+  function endGesture() {
+    mode = null;
+    rain = null;
+    clearTimeout(holdTimer);
+  }
+
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    if (state !== 'playing' || paused) return;
+    canvas.setPointerCapture(evt.pointerId);
+    mode = 'pending';
+    startPx = [evt.clientX, evt.clientY];
+    lastPt = toGround(evt);
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => {
+      if (mode === 'pending' && state === 'playing') { mode = 'wash'; rain = { x: lastPt[0], y: lastPt[1], t: 0 }; }
+    }, HOLD_MS);
+  });
+
+  canvas.addEventListener('pointermove', evt => {
+    if (!mode || state !== 'playing' || paused) return;
+    const pt = toGround(evt);
+    if (mode === 'pending' && Math.hypot(evt.clientX - startPx[0], evt.clientY - startPx[1]) > MOVE_PX) {
+      mode = 'trail';
+      clearTimeout(holdTimer);
+    }
+    if (mode === 'trail') layTrail(lastPt[0], lastPt[1], pt[0], pt[1]);
+    if (mode === 'wash') { rain.x = pt[0]; rain.y = pt[1]; }
+    if (mode !== 'pending') lastPt = pt;
+  });
+
+  canvas.addEventListener('pointerup', endGesture);
+  canvas.addEventListener('pointercancel', endGesture);
+
+  document.getElementById('resetBtn').addEventListener('click', newColony);
+  playAgainBtn.addEventListener('click', newColony);
+
+  // ---------- loop ----------
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    acc += Math.min((now - last) / 1000, 0.1);
+    last = now;
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) step(STEP);
+      acc -= STEP;
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  newColony();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
