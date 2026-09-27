@@ -119,14 +119,14 @@
   const GATE_NEED = 15;            // birds that must fly through each gate...
   const GATE_WINDOW = 4;           // ...within this many seconds of each other
   const GATE_HALF = 55;            // half the gap between a gate's posts
-  const DUSK = 70;                 // seconds of daylight: clear every gate before night falls
+  const DUSK = 60;                 // seconds of daylight: clear every gate before night falls
   const SPARE = 15;                // Swift: finish with this many seconds of light left
   // Gate centers and the angle of the line between their posts (degrees).
   const GATES = [
     { x: 95, y: 400, a: 60 },
     { x: 300, y: 280, a: 60 },
     { x: 120, y: 170, a: 0 },
-    { x: 90, y: 390, a: 90 },
+    { x: 230, y: 440, a: 0 },      // open sky on both sides, so a startle can carry the flock through
     { x: 290, y: 110, a: 30 },
   ];
   const VIEW = 40;                 // how far a bird sees its neighbors
