@@ -1,6 +1,6 @@
 # Hot Iron: design notes
 
-Current: **v1** (playtest: PLAYTEST_LINK). Mechanics: **heat** (hold) and
+Current: **v1** (playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz). Mechanics: **heat** (hold) and
 **strike** (tap), sharing **temperature and thickness per bar segment**
 (16 segments, thickness starts at 1). Win: every segment within `TOL` of the
 dashed target. Lose: 3 cracks, or fuel gone with nothing left in the working
