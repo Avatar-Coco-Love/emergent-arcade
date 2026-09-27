@@ -95,7 +95,8 @@ Tuning path:
 
 ## Open ideas / known limits
 
-- Playtest link (private artifact, republished on each push): TBD
+- Playtest link (private artifact, republished on each push):
+  https://claude.ai/artifact/UZTvK3z1uFsWPHVTETrCmx
 - Stockpiler counts all packed grains, including the starting dunes (240).
 - Not a Grain Wasted counts spilled starting-dune sand against your
   poured total.
