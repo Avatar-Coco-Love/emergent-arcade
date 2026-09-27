@@ -4,9 +4,9 @@
       "id": "pressure-grid",
       "title": "Pressure Grid",
       "file": "pressure-grid.html",
-      "version": 5,
+      "version": 6,
       "added": "2026-09-26",
-      "updated": "2026-09-26",
+      "updated": "2026-09-27",
       "blurb": "Pump pressure into cells, siphon it toward neighbors, and ride the chain reactions when cells erupt.",
       "mechanics": [
         {

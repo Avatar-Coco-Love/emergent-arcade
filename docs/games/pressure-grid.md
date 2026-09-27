@@ -1,6 +1,6 @@
 # Pressure Grid: design notes
 
-Current: **v5**. The arcade's first game and its structural reference
+Current: **v6** (playtest: https://claude.ai/artifact/6XdvHNUwNZx9LdbutZBSuL). The arcade's first game and its structural reference
 (`docs/adding-a-game.md`). Mechanics: **pump** (tap a cell: +pressure) and
 **siphon** (drag from a cell toward a neighbour: move 60% of it, 15% lost),
 sharing **pressure per cell**. A passive system bleeds pressure into
@@ -9,7 +9,8 @@ their neighbours, which can chain. **Sandbox: no win or loss**, so it never
 posts `arcade:result` and telemetry only records sessions. 6 achievements
 (in `games/games.json`).
 
-Only feedback so far: 3/5 on v1, "It is alright." (2026-09-26).
+Feedback: 3/5 on v1, "It is alright." (2026-09-26); one 3/5 test rating on v5
+(2026-09-27). No telemetry sessions recorded yet.
 
 ## Key constants (`games/pressure-grid.html`, top of the script)
 
@@ -17,62 +18,62 @@ Only feedback so far: 3/5 on v1, "It is alright." (2026-09-26).
 |---|---|---|---|
 | GRID_SIZE | 10×10 | TICK_MS | 200 (5 ticks/s) |
 | CLICK_ADD | 30 | BLEED_RATE | 0.15 of a cell per tick, split among neighbours |
-| ERUPT_THRESHOLD | 100 | ERUPT_BLAST | 40 to each neighbour |
+| ERUPT_THRESHOLD | 100 | ERUPT_BLAST | 24 to each neighbour (was 40 until v6) |
 | SIPHON_FRACTION / _EFFICIENCY | 0.6 / 0.85 | DRAG_THRESHOLD_PX | 12 |
 
 Eruptions resolve in up to 20 passes per tick (`resolveEruptions`, `guard`).
-An interior eruption removes ≥100 and adds 160 (4 × 40), so **eruptions
-create pressure**; only corners lose any. Bleed conserves pressure and
-siphons lose 15%.
+An interior eruption removes ≥100 and adds 96 (4 × 24), so **every
+eruption loses pressure** (edges and corners lose more) and storms burn out.
+Before v6 it added 160 and storms sustained themselves. Bleed conserves
+pressure and siphons lose 15%.
 
 ## Layout
 
 400×400 board (40 px cells), scaled to fit. A stat line below
 (ticks · eruptions · siphons) and a Reset button.
 
-## Balance (v5, `node scripts/balance-pressure-grid.mjs 100`, 120 s sessions)
+## Balance (v6, `node scripts/balance-pressure-grid.mjs 100`, 120 s sessions)
 
 Bots act `rate` times per second. "Storm" = the first tick with 100+
 eruptions (the board flashing white). "Settles" = no eruptions within 20 s
 of the bot stopping.
 
-| Bot | what it does | storm | settles | eruptions / 120 s |
+| Bot | what it does | storm | settles | eruptions / 120 s (v5) |
 |---|---|---|---|---|
-| spam3 | pump the centre, 3/s | @9 s | 0% | 780k |
-| spread3 | pump random cells, 3/s | @68 s | 3% | 350k |
-| spread6 | pump random cells, 6/s | @32 s | 5% | 590k |
-| sweep3 | pump the lowest cell, 3/s | @85 s | 100% | 1.8k |
-| sweep6 | pump the lowest cell, 6/s | @44 s | 100% | 4.9k |
-| strike3 | pump two neighbours, siphon one into the other | @11 s | 0% | 1.1M |
+| spam3 | pump the centre, 3/s | – | 100% | 411 (780k) |
+| spread3 | pump random cells, 3/s | – | 100% | 240 (350k) |
+| spread6 | pump random cells, 6/s | – | 100% | 753 (590k) |
+| sweep3 | pump the lowest cell, 3/s | @85 s | 100% | 100 (1.8k) |
+| sweep6 | pump the lowest cell, 6/s | @44 s | 100% | 400 (4.9k) |
+| strike3 | pump two neighbours, siphon one into the other | – | 100% | 150 (1.1M) |
+
+The sweep bots' "storm" is one whole-board wave (every cell tips at once),
+which then burns out. Sweep of `ERUPT_BLAST` (30 runs, settles / spread6
+storms): 40 → 3–7% / 100%; 30 → 100% / 100%; 25 → 100% / 37%; 24 → 100% /
+0%; 20 → 100% / 0% but Chain Reaction gone for spam3 and Century gone for
+strike3. 24 is the highest value that is strictly lossy (4 × 24 < 100).
 
 Median seconds to each achievement (share of runs, within 120 s):
 
 | Bot | First Pop | Chain Reaction | Siphon Strike | Plumber | Full Pressure | Century |
 |---|---|---|---|---|---|---|
-| spam3 | 3 s | 8 s | – | – | – | 9 s |
-| spread3 | 68 s | 68 s | – | – | 47 s (97%) | 68 s |
+| spam3 | 3 s | 25 s | – | – | 86 s | 56 s |
+| spread3 | 68 s | 74 s | – | – | 47 s | 92 s |
 | sweep3 | 85 s | 85 s | – | – | 28 s | 85 s |
-| strike3 | 4 s | 10 s | 4 s | 19 s | – | 11 s |
+| strike3 | 4 s | – | 4 s | 39 s | 105 s | 99 s |
 
-Real-page check (Playwright clicks, 3 taps/s on random cells): no eruptions
-for 60 s, then 84k eruptions by 80 s. With 10 s of taps on one cell: 197
-eruptions, then it settled.
+Century is now earned (45–99 s) rather than free with the first storm.
+
+Real-page check (Playwright clicks, 3 taps/s on random cells, v6): no
+eruptions for 60 s, 68 by 80 s, then none in 20 s idle. (v5: 84k by 80 s,
+never settled.)
 
 ## Open ideas / known limits
 
-- **Eruption storms sustain themselves.** Once the board holds about 7.5k
-  pressure (an average of ~75 a cell), eruptions feed on themselves: about
-  1,400 per tick, the board stays white, and it usually never settles until
-  Reset. There is no middle ground: 60 s of calm, then a permanent storm.
-  Century is effectively free, and the eruption counter becomes meaningless.
-  Cause: `ERUPT_BLAST` × 4 > `ERUPT_THRESHOLD`. Revision candidates: make an
-  eruption lose pressure (e.g. `ERUPT_BLAST` 20–24), add a drain (edges
-  vent, or eruptions leave the cell with a cooldown), or cap passes per tick
-  lower. Re-run the bots after any change; the target is storms that burn
-  out on their own.
-- This is the roadmap's example finding in action: a self-reinforcing
-  passive system plays itself. Record it in `docs/findings.md` when that
-  exists.
+- **Fixed in v6: eruption storms sustained themselves** (4 × 40 > 100).
+  Now `ERUPT_BLAST` 24; all bots settle. Watch for the opposite problem:
+  play may feel too calm. If so, try 25 (break-even, occasional storms that
+  still burn out) before anything larger.
 - Siphon is rarely needed. Only a deliberate strike pattern earns Siphon
   Strike or Plumber; pumping alone reaches 4 of 6 achievements.
 - Sandbox with no goal, so telemetry shows session length only. The v1
@@ -84,4 +85,5 @@ eruptions, then it settled.
 - v1: first game (pump and siphon, bleed, eruptions). v2: per-game
   achievements, fits its frame. v3: cabinet support. v4: cleanup pass.
   v5: sharp rendering at screen resolution. Versions 2–5 were platform
-  changes with little or no gameplay change.
+  changes with little or no gameplay change. v6: `ERUPT_BLAST` 40 → 24 so
+  storms burn out.
