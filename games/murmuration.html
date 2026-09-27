@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Murmuration</title>
+<style>
+  :root {
+    --bg: #0d0b16;
+    --panel: #1a1726;
+    --text: #ece8f4;
+    --muted: #a39db3;
+    --accent: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the sky scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #sky {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    border-radius: 10px;
+  }
+  #msg {
+    position: absolute;
+    top: 10px;
+    left: 8px;
+    right: 8px;
+    margin: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+  }
+  #endCard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(86%, 300px);
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(26, 23, 38, 0.94);
+    border: 1px solid #36304a;
+    text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #endCard h2.won { color: #c4b5fd; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #cfc9dc; font-size: 0.9rem; }
+  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
+  #playAgain:disabled { opacity: 0.4; }
+  .bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bar b { color: var(--text); font-variant-numeric: tabular-nums; }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #36304a;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <div id="field">
+    <div id="stage">
+      <canvas id="sky" aria-label="Murmuration sky. Hold to lure the flock, tap to startle it."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="playAgain">Play again</button>
+      </div>
+    </div>
+  </div>
+  <div class="bar">
+    <span>Birds <b id="hudBirds"></b></span>
+    <span>Gate <b id="hudGate"></b></span>
+    <span>Startles <b id="hudStartles"></b></span>
+    <button id="resetBtn">New flock</button>
+  </div>
+
+<script>
+(function() {
+  const GAME_ID = 'murmuration';
+  const W = 400, H = 600;
+  const START_BIRDS = 40;
+  const GATE_NEED = 15;            // birds that must fly through each gate...
+  const GATE_WINDOW = 4;           // ...within this many seconds of each other
+  const GATE_HALF = 55;            // half the gap between a gate's posts
+  // Gate centers and the angle of the line between their posts (degrees).
+  const GATES = [
+    { x: 95, y: 400, a: 60 },
+    { x: 300, y: 280, a: 60 },
+    { x: 120, y: 170, a: 0 },
+    { x: 90, y: 390, a: 90 },
+    { x: 290, y: 110, a: 30 },
+  ];
+  const VIEW = 40;                 // how far a bird sees its neighbors
+  const SEP = 14;                  // personal space
+  const CROWD_R = 12, CROWD_N = 5; // more than CROWD_N birds this close is stressful
+  const CROWD_FEAR = 0.1;          // fear per second per extra crowding bird
+  const FEAR_DECAY = 0.12;         // fear lost per second
+  const CONTAGION = 2.0;           // how fast a bird catches its neighbors' fear
+  const CONTAGION_KEEP = 0.85;     // panic weakens by this factor per bird it passes through
+  const PANIC = 0.75;              // birds this scared ignore the edges of the sky
+  const SCARED = 0.25;             // visibly scared (for the Chain Panic achievement)
+  const LURE_ACCEL = 160;
+  const LURE_R = 150;              // the lure only reaches birds this close
+  const LURE_SPOOK_R = 30;         // ...and spooks birds that come closer than this
+  const LURE_SPOOK = 0.9;          // fear per second inside the spook radius
+  const SWIRL = 70;                // calm birds keep turning, so a flock left alone circles in place
+  const STARTLE_R = 70, STARTLE_FEAR = 0.9, STARTLE_PUSH = 200;
+  const MIN_SPEED = 45, CALM_MAX = 100, PANIC_EXTRA = 140;
+  const EDGE = 60;                 // calm birds turn back within this margin
+  const EDGE_TURN = 16;            // how hard they turn back
+  const HOLD_MS = 200;             // a press shorter than this (without moving) is a startle
+  const MOVE_PX = 12;
+  const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win/loss so it can't be skipped
+  const STEP = 1 / 60;
+
+  const canvas = document.getElementById('sky');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  function unlock(id) {
+    roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Scale the sky to the largest 2:3 box that fits the space it's given, and
+  // give the canvas one pixel per screen pixel so it stays sharp at any size.
+  // Drawing always uses W x H game units (draw() sets the transform).
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitSky() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(80, Math.floor(W * scale));
+    const h = Math.max(120, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitSky).observe(field);
+  window.addEventListener('resize', fitSky); // browser zoom changes devicePixelRatio
+  fitSky();
+
+  // The gallery pauses the game while one of its panels covers it.
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; releaseLure(); }
+    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+  });
+
+  const endCard = document.getElementById('endCard');
+  const playAgainBtn = document.getElementById('playAgain');
+
+  let birds, gate, passed, startles, elapsed, state, msgTimer, lure, rings, shock;
+  const roundEarned = new Set();
+
+  function newFlock() {
+    birds = [];
+    for (let i = 0; i < START_BIRDS; i++) {
+      const a = Math.random() * Math.PI * 2;
+      birds.push({
+        x: 270 + (Math.random() - 0.5) * 100,
+        y: 480 + (Math.random() - 0.5) * 60,
+        vx: Math.cos(a) * 60, vy: Math.sin(a) * 60,
+        fear: 0, hit: false,
+      });
+    }
+    gate = 0;
+    passed = new Map(); // bird -> time it crossed the active gate
+    startles = 0;
+    elapsed = 0;
+    lure = null;
+    rings = [];
+    shock = null;
+    roundEarned.clear();
+    state = 'playing';
+    endCard.hidden = true;
+    say('Guide the flock through the glowing gate.');
+  }
+
+  function endGame(result) {
+    state = result;
+    releaseLure();
+    msgEl.textContent = '';
+    const title = document.getElementById('endTitle');
+    title.textContent = result === 'won' ? 'Flock home!' : 'The flock scattered';
+    title.className = result;
+    const t = Math.floor(elapsed);
+    const time = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+    document.getElementById('endDetail').textContent = result === 'won'
+      ? `All ${GATES.length} gates with ${birds.length} bird${birds.length === 1 ? '' : 's'} in ${time}.`
+      : `Only ${birds.length} bird${birds.length === 1 ? '' : 's'} left; a gate needs ${GATE_NEED}.`;
+    const n = roundEarned.size;
+    document.getElementById('endAch').textContent = n
+      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
+      : '';
+    // Taps that were already on their way must not skip this.
+    playAgainBtn.disabled = true;
+    endCard.hidden = false;
+    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+  }
+
+  function say(text) {
+    msgEl.textContent = text;
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
+  }
+
+  function gateEnds(g) {
+    const a = g.a * Math.PI / 180;
+    const dx = Math.cos(a) * GATE_HALF, dy = Math.sin(a) * GATE_HALF;
+    return [g.x - dx, g.y - dy, g.x + dx, g.y + dy];
+  }
+
+  // Does the segment p1->p2 cross the segment q1->q2?
+  function crosses(p1x, p1y, p2x, p2y, q1x, q1y, q2x, q2y) {
+    const d = (p2x - p1x) * (q2y - q1y) - (p2y - p1y) * (q2x - q1x);
+    if (d === 0) return false;
+    const t = ((q1x - p1x) * (q2y - q1y) - (q1y - p1y) * (q2x - q1x)) / d;
+    const u = ((q1x - p1x) * (p2y - p1y) - (q1y - p1y) * (p2x - p1x)) / d;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+  }
+
+  // ---------- mechanic 1: lure (hold) ----------
+  // Calm birds are drawn to the lure; fear cancels its pull. Packing the
+  // flock tight around it raises fear through crowding (see step()).
+  function releaseLure() { lure = null; }
+
+  // ---------- mechanic 2: startle (tap) ----------
+  // Writes fear directly and shoves nearby birds away from the tap.
+  function startle(x, y) {
+    if (state !== 'playing') return;
+    startles++;
+    rings.push({ x, y, t: 0 });
+    let touched = 0;
+    for (const b of birds) {
+      b.hit = b.fear > SCARED; // already scared: doesn't count as spread
+      const dx = b.x - x, dy = b.y - y;
+      const d = Math.hypot(dx, dy);
+      if (d >= STARTLE_R) continue;
+      const k = 1 - d / STARTLE_R;
+      b.fear = Math.min(1, b.fear + STARTLE_FEAR * k);
+      b.vx += (dx / (d || 1)) * STARTLE_PUSH * k;
+      b.vy += (dy / (d || 1)) * STARTLE_PUSH * k;
+      b.hit = true;
+      touched++;
+    }
+    // Watch how far this panic spreads beyond the birds the tap touched.
+    shock = touched ? { t: 0 } : null;
+  }
+
+  // ---------- simulation ----------
+  function step(dt) {
+    elapsed += dt;
+    const fears = birds.map(b => b.fear); // contagion reads last step's fear
+    for (let i = 0; i < birds.length; i++) {
+      const b = birds[i];
+      let n = 0, cx = 0, cy = 0, avx = 0, avy = 0, sx = 0, sy = 0, close = 0, maxF = 0;
+      for (let j = 0; j < birds.length; j++) {
+        if (i === j) continue;
+        const o = birds[j];
+        const dx = o.x - b.x, dy = o.y - b.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > VIEW * VIEW) continue;
+        n++;
+        cx += o.x; cy += o.y;
+        avx += o.vx; avy += o.vy;
+        if (fears[j] > maxF) maxF = fears[j];
+        if (d2 < SEP * SEP) {
+          const d = Math.sqrt(d2) || 0.01;
+          const push = (SEP - d) / SEP * 400;
+          sx -= dx / d * push; sy -= dy / d * push;
+        }
+        if (d2 < CROWD_R * CROWD_R) close++;
+      }
+
+      // Fear: fades on its own, spreads from scared neighbors, grows in a crush.
+      let f = b.fear - FEAR_DECAY * dt;
+      if (maxF * CONTAGION_KEEP > f) f += (maxF * CONTAGION_KEEP - f) * CONTAGION * dt;
+      if (close > CROWD_N) f += (close - CROWD_N) * CROWD_FEAR * dt;
+      const lureD = lure && lure.on ? Math.hypot(lure.x - b.x, lure.y - b.y) : Infinity;
+      if (lureD < LURE_SPOOK_R) f += LURE_SPOOK * dt;
+      b.fear = Math.max(0, Math.min(1, f));
+
+      const calm = 1 - b.fear;
+      let ax = sx * (1 + b.fear), ay = sy * (1 + b.fear);
+      if (n) {
+        ax += (cx / n - b.x) * 1.5 * calm + (avx / n - b.vx) * 1.5 * calm;
+        ay += (cy / n - b.y) * 1.5 * calm + (avy / n - b.vy) * 1.5 * calm;
+      }
+      if (lureD < LURE_R) {
+        const pull = LURE_ACCEL * calm * calm / (lureD || 1);
+        ax += (lure.x - b.x) * pull;
+        ay += (lure.y - b.y) * pull;
+      }
+      // Swirl: steer sideways (clockwise), weaker while following the lure.
+      const sp = Math.hypot(b.vx, b.vy) || 1;
+      const swirl = SWIRL * calm * (lure && lure.on ? 0.3 : 1);
+      ax += -b.vy / sp * swirl;
+      ay += b.vx / sp * swirl;
+      ax += (Math.random() - 0.5) * 600 * b.fear;
+      ay += (Math.random() - 0.5) * 600 * b.fear;
+      // Calm birds turn back from the edges; panicked ones fly right out.
+      const edge = Math.max(0, 1 - b.fear / PANIC) * EDGE_TURN;
+      if (b.x < EDGE) ax += (EDGE - b.x) * edge;
+      if (b.x > W - EDGE) ax -= (b.x - (W - EDGE)) * edge;
+      if (b.y < EDGE) ay += (EDGE - b.y) * edge;
+      if (b.y > H - EDGE) ay -= (b.y - (H - EDGE)) * edge;
+
+      b.vx += ax * dt;
+      b.vy += ay * dt;
+      const speed = Math.hypot(b.vx, b.vy) || 1;
+      const max = CALM_MAX + PANIC_EXTRA * b.fear;
+      const clamped = Math.max(MIN_SPEED, Math.min(max, speed));
+      b.vx *= clamped / speed;
+      b.vy *= clamped / speed;
+    }
+
+    const [g1x, g1y, g2x, g2y] = gateEnds(GATES[gate]);
+    for (let i = birds.length - 1; i >= 0; i--) {
+      const b = birds[i];
+      const px = b.x, py = b.y;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      if (crosses(px, py, b.x, b.y, g1x, g1y, g2x, g2y)) passed.set(b, elapsed);
+      if (b.x < -15 || b.x > W + 15 || b.y < -15 || b.y > H + 15) {
+        birds.splice(i, 1);
+        passed.delete(b);
+      }
+    }
+
+    // Only birds that crossed recently count: the flock has to go through together.
+    for (const [b, t] of passed) if (elapsed - t > GATE_WINDOW) passed.delete(b);
+
+    if (shock) {
+      shock.t += dt;
+      const spread = birds.filter(b => !b.hit && b.fear > SCARED).length;
+      if (spread >= 15) unlock('chain-panic');
+      if (shock.t > 2.5) shock = null;
+    }
+    for (const r of rings) r.t += dt;
+    rings = rings.filter(r => r.t < 0.5);
+
+    if (passed.size >= GATE_NEED) {
+      gate++;
+      passed = new Map();
+      if (gate === 1) unlock('first-gate');
+      if (gate >= GATES.length) {
+        unlock('flock-home');
+        if (birds.length === START_BIRDS) unlock('no-bird-left');
+        if (startles <= 3) unlock('soft-touch');
+        if (elapsed < 90) unlock('swift');
+        endGame('won');
+        return;
+      }
+    }
+    if (birds.length < GATE_NEED) endGame('lost');
+  }
+
+  // ---------- drawing ----------
+  function draw() {
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#5b4b8a');
+    sky.addColorStop(0.55, '#c0708a');
+    sky.addColorStop(1, '#f6b26b');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // Gates: the active one glows and fills gold as birds pass; the next is faint.
+    for (let k = GATES.length - 1; k >= gate; k--) {
+      const active = k === gate;
+      if (!active && k > gate + 1) continue;
+      const [x1, y1, x2, y2] = gateEnds(GATES[k]);
+      ctx.globalAlpha = active ? 1 : 0.3;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.setLineDash([]);
+      if (active && state === 'playing') {
+        const t = Math.min(passed.size / GATE_NEED, 1);
+        ctx.strokeStyle = '#ffd166';
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t); ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        // Label beside the gate line, not on it.
+        const a = GATES[k].a * Math.PI / 180;
+        ctx.fillText(`${passed.size}/${GATE_NEED}`, GATES[k].x + Math.sin(a) * 16, GATES[k].y - Math.cos(a) * 16 + 4);
+      }
+      ctx.fillStyle = '#fff';
+      for (const [px, py] of [[x1, y1], [x2, y2]]) {
+        ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Startle shockwaves.
+    for (const r of rings) {
+      ctx.strokeStyle = `rgba(255,255,255,${0.7 * (1 - r.t / 0.5)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(r.x, r.y, STARTLE_R * (0.3 + 0.7 * r.t / 0.5), 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // Lure.
+    if (lure && lure.on) {
+      const pulse = 10 + 3 * Math.sin(performance.now() / 150);
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(lure.x, lure.y, pulse, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath(); ctx.arc(lure.x, lure.y, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Birds: dark silhouettes that flush red with fear.
+    for (const b of birds) {
+      const a = Math.atan2(b.vy, b.vx);
+      const r = Math.round(27 + (224 - 27) * b.fear);
+      const g = Math.round(22 + (68 - 22) * b.fear);
+      const bl = Math.round(38 + (78 - 38) * b.fear);
+      ctx.fillStyle = `rgb(${r},${g},${bl})`;
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(a);
+      ctx.beginPath();
+      ctx.moveTo(6, 0);
+      ctx.lineTo(-4, 3.5);
+      ctx.lineTo(-2, 0);
+      ctx.lineTo(-4, -3.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    document.getElementById('hudBirds').textContent = birds.length;
+    document.getElementById('hudGate').textContent = `${Math.min(gate + 1, GATES.length)}/${GATES.length}`;
+    document.getElementById('hudStartles').textContent = startles;
+  }
+
+  // ---------- input ----------
+  // A short press without moving is a startle; holding (or moving) is a lure.
+  let pointerDown = false, downAt = 0, startPx = null, holdTimer = null;
+
+  function toSky(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return [(evt.clientX - rect.left) * W / rect.width, (evt.clientY - rect.top) * H / rect.height];
+  }
+
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    if (state !== 'playing' || paused) return;
+    canvas.setPointerCapture(evt.pointerId);
+    pointerDown = true;
+    downAt = performance.now();
+    startPx = [evt.clientX, evt.clientY];
+    const [x, y] = toSky(evt);
+    lure = { x, y, on: false };
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => { if (lure) lure.on = true; }, HOLD_MS);
+  });
+
+  canvas.addEventListener('pointermove', evt => {
+    if (!pointerDown || !lure) return;
+    [lure.x, lure.y] = toSky(evt);
+    if (Math.hypot(evt.clientX - startPx[0], evt.clientY - startPx[1]) > MOVE_PX) lure.on = true;
+  });
+
+  canvas.addEventListener('pointerup', evt => {
+    if (!pointerDown) return;
+    pointerDown = false;
+    clearTimeout(holdTimer);
+    const quick = performance.now() - downAt < HOLD_MS;
+    const still = Math.hypot(evt.clientX - startPx[0], evt.clientY - startPx[1]) <= MOVE_PX;
+    if (quick && still && !paused) startle(...toSky(evt));
+    releaseLure();
+  });
+  // A cancelled pointer (e.g. the browser took over the gesture) does nothing.
+  canvas.addEventListener('pointercancel', () => {
+    pointerDown = false;
+    clearTimeout(holdTimer);
+    releaseLure();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', newFlock);
+  playAgainBtn.addEventListener('click', newFlock);
+
+  // ---------- loop ----------
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    acc += Math.min((now - last) / 1000, 0.1);
+    last = now;
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) step(STEP);
+      acc -= STEP;
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  newFlock();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
