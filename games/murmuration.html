@@ -77,6 +77,7 @@
     color: var(--muted);
   }
   .bar b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .bar b.late { color: #ffb86b; }
   button {
     background: var(--panel);
     color: var(--text);
@@ -105,6 +106,7 @@
   <div class="bar">
     <span>Birds <b id="hudBirds"></b></span>
     <span>Gate <b id="hudGate"></b></span>
+    <span>Night in <b id="hudDusk"></b></span>
     <span>Startles <b id="hudStartles"></b></span>
     <button id="resetBtn">New flock</button>
   </div>
@@ -117,6 +119,8 @@
   const GATE_NEED = 15;            // birds that must fly through each gate...
   const GATE_WINDOW = 4;           // ...within this many seconds of each other
   const GATE_HALF = 55;            // half the gap between a gate's posts
+  const DUSK = 70;                 // seconds of daylight: clear every gate before night falls
+  const SPARE = 15;                // Swift: finish with this many seconds of light left
   // Gate centers and the angle of the line between their posts (degrees).
   const GATES = [
     { x: 95, y: 400, a: 60 },
@@ -130,16 +134,20 @@
   const CROWD_R = 12, CROWD_N = 5; // more than CROWD_N birds this close is stressful
   const CROWD_FEAR = 0.1;          // fear per second per extra crowding bird
   const FEAR_DECAY = 0.12;         // fear lost per second
-  const CONTAGION = 2.0;           // how fast a bird catches its neighbors' fear
+  const CONTAGION = 4.0;           // how fast a bird catches its neighbors' fear
   const CONTAGION_KEEP = 0.85;     // panic weakens by this factor per bird it passes through
   const PANIC = 0.75;              // birds this scared ignore the edges of the sky
   const SCARED = 0.25;             // visibly scared (for the Chain Panic achievement)
   const LURE_ACCEL = 160;
-  const LURE_R = 150;              // the lure only reaches birds this close
-  const LURE_SPOOK_R = 30;         // ...and spooks birds that come closer than this
+  const LURE_R = 150;              // the lure only reaches birds this close...
+  const LURE_FULL = 90;            // ...and pulls at full strength only within this distance
+  const LURE_SPOOK_R = 30;         // but it spooks birds that come closer than this
   const LURE_SPOOK = 0.9;          // fear per second inside the spook radius
   const SWIRL = 70;                // calm birds keep turning, so a flock left alone circles in place
-  const STARTLE_R = 70, STARTLE_FEAR = 0.9, STARTLE_PUSH = 200;
+  const NEIGHBORS = 7;             // birds match heading with their few nearest neighbors, like real starlings
+  const WANDER = 25;               // each calm bird drifts left and right on its own...
+  const WANDER_TIME = 1.5;         // ...changing its mind over about this many seconds
+  const STARTLE_R = 70, STARTLE_FEAR = 0.6, STARTLE_PUSH = 330;
   const MIN_SPEED = 45, CALM_MAX = 100, PANIC_EXTRA = 140;
   const EDGE = 60;                 // calm birds turn back within this margin
   const EDGE_TURN = 16;            // how hard they turn back
@@ -191,6 +199,7 @@
   });
 
   const endCard = document.getElementById('endCard');
+  const hudDusk = document.getElementById('hudDusk');
   const playAgainBtn = document.getElementById('playAgain');
 
   let birds, gate, passed, startles, elapsed, state, msgTimer, lure, rings, shock;
@@ -205,6 +214,10 @@
         y: 480 + (Math.random() - 0.5) * 60,
         vx: Math.cos(a) * 60, vy: Math.sin(a) * 60,
         fear: 0, hit: false,
+        // Individual quirks keep the flock from settling into a neat lattice.
+        sep: SEP * (0.8 + Math.random() * 0.45),
+        turn: 0.6 + Math.random() * 0.8,
+        wander: 0,
       });
     }
     gate = 0;
@@ -217,7 +230,7 @@
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
-    say('Guide the flock through the glowing gate.');
+    say('Guide the flock through the glowing gate before night falls.');
   }
 
   function endGame(result) {
@@ -225,13 +238,14 @@
     releaseLure();
     msgEl.textContent = '';
     const title = document.getElementById('endTitle');
-    title.textContent = result === 'won' ? 'Flock home!' : 'The flock scattered';
     title.className = result;
-    const t = Math.floor(elapsed);
-    const time = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+    const night = result === 'lost' && elapsed >= DUSK;
+    title.textContent = result === 'won' ? 'Flock home!' : night ? 'Night fell' : 'The flock scattered';
     document.getElementById('endDetail').textContent = result === 'won'
-      ? `All ${GATES.length} gates with ${birds.length} bird${birds.length === 1 ? '' : 's'} in ${time}.`
-      : `Only ${birds.length} bird${birds.length === 1 ? '' : 's'} left; a gate needs ${GATE_NEED}.`;
+      ? `All ${GATES.length} gates with ${birds.length} bird${birds.length === 1 ? '' : 's'} in ${clock(elapsed)}, ${clock(DUSK - elapsed)} before dark.`
+      : night
+        ? `The flock was still at gate ${gate + 1} of ${GATES.length} when the light ran out.`
+        : `Only ${birds.length} bird${birds.length === 1 ? '' : 's'} left; a gate needs ${GATE_NEED}.`;
     const n = roundEarned.size;
     document.getElementById('endAch').textContent = n
       ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
@@ -240,6 +254,11 @@
     playAgainBtn.disabled = true;
     endCard.hidden = false;
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+  }
+
+  function clock(sec) {
+    const t = Math.max(0, Math.ceil(sec));
+    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   }
 
   function say(text) {
@@ -295,25 +314,39 @@
   function step(dt) {
     elapsed += dt;
     const fears = birds.map(b => b.fear); // contagion reads last step's fear
+    const near = [];                      // (distance², index) pairs of one bird's neighbors
     for (let i = 0; i < birds.length; i++) {
       const b = birds[i];
-      let n = 0, cx = 0, cy = 0, avx = 0, avy = 0, sx = 0, sy = 0, close = 0, maxF = 0;
+      let n = 0, cx = 0, cy = 0, avx = 0, avy = 0, sx = 0, sy = 0, close = 0, maxF = 0, na = 0;
+      near.length = 0;
       for (let j = 0; j < birds.length; j++) {
         if (i === j) continue;
         const o = birds[j];
         const dx = o.x - b.x, dy = o.y - b.y;
         const d2 = dx * dx + dy * dy;
         if (d2 > VIEW * VIEW) continue;
+        near.push(d2, j);
         n++;
         cx += o.x; cy += o.y;
-        avx += o.vx; avy += o.vy;
         if (fears[j] > maxF) maxF = fears[j];
-        if (d2 < SEP * SEP) {
+        if (d2 < b.sep * b.sep) {
           const d = Math.sqrt(d2) || 0.01;
-          const push = (SEP - d) / SEP * 400;
+          const push = (b.sep - d) / b.sep * 400;
           sx -= dx / d * push; sy -= dy / d * push;
         }
         if (d2 < CROWD_R * CROWD_R) close++;
+      }
+      // Alignment only looks at the nearest few neighbors.
+      while (near.length > NEIGHBORS * 2) {
+        let far = 0;
+        for (let k = 2; k < near.length; k += 2) if (near[k] > near[far]) far = k;
+        near[far] = near[near.length - 2]; near[far + 1] = near[near.length - 1];
+        near.length -= 2;
+      }
+      for (let k = 1; k < near.length; k += 2) {
+        const o = birds[near[k]];
+        na++;
+        avx += o.vx; avy += o.vy;
       }
 
       // Fear: fades on its own, spreads from scared neighbors, grows in a crush.
@@ -327,21 +360,28 @@
       const calm = 1 - b.fear;
       let ax = sx * (1 + b.fear), ay = sy * (1 + b.fear);
       if (n) {
-        ax += (cx / n - b.x) * 1.5 * calm + (avx / n - b.vx) * 1.5 * calm;
-        ay += (cy / n - b.y) * 1.5 * calm + (avy / n - b.vy) * 1.5 * calm;
+        // Scared birds stop flocking together but still match their neighbors'
+        // heading, so a startle sweeps through the flock as one wave.
+        ax += (cx / n - b.x) * 1.5 * calm + (avx / na - b.vx) * 1.5;
+        ay += (cy / n - b.y) * 1.5 * calm + (avy / na - b.vy) * 1.5;
       }
       if (lureD < LURE_R) {
-        const pull = LURE_ACCEL * calm * calm / (lureD || 1);
+        const reach = Math.min(1, (LURE_R - lureD) / (LURE_R - LURE_FULL));
+        const pull = LURE_ACCEL * calm * calm * reach / (lureD || 1);
         ax += (lure.x - b.x) * pull;
         ay += (lure.y - b.y) * pull;
       }
       // Swirl: steer sideways (clockwise), weaker while following the lure.
+      // Each bird turns a little harder or softer than the rest and wanders on
+      // its own, so the flock keeps folding and reshaping instead of turning
+      // as one rigid block.
+      b.wander += -b.wander / WANDER_TIME * dt + (Math.random() - 0.5) * Math.sqrt(24 * dt / WANDER_TIME);
       const sp = Math.hypot(b.vx, b.vy) || 1;
-      const swirl = SWIRL * calm * (lure && lure.on ? 0.3 : 1);
+      const swirl = (SWIRL * b.turn * (lure && lure.on ? 0.3 : 1) + WANDER * b.wander) * calm;
       ax += -b.vy / sp * swirl;
       ay += b.vx / sp * swirl;
-      ax += (Math.random() - 0.5) * 600 * b.fear;
-      ay += (Math.random() - 0.5) * 600 * b.fear;
+      ax += (Math.random() - 0.5) * 250 * b.fear;
+      ay += (Math.random() - 0.5) * 250 * b.fear;
       // Calm birds turn back from the edges; panicked ones fly right out.
       const edge = Math.max(0, 1 - b.fear / PANIC) * EDGE_TURN;
       if (b.x < EDGE) ax += (EDGE - b.x) * edge;
@@ -391,23 +431,39 @@
         unlock('flock-home');
         if (birds.length === START_BIRDS) unlock('no-bird-left');
         if (startles <= 3) unlock('soft-touch');
-        if (elapsed < 90) unlock('swift');
+        if (DUSK - elapsed >= SPARE) unlock('swift');
+        if (DUSK - elapsed < 5) unlock('last-light');
         endGame('won');
         return;
       }
     }
-    if (birds.length < GATE_NEED) endGame('lost');
+    if (birds.length < GATE_NEED || elapsed >= DUSK) endGame('lost');
   }
 
   // ---------- drawing ----------
+  // Sky colors at sunset and at night: [r, g, b] pairs.
+  const SKY_TOP = [[91, 75, 138], [14, 12, 34]];
+  const SKY_MID = [[192, 112, 138], [34, 27, 66]];
+  const SKY_LOW = [[246, 178, 107], [58, 40, 84]];
+  function mix([a, b], t) {
+    return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
+  }
+  const STARS = [];
+  for (let i = 0; i < 40; i++) STARS.push([Math.random() * W, Math.random() * H * 0.6, 0.5 + Math.random() * 0.8]);
   function draw() {
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+    // The sky darkens from sunset to night as the light runs out.
+    const dark = Math.min(1, elapsed / DUSK);
     const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#5b4b8a');
-    sky.addColorStop(0.55, '#c0708a');
-    sky.addColorStop(1, '#f6b26b');
+    sky.addColorStop(0, mix(SKY_TOP, dark));
+    sky.addColorStop(0.55, mix(SKY_MID, dark));
+    sky.addColorStop(1, mix(SKY_LOW, Math.pow(dark, 1.5))); // the horizon glow lingers
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
+    if (dark > 0.5) {
+      ctx.fillStyle = `rgba(255,255,255,${(dark - 0.5) * 1.6})`;
+      for (const [x, y, r] of STARS) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+    }
 
     // Gates: the active one glows and fills gold as birds pass; the next is faint.
     for (let k = GATES.length - 1; k >= gate; k--) {
@@ -473,12 +529,19 @@
       ctx.lineTo(-4, -3.5);
       ctx.closePath();
       ctx.fill();
+      if (dark > 0.3) { // a pale rim keeps dark birds visible against the night
+        ctx.strokeStyle = `rgba(236,228,255,${(dark - 0.3) * 0.8})`;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
       ctx.restore();
     }
 
     document.getElementById('hudBirds').textContent = birds.length;
     document.getElementById('hudGate').textContent = `${Math.min(gate + 1, GATES.length)}/${GATES.length}`;
     document.getElementById('hudStartles').textContent = startles;
+    hudDusk.textContent = clock(DUSK - elapsed);
+    hudDusk.classList.toggle('late', DUSK - elapsed <= 10);
   }
 
   // ---------- input ----------
