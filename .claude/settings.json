@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git show*)",
+      "Bash(git fetch*)",
+      "Bash(git branch*)",
+      "Bash(git ls-remote*)",
+      "Bash(git rev-parse*)",
+      "Bash(git rev-list*)",
+      "Bash(git cherry*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git pull origin*)",
+      "Bash(git merge origin/main*)",
+      "Bash(git checkout -B claude/* origin/main)",
+      "Bash(git push -u origin claude/*)",
+      "Bash(node scripts/validate.mjs*)",
+      "Bash(node scripts/balance-*)",
+      "Bash(node scripts/fetch-feedback.mjs*)",
+      "mcp__github__pull_request_read",
+      "mcp__github__list_pull_requests",
+      "mcp__github__create_pull_request",
+      "mcp__github__update_pull_request"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh" }
+        ]
+      }
+    ]
+  }
+}

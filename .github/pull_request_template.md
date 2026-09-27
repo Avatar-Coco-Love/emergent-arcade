@@ -6,6 +6,7 @@
 
 - Game id / version:
 - What feedback prompted this (link issues or paste the summary from `scripts/fetch-feedback.mjs`):
+- Key numbers (a few lines; full tables go in `docs/games/<id>.md`):
 
 Design rules (see `docs/PROJECT_BRIEF.md`):
 
@@ -19,5 +20,6 @@ Design rules (see `docs/PROJECT_BRIEF.md`):
 - [ ] Pauses on `arcade:pause`, resumes on `arcade:resume`
 - [ ] `howToPlay` and `goal` written in `games/games.json`
 - [ ] `games/games.json` updated (`version` bumped and `updated` set for a revision)
+- [ ] `docs/games/<id>.md` updated (constants, balance, open ideas)
 - [ ] `node scripts/validate.mjs` passes
 - [ ] Played it on a phone-sized viewport

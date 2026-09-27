@@ -81,7 +81,10 @@ published from a branch.
    pattern in the game's `accent` color.
 6. Run `node scripts/validate.mjs` and play it locally
    (`python3 -m http.server`, then open http://localhost:8000).
-7. Open a PR and fill in the template checklist.
+7. Write `docs/games/<id>.md`: key constants, layout, balance numbers and
+   open ideas (see `docs/games/murmuration.md`). Sessions read this file,
+   not PR bodies, so keep it current and short.
+8. Open a PR and fill in the template checklist.
 
 ## Revising a game from feedback
 
@@ -90,7 +93,9 @@ published from a branch.
 2. Edit `games/<id>.html` in place. The PR diff is the record of what changed.
 3. In `games/games.json`, bump `version` by 1 and set `updated`. New ratings
    are then tagged with the new version, so you can compare before and after.
-4. Open a PR; mention which feedback motivated the change.
+4. Update `docs/games/<id>.md` in the same PR (new constants, balance
+   numbers, open ideas).
+5. Open a PR; mention which feedback motivated the change.
 
 A revision that changes the core mechanics enough to be a different game
 should be a new `id` instead.
