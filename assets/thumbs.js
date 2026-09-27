@@ -97,5 +97,21 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails };
+  function wildfireLine() {
+    let body = `<rect width="72" height="72" fill="#9aa04e"/>`;
+    // Burnt ground behind the fire front, then the flames.
+    body += `<path d="M 0 0 H 72 V 22 Q 54 30 36 24 T 0 26 Z" fill="#2c2622"/>`;
+    for (const [x, y, r] of [[6, 27, 5], [16, 25, 6], [27, 27, 5], [38, 25, 6], [49, 28, 5], [60, 26, 6], [69, 23, 4]]) {
+      body += `<circle cx="${x}" cy="${y}" r="${r + 2}" fill="#ff5a1f" opacity="0.55"/><circle cx="${x}" cy="${y + 1}" r="${r - 2}" fill="#ffc24a"/>`;
+    }
+    // A cut firebreak with burnt-out ground above it, and a house behind it.
+    body += `<rect x="0" y="44" width="72" height="7" fill="#80603f"/>`;
+    body += `<rect x="0" y="38" width="44" height="6" fill="#352c26"/>`;
+    body += `<rect x="27" y="58" width="18" height="10" fill="#f1e8da"/><path d="M 24 59 L 36 49 L 48 59 Z" fill="#b8402f"/>`;
+    // The wind arrow.
+    body += `<path d="M 60 50 V 64 M 55 59 L 60 65 L 65 59" stroke="#fff7ea" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine };
 })();

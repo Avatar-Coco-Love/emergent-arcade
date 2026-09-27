@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wildfire Line</title>
+<style>
+  :root {
+    --bg: #15100d;
+    --panel: #261a14;
+    --text: #f4ebe2;
+    --muted: #b8a597;
+    --accent: #e2483d;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the meadow scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #meadow {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    border-radius: 10px;
+  }
+  #msg {
+    position: absolute;
+    top: 10px;
+    left: 8px;
+    right: 60px;
+    margin: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+  }
+  #endCard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(86%, 300px);
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(38, 26, 20, 0.95);
+    border: 1px solid #533629;
+    text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #endCard h2.won { color: #9fe07a; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #e0d2c4; font-size: 0.9rem; }
+  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
+  #playAgain:disabled { opacity: 0.4; }
+  .bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bar b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .bar b.hurt { color: #ff9a8a; }
+  .meter {
+    display: inline-block;
+    width: 48px;
+    height: 8px;
+    border-radius: 4px;
+    background: #3b2a20;
+    vertical-align: middle;
+    overflow: hidden;
+  }
+  .meter span { display: block; height: 100%; }
+  #stamFill { background: #c9a36a; }
+  #torchFill { background: var(--accent); }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #533629;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <div id="field">
+    <div id="stage">
+      <canvas id="meadow" aria-label="Wildfire Line meadow. Drag to cut a firebreak, tap to light a backburn."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="playAgain">Play again</button>
+      </div>
+    </div>
+  </div>
+  <div class="bar">
+    <span>Houses <b id="hudHouses"></b></span>
+    <span>Time <b id="hudTime"></b></span>
+    <span>Stamina <span class="meter"><span id="stamFill"></span></span></span>
+    <span>Torch <span class="meter"><span id="torchFill"></span></span></span>
+    <button id="resetBtn">New fire</button>
+  </div>
+
+<script>
+(function() {
+  const GAME_ID = 'wildfire-line';
+  const W = 400, H = 600;
+  const CELL = 10, GW = W / CELL, GH = H / CELL; // fuel grid: 40 x 60 cells
+
+  // Fuel (the shared state) and fire
+  const FUEL_MIN = 0.35, FUEL_MAX = 1.0; // grass fuel range on a fresh meadow
+  const YARD_Y = 510, YARD_FUEL = 0.9;   // mown yards: fuel scaled down below this line
+  const IGNITE_MIN = 0.15;         // nothing with less fuel than this can catch
+  const BURN_T = 12;               // a cell burns this many seconds per unit of fuel...
+  const BURN_MIN = 3;              // ...but at least this long
+  const SPREAD = 0.1;              // ignition attempts per second per neighbor, times its fuel
+  const DIAG = 0.7;                // diagonal neighbors catch less often
+  const WIND_PUSH = 2.5;           // wind factor 1 + WIND_PUSH·cos(angle to wind)...
+  const WIND_MIN = 0.15;           // ...but never below this (fire creeps upwind)
+  const EMBER_RATE = 0.12;         // sparks per second per leading-edge cell (fresh grass
+                                   // directly downwind), times its fuel
+  const EMBER_MIN = 2, EMBER_MAX = 6; // sparks land this many cells downwind
+  const EMBER_FLIGHT = 0.5;        // seconds a spark is in the air
+  const START_SPOTS = 3;           // fires lit along the top edge at the start
+
+  // Wind
+  const WIND_EVERY = 20, WIND_JITTER = 3; // seconds between shifts (±jitter)
+  const WIND_WARN = 4;             // the next direction shows this long before a shift
+  const WIND_TURN_T = 1.2;         // a shift takes this long to swing round
+  const WIND_TOWARD = 0.75;        // chance a shift turns the more-toward-the-village way
+
+  // Player
+  const STAM_MAX = 100, STAM_REGEN = 6; // stamina meter and refill per second
+  const CUT_W = 10;                // firebreak half-width (px)
+  const CUT_COST = 6;              // stamina per cell cleared, times its fuel
+  const TORCH_R = 20;              // backburn spot radius (px)
+  const TORCH_COOL = 1.5;          // seconds between backburns
+
+  // Village
+  const HOUSES_X = [60, 150, 250, 340], HOUSE_Y = 560;
+  const HOUSE_HEAT = 1.2;          // seconds of adjacent flame before a house burns
+  const LOSE_AT = 2;               // lose when this many houses are gone
+
+  // Achievements
+  const HOLD_N = 60;               // Hold the Line: main-fire attempts blocked by cut ground
+  const STARVE_N = 20;             // Fight Fire with Fire: main-fire attempts into backburn ground
+  const SWIFT_T = 60;
+
+  const TAP_MS = 300;              // a press released this soon without moving is a tap
+  const MOVE_PX = 10;              // moving further than this first starts a cut
+  const END_INPUT_LOCK_MS = 1000;
+  const STEP = 1 / 60;
+
+  // Cell kinds and fire states
+  const GRASS = 0, WATER = 1, ROCK = 2, HOUSE = 3;
+  const FRESH = 0, BURNING = 1, ASH = 2;
+  const WILD = 1, BACK = 2, BACK_WARN = 3; // fire origin (a backburn lit during a wind warning)
+  const DIRS = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+
+  const canvas = document.getElementById('meadow');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  function unlock(id) {
+    roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Scale the meadow to the largest 2:3 box that fits, one canvas pixel per
+  // screen pixel. Drawing always uses W x H game units.
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitMeadow() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(80, Math.floor(W * scale));
+    const h = Math.max(120, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitMeadow).observe(field);
+  window.addEventListener('resize', fitMeadow);
+  fitMeadow();
+
+  // The gallery pauses the game while one of its panels covers it.
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; endGesture(); }
+    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+  });
+
+  const endCard = document.getElementById('endCard');
+  const playAgainBtn = document.getElementById('playAgain');
+  const hudHouses = document.getElementById('hudHouses');
+
+  const N = GW * GH;
+  const fuel = new Float32Array(N), fuel0 = new Float32Array(N);
+  const kind = new Uint8Array(N), cut = new Uint8Array(N);
+  const fire = new Uint8Array(N), origin = new Uint8Array(N);
+  const burnLeft = new Float32Array(N), burnTot = new Float32Array(N), heat0 = new Float32Array(N);
+  const wf = new Float32Array(8);   // wind factor per neighbor direction, this step
+  let houses, embers, stamina, torchCool, elapsed, state, msgTimer, burning;
+  let wind, blocked, starved, taps, cuts, lastTorch;
+  const roundEarned = new Set();
+
+  // ---------- meadow ----------
+  function idx(cx, cy) { return cy * GW + cx; }
+  function cellOf(x, y) {
+    const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL);
+    if (cx < 0 || cy < 0 || cx >= GW || cy >= GH) return -1;
+    return idx(cx, cy);
+  }
+
+  function buildMeadow() {
+    // Smooth value noise: a coarse random grid, blended, plus a little grain.
+    const CW = 8, CH = 11, coarse = [];
+    for (let i = 0; i < CW * CH; i++) coarse.push(Math.random());
+    const sm = t => t * t * (3 - 2 * t);
+    for (let cy = 0; cy < GH; cy++) {
+      for (let cx = 0; cx < GW; cx++) {
+        const gx = cx / (GW - 1) * (CW - 1), gy = cy / (GH - 1) * (CH - 1);
+        const x0 = Math.min(CW - 2, Math.floor(gx)), y0 = Math.min(CH - 2, Math.floor(gy));
+        const fx = sm(gx - x0), fy = sm(gy - y0);
+        const a = coarse[y0 * CW + x0], b = coarse[y0 * CW + x0 + 1];
+        const c = coarse[(y0 + 1) * CW + x0], d = coarse[(y0 + 1) * CW + x0 + 1];
+        let v = (a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy;
+        v = Math.min(1, Math.max(0, v + (Math.random() - 0.5) * 0.16));
+        let f = FUEL_MIN + (FUEL_MAX - FUEL_MIN) * v;
+        if (cy * CELL + CELL / 2 > YARD_Y) f *= YARD_FUEL;
+        const i = idx(cx, cy);
+        fuel0[i] = f; kind[i] = GRASS;
+      }
+    }
+    // A pond and a few rock outcrops: natural gaps with no fuel.
+    const pond = { x: 60 + Math.random() * 280, y: 200 + Math.random() * 220, rx: 20 + Math.random() * 15, ry: 14 + Math.random() * 10 };
+    for (let i = 0; i < N; i++) {
+      const x = (i % GW) * CELL + CELL / 2, y = Math.floor(i / GW) * CELL + CELL / 2;
+      if (((x - pond.x) / pond.rx) ** 2 + ((y - pond.y) / pond.ry) ** 2 < 1) kind[i] = WATER;
+    }
+    for (let k = 0; k < 3; k++) {
+      let cx = 2 + Math.floor(Math.random() * (GW - 4)), cy = 8 + Math.floor(Math.random() * 40);
+      const n = 2 + Math.floor(Math.random() * 3);
+      for (let m = 0; m < n; m++) {
+        const i = idx(cx, cy);
+        if (kind[i] === GRASS) kind[i] = ROCK;
+        const d = DIRS[Math.floor(Math.random() * 8)];
+        cx = Math.min(GW - 1, Math.max(0, cx + d[0])); cy = Math.min(GH - 1, Math.max(0, cy + d[1]));
+      }
+    }
+    houses = HOUSES_X.map(x => {
+      const cx0 = Math.floor(x / CELL) - 1, cy0 = Math.floor(HOUSE_Y / CELL) - 1;
+      const ring = [];
+      for (let cy = cy0 - 1; cy <= cy0 + 2; cy++) {
+        for (let cx = cx0 - 1; cx <= cx0 + 2; cx++) {
+          if (cx < 0 || cy < 0 || cx >= GW || cy >= GH) continue;
+          const inside = cx >= cx0 && cx <= cx0 + 1 && cy >= cy0 && cy <= cy0 + 1;
+          if (inside) kind[idx(cx, cy)] = HOUSE; else ring.push(idx(cx, cy));
+        }
+      }
+      return { x, y: HOUSE_Y, ring, heat: 0, heatWild: 0, heatBack: 0, burnt: false, byBack: false };
+    });
+    for (let i = 0; i < N; i++) {
+      if (kind[i] !== GRASS) fuel0[i] = 0;
+      fuel[i] = fuel0[i];
+    }
+  }
+
+  function newRound() {
+    fire.fill(0); origin.fill(0); cut.fill(0); burnLeft.fill(0);
+    buildMeadow();
+    embers = [];
+    stamina = STAM_MAX;
+    torchCool = 0;
+    elapsed = 0;
+    blocked = 0; starved = 0; taps = 0; cuts = 0;
+    lastTorch = null;
+    const h = Math.PI / 2 + (Math.random() - 0.5) * 0.6; // blowing down toward the village
+    wind = { heading: h, from: h, to: h, turnT: 0, next: 0, shiftAt: 0 };
+    scheduleShift();
+    for (let k = 0; k < START_SPOTS; k++) {
+      const cx = 3 + Math.floor((k + 0.2 + Math.random() * 0.6) * (GW - 6) / START_SPOTS), cy = 1;
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) ignite(idx(cx + dx, cy + dy), WILD);
+    }
+    roundEarned.clear();
+    state = 'playing';
+    endCard.hidden = true;
+    smoke.length = 0; sparks.length = 0;
+    paintMeadow();
+    say('Save the village: keep 3 of 4 houses standing.');
+  }
+
+  function scheduleShift() {
+    // Turn 45–135° either way, more often the way that blows toward the village.
+    const turn = (Math.PI / 4) * (1 + Math.random() * 2);
+    const a = wind.to + turn, b = wind.to - turn;
+    const toward = Math.sin(a) > Math.sin(b) ? a : b, away = toward === a ? b : a;
+    wind.next = Math.random() < WIND_TOWARD ? toward : away;
+    wind.shiftAt = elapsed + WIND_EVERY + (Math.random() * 2 - 1) * WIND_JITTER;
+  }
+  function windWarning() { return elapsed >= wind.shiftAt - WIND_WARN; }
+
+  function endGame(result) {
+    state = result;
+    endGesture();
+    msgEl.textContent = '';
+    const standing = houses.filter(h => !h.burnt).length;
+    const title = document.getElementById('endTitle');
+    title.className = result;
+    title.textContent = result === 'won' ? (standing === 4 ? 'Not a scratch!' : "Fire's out!") : 'The village burned';
+    const own = houses.filter(h => h.burnt && h.byBack).length;
+    document.getElementById('endDetail').textContent = result === 'won'
+      ? `${standing} of 4 houses standing. Fire out in ${clock(elapsed)}.`
+      : `${LOSE_AT} houses lost after ${clock(elapsed)}.` + (own ? ` ${own === 1 ? 'One' : 'Both'} to your own backburn.` : '');
+    const n = roundEarned.size;
+    document.getElementById('endAch').textContent = n
+      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
+      : '';
+    playAgainBtn.disabled = true;
+    endCard.hidden = false;
+    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+  }
+
+  function clock(sec) {
+    const t = Math.max(0, Math.floor(sec));
+    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+  }
+
+  function say(text) {
+    msgEl.textContent = text;
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
+  }
+
+  // ---------- fire ----------
+  function ignite(i, org) {
+    if (i < 0 || fire[i] !== FRESH || kind[i] !== GRASS || fuel[i] < IGNITE_MIN) return false;
+    fire[i] = BURNING;
+    origin[i] = org;
+    heat0[i] = fuel[i];
+    burnTot[i] = burnLeft[i] = Math.max(BURN_MIN, BURN_T * fuel[i]);
+    paintCell(i);
+    return true;
+  }
+
+  // Clear a firebreak along a stroke: fuel -> 0, paid from stamina by the fuel removed.
+  function cutLine(x0, y0, x1, y1) {
+    const dx = x1 - x0, dy = y1 - y0, len2 = dx * dx + dy * dy || 1;
+    const minX = Math.max(0, Math.floor((Math.min(x0, x1) - CUT_W) / CELL));
+    const maxX = Math.min(GW - 1, Math.floor((Math.max(x0, x1) + CUT_W) / CELL));
+    const minY = Math.max(0, Math.floor((Math.min(y0, y1) - CUT_W) / CELL));
+    const maxY = Math.min(GH - 1, Math.floor((Math.max(y0, y1) + CUT_W) / CELL));
+    const todo = [];
+    for (let cy = minY; cy <= maxY; cy++) {
+      for (let cx = minX; cx <= maxX; cx++) {
+        const i = idx(cx, cy);
+        if (cut[i] || fire[i] !== FRESH || kind[i] !== GRASS) continue;
+        const px = cx * CELL + CELL / 2, py = cy * CELL + CELL / 2;
+        const t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / len2));
+        if (Math.hypot(px - x0 - dx * t, py - y0 - dy * t) <= CUT_W) todo.push([t, i]);
+      }
+    }
+    todo.sort((a, b) => a[0] - b[0]);
+    let n = 0;
+    for (const [, i] of todo) {
+      const cost = CUT_COST * fuel[i];
+      if (stamina < cost) { if (state === 'playing') say('Out of breath. Wait for stamina.'); break; }
+      stamina -= cost;
+      fuel[i] = 0;
+      cut[i] = 1;
+      paintCell(i);
+      n++;
+    }
+    cuts += n;
+    return n;
+  }
+
+  // Light a backburn spot. It is ordinary fire from then on.
+  function backburn(x, y) {
+    if (torchCool > 0) { say('The torch is relighting.'); return false; }
+    const org = windWarning() ? BACK_WARN : BACK;
+    let lit = 0;
+    for (let i = 0; i < N; i++) {
+      const px = (i % GW) * CELL + CELL / 2, py = Math.floor(i / GW) * CELL + CELL / 2;
+      if (Math.hypot(px - x, py - y) <= TORCH_R && ignite(i, org)) lit++;
+    }
+    if (!lit) return false;
+    torchCool = TORCH_COOL;
+    taps++;
+    lastTorch = { x, y, t: elapsed };
+    return true;
+  }
+
+  function step(dt) {
+    elapsed += dt;
+    stamina = Math.min(STAM_MAX, stamina + STAM_REGEN * dt);
+    torchCool = Math.max(0, torchCool - dt);
+
+    // Wind: swing to the announced heading at the shift, then pick the next one.
+    if (elapsed >= wind.shiftAt) {
+      wind.from = wind.heading; wind.to = wind.next; wind.turnT = WIND_TURN_T;
+      scheduleShift();
+    }
+    if (wind.turnT > 0) {
+      wind.turnT = Math.max(0, wind.turnT - dt);
+      const k = 1 - wind.turnT / WIND_TURN_T, s = k * k * (3 - 2 * k);
+      wind.heading = wind.from + (wind.to - wind.from) * s;
+    }
+    const wx = Math.cos(wind.heading), wy = Math.sin(wind.heading);
+    for (let d = 0; d < 8; d++) {
+      const [dx, dy] = DIRS[d], l = Math.hypot(dx, dy);
+      wf[d] = Math.max(WIND_MIN, 1 + WIND_PUSH * (dx * wx + dy * wy) / l) * (l > 1 ? DIAG : 1);
+    }
+    const down = DIRS[((Math.round(wind.heading / (Math.PI / 4)) % 8) + 8) % 8]; // nearest downwind neighbor
+
+    // Spread: each burning cell tries its neighbors, harder downwind and on more fuel.
+    const lit = [];
+    let readWind = false;
+    burning = 0;
+    for (let i = 0; i < N; i++) {
+      if (fire[i] !== BURNING) continue;
+      burning++;
+      const cx = i % GW, cy = (i - cx) / GW, org = origin[i];
+      for (let d = 0; d < 8; d++) {
+        const nx = cx + DIRS[d][0], ny = cy + DIRS[d][1];
+        if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
+        const j = idx(nx, ny), rate = SPREAD * wf[d] * dt;
+        if (fire[j] === FRESH && fuel[j] >= IGNITE_MIN) {
+          if (Math.random() < rate * fuel[j]) lit.push(j, org);
+        } else if (org === WILD) {
+          // The main fire running into ground you took from it.
+          if (cut[j]) blocked += rate * 0.7;
+          else if (origin[j] >= BACK) { starved += rate * 0.7; if (origin[j] === BACK_WARN) readWind = true; }
+        }
+      }
+      // Sparks fly only from the main fire's leading edge: fresh grass directly downwind.
+      // (Backburns are lit low and tended, so they don't throw sparks, but they spread like any fire.)
+      const ax = cx + down[0], ay = cy + down[1], ahead = ax >= 0 && ay >= 0 && ax < GW && ay < GH ? idx(ax, ay) : -1;
+      if (org === WILD && ahead >= 0 && fire[ahead] === FRESH && fuel[ahead] >= IGNITE_MIN && Math.random() < EMBER_RATE * heat0[i] * dt) {
+        const dist = (EMBER_MIN + Math.random() * (EMBER_MAX - EMBER_MIN)) * CELL;
+        const a = wind.heading + (Math.random() - 0.5) * 0.6;
+        const x = cx * CELL + CELL / 2, y = cy * CELL + CELL / 2;
+        embers.push({ x0: x, y0: y, x1: x + Math.cos(a) * dist, y1: y + Math.sin(a) * dist, t: 0, org });
+      }
+      burnLeft[i] -= dt;
+      fuel[i] = heat0[i] * Math.max(0, burnLeft[i]) / burnTot[i];
+      if (burnLeft[i] <= 0) { fire[i] = ASH; fuel[i] = 0; paintCell(i); }
+    }
+    for (let k = 0; k < lit.length; k += 2) ignite(lit[k], lit[k + 1]);
+    for (let k = embers.length - 1; k >= 0; k--) {
+      const e = embers[k];
+      e.t += dt;
+      if (e.t >= EMBER_FLIGHT) { ignite(cellOf(e.x1, e.y1), e.org); embers.splice(k, 1); }
+    }
+
+    // Houses catch from the heat of burning cells around them.
+    let lost = 0;
+    for (const h of houses) {
+      if (!h.burnt) {
+        let wild = 0, back = 0;
+        for (const j of h.ring) if (fire[j] === BURNING) { if (origin[j] === WILD) wild++; else back++; }
+        if (wild || back) {
+          h.heat += dt;
+          if (back > wild) h.heatBack += dt; else h.heatWild += dt;
+          if (h.heat >= HOUSE_HEAT) {
+            h.burnt = true;
+            h.byBack = h.heatBack > h.heatWild;
+            if (h.byBack) unlock('backfired');
+            if (state === 'playing') say(h.byBack ? 'Your backburn took a house!' : 'A house is burning!');
+          }
+        }
+      }
+      if (h.burnt) lost++;
+    }
+
+    if (blocked >= HOLD_N) unlock('hold-the-line');
+    if (starved >= STARVE_N) unlock('fire-with-fire');
+    if (readWind) unlock('read-the-wind');
+
+    if (lost >= LOSE_AT) endGame('lost');
+    else if (!burning && !lit.length && !embers.length) {
+      if (lost === 0) unlock('whole-village');
+      if (elapsed < SWIFT_T) unlock('swift');
+      endGame('won');
+    }
+  }
+
+  // ---------- drawing ----------
+  // The meadow (grass, cut ground, ash) is painted into an offscreen canvas
+  // and only touched when a cell changes; fire, smoke and houses go on top.
+  const GS = 2; // offscreen pixels per game unit
+  const ground = document.createElement('canvas');
+  ground.width = W * GS; ground.height = H * GS;
+  const gctx = ground.getContext('2d');
+  gctx.scale(GS, GS);
+
+  function grassColor(f) {
+    const t = Math.min(1, Math.max(0, (f - 0.2) / 0.8)); // straw -> deep olive
+    return `rgb(${Math.round(206 - 104 * t)},${Math.round(182 - 44 * t)},${Math.round(104 - 50 * t)})`;
+  }
+
+  function paintMeadow() {
+    for (let i = 0; i < N; i++) {
+      const x = (i % GW) * CELL, y = Math.floor(i / GW) * CELL;
+      gctx.fillStyle = kind[i] === WATER ? '#3f6f8f' : kind[i] === ROCK ? '#7d766c' : grassColor(fuel0[i] || 0.5);
+      gctx.fillRect(x, y, CELL, CELL);
+    }
+    // Soften the cell edges, then add grass tufts and rock/water detail.
+    for (let i = 0; i < N; i++) {
+      const x = (i % GW) * CELL + CELL / 2, y = Math.floor(i / GW) * CELL + CELL / 2;
+      if (kind[i] === GRASS || kind[i] === HOUSE) {
+        const f = fuel0[i] || 0.5;
+        gctx.fillStyle = grassColor(f);
+        gctx.beginPath(); gctx.arc(x + (Math.random() - 0.5) * 4, y + (Math.random() - 0.5) * 4, 7, 0, Math.PI * 2); gctx.fill();
+        gctx.strokeStyle = `rgba(40,50,20,${0.15 + 0.25 * f})`;
+        gctx.lineWidth = 0.7;
+        gctx.beginPath();
+        for (let k = 0; k < 2 + Math.round(f * 3); k++) {
+          const tx = x + (Math.random() - 0.5) * 9, ty = y + (Math.random() - 0.5) * 9;
+          gctx.moveTo(tx, ty + 2); gctx.lineTo(tx + (Math.random() - 0.5) * 2, ty - 1.5 - f * 2.5);
+        }
+        gctx.stroke();
+      } else if (kind[i] === ROCK) {
+        gctx.fillStyle = '#948c80';
+        gctx.beginPath(); gctx.arc(x, y, 6.5, 0, Math.PI * 2); gctx.fill();
+        gctx.fillStyle = '#b3aa9c';
+        gctx.beginPath(); gctx.arc(x - 1.5, y - 1.5, 3, 0, Math.PI * 2); gctx.fill();
+      } else if (kind[i] === WATER) {
+        gctx.fillStyle = '#4a7fa0';
+        gctx.beginPath(); gctx.arc(x, y, 7.5, 0, Math.PI * 2); gctx.fill();
+      }
+    }
+    for (let i = 0; i < N; i++) if (cut[i] || fire[i]) paintCell(i);
+  }
+
+  function paintCell(i) {
+    const x = (i % GW) * CELL + CELL / 2, y = Math.floor(i / GW) * CELL + CELL / 2;
+    const jx = (Math.random() - 0.5) * 3, jy = (Math.random() - 0.5) * 3;
+    if (cut[i]) {
+      gctx.fillStyle = '#80603f';
+      gctx.beginPath(); gctx.arc(x + jx, y + jy, 7.2, 0, Math.PI * 2); gctx.fill();
+      gctx.strokeStyle = 'rgba(60,40,24,0.55)';
+      gctx.lineWidth = 0.8;
+      gctx.beginPath();
+      for (let k = -1; k <= 1; k++) { gctx.moveTo(x - 4, y + k * 3); gctx.lineTo(x + 4, y + k * 3 + 1); }
+      gctx.stroke();
+    } else if (fire[i] === BURNING) {
+      gctx.fillStyle = '#4a3522';
+      gctx.beginPath(); gctx.arc(x + jx, y + jy, 7, 0, Math.PI * 2); gctx.fill();
+    } else if (fire[i] === ASH) {
+      gctx.fillStyle = origin[i] === WILD ? '#2c2622' : '#352c26';
+      gctx.beginPath(); gctx.arc(x + jx, y + jy, 7.6, 0, Math.PI * 2); gctx.fill();
+      gctx.fillStyle = 'rgba(150,140,130,0.35)';
+      for (let k = 0; k < 3; k++) gctx.fillRect(x + (Math.random() - 0.5) * 10, y + (Math.random() - 0.5) * 10, 1, 1);
+    }
+  }
+
+  const smoke = [], sparks = [];
+  let lastDraw = performance.now();
+
+  function drawHouse(h) {
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    if (h.burnt) {
+      ctx.fillStyle = '#1a1411';
+      ctx.fillRect(-9, -4, 18, 12);
+      ctx.strokeStyle = '#3a2a22';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-9, -4); ctx.lineTo(-3, -10); ctx.moveTo(9, -4); ctx.lineTo(4, -8); ctx.stroke();
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(-8, 6, 18, 4);
+      ctx.fillStyle = '#f1e8da';
+      ctx.fillRect(-9, -3, 18, 11);
+      ctx.fillStyle = '#b8402f';
+      ctx.beginPath(); ctx.moveTo(-11, -2); ctx.lineTo(0, -12); ctx.lineTo(11, -2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#5a3a28';
+      ctx.fillRect(-2, 2, 4, 6);
+      if (h.heat > 0) {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(-10, -19, 20, 4);
+        ctx.fillStyle = '#ff6a3a';
+        ctx.fillRect(-10, -19, 20 * Math.min(1, h.heat / HOUSE_HEAT), 4);
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawArrow(cx, cy, a, len, color, dashed) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(a);
+    ctx.strokeStyle = color; ctx.fillStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    if (dashed) ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(-len, 0); ctx.lineTo(len - 5, 0); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(len, 0); ctx.lineTo(len - 7, -5); ctx.lineTo(len - 7, 5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawWind() {
+    const cx = 370, cy = 32, r = 20;
+    ctx.fillStyle = 'rgba(20,14,10,0.55)';
+    ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.fill();
+    // Ring counts down to the next shift; it turns red during the warning.
+    const left = Math.max(0, wind.shiftAt - elapsed), warn = windWarning();
+    ctx.strokeStyle = warn ? '#ff7a5a' : 'rgba(255,240,220,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 1, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, left / WIND_EVERY));
+    ctx.stroke();
+    if (warn && state === 'playing') {
+      const blink = 0.45 + 0.35 * Math.sin(performance.now() / 120);
+      drawArrow(cx, cy, wind.next, 13, `rgba(255,140,110,${blink})`, true);
+    }
+    drawArrow(cx, cy, wind.heading, 13, '#fff7ea', false);
+  }
+
+  function draw() {
+    const now = performance.now(), fdt = Math.min(0.1, (now - lastDraw) / 1000);
+    lastDraw = now;
+    const live = state === 'playing' && !paused;
+    const k = canvas.width / W;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.drawImage(ground, 0, 0, W, H);
+
+    // Flames: additive glow, flickering, shrinking as each cell burns down.
+    ctx.globalCompositeOperation = 'lighter';
+    const tt = now / 1000;
+    const wx = Math.cos(wind.heading), wy = Math.sin(wind.heading);
+    for (let i = 0; i < N; i++) {
+      if (fire[i] !== BURNING) continue;
+      const x = (i % GW) * CELL + CELL / 2, y = Math.floor(i / GW) * CELL + CELL / 2;
+      const life = burnLeft[i] / burnTot[i], fl = 0.75 + 0.25 * Math.sin(tt * 17 + i * 1.7);
+      const lean = 2.5 * fl;
+      ctx.fillStyle = origin[i] === WILD ? `rgba(255,80,20,${0.28 * fl})` : `rgba(255,110,60,${0.24 * fl})`;
+      ctx.beginPath(); ctx.arc(x + wx * lean, y + wy * lean, 8 + 5 * heat0[i], 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(255,190,70,${0.5 * fl * (0.4 + 0.6 * life)})`;
+      ctx.beginPath(); ctx.arc(x + wx * lean * 1.6, y + wy * lean * 1.6, 2.5 + 3.5 * life * heat0[i], 0, Math.PI * 2); ctx.fill();
+      if (live && smoke.length < 140 && Math.random() < 0.9 * fdt) {
+        smoke.push({ x, y, r: 4, a: 0.35, vx: wx * 18 + (Math.random() - 0.5) * 6, vy: wy * 18 + (Math.random() - 0.5) * 6 });
+      }
+    }
+    // Sparks in flight.
+    for (const e of embers) {
+      const s = e.t / EMBER_FLIGHT, x = e.x0 + (e.x1 - e.x0) * s, y = e.y0 + (e.y1 - e.y0) * s - Math.sin(s * Math.PI) * 8;
+      ctx.fillStyle = 'rgba(255,220,120,0.95)';
+      ctx.beginPath(); ctx.arc(x, y, 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+
+    for (const h of houses) drawHouse(h);
+
+    // Smoke drifts downwind, grows and fades.
+    for (let s = smoke.length - 1; s >= 0; s--) {
+      const p = smoke[s];
+      if (live) { p.x += p.vx * fdt; p.y += p.vy * fdt; p.r += 7 * fdt; p.a -= 0.12 * fdt; }
+      if (p.a <= 0) { smoke.splice(s, 1); continue; }
+      ctx.fillStyle = `rgba(70,64,60,${p.a})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Where the torch last lit, a fading ring that refills with the cooldown.
+    if (lastTorch && torchCool > 0) {
+      ctx.strokeStyle = 'rgba(255,200,140,0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(lastTorch.x, lastTorch.y, TORCH_R + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - torchCool / TORCH_COOL));
+      ctx.stroke();
+    }
+
+    // Warm haze from the fire side.
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, 'rgba(255,120,40,0.12)');
+    g.addColorStop(0.5, 'rgba(255,120,40,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    drawWind();
+
+    const standing = houses.filter(h => !h.burnt).length;
+    hudHouses.textContent = `${standing}/4`;
+    hudHouses.classList.toggle('hurt', standing < 4);
+    document.getElementById('hudTime').textContent = clock(elapsed);
+    document.getElementById('stamFill').style.width = `${(stamina / STAM_MAX) * 100}%`;
+    document.getElementById('torchFill').style.width = `${(1 - torchCool / TORCH_COOL) * 100}%`;
+  }
+
+  // ---------- input ----------
+  // Moving more than MOVE_PX cuts a firebreak along the stroke; a quick
+  // press without moving lights a backburn where you tapped.
+  let mode = null, startPx = null, startPt = null, lastPt = null, downAt = 0;
+
+  function toMeadow(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return [(evt.clientX - rect.left) * W / rect.width, (evt.clientY - rect.top) * H / rect.height];
+  }
+  function endGesture() { mode = null; }
+
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    if (state !== 'playing' || paused) return;
+    canvas.setPointerCapture(evt.pointerId);
+    mode = 'pending';
+    startPx = [evt.clientX, evt.clientY];
+    startPt = lastPt = toMeadow(evt);
+    downAt = performance.now();
+  });
+
+  canvas.addEventListener('pointermove', evt => {
+    if (!mode || state !== 'playing' || paused) return;
+    const pt = toMeadow(evt);
+    if (mode === 'pending' && Math.hypot(evt.clientX - startPx[0], evt.clientY - startPx[1]) > MOVE_PX) {
+      mode = 'cut';
+      lastPt = startPt;
+    }
+    if (mode === 'cut') { cutLine(lastPt[0], lastPt[1], pt[0], pt[1]); lastPt = pt; }
+  });
+
+  canvas.addEventListener('pointerup', () => {
+    if (mode === 'pending' && state === 'playing' && !paused && performance.now() - downAt <= TAP_MS) {
+      backburn(startPt[0], startPt[1]);
+    }
+    endGesture();
+  });
+  canvas.addEventListener('pointercancel', endGesture);
+
+  document.getElementById('resetBtn').addEventListener('click', newRound);
+  playAgainBtn.addEventListener('click', newRound);
+
+  // ---------- loop ----------
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    acc += Math.min((now - last) / 1000, 0.1);
+    last = now;
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) step(STEP);
+      acc -= STEP;
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  newRound();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
