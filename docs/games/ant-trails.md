@@ -65,3 +65,6 @@ too easy (idle won 42% at 90 s); 20 ants was too hard (trail 34%).
 ## History
 
 - v1: first version.
+- v2: no gameplay change. Posts `arcade:result` when a round ends, for play
+  telemetry. Bot numbers above still apply; compare humans with
+  `node scripts/fetch-telemetry.mjs --game ant-trails` (see `docs/telemetry.md`).

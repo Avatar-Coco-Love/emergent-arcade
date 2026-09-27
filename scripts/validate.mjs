@@ -62,6 +62,11 @@ for (const [i, g] of games.entries()) {
   const html = readFileSync(path, "utf8");
   checkSelfContained(g.file, html);
   checkAchievements(where, g, html);
+  // Platform rule: games with rounds report how each one ended, for play
+  // telemetry (docs/telemetry.md). Sandboxes (goal starts "Sandbox") have none.
+  if (!/^sandbox\b/i.test(g.goal || "") && !html.includes("arcade:result")) {
+    fail(`${where}: games/${g.file} must post an "arcade:result" message when a round ends (or its goal must start with "Sandbox")`);
+  }
   // Platform rule: the gallery pauses games while a panel covers them.
   if (!html.includes("arcade:pause") || !html.includes("arcade:resume")) {
     fail(`${where}: games/${g.file} must handle "arcade:pause" and "arcade:resume" messages`);

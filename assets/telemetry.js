@@ -1,0 +1,119 @@
+// Anonymous play telemetry. The gallery keeps one "session" per visit to a
+// game's cabinet and sends it to the same Apps Script as feedback, which
+// stores it in the "telemetry" tab (see docs/telemetry.md).
+//
+//   start(game)        cabinet opened (or the tab came back into view)
+//   pause() / resume() a panel covers the game, or it's uncovered
+//   result(msg)        the game posted { type: "arcade:result", outcome, time }
+//   achievement(id)    a new achievement was unlocked this session
+//   end()              cabinet closed, game switched, or the tab was hidden
+//
+// Each round result is sent right away (so a closed tab loses nothing), and
+// end() sends one session summary. No personal data: the only id is the
+// random per-browser client id that feedback already uses.
+window.ArcadeTelemetry = (function () {
+  const config = window.ARCADE_CONFIG || {};
+  const enabled = !!(config.telemetry && config.feedbackEndpoint);
+  let s = null;
+
+  function randomId() {
+    return crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
+  }
+
+  function device() {
+    return window.matchMedia && matchMedia("(pointer: coarse)").matches ? "touch" : "mouse";
+  }
+
+  function send(payload) {
+    if (!enabled) return;
+    const body = JSON.stringify(Object.assign(payload, {
+      client_id: window.ArcadeFeedback.clientId(),
+      device: device(),
+      submitted_at: new Date().toISOString(),
+    }));
+    // sendBeacon survives the page closing; text/plain keeps it a CORS simple
+    // request, which Apps Script requires. We never need the response.
+    try {
+      const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
+      if (navigator.sendBeacon && navigator.sendBeacon(config.feedbackEndpoint, blob)) return;
+    } catch (_) {}
+    fetch(config.feedbackEndpoint, {
+      method: "POST",
+      mode: "no-cors",
+      keepalive: true,
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body,
+    }).catch(() => {});
+  }
+
+  function playSeconds() {
+    const ms = s.playMs + (s.runningSince ? Date.now() - s.runningSince : 0);
+    return Math.round(ms / 100) / 10;
+  }
+
+  function start(game, paused) {
+    if (s) end();
+    s = {
+      game,
+      id: randomId(),
+      openedAt: Date.now(),
+      playMs: 0,
+      runningSince: paused ? 0 : Date.now(),
+      rounds: 0,
+      wins: 0,
+      achievements: [],
+    };
+  }
+
+  function pause() {
+    if (!s || !s.runningSince) return;
+    s.playMs += Date.now() - s.runningSince;
+    s.runningSince = 0;
+  }
+
+  function resume() {
+    if (s && !s.runningSince) s.runningSince = Date.now();
+  }
+
+  function base(kind) {
+    return { kind, game_id: s.game.id, game_version: s.game.version, session_id: s.id };
+  }
+
+  function result(msg) {
+    if (!s) return;
+    const outcome = msg.outcome === "win" ? "win" : msg.outcome === "loss" ? "loss" : "";
+    const time = Number(msg.time);
+    if (!outcome || !(time >= 0)) return;
+    s.rounds++;
+    if (outcome === "win") s.wins++;
+    send(Object.assign(base("round"), {
+      round: s.rounds,
+      outcome,
+      seconds: Math.round(time * 10) / 10,
+    }));
+  }
+
+  function achievement(id) {
+    if (s && !s.achievements.includes(id)) s.achievements.push(id);
+  }
+
+  function end() {
+    if (!s) return;
+    pause();
+    const play = playSeconds();
+    // A cabinet opened and closed without playing isn't a session.
+    if (play >= 3 || s.rounds) {
+      send(Object.assign(base("session"), {
+        rounds: s.rounds,
+        wins: s.wins,
+        seconds: play,
+        wall_seconds: Math.round((Date.now() - s.openedAt) / 1000),
+        achievements: s.achievements.join(" "),
+        achievements_total: window.ArcadeAchievements.count(s.game),
+      }));
+    }
+    s = null;
+  }
+
+  return { start, pause, resume, result, achievement, end, enabled };
+})();

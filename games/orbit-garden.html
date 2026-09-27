@@ -152,6 +152,15 @@
     }
   }
 
+  // Tell the gallery how a round ended (anonymous play telemetry, see
+  // docs/telemetry.md). time is seconds of unpaused play this round.
+  function report(result) {
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
+        outcome: result === 'won' ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
+    }
+  }
+
   // Fixed backdrop stars (drawn from a tiny seeded PRNG so it never changes).
   const stars = [];
   let rs = 7;
@@ -187,7 +196,7 @@
   const endCard = document.getElementById('endCard');
   const playAgainBtn = document.getElementById('playAgain');
 
-  let planets, seeds, seedsLeft, streak, state, msgTimer;
+  let planets, seeds, seedsLeft, streak, elapsed, state, msgTimer;
   const roundEarned = new Set();
 
   function newGarden() {
@@ -195,6 +204,7 @@
     seeds = [];
     seedsLeft = START_SEEDS;
     streak = 0;
+    elapsed = 0;
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
@@ -203,6 +213,7 @@
 
   function endGame(result) {
     state = result;
+    report(result);
     msgEl.textContent = '';
     const title = document.getElementById('endTitle');
     title.textContent = result === 'won' ? 'Garden complete!' : 'Out of seeds';
@@ -280,6 +291,7 @@
 
   // ---------- simulation ----------
   function step(dt) {
+    elapsed += dt;
     for (let i = seeds.length - 1; i >= 0; i--) {
       const s = seeds[i];
       const [ax, ay] = accel(s.x, s.y);

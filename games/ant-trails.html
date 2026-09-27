@@ -201,6 +201,15 @@
     }
   }
 
+  // Tell the gallery how a round ended (anonymous play telemetry, see
+  // docs/telemetry.md). time is seconds of unpaused play this round.
+  function report(result) {
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
+        outcome: result === 'won' ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
+    }
+  }
+
   // Scale the ground to the largest 2:3 box that fits, one canvas pixel per
   // screen pixel. Drawing always uses W x H game units.
   const field = document.getElementById('field');
@@ -260,6 +269,7 @@
 
   function endGame(result, why) {
     state = result;
+    report(result);
     endGesture();
     msgEl.textContent = '';
     const title = document.getElementById('endTitle');

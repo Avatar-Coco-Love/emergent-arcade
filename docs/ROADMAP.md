@@ -24,9 +24,8 @@ favor revisions and playtesting over new games until real data flows.
 
 - Get 5–20 real people playing (share `#/play/<id>` links) and read what
   comes back.
-- Add anonymous play telemetry next to ratings: session length, win/loss,
-  time to win, achievements unlocked. Keep it keyless to submit, like
-  feedback.
+- ~~Add anonymous play telemetry next to ratings~~: done, see
+  `docs/telemetry.md` (read with `scripts/fetch-telemetry.mjs`).
 - Compare human win rates with each game's `scripts/balance-<id>.mjs` bots.
   **The bot–human gap is the key missing number.**
 - Hand-play every game on a real phone and record the results in its notes

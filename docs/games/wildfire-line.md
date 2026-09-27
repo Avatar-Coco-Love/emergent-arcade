@@ -108,3 +108,6 @@ Tuning path:
 ## History
 
 - v1: first version (cut brush narrowed to one cell during PR playtest).
+- v2: no gameplay change. Posts `arcade:result` when a round ends, for play
+  telemetry. Bot numbers above still apply; compare humans with
+  `node scripts/fetch-telemetry.mjs --game wildfire-line` (see `docs/telemetry.md`).

@@ -12,7 +12,8 @@
   see `docs/adding-a-game.md`), plus `goal` and `howToPlay` in the manifest.
   Games fill their window with no scrolling (the gallery shows them in a
   full-screen "cabinet" with a toolbar and panels) and must handle
-  `arcade:pause` / `arcade:resume` messages.
+  `arcade:pause` / `arcade:resume` messages. Games with rounds post
+  `arcade:result` (win/loss, time) when one ends (`docs/telemetry.md`).
 - A game's `id` is its permanent feedback key; never rename it. Revisions
   edit the file in place and bump `version` + `updated` in the manifest.
 - Always run `node scripts/validate.mjs` before pushing.
@@ -20,7 +21,8 @@
   the design checklist). Merging to `main` is what deploys.
 - Feedback readback: `node scripts/fetch-feedback.mjs` (needs
   `FEEDBACK_READ_KEY`), or GitHub issues whose title starts with `[feedback]`.
-  Details in `docs/feedback-backend.md`.
+  Details in `docs/feedback-backend.md`. Play telemetry (human win rate,
+  session length): `node scripts/fetch-telemetry.mjs`, see `docs/telemetry.md`.
 
 ## Keeping context small
 

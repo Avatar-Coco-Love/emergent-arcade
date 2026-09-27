@@ -8,4 +8,9 @@ window.ARCADE_CONFIG = {
   // Google Sheet (see docs/feedback-backend.md). While this is empty, the
   // feedback form falls back to opening a pre-filled GitHub issue instead.
   feedbackEndpoint: "https://script.google.com/macros/s/AKfycbzg26T2z8Twbbpk3adHRhBh7QgsqbnlR1R4Juzx0WAx41iRwe1YejuyRmZ_CFZrfCcf/exec",
+
+  // Anonymous play telemetry (session length, round results, achievements),
+  // sent to the same web app as feedback, which stores it in the "telemetry"
+  // tab. Needs a non-empty feedbackEndpoint. See docs/telemetry.md.
+  telemetry: true,
 };

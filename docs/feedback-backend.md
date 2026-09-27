@@ -58,6 +58,10 @@ well-formed feedback rows, and reading requires the key.
 
 After editing `Code.gs`, use **Deploy → Manage deployments → Edit → Version:
 New version**. That keeps the same `/exec` URL, so `config.js` doesn't change.
+Step-by-step: [telemetry.md](telemetry.md#redeploying-the-apps-script-one-time-after-this-change-merges).
+
+The same script also stores anonymous play telemetry in a `telemetry` tab;
+see [telemetry.md](telemetry.md).
 
 ## GitHub-issue fallback
 

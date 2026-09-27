@@ -75,6 +75,15 @@ published from a branch.
      ```
    - Anything that ends a round (win/lose screen) should ignore input for
      about a second, so fast tapping can't skip it.
+   - When a round ends, report it for play telemetry
+     ([telemetry.md](telemetry.md)). `elapsed` is the round's unpaused
+     seconds. Sandboxes with no rounds skip this and start their `goal` with
+     "Sandbox".
+
+     ```js
+     window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
+       outcome: won ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
+     ```
 5. Optional: give the game its own gallery card art by adding an entry for
    its `id` to `assets/thumbs.js` (a function returning a 72×72 inline SVG
    drawn from primitives). Without one, the card shows a generated pixel
@@ -89,7 +98,8 @@ published from a branch.
 ## Revising a game from feedback
 
 1. Pull feedback: `node scripts/fetch-feedback.mjs --game <id>` (or search
-   GitHub issues for `"[feedback] <id>"`).
+   GitHub issues for `"[feedback] <id>"`), and play data:
+   `node scripts/fetch-telemetry.mjs --game <id>` (human win rate vs. bots).
 2. Edit `games/<id>.html` in place. The PR diff is the record of what changed.
 3. In `games/games.json`, bump `version` by 1 and set `updated`. New ratings
    are then tagged with the new version, so you can compare before and after.
