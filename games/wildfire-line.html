@@ -153,7 +153,6 @@
 
   // Player
   const STAM_MAX = 100, STAM_REGEN = 6; // stamina meter and refill per second
-  const CUT_W = 10;                // firebreak half-width (px)
   const CUT_COST = 6;              // stamina per cell cleared, times its fuel
   const TORCH_R = 20;              // backburn spot radius (px)
   const TORCH_COOL = 1.5;          // seconds between backburns
@@ -373,33 +372,32 @@
     return true;
   }
 
-  // Clear a firebreak along a stroke: fuel -> 0, paid from stamina by the fuel removed.
+  // Clear a firebreak along a stroke, one cell wide: every cell the stroke passes
+  // through, stepping only sideways or up/down so fire can't slip through a
+  // diagonal gap. Fuel -> 0, paid from stamina by the fuel removed.
   function cutLine(x0, y0, x1, y1) {
-    const dx = x1 - x0, dy = y1 - y0, len2 = dx * dx + dy * dy || 1;
-    const minX = Math.max(0, Math.floor((Math.min(x0, x1) - CUT_W) / CELL));
-    const maxX = Math.min(GW - 1, Math.floor((Math.max(x0, x1) + CUT_W) / CELL));
-    const minY = Math.max(0, Math.floor((Math.min(y0, y1) - CUT_W) / CELL));
-    const maxY = Math.min(GH - 1, Math.floor((Math.max(y0, y1) + CUT_W) / CELL));
-    const todo = [];
-    for (let cy = minY; cy <= maxY; cy++) {
-      for (let cx = minX; cx <= maxX; cx++) {
-        const i = idx(cx, cy);
-        if (cut[i] || fire[i] !== FRESH || kind[i] !== GRASS) continue;
-        const px = cx * CELL + CELL / 2, py = cy * CELL + CELL / 2;
-        const t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / len2));
-        if (Math.hypot(px - x0 - dx * t, py - y0 - dy * t) <= CUT_W) todo.push([t, i]);
-      }
-    }
-    todo.sort((a, b) => a[0] - b[0]);
+    let cx = Math.floor(x0 / CELL), cy = Math.floor(y0 / CELL);
+    const ex = Math.floor(x1 / CELL), ey = Math.floor(y1 / CELL);
+    const dx = x1 - x0, dy = y1 - y0, sx = Math.sign(dx), sy = Math.sign(dy);
+    const stepX = dx ? CELL / Math.abs(dx) : Infinity, stepY = dy ? CELL / Math.abs(dy) : Infinity;
+    let tX = dx ? (sx > 0 ? (cx + 1) * CELL - x0 : x0 - cx * CELL) / Math.abs(dx) : Infinity;
+    let tY = dy ? (sy > 0 ? (cy + 1) * CELL - y0 : y0 - cy * CELL) / Math.abs(dy) : Infinity;
     let n = 0;
-    for (const [, i] of todo) {
-      const cost = CUT_COST * fuel[i];
-      if (stamina < cost) { if (state === 'playing') say('Out of breath. Wait for stamina.'); break; }
-      stamina -= cost;
-      fuel[i] = 0;
-      cut[i] = 1;
-      paintCell(i);
-      n++;
+    for (let guard = 0; guard < GW + GH; guard++) {
+      if (cx >= 0 && cy >= 0 && cx < GW && cy < GH) {
+        const i = idx(cx, cy);
+        if (!cut[i] && fire[i] === FRESH && kind[i] === GRASS) {
+          const cost = CUT_COST * fuel[i];
+          if (stamina < cost) { if (state === 'playing') say('Out of breath. Wait for stamina.'); break; }
+          stamina -= cost;
+          fuel[i] = 0;
+          cut[i] = 1;
+          paintCell(i);
+          n++;
+        }
+      }
+      if (cx === ex && cy === ey) break;
+      if (tX < tY) { tX += stepX; cx += sx; } else { tY += stepY; cy += sy; }
     }
     cuts += n;
     return n;
@@ -721,18 +719,20 @@
   // ---------- input ----------
   // Moving more than MOVE_PX cuts a firebreak along the stroke; a quick
   // press without moving lights a backburn where you tapped.
-  let mode = null, startPx = null, startPt = null, lastPt = null, downAt = 0;
+  // Only the first pointer down counts, so a resting palm or finger can't add strokes.
+  let mode = null, activeId = null, startPx = null, startPt = null, lastPt = null, downAt = 0;
 
   function toMeadow(evt) {
     const rect = canvas.getBoundingClientRect();
     return [(evt.clientX - rect.left) * W / rect.width, (evt.clientY - rect.top) * H / rect.height];
   }
-  function endGesture() { mode = null; }
+  function endGesture() { mode = null; activeId = null; }
 
   canvas.addEventListener('pointerdown', evt => {
     evt.preventDefault();
-    if (state !== 'playing' || paused) return;
+    if (state !== 'playing' || paused || mode) return;
     canvas.setPointerCapture(evt.pointerId);
+    activeId = evt.pointerId;
     mode = 'pending';
     startPx = [evt.clientX, evt.clientY];
     startPt = lastPt = toMeadow(evt);
@@ -740,7 +740,7 @@
   });
 
   canvas.addEventListener('pointermove', evt => {
-    if (!mode || state !== 'playing' || paused) return;
+    if (!mode || evt.pointerId !== activeId || state !== 'playing' || paused) return;
     const pt = toMeadow(evt);
     if (mode === 'pending' && Math.hypot(evt.clientX - startPx[0], evt.clientY - startPx[1]) > MOVE_PX) {
       mode = 'cut';
@@ -749,13 +749,14 @@
     if (mode === 'cut') { cutLine(lastPt[0], lastPt[1], pt[0], pt[1]); lastPt = pt; }
   });
 
-  canvas.addEventListener('pointerup', () => {
+  canvas.addEventListener('pointerup', evt => {
+    if (evt.pointerId !== activeId) return;
     if (mode === 'pending' && state === 'playing' && !paused && performance.now() - downAt <= TAP_MS) {
       backburn(startPt[0], startPt[1]);
     }
     endGesture();
   });
-  canvas.addEventListener('pointercancel', endGesture);
+  canvas.addEventListener('pointercancel', evt => { if (evt.pointerId === activeId) endGesture(); });
 
   document.getElementById('resetBtn').addEventListener('click', newRound);
   playAgainBtn.addEventListener('click', newRound);

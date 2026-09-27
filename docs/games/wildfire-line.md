@@ -30,8 +30,12 @@ round ends at once). 6 achievements (in `games/games.json`).
 - Houses: 2×2 cells with no fuel. A house burns after `HOUSE_HEAT` s of
   burning cells in its ring (cumulative). It's blamed on your backburn if
   backburn cells outnumbered wild ones for most of that time.
-- Cut: clears every fresh grass cell within `CUT_W` px of the stroke, in
-  stroke order, at `CUT_COST · fuel` stamina each. It stops when stamina
+- Cut: clears a one-cell-wide line: every fresh grass cell the stroke passes
+  through, stepping only sideways or up/down (so diagonal strokes make a
+  staircase with no corner gaps), at `CUT_COST · fuel` stamina each. Players
+  widen a line by drawing over it again. (First build used a 10 px
+  half-width brush, 2–3 cells wide per stroke; playtest feedback said a pen
+  stroke "placed two down" and burned stamina too fast.) It stops when stamina
   runs short ("Out of breath"). It can't cut burning cells, and ash is free
   (there's nothing to cut).
 - Backburn: lights every fresh cell with fuel within `TORCH_R` px, then
@@ -48,13 +52,13 @@ round ends at once). 6 achievements (in `games/games.json`).
 | SPREAD / DIAG | 0.1 / 0.7 | WIND_PUSH / WIND_MIN | 2.5 / 0.15 |
 | EMBER_RATE / EMBER_MIN–MAX / FLIGHT | 0.12 / 2–6 cells / 0.5 s | START_SPOTS | 3 |
 | WIND_EVERY ± JITTER / WARN / TURN_T | 20 ± 3 s / 4 s / 1.2 s | WIND_TOWARD | 0.75 |
-| STAM_MAX / STAM_REGEN | 100 / 6 per s | CUT_W / CUT_COST | 10 px / 6 × fuel |
+| STAM_MAX / STAM_REGEN | 100 / 6 per s | CUT_COST | 6 × fuel per cell |
 | TORCH_R / TORCH_COOL | 20 px / 1.5 s | HOUSE_HEAT / LOSE_AT | 1.2 s / 2 houses |
 | HOLD_N / STARVE_N / SWIFT_T | 60 / 20 / 60 s | | |
 
-A full stamina bar cuts about 100 px of line in average grass. A
-full-width line costs about 350 stamina, which is roughly when the front
-arrives.
+A full stamina bar cuts about 300 px of one-cell line in average grass
+(~30 cells). A full-width 2-row line costs about 350 stamina, which is
+roughly when the front arrives.
 
 ## Layout (400×600)
 
@@ -68,17 +72,17 @@ outcrops. The wind indicator is in the top-right corner.
 | Bot | Win | 4/4 houses | Median length | Houses lost to own backburn |
 |---|---|---|---|---|
 | idle (no input) | 4% | 3% | 53 s | 0 |
-| cut (2-row line at y 470/450, nearest the fire first; rings a house if fire gets past) | 53% | 47% | 66 s | 0 |
-| cutburn (same, plus burning out right above finished sections ≥2 sections from any gap) | 74% | 70% | 69 s | 6 in 300 runs |
+| cut (4 one-cell rows at y 475/465/455/445, nearest the fire first; rings a house if fire gets past) | 55% | 48% | 68 s | 0 |
+| cutburn (same, plus burning out right above the first 2 rows, ≥2 sections from any gap) | 70% | 65% | 71 s | 0 in 300 runs |
 | burn (diagnostic: no cutting, backburn ahead of the fire when the wind blows back at it) | 3% | 2% | 51 s | 335 in 300 runs |
 
-Cut + backburn beats cut-only by 21 points, and no input wins 4%. The
+Cut + backburn beats cut-only by 15 points (21 with the old wide brush), and no input wins 4%. The
 burn-only bot shows the risk: a backburn with no line behind it turns into
 a second front at the next wind shift (Backfired in 58% of its runs).
 
-Achievement rates (cutburn bot): Fight Fire with Fire 72%, Read the Wind
-43%, Hold the Line 40% (cut bot 86%), Not a Scratch 70%, Swift 7%,
-Backfired 1%.
+Achievement rates (cutburn bot): Fight Fire with Fire 47%, Read the Wind
+30%, Hold the Line 55% (cut bot 83%), Not a Scratch 65%, Swift 3%,
+Backfired 0% (burn bot 58%).
 
 Tuning path:
 - The first pass (SPREAD 0.6, BURN_T 3) reached the village in 12 s.
@@ -89,8 +93,10 @@ Tuning path:
 
 ## Open ideas / known limits
 
-- Not hand-played on a real phone yet (rendered headlessly at 390×760, drag
-  and tap tested with synthetic mouse input).
+- Playtest link (private artifact, republished on each push):
+  https://claude.ai/artifact/RDdeAFsaKo3n12JnTu1SCW
+- Input takes only the first pointer down, so a resting palm or finger
+  can't add strokes.
 - Hold the Line counts expected main-fire spread attempts into cut ground
   (not literal events), so it's a "your line took a lot of heat" measure.
 - Swift (under 60 s) is rare for bots (7%). It likely needs aggressive
@@ -101,4 +107,4 @@ Tuning path:
 
 ## History
 
-- v1: first version.
+- v1: first version (cut brush narrowed to one cell during PR playtest).

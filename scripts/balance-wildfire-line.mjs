@@ -65,17 +65,16 @@ function playInPage({ seed, bot }) {
   window.__seed(seed);
   D.newRound();
   const dt = 1 / 60, C = D.CELL, GW = D.GW, GH = D.GH;
-  const LINES = [470, 450];          // a line, then a second row to stop sparks
+  // One-cell rows (cell centers): a 2-row line at 465/475, then two more rows to stop sparks.
+  const LINES = [475, 465, 455, 445];
   const CHUNK = 40;
   let tick = 0;
-  // A chunk is done when every grass cell within 10 px of its line is cut or already burnt.
+  // A chunk is done when every grass cell of its row is cut or already burnt.
   function chunkDone(y, x0) {
-    for (let cy = Math.floor((y - 10) / C); cy <= Math.floor((y + 10) / C); cy++) {
-      for (let cx = Math.floor(x0 / C); cx < Math.floor((x0 + CHUNK) / C); cx++) {
-        const i = cy * GW + cx, py = cy * C + C / 2;
-        if (Math.abs(py - y) > 10) continue;
-        if (D.kind[i] === 0 && !D.cut[i] && D.fire[i] === 0) return false;
-      }
+    const cy = Math.floor(y / C);
+    for (let cx = Math.floor(x0 / C); cx < Math.floor((x0 + CHUNK) / C); cx++) {
+      const i = cy * GW + cx;
+      if (D.kind[i] === 0 && !D.cut[i] && D.fire[i] === 0) return false;
     }
     return true;
   }
@@ -111,16 +110,16 @@ function playInPage({ seed, bot }) {
       // Burn out: light right against a cut section of the line, at least two sections from any
       // uncut one (so the burn can't flank round an end), while the fire is still far off.
       if (bot.burn && f && D.torchCool <= 0 && f.y < LINES[0] - 80) {
-        const doneAt = x0 => x0 < 0 || x0 >= D.W || chunkDone(LINES[0], x0);
+        const doneAt = x0 => x0 < 0 || x0 >= D.W || (chunkDone(LINES[0], x0) && chunkDone(LINES[1], x0));
         const spots = [];
         for (let x = 15; x < D.W; x += 30) {
-          const x0 = Math.floor(x / CHUNK) * CHUNK, y = LINES[0] - 23, i = Math.floor(y / C) * GW + Math.floor(x / C);
+          const x0 = Math.floor(x / CHUNK) * CHUNK, y = 447, i = Math.floor(y / C) * GW + Math.floor(x / C);
           let safe = true;
           for (let k = -2; k <= 2; k++) if (!doneAt(x0 + k * CHUNK)) safe = false;
           if (safe && D.fire[i] === 0 && D.fuel[i] >= 0.15) spots.push(x);
         }
         spots.sort((a, b) => Math.abs(a - f.x) - Math.abs(b - f.x));
-        if (spots.length) D.backburn(spots[0], LINES[0] - 23);
+        if (spots.length) D.backburn(spots[0], 447);
       }
       // Backburn just ahead of the main fire while the wind blows back toward it, with time
       // left before the next shift (no line behind it: the risky way).

@@ -38,7 +38,10 @@
   If it lists commits stranded on another `claude/*` branch, tell the user.
 - Never push to a branch whose PR is already merged or closed.
 - Finish in this order: validate, update `docs/games/<id>.md` (constants,
-  balance tables, open ideas), push, open the PR. Keep the PR body short:
+  balance tables, open ideas), push, open the PR, then publish the game file
+  as a private playtest Artifact (the user can't play a PR before merging)
+  and put the link in the PR body and the notes file. Republish the same
+  link after each push. Keep the PR body short:
   what changed, key numbers, the checklist; link the notes file for detail.
 - End the conversation with a handoff of at most 5 lines: PR link, what
   changed, what's open, suggested next step.
