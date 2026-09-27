@@ -1,6 +1,6 @@
 # Pressure Grid: design notes
 
-Current: **v6**. The arcade's first game and its structural reference
+Current: **v6** (playtest: https://claude.ai/artifact/6XdvHNUwNZx9LdbutZBSuL). The arcade's first game and its structural reference
 (`docs/adding-a-game.md`). Mechanics: **pump** (tap a cell: +pressure) and
 **siphon** (drag from a cell toward a neighbour: move 60% of it, 15% lost),
 sharing **pressure per cell**. A passive system bleeds pressure into
