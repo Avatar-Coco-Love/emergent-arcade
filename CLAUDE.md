@@ -14,6 +14,8 @@
 - A game's `id` is its permanent feedback key; never rename it. Revisions
   edit the file in place and bump `version` + `updated` in the manifest.
 - Always run `node scripts/validate.mjs` before pushing.
+- Murmuration balance: `node scripts/balance-murmuration.mjs [runs] [bots]` (headless
+  seeded bots; prints win rate by dusk time). Reuse it rather than rebuilding one.
 - Never push to `main`. Propose new or revised games as a PR (the template has
   the design checklist). Merging to `main` is what deploys.
 - Feedback readback: `node scripts/fetch-feedback.mjs` (needs
