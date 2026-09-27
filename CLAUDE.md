@@ -29,9 +29,11 @@
 - A game's current design (constants, layout, balance numbers, open ideas)
   is in `docs/games/<id>.md`. Read that, not old PR bodies or git history.
 - Game files are big: grep for what you need, then read just that range.
-- Balance with `scripts/balance-<id>.mjs` (Murmuration has one: headless
-  seeded bots, win rate by dusk time). For another game, copy it and adapt
-  `buildDebug()` and the bots; don't build a harness from scratch.
+- Balance with `scripts/balance-<id>.mjs` (every game has one: headless
+  seeded bots, one line per bot). For a new game, copy the closest one and
+  adapt `buildDebug()` and the bots; don't build a harness from scratch.
+- Design findings so far: `docs/findings.md`. Check it before proposing or
+  revising a game, and add to it when a revision teaches something.
 - Print one line per bot/test case; never per-run logs or full page dumps.
 - Diffs: `--stat` first. GitHub tools: `minimal_output`, small pages.
 

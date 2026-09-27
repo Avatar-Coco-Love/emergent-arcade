@@ -30,8 +30,10 @@ favor revisions and playtesting over new games until real data flows.
   **The bot–human gap is the key missing number.**
 - Hand-play every game on a real phone and record the results in its notes
   file.
-- Write the missing notes files: `docs/games/pressure-grid.md`,
-  `docs/games/orbit-garden.md`.
+- ~~Write the missing notes files~~: done, with new bot harnesses
+  `scripts/balance-orbit-garden.mjs` and `scripts/balance-pressure-grid.mjs`.
+  First entries are in `docs/findings.md`. Top revision candidate from bots:
+  Pressure Grid's self-sustaining eruption storms.
 
 Exit: at least one revision driven by real player data.
 
