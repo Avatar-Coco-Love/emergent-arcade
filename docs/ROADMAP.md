@@ -73,9 +73,11 @@ Risks to watch:
 - Infrastructure limits: Apps Script quotas, size of the self-contained
   game files, session context (kept small by per-game notes files).
 
-## Long term (years): possible outcomes
+## Long term (years): all three outcomes
 
-None has been chosen yet. Pick one when the data points somewhere.
+The maintainer wants all three. They don't compete: the museum is the
+arcade itself, graduation is what happens to its best games, and the
+method is how both get made.
 
 1. **Sketchbook / museum**: a durable, playable archive of small
    experiments in emergent design, useful to other designers.
@@ -85,3 +87,8 @@ None has been chosen yet. Pick one when the data points somewhere.
 3. **The method itself**: an AI proposing, building and balancing games
    within human-set constraints, gated by review and player data, is the
    thing worth sharing.
+
+What this means now: keep every retired game playable (museum), note in a
+game's file when it strains the rules (graduation candidate), and keep
+`docs/findings.md` and the pipeline documented well enough for someone else
+to reuse (method).
