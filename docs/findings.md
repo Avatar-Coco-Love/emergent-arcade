@@ -13,7 +13,9 @@ pressure the board erupts forever and stops responding to the player.
 Balance bots: storms in 100% of 120 s sessions, and 0–5% settle once the bot
 stops, unless it spreads pressure evenly (`docs/games/pressure-grid.md`).
 Check: every passive system should lose something each cycle (decay,
-drain, cooldown). *Evidence: bots plus a real-page check. Provisional.*
+drain, cooldown). Fix confirmed in v6: `ERUPT_BLAST` 40 → 24 (each eruption
+now loses ≥4) and all six bots settle; at 25 (break-even) storms still
+happen but burn out. *Evidence: bots plus a real-page check. Provisional.*
 
 ## A verb only shares state if succeeding needs to read it
 
