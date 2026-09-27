@@ -294,6 +294,63 @@
           "description": "Put the whole fire out in under 60 seconds."
         }
       ]
+    },
+    {
+      "id": "hourglass-delivery",
+      "title": "Hourglass Delivery",
+      "file": "hourglass-delivery.html",
+      "version": 1,
+      "added": "2026-09-27",
+      "updated": "2026-09-27",
+      "blurb": "Pour sand onto brass ledges, let it pile up, then knock it loose to fill the hourglasses rolling past.",
+      "goal": "Fill at least 6 of the 8 hourglasses on the belt. A third empty glass ends the round.",
+      "howToPlay": "Hold anywhere to pour sand from the top at your finger; slide while holding to move the spout. Sand falls, slides off slopes and piles up on the ledges, and sand that sits still for a moment packs down (it turns darker) and holds its shape. Flick (a quick swipe) to knock the sand where your swipe starts loose and shove it the way you swiped: a whole pile can slide off the end of its ledge at once. Hourglasses roll along the belt at the bottom, and any sand that falls into one counts toward its line. Pouring straight down is slow and the glasses keep moving, so load up a ledge ahead of time and knock the pile off just as a glass rolls underneath. The hopper holds 2000 grains, shown top left.",
+      "mechanics": [
+        {
+          "name": "pour",
+          "verb": "hold",
+          "description": "Hold to pour a stream of sand from the top at your finger's position, drawn from a limited hopper. Slide while holding to move the spout."
+        },
+        {
+          "name": "knock",
+          "verb": "flick",
+          "description": "Flick to shake settled sand loose where the swipe starts and shove it the way you swiped, starting a landslide. Short cooldown."
+        }
+      ],
+      "sharedState": "The sand grid: pouring adds grains, which fall, slide and pile up on ledges and pack down when they rest. Knocking only moves sand that is already there, loosening packed grains and shoving them sideways, and the hourglasses count whatever reaches them.",
+      "accent": "#e0b25c",
+      "achievements": [
+        {
+          "id": "first-delivery",
+          "title": "First Delivery",
+          "description": "Send a filled hourglass off the belt."
+        },
+        {
+          "id": "one-knock",
+          "title": "Landslide",
+          "description": "Land 60 grains in one hourglass from a single knock."
+        },
+        {
+          "id": "stockpile",
+          "title": "Stockpiler",
+          "description": "Have 400 grains of packed sand resting at once."
+        },
+        {
+          "id": "clean-floor",
+          "title": "Not a Grain Wasted",
+          "description": "Win with less than 15% of your poured sand spilled."
+        },
+        {
+          "id": "full-order",
+          "title": "Full Order",
+          "description": "Fill all 8 hourglasses."
+        },
+        {
+          "id": "brim",
+          "title": "Steady Hand",
+          "description": "Deliver a glass filled to its line with at most 10 grains to spare."
+        }
+      ]
     }
   ]
 }
