@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hot Iron</title>
+<style>
+  :root {
+    --bg: #0c0908;
+    --panel: #1c1614;
+    --text: #efe6e0;
+    --muted: #a3968e;
+    --accent: #f07a2a;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the forge scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #forge {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    border-radius: 10px;
+    background: #110d0c;
+  }
+  #msg {
+    position: absolute;
+    top: 13%;
+    left: 8px;
+    right: 8px;
+    margin: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #f1e4da;
+    text-shadow: 0 1px 3px #000;
+    pointer-events: none;
+  }
+  #endCard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(86%, 300px);
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(28, 22, 20, 0.95);
+    border: 1px solid #3a2e2a;
+    text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #endCard h2.won { color: #ffc862; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #d6cac2; font-size: 0.9rem; }
+  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
+  #playAgain:disabled { opacity: 0.4; }
+  .bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bar b { color: var(--text); }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #3a2e2a;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <div id="field">
+    <div id="stage">
+      <canvas id="forge" aria-label="Hot Iron forge. Hold to heat the bar under your finger, tap to strike a segment."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="playAgain">Next bar</button>
+      </div>
+    </div>
+  </div>
+  <div class="bar">
+    <span>Shape <b id="hudShape"></b></span>
+    <button id="resetBtn">New bar</button>
+  </div>
+
+<script>
+(function() {
+  const GAME_ID = 'hot-iron';
+  const W = 400, H = 480;
+  const N = 16;                    // segments in the bar
+  const SW = 23;                   // segment width (px)
+  const X0 = (W - N * SW) / 2;     // bar's left end
+  const BAR_Y = 215;               // bar's centre line
+  const PX_PER_TH = 64;            // drawn height of thickness 1.0
+  // Temperature is 0 (cold) to ~1.2. The player only ever sees heat colours.
+  const T_WORK = 0.45;             // cherry: below this a strike cracks the bar
+  const T_BURN = 0.9;              // white: above this the metal burns away
+  const HEAT_RATE = 0.55;          // heating under the finger (per s, thickness 1)
+  const HEAT_SIGMA = 0.7;          // spread of the heat under the finger (segments)
+  const COND = 0.1;                // conduction between neighbouring segments
+  const COOL = 0.07;               // radiation: every segment always loses heat
+  const CAP_MIN = 0.35;            // heat capacity = CAP_MIN + (1 - CAP_MIN) * thickness
+  const STRIKE_BASE = 0.06;        // a strike removes th * (BASE + GAIN * heat) ...
+  const STRIKE_GAIN = 0.3;         // ... where heat is 0 at cherry and 1 at white
+  const FLOW_T0 = 0.3;             // neighbours take metal from this temperature up ...
+  const FLOW_SPAN = 0.45;          // ... fully once this much hotter
+  const FLOW_NEED = 0.6;           // total neighbour softness for a full strike
+  const FLOW_POW = 2;              // > 1: the hotter neighbour takes most of the metal
+  const BURN_RATE = 0.6;           // thickness lost per s per unit above T_BURN
+  const TH_MIN = 0.15;             // thinnest a segment gets (burned away)
+  const TOL = 0.1;                 // every segment within this of the target wins
+  const FUEL_MAX = 45;             // seconds of heating per bar
+  const THRIFTY_LEFT = 0.25;       // Thrifty: win with this share of the fuel left
+  const MAX_CRACKS = 3;
+  const PROFILE_AMP = 0.35;        // targets range at most 1 ± this ...
+  const TRANSPORT = 6;             // ... and all need this much metal moved
+  const HOLD_DELAY_MS = 170;       // a press longer than this heats; shorter strikes
+  const TAP_SLOP_PX = 14;
+  const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win/loss
+  const STEP = 1 / 60;
+
+  // Target profiles, shifted so each holds exactly the bar's starting volume
+  // (N segments of thickness 1; hammering conserves metal, so every shape is
+  // reachable without burning any away). Each is scaled so the same amount of
+  // metal has to move (the sum over seams of the excess that must cross it
+  // is TRANSPORT), at most 1 ± PROFILE_AMP.
+  const PROFILES = [
+    ['Double taper', x => 1 - Math.abs(x - 0.5)],
+    ['Leaf blade', x => x < 0.25 ? 0.62 : 0.4 + 1.1 * Math.sin(Math.PI * Math.pow((x - 0.25) / 0.75, 0.8))],
+    ['Waisted bar', x => Math.abs(x - 0.5)],
+    ['Chisel', x => x < 0.6 ? 1.2 : 1.2 - 0.9 * (x - 0.6) / 0.4],
+  ].map(([name, f]) => {
+    const raw = Array.from({ length: N }, (_, i) => f((i + 0.5) / N));
+    const mean = raw.reduce((a, b) => a + b, 0) / N;
+    const dev = Math.max(...raw.map(v => Math.abs(v - mean)));
+    const unit = raw.map(v => (v - mean) / dev);
+    let F = 0, moved = 0;
+    for (let i = 0; i < N - 1; i++) { F += unit[i]; moved += Math.abs(F); }
+    const k = Math.min(PROFILE_AMP, TRANSPORT / moved);
+    return { name, target: unit.map(v => 1 + k * v) };
+  });
+
+  const canvas = document.getElementById('forge');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  const roundEarned = new Set();
+  function unlock(id) {
+    roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Tell the gallery how a round ended (anonymous play telemetry, see
+  // docs/telemetry.md). time is seconds of unpaused play this round.
+  function report(result) {
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
+        outcome: result === 'won' ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
+    }
+  }
+
+  // Scale the forge to the largest W:H box that fits, one canvas pixel per
+  // screen pixel. Drawing always uses W x H game units.
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitForge() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(100, Math.floor(W * scale));
+    const h = Math.max(120, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitForge).observe(field);
+  window.addEventListener('resize', fitForge);
+  fitForge();
+
+  // The gallery pauses the game while one of its panels covers it.
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') paused = true;
+    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+  });
+
+  const endCard = document.getElementById('endCard');
+  const playAgainBtn = document.getElementById('playAgain');
+
+  let segs, target, profile = Math.floor(Math.random() * PROFILES.length);
+  let fuel, cracks, strikes, elapsed, state, heatX, msgTimer;
+  let sparks = [], flows = [], shake = 0;
+
+  function newBar(p) {
+    profile = p === undefined ? (profile + 1) % PROFILES.length : p;
+    target = PROFILES[profile].target;
+    segs = Array.from({ length: N }, () => ({ th: 1, T: 0, cracks: 0, hit: 0 }));
+    fuel = FUEL_MAX;
+    cracks = 0;
+    strikes = 0;
+    elapsed = 0;
+    heatX = null;
+    sparks = []; flows = [];
+    roundEarned.clear();
+    state = 'playing';
+    endCard.hidden = true;
+    msgEl.textContent = '';
+    document.getElementById('hudShape').textContent = PROFILES[profile].name;
+  }
+
+  function endGame(result, why) {
+    state = result;
+    heatX = null;
+    report(result);
+    msgEl.textContent = '';
+    const title = document.getElementById('endTitle');
+    title.textContent = result === 'won' ? `${PROFILES[profile].name} forged!` : why;
+    title.className = result;
+    document.getElementById('endDetail').textContent = result === 'won'
+      ? `${strikes} strikes, ${Math.round(100 * fuel / FUEL_MAX)}% fuel left, ${cracks} crack${cracks === 1 ? '' : 's'}.`
+      : `${segs.filter((s, i) => Math.abs(s.th - target[i]) <= TOL).length} of ${N} segments were on the line.`;
+    const n = roundEarned.size;
+    document.getElementById('endAch').textContent = n
+      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round` : '';
+    playAgainBtn.disabled = true;
+    endCard.hidden = false;
+    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+  }
+
+  function say(text) {
+    msgEl.textContent = text;
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { msgEl.textContent = ''; }, 2500);
+  }
+
+  function segX(i) { return X0 + (i + 0.5) * SW; }
+  function cap(s) { return CAP_MIN + (1 - CAP_MIN) * s.th; }
+  // How readily a segment takes metal from a struck neighbour (0..1).
+  function softness(T) { return Math.pow(Math.max(0, Math.min(1, (T - FLOW_T0) / FLOW_SPAN)), FLOW_POW); }
+  function onTarget(i) { return Math.abs(segs[i].th - target[i]) <= TOL; }
+
+  // ---------- mechanic 1: heat (hold) ----------
+  // heatX: position along the bar in segments (0..N), or null when not holding.
+  function setHeat(x) {
+    if (state !== 'playing') return;
+    heatX = x;
+  }
+
+  // ---------- mechanic 2: strike (tap) ----------
+  function strike(i) {
+    if (state !== 'playing' || i < 0 || i >= N) return;
+    const s = segs[i];
+    strikes++;
+    s.hit = 0.18;
+    if (s.T < T_WORK) {
+      s.cracks++;
+      cracks++;
+      shake = 0.25;
+      say(s.T < FLOW_T0 ? 'Cold iron cracks!' : 'Too cool to work: cracked!');
+      if (cracks >= MAX_CRACKS) endGame('lost', 'The bar split');
+      return;
+    }
+    const u = Math.min(1, (s.T - T_WORK) / (T_BURN - T_WORK));
+    const wl = i > 0 ? softness(segs[i - 1].T) : 0;
+    const wr = i < N - 1 ? softness(segs[i + 1].T) : 0;
+    const ws = wl + wr;
+    if (ws <= 0) {
+      say('The metal has nowhere to go: its neighbours are cold.');
+      return;
+    }
+    let d = s.th * (STRIKE_BASE + STRIKE_GAIN * u) * Math.min(1, ws / FLOW_NEED);
+    d = Math.min(d, s.th - TH_MIN);
+    if (d <= 0) return;
+    s.th -= d;
+    if (wl > 0) segs[i - 1].th += d * wl / ws;
+    if (wr > 0) segs[i + 1].th += d * wr / ws;
+    if (wl > 0) flows.push({ from: i, to: i - 1, share: wl / ws, t: 0.5 });
+    if (wr > 0) flows.push({ from: i, to: i + 1, share: wr / ws, t: 0.5 });
+    // Steering: a mid-bar blow (two neighbours) that sends 90% one way.
+    if (i > 0 && i < N - 1 && d > 0.04 && Math.max(wl, wr) / ws >= 0.9) unlock('steer');
+    for (let k = 0; k < 4 + 10 * u; k++) spark(segX(i), BAR_Y, 1);
+    checkWin();
+  }
+
+  function checkWin() {
+    if (state !== 'playing') return;
+    for (let i = 0; i < N; i++) if (!onTarget(i)) return;
+    unlock('forged');
+    if (cracks === 0) unlock('clean');
+    if (fuel >= FUEL_MAX * THRIFTY_LEFT) unlock('thrifty');
+    endGame('won');
+  }
+
+  // ---------- simulation ----------
+  function step(dt) {
+    elapsed += dt;
+    const dT = new Array(N).fill(0);
+    if (heatX !== null && fuel > 0) {
+      fuel = Math.max(0, fuel - dt);
+      for (let i = 0; i < N; i++) {
+        const d = (i + 0.5 - heatX) / HEAT_SIGMA;
+        dT[i] += HEAT_RATE * Math.exp(-d * d / 2);
+      }
+      if (fuel === 0) say('Out of fuel. Work what is still hot.');
+    }
+    // Conduction moves heat along the bar; radiation always takes it away,
+    // faster from thin metal (less mass behind more surface).
+    for (let i = 0; i < N - 1; i++) {
+      const f = COND * (segs[i + 1].T - segs[i].T);
+      dT[i] += f;
+      dT[i + 1] -= f;
+    }
+    for (let i = 0; i < N; i++) {
+      const s = segs[i];
+      s.T = Math.max(0, s.T + dt * (dT[i] - COOL * s.T) / cap(s));
+      if (s.T > T_BURN && s.th > TH_MIN) {
+        s.th = Math.max(TH_MIN, s.th - BURN_RATE * (s.T - T_BURN) * dt);
+        if (s.th === TH_MIN) { unlock('burnt'); say('Burned through!'); }
+        if (Math.random() < dt * 30) spark(segX(i), BAR_Y, 0.5);
+      }
+      if (s.hit > 0) s.hit -= dt;
+    }
+    checkWin();
+    // Out of fuel: the round ends once nothing is hot enough to strike.
+    if (state === 'playing' && fuel <= 0 && segs.every(s => s.T < T_WORK)) endGame('lost', 'The fire went out');
+  }
+
+  // ---------- effects ----------
+  function spark(x, y, power) {
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6;
+    const v = 60 + Math.random() * 160 * power;
+    sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.3 + Math.random() * 0.5 });
+  }
+  function effects(dt) {
+    for (let k = sparks.length - 1; k >= 0; k--) {
+      const p = sparks[k];
+      p.vy += 400 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+      if (p.life <= 0) sparks.splice(k, 1);
+    }
+    for (let k = flows.length - 1; k >= 0; k--) if ((flows[k].t -= dt) <= 0) flows.splice(k, 1);
+    if (shake > 0) shake -= dt;
+  }
+
+  // ---------- drawing ----------
+  // Classic forge colours; the only way the player reads temperature.
+  const RAMP = [
+    [0, 44, 40, 38], [0.25, 60, 34, 28], [0.33, 104, 26, 16], [0.44, 138, 26, 14],
+    [0.47, 190, 34, 18], [0.6, 238, 92, 22], [0.75, 255, 196, 60], [0.9, 255, 246, 222], [1.3, 255, 255, 255],
+  ];
+  function heatColor(T) {
+    if (T <= 0) return `rgb(${RAMP[0][1]},${RAMP[0][2]},${RAMP[0][3]})`;
+    for (let k = 1; k < RAMP.length; k++) {
+      if (T <= RAMP[k][0] || k === RAMP.length - 1) {
+        const a = RAMP[k - 1], b = RAMP[k];
+        const f = Math.max(0, Math.min(1, (T - a[0]) / (b[0] - a[0])));
+        return `rgb(${Math.round(a[1] + (b[1] - a[1]) * f)},${Math.round(a[2] + (b[2] - a[2]) * f)},${Math.round(a[3] + (b[3] - a[3]) * f)})`;
+      }
+    }
+  }
+
+  // Outline through half-thickness values: right along the top, back along the bottom.
+  function profilePath(th) {
+    const pts = [];
+    pts.push([X0, (th[0]) * PX_PER_TH / 2]);
+    for (let i = 0; i < N; i++) pts.push([segX(i), th[i] * PX_PER_TH / 2]);
+    pts.push([X0 + N * SW, th[N - 1] * PX_PER_TH / 2]);
+    ctx.beginPath();
+    pts.forEach(([x, h], k) => k ? ctx.lineTo(x, BAR_Y - h) : ctx.moveTo(x, BAR_Y - h));
+    for (let k = pts.length - 1; k >= 0; k--) ctx.lineTo(pts[k][0], BAR_Y + pts[k][1]);
+    ctx.closePath();
+  }
+
+  function draw() {
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+    ctx.fillStyle = '#110d0c';
+    ctx.fillRect(0, 0, W, H);
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4);
+
+    // Fuel gauge (top left) and cracks (top right).
+    ctx.fillStyle = '#2a201c';
+    roundRect(34, 16, 200, 12, 6); ctx.fill();
+    const f = fuel / FUEL_MAX;
+    if (f > 0) {
+      const g = ctx.createLinearGradient(34, 0, 234, 0);
+      g.addColorStop(0, '#c2410c'); g.addColorStop(1, '#fbbf24');
+      ctx.fillStyle = g;
+      roundRect(34, 16, Math.max(12, 200 * f), 12, 6); ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(34 + 200 * THRIFTY_LEFT, 13); ctx.lineTo(34 + 200 * THRIFTY_LEFT, 31); ctx.stroke(); // Thrifty mark
+    drawFlame(20, 29, 7, heatX !== null && fuel > 0 ? 1 : 0.6);
+    for (let k = 0; k < MAX_CRACKS; k++) {
+      const cx = W - 70 + k * 24, cy = 22;
+      ctx.strokeStyle = k < cracks ? '#ff6b57' : '#4a3a34';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.stroke();
+      if (k < cracks) {
+        ctx.beginPath(); ctx.moveTo(cx - 2, cy - 7); ctx.lineTo(cx + 2, cy - 2); ctx.lineTo(cx - 2, cy + 2); ctx.lineTo(cx + 1, cy + 7); ctx.stroke();
+      }
+    }
+
+    // Anvil face (seen from above), with its horn to the left.
+    ctx.fillStyle = '#2b2f36';
+    ctx.beginPath();
+    ctx.moveTo(4, BAR_Y); ctx.quadraticCurveTo(30, BAR_Y - 76, 70, BAR_Y - 80);
+    ctx.lineTo(W - 8, BAR_Y - 80); ctx.lineTo(W - 8, BAR_Y + 80); ctx.lineTo(70, BAR_Y + 80);
+    ctx.quadraticCurveTo(30, BAR_Y + 76, 4, BAR_Y);
+    ctx.fill();
+    ctx.fillStyle = '#353a42';
+    ctx.fillRect(70, BAR_Y - 73, W - 84, 146);
+
+    // Column under the finger while heating.
+    if (heatX !== null && state === 'playing') {
+      const hx = X0 + heatX * SW;
+      const g = ctx.createRadialGradient(hx, BAR_Y, 4, hx, BAR_Y, 60);
+      g.addColorStop(0, fuel > 0 ? 'rgba(255,150,40,0.45)' : 'rgba(120,120,120,0.2)');
+      g.addColorStop(1, 'rgba(255,120,20,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(hx - 60, BAR_Y - 70, 120, 140);
+    }
+
+    // Glow around hot metal.
+    for (let i = 0; i < N; i++) {
+      const T = segs[i].T;
+      if (T < 0.35) continue;
+      const a = Math.min(0.5, (T - 0.35) * 0.9);
+      const g = ctx.createRadialGradient(segX(i), BAR_Y, 2, segX(i), BAR_Y, 34);
+      g.addColorStop(0, `rgba(255,${Math.round(90 + 150 * Math.min(1, T))},40,${a})`);
+      g.addColorStop(1, 'rgba(255,100,30,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(segX(i) - 34, BAR_Y - 34, 68, 68);
+    }
+
+    // The bar: heat colours blended along its length.
+    const grad = ctx.createLinearGradient(X0, 0, X0 + N * SW, 0);
+    for (let i = 0; i < N; i++) grad.addColorStop((i + 0.5) / N, heatColor(segs[i].T));
+    grad.addColorStop(0, heatColor(segs[0].T));
+    grad.addColorStop(1, heatColor(segs[N - 1].T));
+    profilePath(segs.map(s => s.th));
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Hammer marks, cracks, flashes.
+    for (let i = 0; i < N; i++) {
+      const s = segs[i], h = s.th * PX_PER_TH / 2, x = segX(i);
+      for (let c = 0; c < s.cracks; c++) {
+        ctx.strokeStyle = '#0a0706';
+        ctx.lineWidth = 1.6;
+        const o = (c - (s.cracks - 1) / 2) * 5;
+        ctx.beginPath();
+        ctx.moveTo(x + o - 2, BAR_Y - h); ctx.lineTo(x + o + 2, BAR_Y - h * 0.3);
+        ctx.lineTo(x + o - 2, BAR_Y + h * 0.2); ctx.lineTo(x + o + 1, BAR_Y + h * 0.7);
+        ctx.stroke();
+      }
+      if (s.hit > 0) {
+        ctx.fillStyle = `rgba(255,255,255,${s.hit * 2.5})`;
+        ctx.fillRect(x - SW / 2, BAR_Y - h - 4, SW, 2 * h + 8);
+      }
+    }
+
+    // Target profile: dashed outline.
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = 'rgba(200,230,255,0.75)';
+    ctx.lineWidth = 1.5;
+    profilePath(target);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Where the last strike sent the metal.
+    for (const fl of flows) {
+      const y = BAR_Y + segs[fl.to].th * PX_PER_TH / 2 + 10;
+      const x0 = segX(fl.from), x1 = segX(fl.to), dir = Math.sign(x1 - x0);
+      ctx.strokeStyle = `rgba(255,220,150,${Math.min(1, fl.t * 3) * (0.3 + 0.7 * fl.share)})`;
+      ctx.lineWidth = 1 + 2.5 * fl.share;
+      ctx.beginPath();
+      ctx.moveTo(x0, y); ctx.lineTo(x1, y);
+      ctx.moveTo(x1 - dir * 5, y - 4); ctx.lineTo(x1, y); ctx.lineTo(x1 - dir * 5, y + 4);
+      ctx.stroke();
+    }
+
+    // Per-segment marks: lit when the segment matches the outline.
+    for (let i = 0; i < N; i++) {
+      ctx.fillStyle = onTarget(i) ? '#9be37a' : '#3c302b';
+      ctx.beginPath(); ctx.arc(segX(i), BAR_Y + 100, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Heat legend: the working range (strike here) sits between the cracking
+    // cold and the burning white.
+    const ly = H - 44, lx = 40, lw = W - 80;
+    const lg = ctx.createLinearGradient(lx, 0, lx + lw, 0);
+    for (let k = 0; k <= 20; k++) lg.addColorStop(k / 20, heatColor(k / 20 * 1.05));
+    ctx.fillStyle = lg;
+    roundRect(lx, ly, lw, 10, 5); ctx.fill();
+    const wx0 = lx + lw * T_WORK / 1.05, wx1 = lx + lw * T_BURN / 1.05;
+    ctx.strokeStyle = '#d8ccc4';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(wx0, ly + 16); ctx.lineTo(wx0, ly + 20); ctx.lineTo(wx1, ly + 20); ctx.lineTo(wx1, ly + 16); ctx.stroke();
+    drawHammer((wx0 + wx1) / 2, ly + 30);
+    ctx.strokeStyle = '#8a7a72';
+    ctx.beginPath(); // crack glyph under the cold end
+    ctx.moveTo(lx + 30, ly + 18); ctx.lineTo(lx + 34, ly + 24); ctx.lineTo(lx + 29, ly + 29); ctx.lineTo(lx + 33, ly + 35); ctx.stroke();
+    drawFlame(lx + lw - 6, ly + 36, 6, 0.8); // burn glyph under white
+
+    for (const p of sparks) {
+      ctx.fillStyle = `rgba(255,${200 + Math.round(55 * Math.random())},120,${Math.min(1, p.life * 3)})`;
+      ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
+    }
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function drawFlame(x, y, r, a) {
+    for (const [k, c] of [[1, `rgba(240,110,30,${a})`], [0.55, `rgba(255,214,90,${a})`]]) {
+      const rr = r * k, yy = y - (1 - k) * r * 0.3;
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.moveTo(x + rr * 0.3, yy - 2.6 * rr);
+      ctx.quadraticCurveTo(x + 1.4 * rr, yy - rr, x + rr, yy - 0.3 * rr);
+      ctx.arc(x, yy - 0.3 * rr, rr, 0, Math.PI);
+      ctx.quadraticCurveTo(x - 1.2 * rr, yy - 1.3 * rr, x + rr * 0.3, yy - 2.6 * rr);
+      ctx.fill();
+    }
+  }
+  function drawHammer(x, y) {
+    ctx.fillStyle = '#b8aca4';
+    ctx.fillRect(x - 8, y - 5, 16, 7);
+    ctx.fillRect(x - 1.5, y + 2, 3, 9);
+  }
+
+  // ---------- input ----------
+  // One pointer at a time. A quick tap strikes the segment in that column; a
+  // press held past HOLD_DELAY_MS heats the bar under the finger (slide to
+  // move the heat). Anywhere in a column counts, so the finger needn't cover
+  // the colour it's watching.
+  let pointerId = null, downPx = null, downX = 0, holdTimer = null, heating = false;
+
+  function toBar(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (evt.clientX - rect.left) * W / rect.width;
+    return Math.max(0, Math.min(N, (x - X0) / SW));
+  }
+
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    if (pointerId !== null || state !== 'playing' || paused) return;
+    pointerId = evt.pointerId;
+    canvas.setPointerCapture(evt.pointerId);
+    downPx = [evt.clientX, evt.clientY];
+    downX = toBar(evt);
+    heating = false;
+    holdTimer = setTimeout(() => {
+      heating = true;
+      if (fuel <= 0) say('Out of fuel.');
+      setHeat(downX);
+    }, HOLD_DELAY_MS);
+  });
+  canvas.addEventListener('pointermove', evt => {
+    if (evt.pointerId !== pointerId) return;
+    downX = toBar(evt);
+    if (heating) setHeat(downX);
+  });
+  function release(evt, cancelled) {
+    if (evt.pointerId !== pointerId) return;
+    pointerId = null;
+    clearTimeout(holdTimer);
+    const moved = Math.hypot(evt.clientX - downPx[0], evt.clientY - downPx[1]) > TAP_SLOP_PX;
+    if (!heating && !cancelled && !moved && state === 'playing' && !paused) strike(Math.min(N - 1, Math.floor(downX)));
+    heating = false;
+    heatX = null;
+  }
+  canvas.addEventListener('pointerup', evt => release(evt, false));
+  canvas.addEventListener('pointercancel', evt => release(evt, true));
+
+  document.getElementById('resetBtn').addEventListener('click', () => newBar(profile));
+  playAgainBtn.addEventListener('click', () => newBar());
+
+  // ---------- loop ----------
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.1);
+    acc += dt;
+    last = now;
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) step(STEP);
+      acc -= STEP;
+    }
+    if (!paused) effects(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  newBar(profile);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

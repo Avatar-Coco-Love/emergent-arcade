@@ -9,8 +9,8 @@ their neighbours, which can chain. **Sandbox: no win or loss**, so it never
 posts `arcade:result` and telemetry only records sessions. 6 achievements
 (in `games/games.json`).
 
-Feedback: 3/5 on v1, "It is alright." (2026-09-26); one 3/5 test rating on v5
-(2026-09-27). No telemetry sessions recorded yet.
+Feedback: one 3/5 test rating on v5 (2026-09-27). No telemetry sessions
+recorded yet.
 
 ## Key constants (`games/pressure-grid.html`, top of the script)
 
@@ -76,8 +76,7 @@ never settled.)
   still burn out) before anything larger.
 - Siphon is rarely needed. Only a deliberate strike pattern earns Siphon
   Strike or Plumber; pumping alone reaches 4 of 6 achievements.
-- Sandbox with no goal, so telemetry shows session length only. The v1
-  rating (3/5, "It is alright.") fits the lack of stakes.
+- Sandbox with no goal, so telemetry shows session length only.
 - Not yet hand-played on a phone.
 
 ## History
