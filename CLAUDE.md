@@ -1,6 +1,8 @@
 # Notes for Claude Code sessions
 
 - Spec: `docs/PROJECT_BRIEF.md`. Its game design rules are non-negotiable.
+- Direction and current phase: `docs/ROADMAP.md`. Check it before proposing
+  new games (it currently favors revisions and playtesting over volume).
 - Static site, no build step. Public files: `index.html`, `assets/`, `games/`.
   Only those are published to GitHub Pages (see `.github/workflows/pages.yml`).
 - Each game is one self-contained HTML file in `games/`, registered in
