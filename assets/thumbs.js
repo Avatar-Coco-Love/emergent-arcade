@@ -128,5 +128,20 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery };
+  function hotIron() {
+    let body = `<rect width="72" height="72" fill="#110d0c"/>`;
+    // Anvil face, a bar glowing orange-to-white where it's being worked, and
+    // the dashed target outline (a double taper).
+    body += `<rect x="4" y="22" width="68" height="30" rx="3" fill="#353a42"/>`;
+    body += `<defs><linearGradient id="hi" x1="0" x2="1"><stop offset="0" stop-color="#2c2826"/><stop offset="0.3" stop-color="#8a1a0e"/><stop offset="0.5" stop-color="#ffc43c"/><stop offset="0.6" stop-color="#fff4de"/><stop offset="0.75" stop-color="#ee5c16"/><stop offset="1" stop-color="#3a221c"/></linearGradient></defs>`;
+    body += `<path d="M 6 32 L 30 31 L 38 28 L 46 31 L 68 32 L 68 42 L 46 43 L 38 46 L 30 43 L 6 42 Z" fill="url(#hi)"/>`;
+    body += `<path d="M 6 33 L 38 27 L 68 33 M 6 41 L 38 47 L 68 41" stroke="#c8e6ff" stroke-width="1" stroke-dasharray="2.5 2" fill="none"/>`;
+    // Hammer coming down, and sparks.
+    body += `<rect x="31" y="8" width="16" height="9" rx="1.5" fill="#b8aca4"/><rect x="45" y="11" width="22" height="3" rx="1.5" fill="#8a6a4a"/>`;
+    for (const [x, y] of [[26, 22], [52, 20], [22, 17], [56, 25], [30, 14]]) body += `<rect x="${x}" y="${y}" width="1.6" height="1.6" fill="#ffd27a"/>`;
+    body += `<circle cx="38" cy="62" r="3" fill="#9be37a"/>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron };
 })();

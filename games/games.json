@@ -351,6 +351,58 @@
           "description": "Deliver a glass filled to its line with at most 10 grains to spare."
         }
       ]
+    },
+    {
+      "id": "hot-iron",
+      "title": "Hot Iron",
+      "file": "hot-iron.html",
+      "version": 1,
+      "added": "2026-09-27",
+      "updated": "2026-09-27",
+      "blurb": "Heat an iron bar and hammer it into shape: heat decides where the metal goes.",
+      "goal": "Hammer the bar until every segment matches the dashed outline. Three cracks, or running out of fuel with nothing left hot enough to work, ends the round.",
+      "howToPlay": "Hold anywhere above or below the bar to heat the part under your finger (slide to move the heat); it burns fuel from the gauge at the top. Heat spreads along the bar and always fades, and thin metal heats and cools faster. Tap to strike a segment. Temperature only shows as colour: black and dull red are too cold, and striking them cracks the bar; from cherry red through orange and yellow each blow thins the segment, hotter blows thin it more; white-hot metal burns away. The metal you knock out of a segment flows into its neighbours, mostly into the hotter one: a cold neighbour takes almost nothing. So to thicken a segment, get it hotter than the segment on the other side and strike the segment next to it. A green dot under a segment means it matches the outline. The legend at the bottom shows the working range. There is no clock: take your time, but fuel spent on metal that cools off is wasted.",
+      "mechanics": [
+        {
+          "name": "heat",
+          "verb": "hold",
+          "description": "Hold to heat the bar under your finger, drawing from a limited fuel gauge. Heat spreads along the bar and radiates away; thin metal heats and cools faster; white-hot metal burns away."
+        },
+        {
+          "name": "strike",
+          "verb": "tap",
+          "description": "Tap to hammer a segment. Too cold and it cracks; in the working range it thins, more the hotter it is, and the metal flows into its neighbours in proportion to how hot they are."
+        }
+      ],
+      "sharedState": "Temperature and thickness per bar segment. Heating writes temperature (faster where the bar is thin) and burning removes thickness; striking reads the struck segment's temperature (crack or how much it thins) and its neighbours' temperatures (where the metal goes), and writes thickness.",
+      "accent": "#f07a2a",
+      "achievements": [
+        {
+          "id": "forged",
+          "title": "Forged",
+          "description": "Match a bar to its outline."
+        },
+        {
+          "id": "clean",
+          "title": "Clean Work",
+          "description": "Win without a single crack."
+        },
+        {
+          "id": "thrifty",
+          "title": "Thrifty",
+          "description": "Win with a quarter of the fuel left (the mark on the gauge)."
+        },
+        {
+          "id": "steer",
+          "title": "Steer the Metal",
+          "description": "Strike a segment away from the ends so that at least 90% of its metal flows to one side."
+        },
+        {
+          "id": "burnt",
+          "title": "Burned Through",
+          "description": "Overheat a segment until it burns away to nothing."
+        }
+      ]
     }
   ]
 }
