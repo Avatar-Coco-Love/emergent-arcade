@@ -42,6 +42,11 @@ const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/ho
 //   slow-hands: the reader with a 0.5 s reaction when letting go of a hold
 //     (the rate sweep scales think time only). slow-early also lets go
 //     early, judging how fast the colour is rising, as a player learns to.
+//   novice: a first-time player (v2, from the first playtest: both rounds
+//     lost to cracks in under 15 s). Taps the most off-target segment 3 times
+//     on the cold bar, then tries to grow the thinnest segment by heating it
+//     for `grow` s and striking it, then plays as the reader. novice-slow
+//     adds the slow-hands release.
 const HUMAN = { gap: 0.5, react: 0.25, tnoise: 0.03, miss: 0.03 };
 const BOTS = {
   reader: { ...HUMAN, policy: 'reader', rate: 1 },
@@ -52,6 +57,8 @@ const BOTS = {
   nosteer: { ...HUMAN, policy: 'reader', rate: 1, nosteer: true },
   blind: { ...HUMAN, policy: 'blind', rate: 1, hold: 1.5 },
   'blind-seam': { ...HUMAN, policy: 'blind', rate: 1, hold: 1.2, seam: true },
+  novice: { ...HUMAN, policy: 'reader', rate: 1, novice: true, grow: 2.5 },
+  'novice-slow': { ...HUMAN, policy: 'reader', rate: 1, react: 0.5, novice: true, grow: 2.5 },
   idle: { ...HUMAN, policy: 'idle', rate: 1 },
 };
 
@@ -178,6 +185,17 @@ function playInPage({ seed, bot }) {
     return { heat: heatPos };
   }
 
+  if (bot.novice) {
+    // Hammer the cold bar where it looks most wrong.
+    let i = 0;
+    for (let k = 0; k < N; k++) if (Math.abs(err(k)) > Math.abs(err(i))) i = k;
+    for (let k = 0; k < 3 && D.state === 'playing'; k++) { advance(gap); tap(i); }
+    // Heat the segment that needs to grow, then hit it.
+    let j = 0;
+    for (let k = 0; k < N; k++) if (err(k) < err(j)) j = k;
+    advance(gap * 0.5); setHeat(j + 0.5); advance(bot.grow); advance(react); setHeat(null);
+    advance(gap); tap(j); advance(gap);
+  }
   let blindPhase = 0, blindTarget = 0;
   while (D.state === 'playing' && D.elapsed < 400) {
     if (bot.policy === 'idle') { advance(1); continue; }
@@ -221,6 +239,7 @@ function playInPage({ seed, bot }) {
     won: D.state === 'won', lost: D.state === 'lost', time: D.elapsed, fuelLeft: D.fuel / D.FUEL_MAX,
     cracks: D.cracks, strikes: D.strikes, profile: seed % D.PROFILES.length,
     off: S.filter((x, i) => Math.abs(x.th - D.target[i]) > D.TOL).length, earned: [...D.earned],
+    burned: N - S.reduce((a, x) => a + x.th, 0),
   };
 }
 
@@ -247,7 +266,7 @@ function report(name, rs) {
   const perProfile = [0, 1, 2, 3].map(p => { const g = rs.filter(r => r.profile === p); return g.length ? Math.round(100 * g.filter(r => r.won).length / g.length) : '-'; }).join('/');
   console.log(`${name.padEnd(11)} win ${pct(wins.length).padStart(4)} (by shape ${perProfile}) | ${why}` +
     ` | wins: ${Math.round(med(wins.map(r => r.time)))}s, ${med(wins.map(r => r.strikes))} strikes, fuel left ${Math.round(100 * med(wins.map(r => r.fuelLeft)))}%` +
-    ` | cracks ${med(rs.map(r => r.cracks))}, off ${med(rs.map(r => r.off))} | ${achs}`);
+    ` | cracks ${med(rs.map(r => r.cracks))}, off ${med(rs.map(r => r.off))}, burned ${med(rs.map(r => r.burned)).toFixed(2)} | ${achs}`);
 }
 
 const runs = +process.argv[2] || 200;

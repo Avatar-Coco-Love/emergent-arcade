@@ -118,7 +118,8 @@
   const BAR_Y = 215;               // bar's centre line
   const PX_PER_TH = 64;            // drawn height of thickness 1.0
   // Temperature is 0 (cold) to ~1.2. The player only ever sees heat colours.
-  const T_WORK = 0.45;             // cherry: below this a strike cracks the bar
+  const T_COLD = 0.25;             // black: below this the hammer just bounces off
+  const T_WORK = 0.45;             // cherry: from T_COLD to here a strike cracks the bar
   const T_BURN = 0.9;              // white: above this the metal burns away
   const HEAT_RATE = 0.55;          // heating under the finger (per s, thickness 1)
   const HEAT_SIGMA = 0.7;          // spread of the heat under the finger (segments)
@@ -131,11 +132,11 @@
   const FLOW_SPAN = 0.45;          // ... fully once this much hotter
   const FLOW_NEED = 0.6;           // total neighbour softness for a full strike
   const FLOW_POW = 2;              // > 1: the hotter neighbour takes most of the metal
-  const BURN_RATE = 0.6;           // thickness lost per s per unit above T_BURN
+  const BURN_RATE = 0.2;           // thickness lost per s per unit above T_BURN
   const TH_MIN = 0.15;             // thinnest a segment gets (burned away)
   const TOL = 0.1;                 // every segment within this of the target wins
-  const FUEL_MAX = 45;             // seconds of heating per bar
-  const THRIFTY_LEFT = 0.25;       // Thrifty: win with this share of the fuel left
+  const FUEL_MAX = 60;             // seconds of heating per bar
+  const THRIFTY_LEFT = 0.4;        // Thrifty: win with this share of the fuel left
   const MAX_CRACKS = 3;
   const PROFILE_AMP = 0.35;        // targets range at most 1 ± this ...
   const TRANSPORT = 6;             // ... and all need this much metal moved
@@ -221,7 +222,7 @@
 
   let segs, target, profile = Math.floor(Math.random() * PROFILES.length);
   let fuel, cracks, strikes, elapsed, state, heatX, msgTimer;
-  let sparks = [], flows = [], shake = 0;
+  let sparks = [], flows = [], rings = [], shake = 0, legendPulse = 0;
 
   function newBar(p) {
     profile = p === undefined ? (profile + 1) % PROFILES.length : p;
@@ -232,7 +233,7 @@
     strikes = 0;
     elapsed = 0;
     heatX = null;
-    sparks = []; flows = [];
+    sparks = []; flows = []; rings = [];
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
@@ -282,13 +283,21 @@
   function strike(i) {
     if (state !== 'playing' || i < 0 || i >= N) return;
     const s = segs[i];
-    strikes++;
     s.hit = 0.18;
+    if (s.T < T_COLD) {
+      // Black iron is too hard to move or to break: the blow just rings.
+      rings.push({ x: segX(i), t: 0.4 });
+      legendPulse = 1.2;
+      say('Clang! Black iron is too cold to move. Hold on it to heat it.');
+      return;
+    }
+    strikes++;
     if (s.T < T_WORK) {
       s.cracks++;
       cracks++;
       shake = 0.25;
-      say(s.T < FLOW_T0 ? 'Cold iron cracks!' : 'Too cool to work: cracked!');
+      legendPulse = 1.2;
+      say('Too cool to work: cracked!');
       if (cracks >= MAX_CRACKS) endGame('lost', 'The bar split');
       return;
     }
@@ -370,6 +379,8 @@
       if (p.life <= 0) sparks.splice(k, 1);
     }
     for (let k = flows.length - 1; k >= 0; k--) if ((flows[k].t -= dt) <= 0) flows.splice(k, 1);
+    for (let k = rings.length - 1; k >= 0; k--) if ((rings[k].t -= dt) <= 0) rings.splice(k, 1);
+    if (legendPulse > 0) legendPulse -= dt;
     if (shake > 0) shake -= dt;
   }
 
@@ -514,6 +525,38 @@
       ctx.stroke();
     }
 
+    // Flow preview: under every segment hot enough to work, where its metal
+    // would go if struck now (arrow weight = share). Heating the seam between
+    // two segments is what turns these arrows.
+    if (state === 'playing') {
+      const py = BAR_Y + 70;
+      for (let i = 0; i < N; i++) {
+        if (segs[i].T < T_WORK) continue;
+        const wl = i > 0 ? softness(segs[i - 1].T) : 0;
+        const wr = i < N - 1 ? softness(segs[i + 1].T) : 0;
+        const ws = wl + wr;
+        if (ws <= 0) continue;
+        for (const [w, dir] of [[wl, -1], [wr, 1]]) {
+          const share = w / ws;
+          if (share < 0.15) continue;
+          const x0 = segX(i) + dir * 2, x1 = segX(i) + dir * (3 + 10 * share);
+          ctx.strokeStyle = `rgba(255,205,130,${0.3 + 0.6 * share})`;
+          ctx.lineWidth = 1.2 + 1.8 * share;
+          ctx.beginPath();
+          ctx.moveTo(x0, py); ctx.lineTo(x1, py);
+          ctx.moveTo(x1 - dir * 3.5, py - 3.5); ctx.lineTo(x1, py); ctx.lineTo(x1 - dir * 3.5, py + 3.5);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // A blow on black iron: a grey ring where the hammer bounced.
+    for (const r of rings) {
+      ctx.strokeStyle = `rgba(190,200,215,${r.t * 2})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(r.x, BAR_Y, 8 + (0.4 - r.t) * 60, 0, Math.PI * 2); ctx.stroke();
+    }
+
     // Per-segment marks: lit when the segment matches the outline.
     for (let i = 0; i < N; i++) {
       ctx.fillStyle = onTarget(i) ? '#9be37a' : '#3c302b';
@@ -528,13 +571,14 @@
     ctx.fillStyle = lg;
     roundRect(lx, ly, lw, 10, 5); ctx.fill();
     const wx0 = lx + lw * T_WORK / 1.05, wx1 = lx + lw * T_BURN / 1.05;
-    ctx.strokeStyle = '#d8ccc4';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = legendPulse > 0 && Math.sin(legendPulse * 16) > 0 ? '#ffd27a' : '#d8ccc4';
+    ctx.lineWidth = legendPulse > 0 ? 2.5 : 1.5;
     ctx.beginPath(); ctx.moveTo(wx0, ly + 16); ctx.lineTo(wx0, ly + 20); ctx.lineTo(wx1, ly + 20); ctx.lineTo(wx1, ly + 16); ctx.stroke();
     drawHammer((wx0 + wx1) / 2, ly + 30);
     ctx.strokeStyle = '#8a7a72';
-    ctx.beginPath(); // crack glyph under the cold end
-    ctx.moveTo(lx + 30, ly + 18); ctx.lineTo(lx + 34, ly + 24); ctx.lineTo(lx + 29, ly + 29); ctx.lineTo(lx + 33, ly + 35); ctx.stroke();
+    const cx = lx + lw * (T_COLD + T_WORK) / 2 / 1.05; // crack glyph under dull red
+    ctx.beginPath();
+    ctx.moveTo(cx - 2, ly + 18); ctx.lineTo(cx + 2, ly + 24); ctx.lineTo(cx - 3, ly + 29); ctx.lineTo(cx + 1, ly + 35); ctx.stroke();
     drawFlame(lx + lw - 6, ly + 36, 6, 0.8); // burn glyph under white
 
     for (const p of sparks) {

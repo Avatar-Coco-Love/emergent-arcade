@@ -61,8 +61,15 @@ the lose condition punishes hardest. Check: add a `novice` bot that makes
 the obvious first guesses for its first few actions, and make sure a
 round survives long enough to learn the verbs (no loss from the first
 2–3 wrong taps). An indirect verb (act here to change there) needs to be
-shown in play, not only in `howToPlay`. *Evidence: 2 human rounds + 1
-rating vs bots (`docs/games/hot-iron.md`). Provisional: one player.*
+shown in play, not only in `howToPlay`. Hot Iron v2 did this: a novice
+bot with both mistakes won 0% on v1 (cracked out every time, like the
+tester). Stopping cold taps from cracking wasn't enough (4%, fuel out): the
+burn from the second guess is permanent, and a budget with 15% slack
+leaves no room for any mistake. Fuel 60 s and slower burning brought it to
+97% (73% with slow hands) while every colour-blind bot stays at 0%. Also
+check a budget's slack, not only whether a skilled bot can finish.
+*Evidence: 2 human rounds + 1 rating vs bots (`docs/games/hot-iron.md`).
+Provisional: one player, and v2 isn't playtested yet.*
 
 ## First player data vs the bots (2026-09-28)
 
