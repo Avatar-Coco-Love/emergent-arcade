@@ -40,7 +40,9 @@ round ended.
 | `stats` | a few game-specific numbers, `k=v k=v` | |
 
 The last five columns are optional and only filled for games that send
-them (see below). Newer columns are always added at the end, so old rows
+them (see below). Any other field a game adds to `arcade:result` is kept
+too, in an `extra` column that reads merge back in
+([backend-api.md](backend-api.md)). Newer columns are always added at the end, so old rows
 stay aligned; the script extends an existing tab's header row itself.
 
 Nothing else: no names, IPs (Apps Script doesn't expose them), cookies or
@@ -100,13 +102,10 @@ Directly: `GET <web app URL>?key=<READ_KEY>&tab=telemetry[&game=<id>][&format=cs
 
 ## Redeploying the Apps Script (after any change to `Code.gs`)
 
-Do this whenever `feedback/apps-script/Code.gs` changes on `main` (the
-level columns were added 2026-09-28). Until then the old version keeps
-storing rows but drops the new fields; nothing breaks.
-
-When telemetry was first added, the live script only knew about feedback. Until it's redeployed it
-rejects telemetry posts (`bad rating`) and stores nothing. Feedback keeps
-working the whole time, so the order of merge and redeploy doesn't matter.
+Needed once for backend v3 (2026-09-28), which is meant to be the last
+change: new fields and new kinds of rows no longer need a redeploy, see
+[backend-api.md](backend-api.md). Until v3 is live, the old version keeps
+storing rows but drops fields it doesn't know; nothing breaks.
 
 1. Open the feedback Google Sheet, then **Extensions → Apps Script**.
 2. In `Code.gs`, select all and replace it with the contents of
@@ -121,21 +120,21 @@ working the whole time, so the order of merge and redeploy doesn't matter.
      and `assets/config.js` would need changing.
    - No new permissions are needed, so there should be no authorization
      prompt. If one appears, accept it: it's the same spreadsheet access.
-5. Check it works (creates the `telemetry` tab with its header row):
+5. Check it works:
 
    ```sh
-   curl -sL "<web app URL>?key=<READ_KEY>&tab=telemetry"
-   # -> {"ok":true,"count":0,"rows":[]}
+   curl -sL "<web app URL>?ping=1"
+   # -> {"ok":true,"version":3}
    ```
 
-   If `rows` contains feedback-style rows (with `rating`), the old version is
-   still live: repeat step 3–4 and make sure you picked **New version**.
-   After the level-column update, the first new telemetry row also extends
-   the tab's header with `level, run, attempt, reason, stats`.
+   Anything else (e.g. `unauthorized`) means the old version is still live:
+   repeat steps 3–4 and make sure you picked **New version**. The first new
+   row in each tab adds an `extra` column at the end of its header.
 
 ## Limits
 
 Each round and each session is one web-app call. Apps Script's consumer
 quotas (about 20k calls/day, 30 running at once) are far above what 5–20
-playtesters produce. Revisit this if the arcade gets real traffic (batch
-rounds into the session row).
+playtesters produce. If the arcade gets real traffic, have
+`assets/telemetry.js` send rounds in one `batch` request with the session
+row; the backend already accepts it ([backend-api.md](backend-api.md)).

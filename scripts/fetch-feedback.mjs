@@ -79,11 +79,15 @@ for (const r of data.rows) {
   groups.get(k).push(r);
 }
 for (const [k, rows] of [...groups].sort(([a], [b]) => a.localeCompare(b, "en", { numeric: true }))) {
-  const avg = rows.reduce((s, r) => s + Number(r.rating), 0) / rows.length;
-  const dist = [1, 2, 3, 4, 5].map((n) => `${n}★:${rows.filter((r) => Number(r.rating) === n).length}`).join(" ");
-  console.log(`\n## ${k}: ${rows.length} rating(s), avg ${avg.toFixed(2)}  (${dist})`);
+  // Comment-only feedback (no rating) is allowed since backend v3.
+  const rated = rows.filter((r) => Number(r.rating) >= 1);
+  const avg = rated.reduce((s, r) => s + Number(r.rating), 0) / (rated.length || 1);
+  const dist = [1, 2, 3, 4, 5].map((n) => `${n}★:${rated.filter((r) => Number(r.rating) === n).length}`).join(" ");
+  const notes = rows.length - rated.length ? `, ${rows.length - rated.length} comment-only` : "";
+  console.log(`\n## ${k}: ${rated.length} rating(s), avg ${avg.toFixed(2)}  (${dist})${notes}`);
   for (const r of rows) {
-    if (String(r.comment).trim()) console.log(`- [${r.rating}★ ${String(r.received_at).slice(0, 10)}] ${r.comment}`);
+    const tag = Number(r.rating) >= 1 ? `${r.rating}★` : "note";
+    if (String(r.comment).trim()) console.log(`- [${tag} ${String(r.received_at).slice(0, 10)}] ${r.comment}`);
   }
 }
 if (!groups.size) console.log("No feedback yet.");

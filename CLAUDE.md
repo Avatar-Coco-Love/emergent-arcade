@@ -21,7 +21,10 @@
   the design checklist). Merging to `main` is what deploys.
 - Feedback readback: `node scripts/fetch-feedback.mjs` (needs
   `FEEDBACK_READ_KEY`), or GitHub issues whose title starts with `[feedback]`.
-  Details in `docs/feedback-backend.md`. Play telemetry (human win rate,
+  Details in `docs/feedback-backend.md`. Don't edit the Apps Script
+  (`feedback/apps-script/Code.gs`) to record something new: every change
+  needs a manual redeploy. Send new fields or kinds instead
+  (`docs/backend-api.md`). Play telemetry (human win rate,
   session length): `node scripts/fetch-telemetry.mjs`, see `docs/telemetry.md`.
 
 ## Keeping context small
