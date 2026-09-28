@@ -43,6 +43,8 @@ const BOTS = {
   naive5: { layout: TRI, feed: 'even', noise: 5, gap: 1.5, naive: true },
   preview2: { layout: TRI, feed: 'even', noise: 2, gap: 1.5, preview: true },
   preview5: { layout: TRI, feed: 'even', noise: 5, gap: 1.5, preview: true },
+  pfast2: { layout: TRI, feed: 'even', noise: 2, gap: 0.5, preview: true },
+  pslow2: { layout: TRI, feed: 'even', noise: 2, gap: 3, preview: true },
   close2: { layout: [[160, 300], [240, 300], [200, 230]], feed: 'even', noise: 2, gap: 1.5 },
 };
 
