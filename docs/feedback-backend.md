@@ -56,9 +56,10 @@ well-formed feedback rows, and reading requires the key.
 
 ## Updating the script later
 
-After editing `Code.gs`, use **Deploy → Manage deployments → Edit → Version:
+v3 is built so this should rarely happen: new fields and row kinds need no
+script change ([backend-api.md](backend-api.md)). If `Code.gs` does change, use **Deploy → Manage deployments → Edit → Version:
 New version**. That keeps the same `/exec` URL, so `config.js` doesn't change.
-Step-by-step: [telemetry.md](telemetry.md#redeploying-the-apps-script-one-time-after-this-change-merges).
+Step-by-step: [telemetry.md](telemetry.md#redeploying-the-apps-script-after-any-change-to-codegs).
 
 The same script also stores anonymous play telemetry in a `telemetry` tab;
 see [telemetry.md](telemetry.md).

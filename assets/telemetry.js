@@ -83,7 +83,7 @@ window.ArcadeTelemetry = (function () {
 
   function result(msg) {
     if (!s) return;
-    const outcome = msg.outcome === "win" ? "win" : msg.outcome === "loss" ? "loss" : "";
+    const outcome = /^[a-z0-9-]{1,16}$/.test(String(msg.outcome || "")) ? msg.outcome : "";
     const time = Number(msg.time);
     if (!outcome || !(time >= 0)) return;
     s.rounds++;
@@ -107,6 +107,11 @@ window.ArcadeTelemetry = (function () {
         if (/^[a-z][a-z0-9_]{0,15}$/.test(k) && Number.isFinite(v)) stats[k] = Math.round(v * 10) / 10;
       }
       row.stats = stats;
+    }
+    // Any other field a game adds (score, moves...) is passed through as is:
+    // the server keeps well-formed extras without needing a redeploy.
+    for (const k of Object.keys(msg)) {
+      if (!(k in row) && !["type", "game", "time", "stats"].includes(k) && /^[a-z][a-z0-9_]{0,31}$/.test(k)) row[k] = msg[k];
     }
     send(row);
   }
