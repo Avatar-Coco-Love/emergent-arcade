@@ -122,11 +122,11 @@
   const PLANET_START_MASS = 1.5;
   const SEED_MASS = 1;             // mass a landed seed adds to its planet
   const BLOOM_MASS = 5;            // a planet at or above this is blooming
-  const WITHER_PER_SEC = 0.06;     // passive mass loss per planet
+  const WITHER_PER_FLING = 0.11;   // every fling costs every planet this much mass
   const DEAD_MASS = 0.3;           // planets below this crumble away
-  const G = 400000;                // gravity strength
+  const G = 900000;                // gravity strength
   const SOFTEN = 15;               // keeps gravity finite near a planet's center
-  const FLING_POWER = 2.6;         // seed speed per px of drag
+  const FLING_POWER = 1.8;         // seed speed per px of drag (slow, so gravity bends every shot)
   const MAX_DRAG = 140;            // longer drags don't fling any harder
   const MAX_AIM_ANGLE = 75 * Math.PI / 180; // flings go upward, at most this far from straight up
   const DRAG_THRESHOLD_PX = 16;
@@ -135,6 +135,7 @@
   const STEP = 1 / 120;
   const TRAIL_EVERY = 2;           // record a trail point every N steps
   const TRAIL_POINTS = 14;
+  const PREVIEW_STEPS = 40;        // aim preview length, in double steps (~0.67 s)
 
   const canvas = document.getElementById('sky');
   const ctx = canvas.getContext('2d');
@@ -287,6 +288,9 @@
     const [vx, vy] = v;
     seeds.push({ x: LAUNCH.x, y: LAUNCH.y, vx, vy, vx0: vx, vy0: vy, t: 0, steps: 0, trail: [] });
     seedsLeft--;
+    // Passive system: the garden withers per seed flung, not per second, so
+    // flinging faster never outruns it (docs/findings.md).
+    for (const p of planets) p.mass -= WITHER_PER_FLING;
   }
 
   // ---------- simulation ----------
@@ -323,10 +327,9 @@
       }
     }
 
-    // Passive system: every planet withers; blooming is read from mass.
+    // Blooming and crumbling are read from mass.
     for (let i = planets.length - 1; i >= 0; i--) {
       const p = planets[i];
-      p.mass -= WITHER_PER_SEC * dt;
       if (p.flash > 0) p.flash -= dt;
       if (blooming(p) && !p.bloomedOnce) {
         p.bloomedOnce = true;
@@ -423,7 +426,7 @@
     let [vx, vy] = v;
     let x = LAUNCH.x, y = LAUNCH.y;
     ctx.fillStyle = 'rgba(255,209,102,0.7)';
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < PREVIEW_STEPS; i++) {
       const [ax, ay] = accel(x, y);
       vx += ax * STEP * 2; vy += ay * STEP * 2;
       x += vx * STEP * 2; y += vy * STEP * 2;
