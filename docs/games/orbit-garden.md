@@ -19,7 +19,7 @@ Playtest (private artifact, v6): https://claude.ai/artifact/LgWCoWvU5hTLxUqGUDbW
 | BLOOM_MASS | 5 | WITHER_PER_FLING / DEAD_MASS | 0.11 / 0.3 |
 | G / SOFTEN | 900000 / 15 | SEED_LIFETIME | 10 s |
 | FLING_POWER / MAX_DRAG | 1.8 per px / 140 px | MAX_AIM_ANGLE | 75° from straight up |
-| PREVIEW_STEPS | 40 (≈ 0.67 s of path) | | |
+| PREVIEW_STEPS | 70 (≈ 1.2 s of path; v5 40) | | |
 
 Planet radius = `6 + 5·√mass` (≈ 12 px new, ≈ 17 px blooming).
 
@@ -56,25 +56,29 @@ straight at the target at full power.
 | fast2 | search, σ 2° | lightest first | 0.5 s | | 96% | 29 | 14 s |
 | naive | straight, σ 2° | lightest first | 1.5 s | 100% | **1%** | 39 | 58 s |
 | naive5 | straight, σ 5° | lightest first | 1.5 s | 14% | 0% | | |
-| preview2 | preview, σ 2° | lightest first | 1.5 s | | **94%** | 21 | 31 s |
-| preview5 | preview, σ 5° | lightest first | 1.5 s | | **36%** | 31 | 46 s |
-| pslow2 | preview, σ 2° | lightest first | 3 s | | 93% (100 runs) | 21 | 61 s |
-| pfast2 | preview, σ 2° | lightest first | 0.5 s | | 42% (100 runs) | 35 | 18 s |
+| preview2 | preview, σ 2° | lightest first | 1.5 s | | **100%** | 20 | 30 s |
+| preview5 | preview, σ 5° | lightest first | 1.5 s | | **66%** | 30 | 45 s |
+| pslow2 | preview, σ 2° | lightest first | 3 s | | 100% | 19 | 55 s |
+| pfast2 | preview, σ 2° | lightest first | 0.5 s | | 66% | 33 | 16 s |
 | close2 | search, σ 2°, tight cluster | lightest first | 1.5 s | 99% | 87% | 27 | 40 s |
 
 Readings:
 - Straight aim is dead (100% → 1%): you have to read the curve.
-- Cadence: for preview aim, 3 s and 1.5 s win the same, and spamming every
-  0.5 s drops to 42% (masses change while seeds are still flying). The
+- Cadence: for preview aim, 3 s and 1.5 s win the same (100%), and spamming
+  every 0.5 s drops to 66% (masses change while seeds are still flying). The
   search bot still gains from spam (96%): it picks long swing shots and
   lands a burst of them before the wither catches up. A human can't plan
   those without seeing the whole path, so it's a harness artifact, but
   watch for it in telemetry (very short won rounds).
-- Skill spread: a precise preview reader wins 94%, a sloppy one (σ 5°) 36%.
-  v5 had 81% for σ 5° even with the search bot.
+- Skill spread: a precise preview reader wins 100%, a sloppy one (σ 5°) 66%.
+  The bot reads the dotted line exactly, so humans should do worse.
+- Preview length is a strong easing lever. At wither 0.11, σ 5° wins 36%
+  with the 0.67 s preview and 66% with 1.2 s. The long preview plus wither 0.09
+  gave σ 5° 83% and spam 99% (back to v5 ease), so we kept 0.11. The user
+  found 0.11 fast and gravity high; this was their pick.
 - WITHER_PER_FLING is steep: 0.09 → even2 92%, 0.11 → 64–67%, 0.13 → 42%.
 
-Achievements (preview2): Green Thumb 97%, Frugal 61%, Gravity Assist 12%
+Achievements (preview2): Green Thumb 100%, Frugal 79%, Gravity Assist 53%
 (search bots 100%, since they choose swing shots). Full Sky is never
 earned by these bots (they place only 3).
 
@@ -95,8 +99,8 @@ No v6 data yet.
   shows the curve from the first shot, and a round lasts 40 flings, so there
   is time to learn. If new players lose their first round and leave, add a
   hint after 3 straight misses ("Seeds curve: follow the dotted line").
-- Gravity Assist is free for search bots but only 12% for preview aim:
-  probably fine now. Consider it again after player data.
+- Gravity Assist is free for search bots and 53% for preview aim.
+  Frugal is 79% for a precise preview reader: maybe too easy. Consider it again after player data.
 - Feeding one planet at a time (serial2) beats feeding evenly (89% vs
   64%), because a blooming planet only needs topping up. The "big planets
   steal seeds" pressure is still mild.
@@ -113,4 +117,5 @@ No v6 data yet.
   (FLING_POWER 2.6 → 1.8) and gravity is stronger (G 400k → 900k), so
   straight shots miss. Wither is per fling (0.11 per planet) instead of per
   second (0.06/s), so speed no longer beats it. The aim preview length is
-  now a constant (PREVIEW_STEPS). Updated howToPlay text.
+  longer (PREVIEW_STEPS 40 → 70, ≈ 1.2 s) for more guidance on the curve.
+  Updated howToPlay text.
