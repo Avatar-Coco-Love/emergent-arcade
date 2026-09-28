@@ -1,10 +1,41 @@
 # Ant Trails: design notes
 
-Current: **v1**. Mechanics: **trail** (drag) and **wash** (hold), sharing
-**scent per ground cell** (40×60 grid, 10 px cells, 0–1). Win: 60 crumbs home
-before sundown (90 s). Lose: sundown, colony below 8 ants, or the spider made
-carriers drop so many crumbs that 60 is out of reach. 7 achievements (in
-`games/games.json`).
+Current: **v3** (playtest: PLAYTEST_LINK). Mechanics: **trail** (drag) and
+**wash** (hold), sharing **scent per ground cell** (40×60 grid, 10 px cells,
+0–1). v3 turns one round into a **five-day run**: each day is a round (its
+own food layout, twist and bonus challenge), and the ants alive at sundown
+start the next day. Win a day: bring its crumbs home before sundown (90 s).
+Lose a day: sundown, colony below 8 ants, or too many crumbs dropped/raided
+to reach the goal. A lost day can be retried with the dawn colony, or the
+run restarted. 12 achievements (in `games/games.json`).
+
+## The run (v3)
+
+| Day | Name | Goal | Food (crumbs) | Twist | Bonus (+3 ants) |
+|---|---|---|---|---|---|
+| 1 | First light | 50 | 15 near, 25 middle, 40 far | 1 spider (v1 layout) | clear the far pile |
+| 2 | Scattered crumbs | 50 | 6 piles of 8–12 | spider from the other corner | lose 3 ants or fewer |
+| 3 | Storm | 50 | 2 piles, 32 + 38 | storm clouds drift across and wash scent | win with 20 s to spare |
+| 4 | Two spiders | 55 | 20 + 25 + 30 | second spider | rain on each spider while it hunts |
+| 5 | Rival colony | 60 | 5 piles, 102 total | 22 red ants from a nest at the top | (last day) |
+
+- **Carry-over:** ants at dawn = ants alive at sundown (including hatched)
+  + 1 per 10 s of spare daylight (`REST_S`) + 3 for the bonus
+  (`BONUS_ANTS`). Lost ants stay lost, so a bad day 2 shows up on day 4.
+- **Variety between runs:** every day's layout is mirrored left-right at
+  random and piles/spiders shift up to 12 px (`JITTER`).
+- **Storm:** a cloud (r 50, 30 px/s, `STORM_WIPE` 3/s) enters from a side
+  every 9 s from 6 s. It washes your trails and the spider's trail alike.
+- **Rivals:** red ants run the same ant code from their own nest (same
+  scent grid). They follow your trails outward from *their* nest, raid the
+  same piles, and their carriers lay trails that lure your searchers toward
+  the rival nest. Spiders eat them too; soldiers turn them back 45 px from
+  your nest. Washing the rival nest mouth breaks their recruitment.
+- **Retry:** a lost day restarts with the dawn colony. Full Season and the
+  best-run record (localStorage `ant-trails-best`, shown on the end card)
+  need a run with no retries.
+- Telemetry: one `arcade:result` per day (time = that day's clock), so
+  `rounds` per session in telemetry now counts days played.
 
 ## How the scent loop works
 
@@ -15,7 +46,7 @@ carriers drop so many crumbs that 60 is out of reach. 7 achievements (in
   the way out of the nest (`OUT_BIAS`), and go straight for food within
   `SMELL_R`. Carriers walk straight home (dead reckoning), so each busy route
   straightens itself into a highway.
-- The spider steers by scent the same way and gets faster on strong scent
+- Spiders steer by scent the same way and gets faster on strong scent
   (`SP_BASE + SP_SCENT·scent`). Soldiers keep it `NEST_GUARD` px from the nest.
   After eating an ant it pauses for `EAT_PAUSE` seconds.
 - Input: moving more than 10 px before 150 ms is a trail. Holding still for
@@ -25,7 +56,10 @@ carriers drop so many crumbs that 60 is out of reach. 7 achievements (in
 
 | Const | Value | Const | Value |
 |---|---|---|---|
-| START_ANTS / MIN_ANTS | 22 / 8 | GOAL / SUNDOWN / SPARE | 60 / 90 s / 20 s |
+| START_ANTS / MIN_ANTS | 22 / 8 | goal / sun / SPARE | per day (above) / 20 s |
+| REST_S / BONUS_ANTS | 10 s / 3 | SAFE_LOST / BIG_COLONY | 3 / 32 |
+| STORM_FIRST / EVERY | 6 / 9 s | STORM_R / SPEED / WIPE | 50 / 30 / 3 |
+| RIVAL_GUARD / rivals | 45 / 22 | JITTER | 12 px |
 | HATCH_EVERY | 10 crumbs | ANT_SPEED | 36 |
 | EVAP / DIFFUSE | 0.08 / 0.5 | CARRY_LAY / DRAW_SCENT | 0.7 / 0.7 |
 | GLAND_MAX / INK_PX / GLAND_REGEN | 100 / 6 px / 7 per s | RAIN_R0→R1 / RAIN_WIPE | 22→48 / 7 |
@@ -34,11 +68,49 @@ carriers drop so many crumbs that 60 is out of reach. 7 achievements (in
 
 ## Layout (400×600)
 
-Nest (200, 555). Piles: near (315, 420) ×15, middle (85, 270) ×25, far
-(300, 85) ×40. Near + middle is 40 crumbs, so every win needs the far pile.
-Spider starts at (40, 60).
+Nest (200, 555); the rival nest (day 5) is at (200, 40). Pile and spider
+positions per day are the `DAYS` table at the top of the script (before
+mirroring). Day 1 keeps the v1 layout: near + middle is 40 crumbs, so a
+day-1 win needs 10 from the far pile.
 
-## Balance (v1, `node scripts/balance-ant-trails.mjs 300`, ±3 pts)
+## Balance (v3, `node scripts/balance-ant-trails.mjs 200`, ±3–7 pts)
+
+Whole runs, no retries. Per day: % of runs that won it (in brackets: of
+runs that reached it), median ants at dawn, median ants lost that day,
+% bonus met.
+
+| Bot | Day 1 | Day 2 | Day 3 | Day 4 | Day 5 (full season) |
+|---|---|---|---|---|---|
+| idle | 53% (53) · 22 · 10 · 6% | 27% (51) · 21 · 8 | 7% (26) · 22 · 7 | 4% (50) · 28 · 16 | 2% (57) |
+| trail | 89% (89) · 22 · 10 · 0% | 68% (77) · 20 · 6 · 21% | 40% (59) · 22 · 8 · 32% | 27% (66) · 29 · 13 · 0% | 15% (55) |
+| wash | 94% (94) · 22 · 6 · 0% | 85% (90) · 24 · 4 · 41% | 74% (88) · 28 · 5 · 57% | 59% (80) · 32 · 11 · 68% | **49%** (82) |
+| far | 95% (95) · 22 · 4 · 45% | 91% (96) · 26 · 4 · 36% | 87% (95) · 29 · 4 · 82% | 57% (65) · 36 · 15 · 81% | 41% (72) |
+| novice | 75% (75) · 22 · 10 · 14% | 39% (52) · 20 · 7 · 11% | 19% (48) · 24 · 8 · 19% | 7% (38) · 28 · 16 · 59% | 2% (29) |
+
+- Every day is harder than the one before for the novice (75 → 29% of
+  those that reach it); for skilled bots day 4 (two spiders) is the wall
+  (65–80%) and costs 11–15 ants, which day 5 then feels.
+- Both verbs count, more each day: wash beats trail by 5 pts on day 1 and
+  34 pts over the full run. Trail beats idle by 36 pts on day 1.
+- Colony size decides day 5: from a fresh 22-ant colony (`FROM=5`), wash
+  wins it 47% (22 rivals); arriving with the usual ~34 ants, 82%. That is
+  the carry-over doing its job.
+- `novice` (new): reads 4 s, then every 3–5 s draws a wobbly trail from
+  20–60 px off the nest to a random pile; 1 gesture in 5 is a mistaken hold
+  (rain on its own trail). Washes spiders only from day 3, late (0.8 s) and
+  half the time. It reaches day 2 75% of the time and day 3 39%. With
+  retries, it needs about 2 tries per day after day 1.
+- Bonus choices are real trade-offs: the far pile (day 1) costs time, so
+  the wash bot never earns it and the far bot does 45%.
+- Achievements (wash / novice): Weathered 74 / 19%, Double Trouble 59 / 7%,
+  Turf War 31 / 2%, Big Colony 56 / 9%, Full Season 49 / 2%, Untouchable
+  21 / 6%, Decoy 16 / 18%, Long Haul (far bot) 45%.
+- Tuning path: day-1 goal 45 let idle win 75% (now 50: 53%). Day 2's first
+  bonus, "lose no ants", was 0–8% (now ≤ 3 lost: 41%). With 14 rivals
+  day 5 was the easiest day (wash 100% of arrivals); 28 made it 28% from
+  fresh; 22 it is.
+
+### v1 balance (single 90 s round, 60 crumbs), for reference
 
 | Bot | @75 s | @90 s | @105 s | ants lost (median) | colony died |
 |---|---|---|---|---|---|
@@ -46,11 +118,6 @@ Spider starts at (40, 60).
 | trail (redraw nearest faded trail) | 30% | 50% | 63% | 14 | 102/300 |
 | wash (trail + rain on spider near ants) | 43% | 63% | 77% | 7 | 40/300 |
 | far (wash, far pile first) | 7% | 46% | 85% | 7 | 6/300 |
-
-Trail beats idle by 34 pts and wash beats trail by 13 pts at 90 s, so both
-mechanics count. Far-first is slower but much safer, and it earns Long Haul
-63% of the time. Tuning path: 25 ants / `SMELL_R` 35 / `EVAP` 0.05 was far
-too easy (idle won 42% at 90 s); 20 ants was too hard (trail 34%).
 
 ## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
 
@@ -72,22 +139,29 @@ achievements.
 ## Open ideas / known limits
 
 - Not hand-played on a real phone yet (only rendered headlessly at 390×760).
-- Idle still wins 16% by 90 s, because the ants' own trails recruit. Fine
-  as emergence, but if players say it plays itself, lower `CARRY_LAY`.
-- Bots almost never earn Decoy (2–13%). It needs deliberate play: draw a
-  side trail away from the ants, then wash the main one.
-- Proposal alternatives not built: pebble (tap to block), decoy crumb, a
-  second spider at 45 s.
-- **Next revision: depth** (from the feedback above). Keep the 2 verbs
-  (brief rule) and add variety in what they face, so one sitting lasts
-  longer and decisions carry weight. Candidates: a multi-day run where the
-  colony (ants lost, crumbs banked) carries over; a different food layout
-  each day; escalating threats (second spider, rain storms, a rival
-  colony's scent); day-specific challenges and new achievements for them.
+- **What to check in telemetry for v3:** rounds (days) per session. v2 was
+  one round per session; the goal of v3 is 3+. Also where runs end (loss
+  times cluster by day) and whether players use "Retry day".
+- Idle wins day 1 53% (the ants' own trails recruit), but only 7% get past
+  day 3. Fine as a gentle first day; lower `CARRY_LAY` if players say day 1
+  plays itself.
+- The novice bot is no better than idle on day 2 (52 vs 51% of arrivals):
+  random wobbly trails to scattered piles help about as much as they cost.
+  Real players probably do better; check against telemetry.
+- Day 4 costs skilled bots 11–15 ants. If players find it a wall, start the
+  second spider late (e.g. 20 s) instead of at dawn.
+- More days / an endless mode (day 6+ repeats the twists combined) if runs
+  get finished; a mid-run choice (e.g. pick tomorrow's twist) if players
+  want more decisions.
+- Proposal alternatives still not built: pebble (tap to block), decoy crumb.
 
 ## History
 
 - v1: first version.
 - v2: no gameplay change. Posts `arcade:result` when a round ends, for play
-  telemetry. Bot numbers above still apply; compare humans with
-  `node scripts/fetch-telemetry.mjs --game ant-trails` (see `docs/telemetry.md`).
+  telemetry.
+- v3: depth, from the written feedback ("seen everything" after one round).
+  Five-day run with carry-over, a layout and twist per day (storm clouds,
+  two spiders, rival colony), bonus challenges, retry a lost day, best run,
+  5 new achievements. Same 2 verbs. New `novice` bot; the harness plays
+  whole runs.

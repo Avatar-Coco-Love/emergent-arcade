@@ -135,3 +135,19 @@ carried-over state)? If not, telemetry will show one round per session no
 matter how the balance is tuned. Variety can live in what the 2–3 verbs
 face, which keeps the brief's mechanic limit. *Evidence: one player's
 written feedback. Provisional.*
+
+## Carry-over makes the second verb pay more each round
+
+Ant Trails v3 answered "one round shows everything" with a five-day run:
+a new layout and twist each day, and the colony carries over. In the bots,
+the value of the second verb grew across the run: wash beats trail-only by
+5 pts on day 1 but by 34 pts over five days (49% vs 15%), because every ant
+the spider eats is missing on every later day. Colony size alone moved
+day 5 from 47% (fresh 22 ants) to 82% (the usual ~34 carried in). Check:
+when adding rounds, carry some state between them, so a mistake (or a good
+play) in round 1 still matters in round 3. Also keep round 1 gentle
+(novice 75%) and let a lost round be retried from its start, so a new
+player reaches the new content instead of replaying round 1. Whether
+players actually stay for round 3 is the telemetry question
+(rounds per session). *Evidence: bots (`docs/games/ant-trails.md`).
+Provisional: not playtested.*
