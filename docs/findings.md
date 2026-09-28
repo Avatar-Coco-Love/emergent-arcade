@@ -91,3 +91,17 @@ the 1.5 s bot and wins sooner), which supports "a decay rate turns a
 puzzle into a speed test". The human lost 4 of the 5 games where the
 bots win 70–89%, so the bots look optimistic about new players.
 *Evidence: telemetry, n = 1.*
+
+Overnight, three more players (new browser IDs, touch), one visit each:
+
+| Game | Bots | Human |
+|---|---|---|
+| Hot Iron v2 | reader 100%, novice 97%, 101–129 s | 1/1, won at 73 s, 3 achievements |
+| Orbit Garden v5 | 96–100%, 32–39 s | 1/1, won at 52 s, all 4 achievements (humans 2/2) |
+| Pressure Grid v6 | | 13 s, left after the first eruption |
+
+The Hot Iron v2 fix (model the first minute's mistakes with a `novice`
+bot, then tune until it survives them) turned 0/2 into 1/1 on the first
+round. Orbit Garden is now 2/2 with every achievement: the games the bots
+call easy are easy for people too. Still nobody new on the games the tester
+lost. *Evidence: telemetry, n = 1 per game.*

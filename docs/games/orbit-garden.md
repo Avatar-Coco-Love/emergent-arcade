@@ -60,6 +60,12 @@ a human flings faster than 1.5 s, and fast play wins easily. It's one
 round, but it's the prediction the notes made. Supports both findings
 from this game (straight aim works; cadence decides the round).
 
+Overnight (2026-09-28, a second player): 1 round, **won in 52 s** on a
+first try, with all 4 achievements (First Bloom, Green Thumb, Full Sky,
+Garden Complete) in that round. Humans are 2/2. Slower than the bots but
+never in danger. Two first-try wins with every achievement: the round and
+the achievements look too easy. The leading revision candidate.
+
 ## Open ideas / known limits
 
 - **Gravity barely matters for aiming.** Aiming straight at the target
