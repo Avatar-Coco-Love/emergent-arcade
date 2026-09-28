@@ -121,3 +121,17 @@ bot, then tune until it survives them) turned 0/2 into 1/1 on the first
 round. Orbit Garden is now 2/2 with every achievement: the games the bots
 call easy are easy for people too. Still nobody new on the games the tester
 lost. *Evidence: telemetry, n = 1 per game.*
+
+## One round shows everything, so players leave after one round
+
+Written feedback from one player who tried the whole gallery: every game
+held him for seconds to 2 minutes, and he left "once I figured I had seen
+everything", usually right after the first win or loss. Few decisions in
+a short round felt impactful. He asked for variety, not new verbs.
+Favourite: Ant Trails. He also suggested presenting the gallery as
+"experiments", not "games", to set expectations. Check: does a second round
+show the player anything the first didn't (new layout, new threat, a
+carried-over state)? If not, telemetry will show one round per session no
+matter how the balance is tuned. Variety can live in what the 2–3 verbs
+face, which keeps the brief's mechanic limit. *Evidence: one player's
+written feedback. Provisional.*
