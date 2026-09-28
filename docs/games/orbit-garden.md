@@ -8,7 +8,7 @@ withers every planet by `WITHER_PER_FLING`. Win: 3 planets blooming
 flight. 6 achievements (in `games/games.json`); Frugal = win with 15+ seeds
 left.
 
-Playtest (private artifact, v6): see the PR body; republished after each push.
+Playtest (private artifact, v6): https://claude.ai/artifact/LgWCoWvU5hTLxUqGUDbWms
 
 ## Key constants (`games/orbit-garden.html`, top of the script)
 
