@@ -186,6 +186,16 @@ cracking (dull red still cracks); arrows under hot segments preview where
 struck metal goes; a `novice` bot plays out both mistakes; fuel and burn
 rate were set so it survives them. Not done: a guided first shape.
 
+### Overnight, 2026-09-28 (a second player)
+
+v2: 1 round, **won in 73 s** on a first try, 8 min after v2 went live,
+with Forged, Clean and Thrifty (≥50% fuel left) in that round. Faster than
+every bot median (reader 101 s, novice 129 s). It answers the open
+question below (survive past 15 s, win at all) with a yes, for one player.
+It may be the first tester on another device (a new browser ID can't tell).
+Three achievements in one first round supports "harden the achievements,
+not the round".
+
 ## Open ideas / known limits
 
 - v2 is tuned to the novice bots, which model just two mistakes. Next

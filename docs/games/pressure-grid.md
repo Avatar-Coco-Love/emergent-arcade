@@ -75,6 +75,9 @@ session** (bots take 28–105 s per achievement, and no bot earns all six;
 Siphon Strike and Plumber come only from strike3). The achievements may be
 too easy for a human who uses both verbs. No rounds, so no win rate.
 
+Overnight (2026-09-28, a second player): 1 session of 13 s play (21 s
+open), First Eruption only, then left. One short visit: no conclusion.
+
 ## Open ideas / known limits
 
 - **Fixed in v6: eruption storms sustained themselves** (4 × 40 > 100).

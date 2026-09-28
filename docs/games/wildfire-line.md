@@ -1,6 +1,6 @@
 # Wildfire Line: design notes
 
-Current: **v1**. Mechanics: **cut** (drag) and **backburn** (tap), sharing
+Current: **v3**. Mechanics: **cut** (drag) and **backburn** (tap), sharing
 **fuel per ground cell** (40×60 grid, 10 px cells, 0–1). Win: the fire burns
 out with at least 3 of 4 houses standing. Lose: a second house burns (the
 round ends at once). 6 achievements (in `games/games.json`).
@@ -52,12 +52,12 @@ round ends at once). 6 achievements (in `games/games.json`).
 | SPREAD / DIAG | 0.1 / 0.7 | WIND_PUSH / WIND_MIN | 2.5 / 0.15 |
 | EMBER_RATE / EMBER_MIN–MAX / FLIGHT | 0.12 / 2–6 cells / 0.5 s | START_SPOTS | 3 |
 | WIND_EVERY ± JITTER / WARN / TURN_T | 20 ± 3 s / 4 s / 1.2 s | WIND_TOWARD | 0.75 |
-| STAM_MAX / STAM_REGEN | 100 / 6 per s | CUT_COST | 6 × fuel per cell |
+| STAM_MAX / STAM_REGEN | 125 / 6 per s | CUT_COST | 6 × fuel per cell |
 | TORCH_R / TORCH_COOL | 20 px / 1.5 s | HOUSE_HEAT / LOSE_AT | 1.2 s / 2 houses |
 | HOLD_N / STARVE_N / SWIFT_T | 60 / 20 / 60 s | | |
 
-A full stamina bar cuts about 300 px of one-cell line in average grass
-(~30 cells). A full-width 2-row line costs about 350 stamina, which is
+A full stamina bar cuts about 375 px of one-cell line in average grass
+(~37 cells; 300 px before v3). A full-width 2-row line costs about 350 stamina, which is
 roughly when the front arrives.
 
 ## Layout (400×600)
@@ -80,7 +80,24 @@ Cut + backburn beats cut-only by 15 points (21 with the old wide brush), and no 
 burn-only bot shows the risk: a backburn with no line behind it turns into
 a second front at the next wind shift (Backfired in 58% of its runs).
 
-Achievement rates (cutburn bot): Fight Fire with Fire 47%, Read the Wind
+### v3: bigger stamina bar (`STAM_MAX` 100 → 125)
+
+The tester asked for slightly more stamina *or* faster refill, not both.
+Both, 300 runs each (v2 row for comparison):
+
+| Setting | cut | cutburn | cutburn − cut |
+|---|---|---|---|
+| v2 (100, 6/s) | 55% | 70% | 15 |
+| **v3: STAM_MAX 125** | **62%** | **81%** | **19** |
+| STAM_REGEN 7.5 (not taken) | 69% | 85% | 16 |
+
+Picked the bigger bar: it keeps backburning worth more than cutting alone
+(a bigger gap), where faster refill mostly helps cut-only. Idle is
+unchanged (4%). v3 cutburn achievements: Fight Fire with Fire 63%, Read
+the Wind 46%, Hold the Line 44%, Not a Scratch 77%, Swift 6%. The rest of
+this section is v1/v2.
+
+Achievement rates (v2, cutburn bot): Fight Fire with Fire 47%, Read the Wind
 30%, Hold the Line 55% (cut bot 83%), Not a Scratch 65%, Swift 3%,
 Backfired 0% (burn bot 58%).
 
@@ -96,7 +113,8 @@ Tuning path:
 v2: 1 round, **lost in 64.5 s** (4 achievements so far). Bots: cutburn
 70% (median 71 s), cut 55% (68 s), idle 4% (53 s). The loss length is
 between idle and the playing bots, so the tester held the fire for a while.
-One round: no conclusion.
+One round: no conclusion. The tester felt stamina ran out too fast;
+v3 raises the bar to 125.
 
 ## Open ideas / known limits
 
@@ -118,3 +136,5 @@ One round: no conclusion.
 - v2: no gameplay change. Posts `arcade:result` when a round ends, for play
   telemetry. Bot numbers above still apply; compare humans with
   `node scripts/fetch-telemetry.mjs --game wildfire-line` (see `docs/telemetry.md`).
+- v3: `STAM_MAX` 100 → 125 (tester: stamina ran out too fast). cutburn
+  70% → 81%, cut 55% → 62%.
