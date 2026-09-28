@@ -1,7 +1,7 @@
 // Headless balance bots for Orbit Garden.
 //
 // Usage: node scripts/balance-orbit-garden.mjs [runs=100] [bot,bot,...] [CONST=value,...]
-//   e.g. node scripts/balance-orbit-garden.mjs 100 even2,serial2 WITHER_PER_SEC=0.08
+//   e.g. node scripts/balance-orbit-garden.mjs 100 even2,serial2 WITHER_PER_FLING=0.12
 //
 // Builds a debug copy of games/orbit-garden.html (state on window, no
 // animation loop), then plays games in headless Chromium by calling step()
@@ -27,6 +27,8 @@ const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/or
 // other seeds) lands on the target, prefer ones whose neighbors also land, then
 // add Gaussian noise of `noise` degrees to the angle and noise% to the power.
 // `naive` skips the search and drags straight at the target, ignoring gravity.
+// `preview` reads only what a player sees: the in-game dotted aim preview
+// (first ~0.67 s of the path), extended in a straight line from its end.
 // Target: `even` feeds the lightest planet that isn't blooming; `serial` feeds
 // planet 1 until it blooms, then 2, then 3.
 const TRI = [[110, 320], [290, 320], [200, 170]];
@@ -36,8 +38,13 @@ const BOTS = {
   even5: { layout: TRI, feed: 'even', noise: 5, gap: 1.5 },   // casual human
   serial2: { layout: TRI, feed: 'serial', noise: 2, gap: 1.5 },
   slow2: { layout: TRI, feed: 'even', noise: 2, gap: 3 },     // careful aimer, one seed per 3 s
+  fast2: { layout: TRI, feed: 'even', noise: 2, gap: 0.5 },   // rapid flinger, one seed per 0.5 s
   naive: { layout: TRI, feed: 'even', noise: 2, gap: 1.5, naive: true },
   naive5: { layout: TRI, feed: 'even', noise: 5, gap: 1.5, naive: true },
+  preview2: { layout: TRI, feed: 'even', noise: 2, gap: 1.5, preview: true },
+  preview5: { layout: TRI, feed: 'even', noise: 5, gap: 1.5, preview: true },
+  pfast2: { layout: TRI, feed: 'even', noise: 2, gap: 0.5, preview: true },
+  pslow2: { layout: TRI, feed: 'even', noise: 2, gap: 3, preview: true },
   close2: { layout: [[160, 300], [240, 300], [200, 230]], feed: 'even', noise: 2, gap: 1.5 },
 };
 
@@ -54,7 +61,7 @@ function buildDebug(overrides) {
   window.__dbg = {
     get state() { return state; }, get elapsed() { return elapsed; }, get planets() { return planets; },
     get seeds() { return seeds; }, get seedsLeft() { return seedsLeft; },
-    LAUNCH, W, H, STEP, SEED_LIFETIME, MAX_DRAG, BLOOM_MASS, START_SEEDS,
+    LAUNCH, W, H, STEP, SEED_LIFETIME, PREVIEW_STEPS, MAX_DRAG, BLOOM_MASS, START_SEEDS,
     earned: roundEarned, step, fling, placePlanet, newGarden, accel, radius, flingVelocity,
   };
   newGarden();
@@ -95,6 +102,27 @@ function playInPage({ seed, bot }) {
   function aimAt(ti) {
     const p = D.planets[ti];
     if (bot.naive) return Math.atan2(p.x - D.LAUNCH.x, D.LAUNCH.y - p.y);
+    if (bot.preview) {
+      let best = null;
+      for (let len = 50; len <= D.MAX_DRAG; len += 15) {
+        for (let a = -74; a <= 74; a += 1) {
+          const v = D.flingVelocity(...drag(a * DEG, len));
+          if (!v) continue;
+          let x = D.LAUNCH.x, y = D.LAUNCH.y, [vx, vy] = v;
+          const dt = D.STEP * 2;
+          for (let i = 0; i < D.PREVIEW_STEPS; i++) {
+            const [ax, ay] = D.accel(x, y);
+            vx += ax * dt; vy += ay * dt; x += vx * dt; y += vy * dt;
+          }
+          // miss distance of the straight continuation past the preview's end
+          const sp = Math.hypot(vx, vy), ux = vx / sp, uy = vy / sp;
+          const along = (p.x - x) * ux + (p.y - y) * uy;
+          const miss = along < 0 ? Math.hypot(p.x - x, p.y - y) : Math.abs((p.x - x) * uy - (p.y - y) * ux);
+          if (!best || miss < best.miss) best = { miss, a: a * DEG, len };
+        }
+      }
+      return best;
+    }
     let best = null;
     for (let len = 50; len <= D.MAX_DRAG; len += 15) {
       const hits = [];

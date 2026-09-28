@@ -26,12 +26,28 @@ not in the player's decision. Check: can a player succeed with a verb while
 ignoring the shared value? If yes, the coupling is cosmetic. *Evidence:
 bots. Provisional.*
 
+Fix tried in Orbit Garden v6: slower seeds (FLING_POWER 2.6 → 1.8) and
+stronger gravity (G 400k → 900k) make every flight curve. Straight aim fell
+from 100% to 1%. A bot that reads only the in-game aim preview still wins
+100% (σ 2°, 1.2 s preview), so reading mass through the preview is now what succeeding
+requires. Check: slow the carrier until the shared value visibly moves it,
+and test a bot that sees only what the player sees. *Evidence: bots.
+Provisional.*
+
 ## A decay rate turns a puzzle into a speed test
 
 Orbit Garden: at 1.5 s per fling, bots win 96%; at 3 s, 8%. The wither rate
 sets a minimum action rate, and above it the round is easy. Check: sweep the
 bot's action rate, not just its skill. A cliff means the decay constant, not
 decisions, decides the round. *Evidence: bots. Provisional.*
+
+Fix tried in Orbit Garden v6: wither per seed flung instead of per second.
+For a preview-reading bot, a 3 s gap and a 1.5 s gap now win the same
+(100%), and spamming every 0.5 s drops it to 66%, because masses change
+while seeds are still in flight. Check: charge decay per action, not per
+second, when the round should reward decisions over speed. A decay rate
+still makes sense when time pressure is the point. *Evidence: bots.
+Provisional.*
 
 ## Sweep reaction time apart from think time
 

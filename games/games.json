@@ -61,12 +61,12 @@
       "id": "orbit-garden",
       "title": "Orbit Garden",
       "file": "orbit-garden.html",
-      "version": 5,
+      "version": 6,
       "added": "2026-09-26",
-      "updated": "2026-09-27",
+      "updated": "2026-09-28",
       "blurb": "Place planets, fling seeds around them, and grow a garden in orbit. Every seed that lands makes its planet pull harder.",
       "goal": "Get 3 planets blooming at the same time before your 40 seeds run out.",
-      "howToPlay": "Seeds launch from the launcher at the bottom and bend around every planet on their way up. Each seed that lands makes its planet heavier, and heavier planets pull harder, so a big planet can start stealing seeds meant for its neighbors. Planets you don't feed slowly wither away. Drag upward to fling; a short dotted line previews the start of the path.",
+      "howToPlay": "Seeds launch from the launcher at the bottom and bend around every planet on their way up. Each seed that lands makes its planet heavier, and heavier planets pull harder, so a big planet can start stealing seeds meant for its neighbors. Every seed you fling makes every planet wither a little, so misses cost you twice. Seeds fly slowly and curve a lot: drag upward to fling, and aim by the short dotted preview, not straight at the planet. There's no rush; take your time lining up each shot.",
       "mechanics": [
         {
           "name": "place",
@@ -79,7 +79,7 @@
           "description": "Drag upward to launch a seed from the launcher; it curves around planets and adds mass to the one it lands on."
         }
       ],
-      "sharedState": "Planet mass: placing creates it, landed seeds add to it, and it sets how hard each planet pulls on every seed. A passive wither drains it, and blooming is read from it.",
+      "sharedState": "Planet mass: placing creates it, landed seeds add to it, and it sets how hard each planet pulls on every seed. Each fling withers every planet a little, and blooming is read from it.",
       "accent": "#8be07a",
       "achievements": [
         {
