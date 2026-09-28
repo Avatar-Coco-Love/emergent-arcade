@@ -59,6 +59,16 @@ Bots: wash 63% / far 46% by 90 s. A first-try win before 90 s is in line
 with the wash bot. No feedback yet. One round, so it confirms nothing, but
 it doesn't contradict the bots.
 
+Written feedback (2026-09-28, a friend of the maintainer who played the
+whole gallery; a self-described "spoiled" gamer used to full-length games):
+Ant Trails was his **favourite** and the one he'd "love to see more on".
+It holds him for ~1–2 min, then he leaves "once I figured I had seen
+everything", usually right after a win or loss. There weren't enough
+decisions in a short round to feel impactful. He asked for **variety**
+("would add depth and mechanics to keep a hook and extend length of the
+game in one go"). The maintainer wants to expand it: more challenges, more
+achievements.
+
 ## Open ideas / known limits
 
 - Not hand-played on a real phone yet (only rendered headlessly at 390×760).
@@ -68,6 +78,12 @@ it doesn't contradict the bots.
   side trail away from the ants, then wash the main one.
 - Proposal alternatives not built: pebble (tap to block), decoy crumb, a
   second spider at 45 s.
+- **Next revision: depth** (from the feedback above). Keep the 2 verbs
+  (brief rule) and add variety in what they face, so one sitting lasts
+  longer and decisions carry weight. Candidates: a multi-day run where the
+  colony (ants lost, crumbs banked) carries over; a different food layout
+  each day; escalating threats (second spider, rain storms, a rival
+  colony's scent); day-specific challenges and new achievements for them.
 
 ## History
 
