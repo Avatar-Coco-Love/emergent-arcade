@@ -46,6 +46,16 @@ Gate 4 spots tried (win @50 s, lure80 vs smart90): (200,420) flat 70/80;
 (200,400) 90° 65/72–79; (180,380) 60° 68/77; (160,430) 20° 66/80;
 (230,440) flat 66/81 (chosen).
 
+## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
+
+v4: 2 rounds (two sessions), **both lost at 60 s** (nightfall). Bots at
+60 s: lure80 79%, smart90 89%, even lure60 47%. So the tester was slower
+than the weakest bot twice, and 2 achievements so far. The second
+biggest gap after Hot Iron. No feedback text, so we don't know whether it
+was steering or the gate order. Candidate for a later revision: a longer
+dusk for the first round, or check what share of gates the tester reached
+(needs a `gates` field in `arcade:result`, not recorded now).
+
 ## Open ideas / known limits
 
 - Skilled startle play finishes only ~4–5 s sooner than skilled lure play.

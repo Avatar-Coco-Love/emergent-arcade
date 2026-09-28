@@ -52,6 +52,13 @@ mechanics count. Far-first is slower but much safer, and it earns Long Haul
 63% of the time. Tuning path: 25 ants / `SMELL_R` 35 / `EVAP` 0.05 was far
 too easy (idle won 42% at 90 s); 20 ants was too hard (trail 34%).
 
+## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
+
+v2: 1 round, **won in 83 s** (86 s session, 5 achievements so far).
+Bots: wash 63% / far 46% by 90 s. A first-try win before 90 s is in line
+with the wash bot. No feedback yet. One round, so it confirms nothing, but
+it doesn't contradict the bots.
+
 ## Open ideas / known limits
 
 - Not hand-played on a real phone yet (only rendered headlessly at 390×760).

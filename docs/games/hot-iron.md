@@ -103,6 +103,42 @@ Tuning path:
   on the same budget). At COOL 0.07 and COND 0.1, fuel used is the same at
   all rates.
 
+## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
+
+v1: 2 rounds, **both lost, in 12.6 s and 14.6 s** (bots: reader 87% wins,
+median 99 s; every bot loss is fuel out, never cracks for the reader). Only
+Burned Through unlocked. Rating 2★: *"It looks really cool and it's a great
+concept. I am just struggling to play it, and I am unsure how to make the
+blade thicker so that it can fit the outline."*
+
+What that shows:
+- A 45 s fuel budget can't run out in 13 s, so **both losses were 3 cracks**:
+  strikes on metal below cherry, within the first few seconds. The
+  mechanic the bots never do (strike before heating) is what ended both
+  rounds. The goal text says "Hammer the bar", and a touch tap is a strike,
+  so a first tap on the cold bar costs a crack.
+- The first session had 90 s of play for a 13 s round, so the tester kept
+  going on an unfinished round and burned a segment away (Burned Through).
+  With the "how do I make it thicker" comment, the likely reading: they held
+  heat on the thin part hoping it would grow. Thickening is indirect (strike
+  the neighbour while the target is the hotter side) and wasn't discovered.
+- The bots only model someone who already knows the rules. None models the
+  first minute: tapping before heating, or heating the segment you want to
+  grow. That is where the bot-human gap is.
+
+Revision ideas (v2), cheapest first:
+- Don't let the learning taps end the round: the first cold strikes of a
+  round warn and dent (no crack), or cracks only happen on a bar that has
+  been heated at least once. Cracks should punish carelessness, not the
+  first guess.
+- Teach thickening in play: a first shape where one step is "grow this
+  segment", with a hint arrow on the neighbour to strike; or a ghost
+  showing where the struck metal will go (which side, how much) while
+  aiming.
+- Add a `novice` bot to `scripts/balance-hot-iron.mjs` (taps cold for its
+  first few actions, heats the segment it wants thicker) and require it to
+  survive long enough to learn, e.g. median round ≥ 60 s.
+
 ## Open ideas / known limits
 
 - Reaction time still matters: every hold costs its release lag in fuel
