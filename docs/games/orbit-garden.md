@@ -52,6 +52,14 @@ gravity.
 Achievements (even2): Gravity Assist 100%, Green Thumb 92%, Frugal 40%.
 Full Sky is never earned by these bots (they place only 3).
 
+## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
+
+v5: 1 round, **won in 23 s** (26 s session). Faster than every bot (naive
+32 s, perfect 35 s at a 1.5 s fling gap). This matches the open idea below:
+a human flings faster than 1.5 s, and fast play wins easily. It's one
+round, but it's the prediction the notes made. Supports both findings
+from this game (straight aim works; cadence decides the round).
+
 ## Open ideas / known limits
 
 - **Gravity barely matters for aiming.** Aiming straight at the target

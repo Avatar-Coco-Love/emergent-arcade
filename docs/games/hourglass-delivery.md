@@ -93,6 +93,15 @@ Tuning path:
 - Landslide at 120 and then 80 grains never happened for bots; 60 gives
   12–18%.
 
+## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
+
+v2: 1 round, **lost in 33 s** (3rd empty glass), 0 achievements, so not a
+single glass filled. Bots: both 70%, pour-only 23% (0 filled when the level
+has no clear column). The bot table has no round length; add one to the
+balance script so losses can be compared. A 0-achievement first round
+suggests the tester never got sand into a glass, like the pour bot on a
+blocked level.
+
 ## Open ideas / known limits
 
 - Playtest link (private artifact, republished on each push):

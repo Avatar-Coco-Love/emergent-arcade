@@ -68,6 +68,13 @@ Real-page check (Playwright clicks, 3 taps/s on random cells, v6): no
 eruptions for 60 s, 68 by 80 s, then none in 20 s idle. (v5: 84k by 80 s,
 never settled.)
 
+## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
+
+v6: sandbox, 1 session of 64 s, **all 6 achievements unlocked in that
+session** (bots take 28–105 s per achievement, and no bot earns all six;
+Siphon Strike and Plumber come only from strike3). The achievements may be
+too easy for a human who uses both verbs. No rounds, so no win rate.
+
 ## Open ideas / known limits
 
 - **Fixed in v6: eruption storms sustained themselves** (4 × 40 > 100).

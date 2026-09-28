@@ -91,6 +91,13 @@ Tuning path:
 - CUT_COST 3 let cut-only win 100%.
 - Burning out in sections next to gaps flanked round the ends.
 
+## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
+
+v2: 1 round, **lost in 64.5 s** (4 achievements so far). Bots: cutburn
+70% (median 71 s), cut 55% (68 s), idle 4% (53 s). The loss length is
+between idle and the playing bots, so the tester held the fire for a while.
+One round: no conclusion.
+
 ## Open ideas / known limits
 
 - Playtest link (private artifact, republished on each push):
