@@ -1,6 +1,6 @@
 # Ant Trails: design notes
 
-Current: **v3** (playtest: PLAYTEST_LINK). Mechanics: **trail** (drag) and
+Current: **v3** (playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG). Mechanics: **trail** (drag) and
 **wash** (hold), sharing **scent per ground cell** (40×60 grid, 10 px cells,
 0–1). v3 turns one round into a **five-day run**: each day is a round (its
 own food layout, twist and bonus challenge), and the ants alive at sundown
