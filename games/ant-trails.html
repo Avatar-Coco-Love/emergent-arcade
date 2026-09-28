@@ -47,6 +47,17 @@
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     pointer-events: none;
   }
+  #bonus {
+    position: absolute;
+    left: 8px;
+    bottom: 6px;
+    margin: 0;
+    font-size: 0.72rem;
+    color: #f3e3c4;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+  }
+  #bonus.done { color: #bfe89a; }
   #endCard {
     position: absolute;
     left: 50%;
@@ -64,8 +75,13 @@
   #endCard h2.won { color: #f2c46b; }
   #endCard h2.lost { color: #ff9a8a; }
   #endCard p { margin: 0 0 4px; color: #ddd0bf; font-size: 0.9rem; }
+  #endCard p.next { margin-top: 10px; color: #f3e3c4; }
+  #endCard p.small { font-size: 0.8rem; color: var(--muted); }
+  #endCard p:empty { display: none; }
   #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
-  #playAgain:disabled { opacity: 0.4; }
+  #playAgain:disabled, #newRunBtn:disabled { opacity: 0.4; }
+  #newRunBtn { margin-top: 8px; width: 100%; background: transparent; }
+  #newRunBtn[hidden] { display: none; }
   .bar {
     flex: none;
     display: flex;
@@ -105,20 +121,27 @@
     <div id="stage">
       <canvas id="ground" aria-label="Ant Trails ground. Drag to lay a scent trail, hold to wash scent away."></canvas>
       <p id="msg" role="status"></p>
+      <p id="bonus"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
-        <p id="endAch"></p>
+        <p id="endNight"></p>
+        <p id="endNext" class="next"></p>
+        <p id="endAch" class="small"></p>
+        <p id="endBest" class="small"></p>
         <button id="playAgain">Play again</button>
+        <button id="newRunBtn" class="alt">New run</button>
       </div>
     </div>
   </div>
   <div class="bar">
+    <span>Day <b id="hudDay"></b></span>
     <span>Crumbs <b id="hudCrumbs"></b></span>
     <span>Ants <b id="hudAnts"></b></span>
+    <span id="hudRivalWrap" hidden>Rivals <b id="hudRivals"></b></span>
     <span>Sundown <b id="hudSun"></b></span>
     <span>Scent <span id="gland"><span id="glandFill"></span></span></span>
-    <button id="resetBtn">New colony</button>
+    <button id="resetBtn">New run</button>
   </div>
 
 <script>
@@ -127,20 +150,41 @@
   const W = 400, H = 600;
   const CELL = 10, GW = W / CELL, GH = H / CELL; // scent grid: 40 x 60 cells
 
-  // Colony and goal
-  const START_ANTS = 22;
-  const GOAL = 60;                 // crumbs home to win...
-  const SUNDOWN = 90;              // ...within this many seconds
-  const MIN_ANTS = 8;              // fewer ants than this and the colony gives up
+  // The run: five days in a row. Ants alive at sundown carry over to the next day.
+  const START_ANTS = 22;           // colony on day 1
+  const MIN_ANTS = 8;              // fewer ants than this and the colony gives up (the run ends)
   const HATCH_EVERY = 10;          // a new ant hatches for every this many crumbs
-  const SPARE = 20;                // Swift: win with this many seconds left
+  const REST_S = 10;               // overnight, one ant hatches per this many seconds of spare daylight...
+  const BONUS_ANTS = 3;            // ...and this many for meeting the day's bonus challenge
+  const SPARE = 20;                // Swift (and day 3's bonus): win with this many seconds left
+  const BIG_COLONY = 32;           // Big Colony: this many ants at once
+  const SAFE_LOST = 3;             // day 2's bonus: lose at most this many ants
   const NEST = { x: 200, y: 555, r: 16 };
-  const PILES = [                  // near and small, middle, far and large
-    { x: 315, y: 420, n: 15 },
-    { x: 85, y: 270, n: 25 },
-    { x: 300, y: 85, n: 40 },
+  const JITTER = 12;               // piles and spiders shift up to this far each run
+  // Each day has its own food layout ([x, y, crumbs], 'far' marks Long Haul's
+  // pile), spider starts, twist and bonus challenge. Layouts are mirrored
+  // left-right at random, so a new run looks different too.
+  const DAYS = [
+    { name: 'First light', goal: 50, sun: 90, bonus: 'far',
+      piles: [[315, 420, 15], [85, 270, 25], [300, 85, 40, 'far']], spiders: [[40, 60]],
+      note: 'Lead the colony to food.' },
+    { name: 'Scattered crumbs', goal: 50, sun: 90, bonus: 'safe',
+      piles: [[110, 440, 8], [320, 380, 10], [60, 230, 12], [240, 250, 10], [350, 130, 12], [130, 80, 12]],
+      spiders: [[360, 50]], note: 'Food is spread thin today.' },
+    { name: 'Storm', goal: 50, sun: 90, bonus: 'swift', storm: true,
+      piles: [[330, 300, 32], [70, 150, 38]], spiders: [[200, 40]],
+      note: 'Storm clouds wash trails away as they drift by.' },
+    { name: 'Two spiders', goal: 55, sun: 90, bonus: 'rainout',
+      piles: [[100, 380, 20], [300, 210, 25], [120, 70, 30]], spiders: [[40, 60], [360, 60]],
+      note: 'A second spider has moved in.' },
+    { name: 'Rival colony', goal: 60, sun: 90, bonus: null, rival: { x: 200, y: 40, n: 22 },
+      piles: [[80, 330, 28], [320, 330, 28], [200, 190, 24], [330, 470, 10], [60, 120, 12]], spiders: [[40, 250]],
+      note: 'Red ants raid the same food, and follow the same scent.' },
   ];
-  const FAR = 2;                  // index of the far pile (Long Haul)
+  const BONUS_TEXT = {
+    far: 'clear the far pile', safe: `lose ${SAFE_LOST} ants or fewer`, swift: `win with ${SPARE} s to spare`,
+    rainout: 'rain on each spider while it hunts',
+  };
   const PILE_R = 10;               // reach this close to pick up a crumb
   const SMELL_R = 22;              // searching ants head straight for food this close
 
@@ -156,24 +200,28 @@
   const RAIN_R0 = 22, RAIN_R1 = 48, RAIN_GROW = 0.8; // rain cloud radius grows while held
   const RAIN_WIPE = 7;             // scent under the rain decays at this rate per second
 
+  // Storm day: clouds drift across the field, washing scent like your rain.
+  const STORM_FIRST = 6, STORM_EVERY = 9; // seconds to the first cloud, then between clouds
+  const STORM_R = 50, STORM_SPEED = 30, STORM_WIPE = 3;
+
   // Ants
   const ANT_SPEED = 36;
   const FEEL_D = 11, FEEL_A = 0.55; // feeler distance and angle
   const SCENT_MIN = 0.03;          // ants ignore scent weaker than this
-  const OUT_BIAS = 0.6;            // searching ants prefer the feeler pointing away from the nest
+  const OUT_BIAS = 0.6;            // searching ants prefer the feeler pointing away from their nest
   const TURN = 6;                  // how hard ants steer toward scent / home / food
   const WANDER = 5;                // random turning
   const U_TURN = 0.8;              // chance per second a searcher on scent turns outward again
+  const RIVAL_GUARD = 45;          // your soldiers turn red ants away this close to the nest
 
-  // Spider
-  const SP_START = { x: 40, y: 60 };
+  // Spiders
   const SP_BASE = 20, SP_SCENT = 55; // speed on bare ground, plus this much on full scent
   const SP_FEEL_D = 24, SP_FEEL_A = 0.7;
-  const SP_MIN = 0.05;             // the spider notices scent stronger than this
+  const SP_MIN = 0.05;             // spiders notice scent stronger than this
   const SP_TURN = 3.5;
   const SP_CATCH = 8;              // eats any ant this close...
   const EAT_PAUSE = 1.5;           // ...then sits still this long
-  const NEST_GUARD = 80;           // soldiers turn the spider away this close to the nest
+  const NEST_GUARD = 80;           // soldiers turn spiders away this close to the nest
 
   // Achievements
   const HIGHWAY_N = 12, HIGHWAY_SCENT = 0.5;
@@ -184,10 +232,12 @@
   const MOVE_PX = 10;              // moving further than this first draws a trail
   const END_INPUT_LOCK_MS = 1000;
   const STEP = 1 / 60;
+  const BEST_KEY = 'ant-trails-best';
 
   const canvas = document.getElementById('ground');
   const ctx = canvas.getContext('2d');
   const msgEl = document.getElementById('msg');
+  const bonusEl = document.getElementById('bonus');
 
   // Achievements: announced to the Emergent Arcade gallery when embedded
   // (it records them); harmless when the file is opened on its own.
@@ -201,12 +251,12 @@
     }
   }
 
-  // Tell the gallery how a round ended (anonymous play telemetry, see
-  // docs/telemetry.md). time is seconds of unpaused play this round.
+  // Tell the gallery how a round (one day) ended (anonymous play telemetry,
+  // see docs/telemetry.md). time is seconds of unpaused play that day.
   function report(result) {
     if (window.parent !== window) {
       window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
-        outcome: result === 'won' ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
+        outcome: result === 'lost' ? 'loss' : 'win', time: Math.round(elapsed * 10) / 10 }, '*');
     }
   }
 
@@ -237,59 +287,177 @@
 
   const endCard = document.getElementById('endCard');
   const playAgainBtn = document.getElementById('playAgain');
+  const newRunBtn = document.getElementById('newRunBtn');
   const hudSun = document.getElementById('hudSun');
 
   let scent = new Float32Array(GW * GH), tmp = new Float32Array(GW * GH);
-  let ants, piles, spider, delivered, lost, hatched, gland, elapsed, state, rain, msgTimer;
+  // The run
+  let day, carry, pantry, runLost, bonuses, retries, dawnRun;
+  // One day
+  let cfg, goal, sundown, ants, rivals, rivalNest, piles, spiders, storms, stormT;
+  let delivered, rivalDelivered, lost, hatched, gland, elapsed, state, rain, msgTimer, bonusMet, overnight;
   const roundEarned = new Set();
 
-  function newAnt(outward) {
-    const h = outward ? -Math.PI / 2 + (Math.random() - 0.5) * 2.6 : Math.random() * Math.PI * 2;
+  function loadBest() {
+    try { return JSON.parse(localStorage.getItem(BEST_KEY)) || null; } catch (e) { return null; }
+  }
+  function saveBest(b) {
+    try { localStorage.setItem(BEST_KEY, JSON.stringify(b)); } catch (e) { /* private window */ }
+  }
+
+  function newAnt(home, rival) {
+    const out = home === NEST ? -Math.PI / 2 : Math.PI / 2;
+    const h = out + (Math.random() - 0.5) * 2.6;
     return {
-      x: NEST.x + Math.cos(h) * 6, y: NEST.y + Math.sin(h) * 6, h,
+      x: home.x + Math.cos(h) * 6, y: home.y + Math.sin(h) * 6, h, home, rival,
       carry: false, sp: ANT_SPEED * (0.9 + Math.random() * 0.2), leg: Math.random() * 6,
     };
   }
 
-  function newColony() {
+  function newRun() {
+    day = 0;
+    carry = START_ANTS;
+    pantry = 0;
+    runLost = 0;
+    bonuses = 0;
+    retries = 0;
+    startDay();
+  }
+
+  function startDay() {
+    dawnRun = { carry, pantry, runLost, bonuses };
+    cfg = DAYS[day];
+    goal = cfg.goal;
+    sundown = cfg.sun;
+    const flip = Math.random() < 0.5;
+    const jit = () => (Math.random() - 0.5) * 2 * JITTER;
+    const fx = x => flip ? W - x : x;
     scent.fill(0);
     ants = [];
-    for (let i = 0; i < START_ANTS; i++) ants.push(newAnt(true));
-    piles = PILES.map(p => ({ x: p.x, y: p.y, n: p.n, start: p.n }));
-    spider = { x: SP_START.x, y: SP_START.y, h: Math.PI / 4, eat: 0, followT: 0, decoyT: 0, leg: 0 };
-    delivered = 0; lost = 0; hatched = 0;
+    for (let i = 0; i < carry; i++) ants.push(newAnt(NEST, false));
+    rivals = [];
+    rivalNest = cfg.rival ? { x: cfg.rival.x, y: cfg.rival.y, r: 14 } : null;
+    if (rivalNest) for (let i = 0; i < cfg.rival.n; i++) rivals.push(newAnt(rivalNest, true));
+    piles = cfg.piles.map(p => ({ x: fx(p[0]) + jit(), y: p[1] + jit(), n: p[2], far: p[3] === 'far' }));
+    spiders = cfg.spiders.map(p => ({
+      x: fx(p[0]) + jit(), y: p[1] + jit(), h: Math.random() * Math.PI * 2,
+      eat: 0, followT: 0, decoyT: 0, leg: Math.random() * 6, rained: false,
+    }));
+    storms = [];
+    stormT = STORM_FIRST;
+    delivered = 0; rivalDelivered = 0; lost = 0; hatched = 0;
     gland = GLAND_MAX;
     elapsed = 0;
     rain = null;
+    bonusMet = false;
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
-    say(`Bring ${GOAL} crumbs home before sundown.`);
+    showBonus();
+    say(`Day ${day + 1}: ${cfg.name}. ${cfg.note} Bring ${goal} crumbs home.`, 4500);
   }
 
-  function endGame(result, why) {
-    state = result;
+  function showBonus() {
+    bonusEl.textContent = cfg.bonus
+      ? `${bonusMet ? '✓' : '☆'} Bonus: ${BONUS_TEXT[cfg.bonus]}` : 'Last day';
+    bonusEl.classList.toggle('done', bonusMet);
+  }
+  function meetBonus() {
+    if (bonusMet) return;
+    bonusMet = true;
+    showBonus();
+    say(`Bonus done: +${BONUS_ANTS} ants tonight.`);
+  }
+
+  function endDay(result, why) {
+    const spare = sundown - elapsed;
+    if (result === 'won') {
+      if (lost === 0) unlock('untouchable');
+      if (spare >= SPARE) unlock('swift');
+      if (cfg.bonus === 'safe' && lost <= SAFE_LOST) meetBonus();
+      if (cfg.bonus === 'swift' && spare >= SPARE) meetBonus();
+      if (cfg.storm) unlock('weathered');
+      if (cfg.spiders.length > 1) unlock('double-trouble');
+      if (cfg.rival && rivalDelivered < delivered / 2) unlock('turf-war');
+      if (day === DAYS.length - 1 && !retries) unlock('full-season');
+    }
+    pantry += delivered;
+    runLost += lost;
+    if (bonusMet) bonuses++;
+    if (result === 'won' && day < DAYS.length - 1) {
+      state = 'night';
+      const rest = Math.floor(Math.max(0, spare) / REST_S);
+      overnight = { rest, bonus: bonusMet ? BONUS_ANTS : 0 };
+      carry = ants.length + overnight.rest + overnight.bonus;
+    } else {
+      state = result;
+    }
     report(result);
     endGesture();
     msgEl.textContent = '';
+
+    // Best run: most days won in a row without a retry.
+    const best = loadBest();
+    const reached = result === 'lost' ? day : day + 1;
+    const isBest = state !== 'night' && !retries && reached > 0 &&
+      (!best || reached > best.days || (reached === best.days && pantry > best.crumbs));
+    if (isBest) saveBest({ days: reached, crumbs: pantry });
+
     const title = document.getElementById('endTitle');
+    const detail = document.getElementById('endDetail');
+    const night = document.getElementById('endNight');
+    const next = document.getElementById('endNext');
     title.className = result;
-    title.textContent = result === 'won' ? 'Pantry full!' : why === 'sun' ? 'The sun went down' :
-      why === 'ants' ? 'The colony gave up' : 'Not enough food left';
-    document.getElementById('endDetail').textContent = result === 'won'
-      ? `${delivered} crumbs home in ${clock(elapsed)}, ${clock(SUNDOWN - elapsed)} before dark. ${lost} ant${lost === 1 ? '' : 's'} lost.`
-      : why === 'sun'
-        ? `${delivered} of ${GOAL} crumbs made it home.`
+    night.textContent = '';
+    next.textContent = '';
+    if (state === 'night') {
+      title.textContent = `Day ${day + 1} done`;
+      detail.textContent = `${delivered} crumbs home in ${clock(elapsed)}. ${lost} ant${lost === 1 ? '' : 's'} lost.`;
+      const parts = [];
+      if (overnight.rest) parts.push(`+${overnight.rest} rested (spare daylight)`);
+      if (overnight.bonus) parts.push(`+${overnight.bonus} bonus`);
+      night.textContent = `Overnight: ${parts.length ? parts.join(', ') : 'no new ants'}. ${carry} ants at dawn.`;
+      const nd = DAYS[day + 1];
+      next.textContent = `Next, day ${day + 2}: ${nd.name}. ${nd.note}`;
+      playAgainBtn.textContent = `Start day ${day + 2}`;
+    } else if (state === 'won') {
+      title.textContent = 'Summer’s end: pantry full!';
+      detail.textContent = `All ${DAYS.length} days won${retries ? ` (${retries} retr${retries === 1 ? 'y' : 'ies'})` : ''}. ${pantry} crumbs banked, ${runLost} ant${runLost === 1 ? '' : 's'} lost, ${bonuses} bonus${bonuses === 1 ? '' : 'es'}.`;
+      playAgainBtn.textContent = 'New run';
+    } else {
+      title.textContent = why === 'sun' ? 'The sun went down' :
+        why === 'ants' ? 'The colony gave up' : 'Not enough food left';
+      detail.textContent = (why === 'sun'
+        ? `${delivered} of ${goal} crumbs made it home.`
         : why === 'ants'
-          ? `The spider got ${lost} ants; only ${ants.length} left.`
-          : `The spider made ants drop too many crumbs to reach ${GOAL}.`;
+          ? `Only ${ants.length} ants left.`
+          : cfg.rival ? `Too many crumbs were dropped or raided to reach ${goal}.`
+            : `The spider made ants drop too many crumbs to reach ${goal}.`) +
+        ` Try day ${day + 1} again with the ants you had at dawn, or start a new run.`;
+      playAgainBtn.textContent = `Retry day ${day + 1}`;
+    }
+    newRunBtn.hidden = state !== 'lost';
     const n = roundEarned.size;
     document.getElementById('endAch').textContent = n
-      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
-      : '';
-    playAgainBtn.disabled = true;
+      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned today` : '';
+    const b = loadBest();
+    document.getElementById('endBest').textContent = state === 'night' || !b ? ''
+      : isBest ? 'New best run!' : `Best run: ${b.days} day${b.days === 1 ? '' : 's'} won, ${b.crumbs} crumbs.`;
+    playAgainBtn.disabled = newRunBtn.disabled = true;
     endCard.hidden = false;
-    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    setTimeout(() => { playAgainBtn.disabled = newRunBtn.disabled = false; }, END_INPUT_LOCK_MS);
+  }
+
+  function nextDay() {
+    day++;
+    startDay();
+  }
+
+  // Replay a lost day with the colony as it was at dawn.
+  function retryDay() {
+    ({ carry, pantry, runLost, bonuses } = dawnRun);
+    retries++;
+    startDay();
   }
 
   function clock(sec) {
@@ -297,10 +465,10 @@
     return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   }
 
-  function say(text) {
+  function say(text, ms) {
     msgEl.textContent = text;
     clearTimeout(msgTimer);
-    msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
+    msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, ms || 3000);
   }
 
   // ---------- scent ----------
@@ -346,18 +514,23 @@
 
   function rainRadius() { return RAIN_R0 + (RAIN_R1 - RAIN_R0) * Math.min(1, rain.t / RAIN_GROW); }
 
+  function wash(x, y, r, rate, dt) {
+    const k = Math.exp(-rate * dt);
+    const c0 = Math.max(0, Math.floor((x - r) / CELL)), c1 = Math.min(GW - 1, Math.floor((x + r) / CELL));
+    const r0 = Math.max(0, Math.floor((y - r) / CELL)), r1 = Math.min(GH - 1, Math.floor((y + r) / CELL));
+    for (let cy = r0; cy <= r1; cy++) {
+      for (let cx = c0; cx <= c1; cx++) {
+        if (Math.hypot((cx + 0.5) * CELL - x, (cy + 0.5) * CELL - y) <= r) scent[cy * GW + cx] *= k;
+      }
+    }
+  }
+
   function stepScent(dt) {
     if (rain) {
       rain.t += dt;
-      const r = rainRadius(), k = Math.exp(-RAIN_WIPE * dt);
-      const c0 = Math.max(0, Math.floor((rain.x - r) / CELL)), c1 = Math.min(GW - 1, Math.floor((rain.x + r) / CELL));
-      const r0 = Math.max(0, Math.floor((rain.y - r) / CELL)), r1 = Math.min(GH - 1, Math.floor((rain.y + r) / CELL));
-      for (let cy = r0; cy <= r1; cy++) {
-        for (let cx = c0; cx <= c1; cx++) {
-          if (Math.hypot((cx + 0.5) * CELL - rain.x, (cy + 0.5) * CELL - rain.y) <= r) scent[cy * GW + cx] *= k;
-        }
-      }
+      wash(rain.x, rain.y, rainRadius(), RAIN_WIPE, dt);
     }
+    for (const c of storms) wash(c.x, c.y, STORM_R, STORM_WIPE, dt);
     const keep = Math.exp(-EVAP * dt), mix = DIFFUSE * dt;
     for (let cy = 0; cy < GH; cy++) {
       for (let cx = 0; cx < GW; cx++) {
@@ -369,6 +542,21 @@
       }
     }
     [scent, tmp] = [tmp, scent];
+  }
+
+  function stepStorms(dt) {
+    if (!cfg.storm) return;
+    stormT -= dt;
+    if (stormT <= 0) {
+      stormT = STORM_EVERY;
+      const fromLeft = Math.random() < 0.5;
+      storms.push({
+        x: fromLeft ? -STORM_R : W + STORM_R, y: 70 + Math.random() * 400,
+        vx: (fromLeft ? 1 : -1) * STORM_SPEED, vy: (Math.random() - 0.5) * 12, t: 0,
+      });
+    }
+    for (const c of storms) { c.x += c.vx * dt; c.y += c.vy * dt; c.t += dt; }
+    storms = storms.filter(c => c.x > -STORM_R - 1 && c.x < W + STORM_R + 1);
   }
 
   // ---------- creatures ----------
@@ -390,18 +578,22 @@
   }
 
   function stepAnt(a, dt) {
+    const home = a.home;
     a.h += (Math.random() - 0.5) * WANDER * dt * 2;
     if (a.carry) {
       // Carriers walk home by dead reckoning, laying scent as they go.
-      steerTo(a, Math.atan2(NEST.y - a.y, NEST.x - a.x), TURN, dt);
+      steerTo(a, Math.atan2(home.y - a.y, home.x - a.x), TURN, dt);
       const i = cellOf(a.x, a.y);
       if (i >= 0) scent[i] = Math.min(1, scent[i] + CARRY_LAY * dt);
-      if (Math.hypot(a.x - NEST.x, a.y - NEST.y) < NEST.r) {
+      if (Math.hypot(a.x - home.x, a.y - home.y) < home.r) {
         a.carry = false;
         a.h += Math.PI + (Math.random() - 0.5) * 1.5;
-        delivered++;
-        if (delivered === 1) unlock('first-crumb');
-        if (delivered % HATCH_EVERY === 0) { ants.push(newAnt(true)); hatched++; }
+        if (a.rival) rivalDelivered++;
+        else {
+          delivered++;
+          if (delivered === 1) unlock('first-crumb');
+          if (delivered % HATCH_EVERY === 0) { ants.push(newAnt(NEST, false)); hatched++; }
+        }
       }
     } else {
       // Food close by? Go straight for it.
@@ -417,7 +609,10 @@
           food.n--;
           a.carry = true;
           a.h += Math.PI;
-          if (food === piles[FAR] && !food.n) unlock('long-haul');
+          if (food.far && !food.n) {
+            unlock('long-haul');
+            if (cfg.bonus === 'far') meetBonus();
+          }
         }
       } else {
         // Follow scent with three feelers, preferring the way out from the nest.
@@ -426,8 +621,8 @@
           const hh = a.h + fa;
           const px = a.x + Math.cos(hh) * FEEL_D, py = a.y + Math.sin(hh) * FEEL_D;
           const s = scentAt(px, py);
-          const nd = Math.hypot(px - NEST.x, py - NEST.y) || 1;
-          const out = (Math.cos(hh) * (px - NEST.x) + Math.sin(hh) * (py - NEST.y)) / nd;
+          const nd = Math.hypot(px - home.x, py - home.y) || 1;
+          const out = (Math.cos(hh) * (px - home.x) + Math.sin(hh) * (py - home.y)) / nd;
           if (fa === 0) outAhead = out;
           if (s < SCENT_MIN) continue;
           const score = s * (1 + OUT_BIAS * out);
@@ -438,6 +633,10 @@
           if (outAhead < -0.5 && Math.random() < U_TURN * dt) a.h += Math.PI;
         }
       }
+      // Soldiers see off red ants that come too close to the nest.
+      if (a.rival && Math.hypot(a.x - NEST.x, a.y - NEST.y) < RIVAL_GUARD) {
+        steerTo(a, Math.atan2(a.y - NEST.y, a.x - NEST.x), TURN * 2, dt);
+      }
     }
     a.x += Math.cos(a.h) * a.sp * dt;
     a.y += Math.sin(a.h) * a.sp * dt;
@@ -445,8 +644,12 @@
     bounce(a, 4);
   }
 
-  function stepSpider(dt) {
-    const s = spider;
+  function nearAnt(x, y, r) {
+    for (const a of ants) if (Math.hypot(a.x - x, a.y - y) < r) return true;
+    return false;
+  }
+
+  function stepSpider(s, dt) {
     s.leg += dt * 8;
     if (s.eat > 0) { s.eat -= dt; return; }
     let best = null, bestS = SP_MIN;
@@ -466,20 +669,22 @@
     s.y += Math.sin(s.h) * sp * dt;
     bounce(s, 8);
 
-    // Decoy: the spider stays on a scent trail with no ants anywhere near it.
-    let near = false;
-    for (const a of ants) if (Math.hypot(a.x - s.x, a.y - s.y) < DECOY_R) { near = true; break; }
-    s.decoyT = following && !near ? s.decoyT + dt : 0;
+    // Decoy: the spider stays on a scent trail with none of your ants near it.
+    s.decoyT = following && !nearAnt(s.x, s.y, DECOY_R) ? s.decoyT + dt : 0;
     if (s.decoyT >= DECOY_T) unlock('decoy');
 
-    for (let i = ants.length - 1; i >= 0; i--) {
-      const a = ants[i];
-      if (Math.hypot(a.x - s.x, a.y - s.y) < SP_CATCH) {
-        ants.splice(i, 1);
-        lost++;
-        s.eat = EAT_PAUSE;
-        say(a.carry ? 'The spider got an ant, and its crumb.' : 'The spider got an ant!');
-        break;
+    for (const list of [ants, rivals]) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        const a = list[i];
+        if (Math.hypot(a.x - s.x, a.y - s.y) < SP_CATCH) {
+          list.splice(i, 1);
+          s.eat = EAT_PAUSE;
+          if (!a.rival) {
+            lost++;
+            say(a.carry ? 'A spider got an ant, and its crumb.' : 'A spider got an ant!');
+          }
+          return;
+        }
       }
     }
   }
@@ -487,27 +692,33 @@
   function step(dt) {
     elapsed += dt;
     gland = Math.min(GLAND_MAX, gland + GLAND_REGEN * dt);
-    if (rain && spider.followT >= RAIN_CHASE_T && Math.hypot(spider.x - rain.x, spider.y - rain.y) < rainRadius()) unlock('rainmaker');
+    if (rain) {
+      for (const s of spiders) {
+        if (s.followT >= RAIN_CHASE_T && Math.hypot(s.x - rain.x, s.y - rain.y) < rainRadius()) {
+          unlock('rainmaker');
+          s.rained = true;
+        }
+      }
+      if (cfg.bonus === 'rainout' && spiders.every(s => s.rained)) meetBonus();
+    }
+    stepStorms(dt);
     stepScent(dt);
     for (const a of ants) stepAnt(a, dt);
-    stepSpider(dt);
+    for (const a of rivals) stepAnt(a, dt);
+    for (const s of spiders) stepSpider(s, dt);
 
     let onTrail = 0;
     for (const a of ants) {
       if (scentAt(a.x, a.y) >= HIGHWAY_SCENT && Math.hypot(a.x - NEST.x, a.y - NEST.y) > 50) onTrail++;
     }
     if (onTrail >= HIGHWAY_N) unlock('highway');
+    if (ants.length >= BIG_COLONY) unlock('big-colony');
 
-    if (delivered >= GOAL) {
-      if (lost === 0) unlock('untouchable');
-      if (SUNDOWN - elapsed >= SPARE) unlock('swift');
-      endGame('won');
-      return;
-    }
+    if (delivered >= goal) { endDay('won'); return; }
     const reachable = delivered + ants.filter(a => a.carry).length + piles.reduce((n, p) => n + p.n, 0);
-    if (reachable < GOAL) endGame('lost', 'food');
-    else if (ants.length < MIN_ANTS) endGame('lost', 'ants');
-    else if (elapsed >= SUNDOWN) endGame('lost', 'sun');
+    if (reachable < goal) endDay('lost', 'food');
+    else if (ants.length < MIN_ANTS) endDay('lost', 'ants');
+    else if (elapsed >= sundown) endDay('lost', 'sun');
   }
 
   // ---------- drawing ----------
@@ -534,10 +745,11 @@
   const glowImg = glowCtx.createImageData(GW, GH);
 
   function drawAnt(a) {
+    const body = a.rival ? '#8e2412' : '#140d08';
     ctx.save();
     ctx.translate(a.x, a.y);
     ctx.rotate(a.h);
-    ctx.strokeStyle = '#140d08';
+    ctx.strokeStyle = body;
     ctx.lineWidth = 0.8;
     const sw = Math.sin(a.leg) * 1.2;
     ctx.beginPath();
@@ -547,7 +759,7 @@
       ctx.moveTo(lx, 0); ctx.lineTo(lx - k, 3.6);
     }
     ctx.stroke();
-    ctx.fillStyle = '#140d08';
+    ctx.fillStyle = body;
     ctx.beginPath(); ctx.ellipse(-3, 0, 2.6, 1.9, 0, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(0, 0, 1.3, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(2.4, 0, 1.5, 0, Math.PI * 2); ctx.fill();
@@ -558,8 +770,7 @@
     ctx.restore();
   }
 
-  function drawSpider() {
-    const s = spider;
+  function drawSpider(s) {
     ctx.save();
     ctx.translate(s.x, s.y);
     ctx.rotate(s.h);
@@ -586,10 +797,33 @@
     ctx.restore();
   }
 
+  function drawRain(x, y, r, t, fill, drops) {
+    ctx.fillStyle = fill;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,225,255,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < drops; i++) {
+      const a = i * 2.4, rr = r * Math.sqrt((i + 0.5) / drops);
+      const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+      const f = ((t * 3 + i * 0.37) % 1) * 8;
+      ctx.moveTo(px, py - 4 + f); ctx.lineTo(px - 1, py + f);
+    }
+    ctx.stroke();
+  }
+
+  function drawMound(n, hole, fill) {
+    ctx.fillStyle = fill;
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = hole;
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r - 4, 0, Math.PI * 2); ctx.fill();
+  }
+
   function draw() {
     const k = canvas.width / W;
     ctx.setTransform(k, 0, 0, k, 0, 0);
     ctx.drawImage(soil, 0, 0);
+    if (!cfg) return;
 
     // Scent: an amber glow, one pixel per cell, smoothed up to size.
     const d = glowImg.data;
@@ -602,11 +836,9 @@
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(glow, 0, 0, W, H);
 
-    // Nest: a dark mound with an entrance.
-    ctx.fillStyle = '#5a3f28';
-    ctx.beginPath(); ctx.arc(NEST.x, NEST.y, NEST.r + 10, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#1c120b';
-    ctx.beginPath(); ctx.arc(NEST.x, NEST.y, NEST.r - 4, 0, Math.PI * 2); ctx.fill();
+    // Nests: a dark mound with an entrance (the rivals' is red clay).
+    drawMound(NEST, '#1c120b', '#5a3f28');
+    if (rivalNest) drawMound(rivalNest, '#2a0c06', '#7a3322');
 
     // Food piles: a heap of crumbs that shrinks as it's carried off.
     for (const p of piles) {
@@ -618,36 +850,27 @@
       }
     }
 
+    for (const a of rivals) drawAnt(a);
     for (const a of ants) drawAnt(a);
-    drawSpider();
+    for (const s of spiders) drawSpider(s);
 
-    if (rain) {
-      const r = rainRadius();
-      ctx.fillStyle = 'rgba(120,170,230,0.28)';
-      ctx.beginPath(); ctx.arc(rain.x, rain.y, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(200,225,255,0.7)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let i = 0; i < 14; i++) {
-        const a = i * 2.4, rr = r * Math.sqrt((i + 0.5) / 14);
-        const x = rain.x + Math.cos(a) * rr, y = rain.y + Math.sin(a) * rr;
-        const f = ((rain.t * 3 + i * 0.37) % 1) * 8;
-        ctx.moveTo(x, y - 4 + f); ctx.lineTo(x - 1, y + f);
-      }
-      ctx.stroke();
-    }
+    for (const c of storms) drawRain(c.x, c.y, STORM_R, c.t, 'rgba(70,90,130,0.32)', 22);
+    if (rain) drawRain(rain.x, rain.y, rainRadius(), rain.t, 'rgba(120,170,230,0.28)', 14);
 
     // Evening light as sundown nears.
-    const late = Math.max(0, (elapsed - SUNDOWN * 0.6) / (SUNDOWN * 0.4));
+    const late = Math.max(0, (elapsed - sundown * 0.6) / (sundown * 0.4));
     if (late > 0) {
       ctx.fillStyle = `rgba(60,20,40,${Math.min(0.45, late * 0.45)})`;
       ctx.fillRect(0, 0, W, H);
     }
 
-    document.getElementById('hudCrumbs').textContent = `${delivered}/${GOAL}`;
+    document.getElementById('hudDay').textContent = `${day + 1}/${DAYS.length}`;
+    document.getElementById('hudCrumbs').textContent = `${delivered}/${goal}`;
     document.getElementById('hudAnts').textContent = ants.length;
-    hudSun.textContent = clock(SUNDOWN - elapsed);
-    hudSun.classList.toggle('late', SUNDOWN - elapsed <= 15);
+    document.getElementById('hudRivalWrap').hidden = !rivalNest;
+    document.getElementById('hudRivals').textContent = rivalDelivered;
+    hudSun.textContent = clock(sundown - elapsed);
+    hudSun.classList.toggle('late', sundown - elapsed <= 15);
     document.getElementById('glandFill').style.width = `${(gland / GLAND_MAX) * 100}%`;
   }
 
@@ -693,8 +916,11 @@
   canvas.addEventListener('pointerup', endGesture);
   canvas.addEventListener('pointercancel', endGesture);
 
-  document.getElementById('resetBtn').addEventListener('click', newColony);
-  playAgainBtn.addEventListener('click', newColony);
+  document.getElementById('resetBtn').addEventListener('click', newRun);
+  playAgainBtn.addEventListener('click', () => {
+    if (state === 'night') nextDay(); else if (state === 'lost') retryDay(); else newRun();
+  });
+  newRunBtn.addEventListener('click', newRun);
 
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
@@ -709,7 +935,7 @@
     requestAnimationFrame(frame);
   }
 
-  newColony();
+  newRun();
   requestAnimationFrame(frame);
 })();
 </script>

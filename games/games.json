@@ -180,12 +180,12 @@
       "id": "ant-trails",
       "title": "Ant Trails",
       "file": "ant-trails.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-09-27",
-      "updated": "2026-09-27",
-      "blurb": "Draw scent trails to lead your ants to food. Busy trails grow into highways, and the spider hunts by smell.",
-      "goal": "Carry 60 crumbs into the nest before sundown (90 seconds), without the colony dropping below 8 ants.",
-      "howToPlay": "Ants wander until they smell something. Drag to draw a scent trail (it uses up the scent meter, which refills). Ants follow trails away from the nest, grab a crumb, and walk straight home, laying scent as they go, so busy routes grow into bright highways. Scent fades over time. The spider follows scent too, and moves fastest on the strongest trails. Press and hold to make it rain: rain washes scent away, so you can throw the spider off a trail, but your ants lose that trail as well. Soldiers keep the spider away from the nest, and a new ant hatches for every 10 crumbs.",
+      "updated": "2026-09-28",
+      "blurb": "Draw scent trails to lead your ants to food over five days. The colony carries over, and every day brings something new: scattered food, storms, a second spider, a rival colony.",
+      "goal": "Survive a five-day run. Each day, carry the day's crumbs into the nest before sundown (90 seconds) without the colony dropping below 8 ants. Ants alive at sundown start the next day.",
+      "howToPlay": "Ants wander until they smell something. Drag to draw a scent trail (it uses up the scent meter, which refills). Ants follow trails away from the nest, grab a crumb, and walk straight home, laying scent as they go, so busy routes grow into bright highways. Scent fades over time. Spiders follow scent too, and move fastest on the strongest trails. Press and hold to make it rain: rain washes scent away, so you can throw a spider off a trail, but your ants lose that trail as well. Soldiers keep spiders away from the nest, and a new ant hatches for every 10 crumbs. Every day has a new food layout and a twist: day 3 brings storm clouds that wash trails as they drift by, day 4 a second spider, day 5 a rival colony of red ants that raids the same food and follows your trails. Ants you lose stay lost, but overnight one ant hatches for every 10 seconds of daylight you had left, plus 3 more if you met the day's bonus challenge (bottom left). Lose a day and you can retry it with the ants you had at dawn, or start a new run.",
       "mechanics": [
         {
           "name": "trail",
@@ -214,27 +214,52 @@
         {
           "id": "decoy",
           "title": "Decoy",
-          "description": "Keep the spider on a scent trail for 5 seconds with no ant nearby."
+          "description": "Keep a spider on a scent trail for 5 seconds with no ant nearby."
         },
         {
           "id": "rainmaker",
           "title": "Rainmaker",
-          "description": "Rain on the spider while it's following a trail."
+          "description": "Rain on a spider while it's following a trail."
         },
         {
           "id": "long-haul",
           "title": "Long Haul",
-          "description": "Carry off the whole far pile."
+          "description": "Carry off the whole far pile on day 1."
         },
         {
           "id": "untouchable",
           "title": "Untouchable",
-          "description": "Win without losing an ant."
+          "description": "Win a day without losing an ant."
         },
         {
           "id": "swift",
           "title": "Swift",
-          "description": "Win with 20 or more seconds of daylight left."
+          "description": "Win a day with 20 or more seconds of daylight left."
+        },
+        {
+          "id": "weathered",
+          "title": "Weathered",
+          "description": "Win the storm day (day 3)."
+        },
+        {
+          "id": "double-trouble",
+          "title": "Double Trouble",
+          "description": "Win day 4 against two spiders."
+        },
+        {
+          "id": "turf-war",
+          "title": "Turf War",
+          "description": "Win day 5 with the rival colony holding less than half as many crumbs as yours."
+        },
+        {
+          "id": "big-colony",
+          "title": "Big Colony",
+          "description": "Have 32 ants at once."
+        },
+        {
+          "id": "full-season",
+          "title": "Full Season",
+          "description": "Win all five days in one run without a retry."
         }
       ]
     },
