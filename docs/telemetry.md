@@ -33,10 +33,45 @@ round ended.
 | `achievements` | | ids newly unlocked this session, space-separated |
 | `achievements_total` | | this player's unlocked count for the game |
 | `submitted_at` | client time | client time |
+| `level` | level/day/stage of a multi-stage game (1, 2, ...) | |
+| `run` | random id tying one run's rounds together | |
+| `attempt` | 1 = first try at this level in the run, 2+ = retries | |
+| `reason` | why a round was lost (game-defined, e.g. `sun`) | |
+| `stats` | a few game-specific numbers, `k=v k=v` | |
+
+The last five columns are optional and only filled for games that send
+them (see below). Newer columns are always added at the end, so old rows
+stay aligned; the script extends an existing tab's header row itself.
 
 Nothing else: no names, IPs (Apps Script doesn't expose them), cookies or
 user agents. The gallery footer tells players the stats are recorded. Turn
 telemetry off with `telemetry: false` in `assets/config.js`.
+
+### Games with levels (optional fields)
+
+A game made of stages (Ant Trails' five days) still posts one
+`arcade:result` per stage, and adds what's needed to read it per level:
+
+```js
+window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
+  outcome: 'loss', time: 61.4,          // as before
+  level: 3,                             // which stage (1-based)
+  run: 'k3j9x0aa',                      // random id per run, [a-z0-9]{1,16}
+  attempt: 2,                           // 2nd try at this stage in this run
+  reason: 'ants',                       // why it was lost, [a-z0-9-]{1,24}
+  stats: { dawn: 24, lost: 9, trails: 11, rain_s: 4.5 } }, '*');
+```
+
+`stats` holds up to 16 numbers (keys `[a-z][a-z0-9_]{0,15}`, values rounded
+to 0.1) about how the stage was played: whatever the game's balance bots
+measure, so humans and bots can be compared number for number. Keep it to
+counts and seconds; never text a player typed. Each game documents its keys
+in `docs/games/<id>.md`. The gallery and the server both drop anything
+malformed, so a bad field loses that field, not the row.
+
+Cost: one extra ~150-byte cell per round and no extra requests. Session
+rows are unchanged; "where did players stop" is derived from them (a
+session's play time beyond its finished rounds means they left mid-round).
 
 Pressure Grid is a sandbox with no rounds, so it only produces session rows.
 `validate.mjs` requires `arcade:result` in every game whose `goal` doesn't
@@ -52,15 +87,24 @@ node scripts/fetch-telemetry.mjs --format csv > telemetry.csv
 ```
 
 The summary shows players, sessions, touch share, play time per session,
-**human win rate**, win/loss round lengths, and rounds to first win.
+**human win rate**, win/loss round lengths, and rounds to first win. For
+games that send `level`, it adds one line per level (tries, win rate
+overall and on the first try, win/loss time, losses by reason, median of
+each stat), how many levels each run won, and where sessions stopped
+(after which level, and how many left partway into a round).
+`--input rows.json` summarizes a saved `--format json` export offline.
 Compare the win rate with the bot tables in `docs/games/<id>.md`
 (`scripts/balance-<id>.mjs`). That difference is the bot–human gap.
 
 Directly: `GET <web app URL>?key=<READ_KEY>&tab=telemetry[&game=<id>][&format=csv]`.
 
-## Redeploying the Apps Script (one time, after this change merges)
+## Redeploying the Apps Script (after any change to `Code.gs`)
 
-The live script only knows about feedback. Until it's redeployed it
+Do this whenever `feedback/apps-script/Code.gs` changes on `main` (the
+level columns were added 2026-09-28). Until then the old version keeps
+storing rows but drops the new fields; nothing breaks.
+
+When telemetry was first added, the live script only knew about feedback. Until it's redeployed it
 rejects telemetry posts (`bad rating`) and stores nothing. Feedback keeps
 working the whole time, so the order of merge and redeploy doesn't matter.
 
@@ -86,6 +130,8 @@ working the whole time, so the order of merge and redeploy doesn't matter.
 
    If `rows` contains feedback-style rows (with `rating`), the old version is
    still live: repeat step 3–4 and make sure you picked **New version**.
+   After the level-column update, the first new telemetry row also extends
+   the tab's header with `level, run, attempt, reason, stats`.
 
 ## Limits
 

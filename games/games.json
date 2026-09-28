@@ -180,7 +180,7 @@
       "id": "ant-trails",
       "title": "Ant Trails",
       "file": "ant-trails.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-09-27",
       "updated": "2026-09-28",
       "blurb": "Draw scent trails to lead your ants to food over five days. The colony carries over, and every day brings something new: scattered food, storms, a second spider, a rival colony.",

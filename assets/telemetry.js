@@ -5,6 +5,8 @@
 //   start(game)        cabinet opened (or the tab came back into view)
 //   pause() / resume() a panel covers the game, or it's uncovered
 //   result(msg)        the game posted { type: "arcade:result", outcome, time }
+//                      (optionally level, run, attempt, reason, stats: see
+//                      docs/telemetry.md)
 //   achievement(id)    a new achievement was unlocked this session
 //   end()              cabinet closed, game switched, or the tab was hidden
 //
@@ -86,11 +88,27 @@ window.ArcadeTelemetry = (function () {
     if (!outcome || !(time >= 0)) return;
     s.rounds++;
     if (outcome === "win") s.wins++;
-    send(Object.assign(base("round"), {
+    const row = Object.assign(base("round"), {
       round: s.rounds,
       outcome,
       seconds: Math.round(time * 10) / 10,
-    }));
+    });
+    // Optional detail for games with levels (days, stages...). Anything
+    // malformed is dropped here and again by the server.
+    const int = (v) => Number.isInteger(v) && v >= 0 && v < 100000;
+    if (int(msg.level)) row.level = msg.level;
+    if (/^[a-z0-9]{1,16}$/.test(String(msg.run || ""))) row.run = msg.run;
+    if (int(msg.attempt)) row.attempt = msg.attempt;
+    if (/^[a-z0-9-]{1,24}$/.test(String(msg.reason || ""))) row.reason = msg.reason;
+    if (msg.stats && typeof msg.stats === "object") {
+      const stats = {};
+      for (const k of Object.keys(msg.stats).slice(0, 16)) {
+        const v = Number(msg.stats[k]);
+        if (/^[a-z][a-z0-9_]{0,15}$/.test(k) && Number.isFinite(v)) stats[k] = Math.round(v * 10) / 10;
+      }
+      row.stats = stats;
+    }
+    send(row);
   }
 
   function achievement(id) {

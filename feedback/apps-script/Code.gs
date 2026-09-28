@@ -17,7 +17,13 @@ const SHEET_NAME = 'feedback';
 const HEADERS = ['received_at', 'game_id', 'game_version', 'rating', 'comment', 'client_id', 'submitted_at'];
 const TELEMETRY_SHEET = 'telemetry';
 const TELEMETRY_HEADERS = ['received_at', 'kind', 'game_id', 'game_version', 'session_id', 'client_id', 'device',
-  'round', 'outcome', 'seconds', 'rounds', 'wins', 'wall_seconds', 'achievements', 'achievements_total', 'submitted_at'];
+  'round', 'outcome', 'seconds', 'rounds', 'wins', 'wall_seconds', 'achievements', 'achievements_total', 'submitted_at',
+  // Added later (round rows only, optional): which level/day of a multi-stage
+  // game, the run it belongs to, which attempt at that level, why it was
+  // lost, and a few game-specific numbers ("k=v k=v"). New columns always go
+  // at the end so older rows stay aligned.
+  'level', 'run', 'attempt', 'reason', 'stats'];
+const MAX_STATS = 16;
 const MAX_SECONDS = 24 * 3600;
 const MAX_COMMENT = 1000;
 const GAME_ID_RE = /^[a-z0-9-]{1,64}$/;
@@ -79,9 +85,31 @@ function telemetry_(body) {
     isRound ? '' : safeCell_(String(body.achievements || '').replace(/[^a-z0-9 -]/g, '').slice(0, 500)),
     isRound ? '' : count_(body.achievements_total),
     safeCell_(String(body.submitted_at || '').slice(0, 40)),
+    isRound ? optCount_(body.level) : '',
+    isRound && /^[a-z0-9]{1,16}$/.test(String(body.run || '')) ? String(body.run) : '',
+    isRound ? optCount_(body.attempt) : '',
+    isRound && /^[a-z0-9-]{1,24}$/.test(String(body.reason || '')) ? String(body.reason) : '',
+    isRound ? stats_(body.stats) : '',
   ];
   append_(TELEMETRY_SHEET, TELEMETRY_HEADERS, row);
   return json_({ ok: true });
+}
+
+// Game-specific numbers as one compact cell: "dawn=22 lost=4 rain_s=6.5".
+function stats_(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  const out = [];
+  Object.keys(obj).slice(0, MAX_STATS).forEach(function (k) {
+    const v = Number(obj[k]);
+    if (/^[a-z][a-z0-9_]{0,15}$/.test(k) && isFinite(v) && Math.abs(v) < 1e7) out.push(k + '=' + Math.round(v * 10) / 10);
+  });
+  return out.join(' ');
+}
+
+// Like count_, but blank (not 0) when missing or invalid.
+function optCount_(v) {
+  const n = Number(v);
+  return v != null && Number.isInteger(n) && n > 0 && n < 100000 ? n : '';
 }
 
 function count_(v) {
@@ -128,10 +156,14 @@ function sheet_(name, headers) {
   name = name || SHEET_NAME;
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(name);
+  headers = headers || HEADERS;
   if (!sheet) {
     sheet = ss.insertSheet(name);
-    sheet.appendRow(headers || HEADERS);
+    sheet.appendRow(headers);
     sheet.setFrozenRows(1);
+  } else if (sheet.getLastColumn() < headers.length) {
+    // A tab made before columns were added: extend its header row.
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   }
   return sheet;
 }
