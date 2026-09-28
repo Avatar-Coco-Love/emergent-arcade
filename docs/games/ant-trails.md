@@ -1,6 +1,6 @@
 # Ant Trails: design notes
 
-Current: **v3** (playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG). Mechanics: **trail** (drag) and
+Current: **v4** (playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG). Mechanics: **trail** (drag) and
 **wash** (hold), sharing **scent per ground cell** (40×60 grid, 10 px cells,
 0–1). v3 turns one round into a **five-day run**: each day is a round (its
 own food layout, twist and bonus challenge), and the ants alive at sundown
@@ -34,8 +34,22 @@ run restarted. 12 achievements (in `games/games.json`).
 - **Retry:** a lost day restarts with the dawn colony. Full Season and the
   best-run record (localStorage `ant-trails-best`, shown on the end card)
   need a run with no retries.
-- Telemetry: one `arcade:result` per day (time = that day's clock), so
-  `rounds` per session in telemetry now counts days played.
+- Telemetry (v4): one `arcade:result` per day (time = that day's clock)
+  with `level` (day), `run`, `attempt` (2+ = retry), `reason` for a loss
+  (`sun` / `ants` / `food`) and `stats`:
+
+  | key | meaning | key | meaning |
+  |---|---|---|---|
+  | `dawn` | ants at the start of the day | `ants` | ants at the end |
+  | `lost` | ants eaten | `hatched` | ants hatched from crumbs |
+  | `crumbs` | crumbs home | `bonus` | bonus met (0/1) |
+  | `trails` | trail gestures | `trail_px` | trail length drawn |
+  | `rains` | rain gestures | `rain_s` | seconds of rain |
+  | `rain_spider_s` | seconds the rain covered a spider | `first_input` | s until the first touch (-1: none) |
+  | `rivals` | crumbs the rivals took (day 5) | | |
+
+  `rain_spider_s / rain_s` separates deliberate washing from accidental
+  holds; `first_input` shows reading time on day 1.
 
 ## How the scent loop works
 
@@ -139,9 +153,11 @@ achievements.
 ## Open ideas / known limits
 
 - Not hand-played on a real phone yet (only rendered headlessly at 390×760).
-- **What to check in telemetry for v3:** rounds (days) per session. v2 was
-  one round per session; the goal of v3 is 3+. Also where runs end (loss
-  times cluster by day) and whether players use "Retry day".
+- **What to check in telemetry:** `fetch-telemetry.mjs --game ant-trails`
+  prints one line per day (compare with the bot table above), levels won
+  per run, and where sessions stopped. v2 was one round per session; the
+  goal is 3+. Also: do players retry, and do they wash on purpose
+  (`rain_spider_s`) or only by accident?
 - Idle wins day 1 53% (the ants' own trails recruit), but only 7% get past
   day 3. Fine as a gentle first day; lower `CARRY_LAY` if players say day 1
   plays itself.
@@ -165,3 +181,5 @@ achievements.
   two spiders, rival colony), bonus challenges, retry a lost day, best run,
   5 new achievements. Same 2 verbs. New `novice` bot; the harness plays
   whole runs.
+- v4: no gameplay change. Telemetry reports the day, run, attempt, loss
+  reason and per-day play stats (above).

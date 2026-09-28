@@ -84,6 +84,10 @@ published from a branch.
      window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
        outcome: won ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
      ```
+
+     A game with levels/days/stages also sends `level`, `run`, `attempt`,
+     `reason` and a few `stats` numbers (see
+     [telemetry.md](telemetry.md#games-with-levels-optional-fields)).
 5. Optional: give the game its own gallery card art by adding an entry for
    its `id` to `assets/thumbs.js` (a function returning a 72×72 inline SVG
    drawn from primitives). Without one, the card shows a generated pixel
