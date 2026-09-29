@@ -8,6 +8,9 @@ per check at 360×740, 740×360 and 1280×800; screenshots go to `--out`).
 
 Playtest (private artifact, feedback/telemetry disabled in that copy):
 https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
+(republished for the tap/click wording PR: open it on a phone for "tap",
+on a PC for "click". In that frame the share buttons can't use the share
+sheet or clipboard, so share does nothing there.)
 
 ## Files
 
