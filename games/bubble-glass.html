@@ -189,8 +189,8 @@
   // at for melting. note: shown when the level starts; hint: shown with a
   // melt hint. map: MAP rows of MAP characters (see MATERIALS, o = bubble).
   const LEVELS = window.__levels || [
-    { id: 'first-turn', name: 'First turn', verbs: 'turn', heat: 0,
-      note: 'Turn the box: drag around it. The bubble rises, the sand falls.',
+    { id: 'first-turn', name: "First turn", verbs: 'turn', heat: 0,
+      note: "Turn the box: drag around it. The bubble rises, the sand falls.",
       map: [
         '########################',
         '#......................#',
@@ -217,9 +217,9 @@
         '#ssssssssssssssssssssss#',
         '########################',
       ] },
-    { id: 'roof', name: 'Roof', verbs: 'turn melt', heat: 70,
-      note: 'Melting is unlocked: hold on sand to fuse it into glass.',
-      hint: 'Hold on the top of the sand to melt a lid over it.', melt: [[8,  10],  [15,  10]],
+    { id: 'roof', name: "Roof", verbs: 'turn melt', heat: 70,
+      note: "Melting is unlocked: hold on sand to fuse it into glass.",
+      hint: "Hold on the top of the sand to melt a lid over it.", melt: [[8,  10],  [15,  10]],
       map: [
         '########################',
         '###########o.###########',
@@ -245,6 +245,91 @@
         '#######sss#..#sss#######',
         '#######sss#..#sss#######',
         '###########VV###########',
+      ] },
+    { id: 'the-plug', name: "The plug", verbs: 'turn melt shatter', heat: 40,
+      note: "Shattering is unlocked: tap glass to break it back into sand.",
+      map: [
+        '########################',
+        'V.....................##',
+        'V.....................##',
+        '##....................##',
+        '##....................##',
+        '##....................##',
+        '##....................##',
+        '##........#..#........##',
+        '##ssssssss#..#ssssssss##',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '##########gggg##########',
+        '##########gggg##########',
+        '##########gggg##########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########o.###########',
+        '###########..###########',
+        '########################',
+        '########################',
+      ] },
+    { id: 'lid-and-plug', name: "Lid and plug", verbs: 'turn melt shatter', heat: 70,
+      note: "Two shafts of sand and a glass plug.",
+      hint: "Hold on the top of the sand to melt a lid over it.", melt: [[8,  5],  [15,  5]],
+      map: [
+        '########################',
+        '###########o.###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '#######sss....sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '##########gggg##########',
+        '##########gggg##########',
+        '##########gggg##########',
+        '###########..###########',
+        '##........#..#........##',
+        '##........#..#........##',
+        '##........#..#........##',
+        '##....................##',
+        '##....................##',
+        '##....................##',
+        '##....................##',
+        '####VV##################',
+      ] },
+    { id: 'hourglass', name: "Hourglass", verbs: 'turn melt shatter', heat: 60,
+      note: "The last box.",
+      map: [
+        '###########VV###########',
+        '###########..###########',
+        '###########..###########',
+        '####................####',
+        '####................####',
+        '####ssssssssssssssss####',
+        '####ssssssssssssssss####',
+        '##gggggggggggggggggggg##',
+        '####................####',
+        '####......#..#......####',
+        '####......#..#......####',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '##....................##',
+        '##....................##',
+        '##.........o..........##',
+        '##....................##',
+        '##....................##',
+        '##....................##',
+        '##ssssssssssssssssssss##',
+        '##ssssssssssssssssssss##',
+        '########################',
       ] },
   ];
 
@@ -961,6 +1046,14 @@
     else say(world.heat < 1 && can('melt') ? 'No heat left, and turning won\'t free it. Restart the level.' : 'Stuck for good. Restart the level.', 5000);
   }
   function* findHintG(w) {
+    // A melt level's marked spots come first while they're still sand with
+    // no glass beside them (the level was built around melting there).
+    if (can('melt') && w.heat >= 8) {
+      for (const [mx, my] of lv().melt || []) {
+        const x = mx * CH + CH / 2, y = my * CH + CH / 2;
+        if (MELTS[materialAt(w, x, y)] && !glassNear(w, x, y, 4)) return { melt: true, x, y };
+      }
+    }
     const { best, wait } = yield* bestTurnG(w, LOOK_T);
     if (best.k && best.score < wait - 2) return { turn: Math.sign(best.k), a: best.a };
     if (can('shatter')) {
@@ -981,6 +1074,12 @@
     return { restart: true };
   }
   const findHint = w => finish(findHintG(w));
+  function glassNear(w, x, y, r) {
+    for (let j = Math.floor(y - r); j <= y + r; j++) for (let i = Math.floor(x - r); i <= x + r; i++) {
+      if (i >= 0 && j >= 0 && i < N && j < N && w.t[j * N + i] === GLASS) return true;
+    }
+    return false;
+  }
   function nudge(h) {
     hint = h;
     document.getElementById('resetBtn').classList.toggle('nudge', !!(h && h.restart));
