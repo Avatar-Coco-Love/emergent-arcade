@@ -1,6 +1,6 @@
 # Loom: design notes
 
-Current: **v1** (playtest: PLAYTEST_LINK). Mechanics: **pull** (drag) and
+Current: **v1** (playtest: https://claude.ai/artifact/85uz8o6kFYJaZRyVatPwAf). Mechanics: **pull** (drag) and
 **pin** (tap), sharing **tension in every strand** of a 6×6 knotted net.
 A run is four silhouettes (Tablecloth, Banner, Sail, Kite). Win a shape:
 every dot covered by a knot at once, hands off, for 1 s. Lose a shape:
