@@ -24,15 +24,22 @@
 <body>
   <header class="site-header">
     <div class="header-row">
-      <a class="brand" href="#/">Emergent Arcade</a>
-      <span id="trophyTotal" class="trophy-total" title="Achievements unlocked in this browser"></span>
+      <div class="brand-box">
+        <a class="brand" href="#/">Emergent Arcade</a>
+        <span id="trophyTotal" class="trophy-total" title="Achievements unlocked in this browser"></span>
+      </div>
+      <button class="tool" type="button" id="shareArcadeBtn" aria-label="Share the arcade" title="Share the arcade">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
+      </button>
       <button class="tool" type="button" id="arcadeInfoBtn" aria-label="About the arcade" title="About the arcade">?</button>
       <button class="tool" type="button" id="settingsBtn" aria-label="Progress and settings" title="Progress and settings">
         <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       </button>
     </div>
-    <p class="tagline">Tiny games, two or three verbs each, all tangled in the same state.</p>
+    <p class="tagline" id="tagline">Tiny games, two or three verbs each, all tangled in the same state.</p>
   </header>
+
+  <div id="galleryToasts" class="toasts gallery-toasts" role="status" aria-live="polite"></div>
 
   <main>
     <section id="galleryView" aria-label="Game gallery">
@@ -135,7 +142,7 @@
       <p class="lead">Emergent Arcade is a growing collection of tiny experiments in emergent game design.</p>
       <h3>The rules every game follows</h3>
       <ul>
-        <li>Two or three core verbs (tap, drag, hold…), each doing something different.</li>
+        <li>Two or three core verbs (<span data-verb="tap">tap</span>, drag, hold…), each doing something different.</li>
         <li>The verbs share state: each one reads a value another one writes, so they tangle.</li>
         <li>One scene, simple shapes, no art or audio files. One self-contained HTML file.</li>
       </ul>
@@ -254,6 +261,7 @@
 
 <script src="assets/config.js"></script>
 <script src="assets/ui.js"></script>
+<script src="assets/wording.js"></script>
 <script src="assets/feedback.js"></script>
 <script src="assets/achievements.js"></script>
 <script src="assets/progress.js"></script>

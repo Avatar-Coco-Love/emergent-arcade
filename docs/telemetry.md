@@ -63,7 +63,7 @@ common columns is in `extra`. One row per action:
 | `action` | when | fields |
 |---|---|---|
 | `open` | a cabinet opens a game | `game_id`, `game_version`, `from` (`list`, `continue`, `archive`, `link`), `position` (1-based, for cards), `sort` (`featured` or the sort), `verb` if filtered, `searching` if a search was active |
-| `share` | Share pressed | `game_id`, `game_version`, `method` (`share` sheet, `copy`, `prompt`), `from` (`toolbar`, `menu`, `about`) |
+| `share` | Share pressed | `game_id`, `game_version`, `method` (`share` sheet, `copy`, `prompt`), `from` (`toolbar`, `menu`, `about`); the gallery header's share (the whole arcade) has `from: "gallery"` and no game fields |
 | `download` | a standalone copy was saved | `game_id`, `game_version`, `from` |
 | `sort` | the sort changed | `sort` |
 | `filter` | a verb chip was pressed | `verb` (`all` when cleared) |

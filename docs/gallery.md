@@ -13,14 +13,35 @@ https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
 
 | file | what |
 |---|---|
-| `assets/ui.js` | `ArcadeUI`: `el()`, safe `store`, `shortDate`, stacking `toaster`, `trapFocus`, `saveFile` |
+| `assets/ui.js` | `ArcadeUI`: `el()`, safe `store`, `shortDate`, stacking `toaster`, `trapFocus`, `saveFile`, `share` (share sheet / copy / prompt) |
+| `assets/wording.js` | `ArcadeWording`: tap or click (see below). Also run by the Node scripts through `scripts/wording.mjs` |
 | `assets/progress.js` | `ArcadeProgress`: every per-browser key, New/Updated badges, recent games, export/import/reset, telemetry opt-out |
 | `assets/download.js` | `ArcadeDownload`: standalone copy of a game (header comment + shim) |
 | `assets/cabinet.js` | `ArcadeCabinet.open(game)` / `close()`: toolbar, panels, ⋯ menu, toasts, loading/error states, share, download, rating, nudge |
 | `assets/gallery.js` | cards, search/sort/verb filter, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
-Script order in `index.html`: config, ui, feedback, achievements, progress,
+Script order in `index.html`: config, ui, wording, feedback, achievements, progress,
 telemetry, thumbs, download, cabinet, gallery.
+
+## Tap or click
+
+Manifest text uses placeholders (`{tap}`, `{Tap}`, `{finger}`, `{hold}`,
+`{press}`…; the list is in `docs/adding-a-game.md`). On load, the gallery
+checks `matchMedia("(pointer: coarse)")` once: a finger as the main input
+gets "tap", "finger", "hold"; a mouse gets "click", "pointer", "click and
+hold". A touchscreen laptop gets its main input's words. `Wording.game()`
+fills every prose field of each manifest entry before anything renders, so
+the cards, ⓘ panel, achievements, What's new and callouts all agree. Verbs
+stay keys (`?verb=tap` in the hash, telemetry); only their labels change:
+card chips, verb filter chips, the ⓘ panel's verb tags, and the "(tap,
+drag, hold…)" line in About the arcade (`data-verb`).
+
+The optional `keyboard` line (keys, like "← → to tilt") shows as a "keys"
+row under the verbs, and only with a fine pointer.
+
+Game files show their own hints ("Tap the sky to place your first
+planet.") and canvas `aria-label`s; those still say tap on PC (see open
+ideas).
 
 ## Routes
 
@@ -48,6 +69,13 @@ version: 1, exported_at, achievements, seenVersion, seenIntro }`. Import
 merges: it never removes anything, keeps the earliest unlock date and the
 highest seen version, and previews "X achievements across Y games (N new)"
 first.
+
+## Header
+
+Name and achievement total (under the name below 480 px, so the name never
+truncates at 320 px), then share, ?, ⚙ (44 px each). Share hands out
+`siteUrl` (the arcade itself) the same way the cabinet shares a game, and
+logs a `share` row with `from: "gallery"`.
 
 ## Cabinet
 
@@ -106,6 +134,11 @@ use dark text), `changes`, `status` (`archived` → Archive section, still
 playable).
 
 ## Open ideas / follow-ups
+
+- In-game hints and canvas `aria-label`s still say "tap"/"hold" on PC
+  (Orbit Garden, Loom, Island Census, Hot Iron hints; every game's
+  aria-label). Fixing them means each game checks `(pointer: coarse)` itself,
+  plus a version bump. Left out of the wording PR on purpose.
 
 - Rotate hint for games that play much better in one orientation. Needs a
   per-game `orientation` field and a phone playtest to know which games

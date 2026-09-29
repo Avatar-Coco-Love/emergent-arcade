@@ -20,6 +20,7 @@ Design rules (see `docs/PROJECT_BRIEF.md`):
 - [ ] Pauses on `arcade:pause`, resumes on `arcade:resume`
 - [ ] Posts `arcade:result` (win/loss, time) when a round ends (sandboxes excepted)
 - [ ] `howToPlay` and `goal` written in `games/games.json`
+- [ ] Manifest text says `{tap}`, `{finger}`, `{hold}`… (never "tap"/"click" outright); PC keys, if any, in `keyboard`
 - [ ] `games/games.json` updated (`version` bumped and `updated` set for a revision)
 - [ ] `docs/games/<id>.md` updated (constants, balance, open ideas)
 - [ ] `node scripts/validate.mjs` passes

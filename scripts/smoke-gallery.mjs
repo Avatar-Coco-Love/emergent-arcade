@@ -3,7 +3,9 @@
 // Serves the repo on a local port (telemetry and feedback go to a fake local
 // endpoint, never the real one), then at 360×740, 740×360 and 1280×800 checks
 // that the gallery renders, every game opens, panels open and close, nothing
-// scrolls sideways, share and download work, and the console stays clean.
+// scrolls sideways, share and download work, tap/click wording follows the
+// pointer (coarse on the phone sizes, fine at 1280×800), and the console
+// stays clean.
 // The downloaded copy of a game is also opened from file:// and played until
 // it unlocks an achievement. One line per check.
 //
@@ -37,6 +39,7 @@ async function loadPlaywright() {
 const { chromium } = await loadPlaywright();
 
 const manifest = JSON.parse(readFileSync(join(root, "games/games.json"), "utf8"));
+const { WORDS } = (await import("./wording.mjs")).wording;
 const games = manifest.games;
 const rows = []; // everything the gallery sent to the (fake) endpoint
 
@@ -126,6 +129,52 @@ for (const vp of VIEWPORTS) {
   const tag = (s) => `${vp.name} ${s}`;
   const shot = (name) => page.screenshot({ path: join(outDir, `${vp.name}-${name}.png`) });
   const narrow = vp.width < 560;
+
+  // Phone sizes emulate a touchscreen (pointer: coarse), 1280×800 a mouse.
+  const coarse = vp.mobile;
+  const W = (name) => (coarse ? WORDS[name][0] : WORDS[name][1]);
+
+  await check(tag(`wording: ${coarse ? "tap" : "click"}`), async () => {
+    await page.goto(base);
+    await page.waitForSelector(".game-card");
+    const isCoarse = await page.evaluate(() => matchMedia("(pointer: coarse)").matches);
+    assert(isCoarse === coarse, `pointer: coarse is ${isCoarse}`);
+    const chips = await page.locator(".verb-chip").allTextContents();
+    assert(chips.includes(W("tap")) && chips.includes(W("hold")), `chips: ${chips.join(", ")}`);
+    assert(!chips.includes(coarse ? "click" : "tap"), `both wordings in chips: ${chips.join(", ")}`);
+    assert((await page.locator(".game-card .chips").first().textContent()).includes(`· ${W("tap")}`), "card chip verb");
+    assert((await page.locator("#arcadeInfoDialog [data-verb]").textContent()) === W("tap"), "About the arcade verb");
+    // Every game's About panel: filled placeholders, translated verb tags.
+    const g = games.find((x) => x.mechanics.some((m) => m.verb === "hold") && /\{finger\}/.test(JSON.stringify(x)));
+    await page.goto(`${base}#/play/${g.id}`);
+    await page.waitForSelector("#panel:not([hidden])");
+    const tags = await page.locator("#aboutControls .verb-tag").allTextContents();
+    assert(tags.includes(W("hold")), `verb tags: ${tags.join(", ")}`);
+    const about = await page.locator("#panel").textContent();
+    assert(!/[{}]/.test(about), "unfilled placeholder in the About panel");
+    assert(about.includes(`your ${W("finger")}`), `no "your ${W("finger")}"`);
+    assert(!about.includes(`your ${coarse ? "pointer" : "finger"}`), "wrong wording in the About panel");
+    assert(!(await page.locator(".verb-row.keys").count()), "keyboard row without a keyboard line");
+    if (!coarse) await shot("about-click");
+    await page.keyboard.press("Escape");
+    // The desktop-only keyboard line (the next game adds one here).
+    await page.route("**/games/games.json", async (route) => {
+      const data = JSON.parse(JSON.stringify(manifest));
+      data.games[0].keyboard = "← → or A / D to tilt";
+      await route.fulfill({ json: data });
+    });
+    await page.goto("about:blank");
+    await page.goto(`${base}#/play/${games[0].id}`);
+    await page.waitForSelector("#panel:not([hidden])");
+    const keys = await page.locator(".verb-row.keys").count();
+    await page.unroute("**/games/games.json");
+    assert(keys === (coarse ? 0 : 1), `${keys} keyboard rows`);
+    if (!coarse) await shot("about-keys");
+    // Back to a fresh browser for the checks below.
+    await page.evaluate(() => localStorage.clear());
+    await page.goto("about:blank");
+    return `${tags.join(", ")}; keyboard line ${coarse ? "hidden" : "shown"}`;
+  });
 
   await check(tag("gallery renders"), async () => {
     await page.goto(base);
@@ -314,19 +363,45 @@ for (const vp of VIEWPORTS) {
     await page.selectOption("#sort", "title");
     const titles = await page.locator("#gameList h3 > span:first-child").allTextContents();
     assert(titles.join() === [...titles].sort((a, b) => a.localeCompare(b)).join(), "not sorted by title");
-    await page.locator(".verb-chip", { hasText: /^hold$/ }).click();
+    await page.locator(".verb-chip", { hasText: new RegExp(`^${W("hold")}$`) }).click();
     const hash = await page.evaluate(() => location.hash);
     assert(hash.includes("sort=title") && hash.includes("verb=hold"), hash);
     await page.reload();
     await page.waitForSelector(".game-card");
     const pressed = await page.locator('.verb-chip[aria-pressed="true"]').textContent();
-    assert(pressed === "hold", "state lost on reload");
+    assert(pressed === W("hold"), "state lost on reload");
     const n = await page.locator("#gameList .game-card").count();
     await page.fill("#search", "zzzz");
     assert((await page.locator("#gameList .game-card").count()) === 0, "search didn't filter");
     await page.locator("#galleryStatus button").click();
     assert(await noHScroll(page), "horizontal scroll");
     return `${n} hold games`;
+  });
+
+  await check(tag("header share copies the arcade link"), async () => {
+    await page.goto(base);
+    await page.waitForSelector(".game-card");
+    const n = rows.length;
+    await page.locator("#shareArcadeBtn").click();
+    await page.waitForSelector("#galleryToasts .toast:has-text('Link copied')", { timeout: 3000 });
+    const clip = await page.evaluate(() => navigator.clipboard.readText());
+    const site = readFileSync(join(root, "assets/config.js"), "utf8").match(/siteUrl:\s*"([^"]+)"/)[1];
+    assert(clip === site, clip);
+    const header = await page.evaluate(() => {
+      const row = document.querySelector(".header-row");
+      const brand = row.querySelector(".brand");
+      return {
+        over: row.scrollWidth > row.clientWidth + 1,
+        cut: brand.scrollWidth > brand.clientWidth + 1,
+        small: [...row.querySelectorAll(".tool")].filter((b) => b.offsetWidth < 44 || b.offsetHeight < 44).length,
+      };
+    });
+    assert(!header.over && !header.cut && !header.small, `header overflows, cuts the name or has small targets: ${JSON.stringify(header)}`);
+    await shot("header-share");
+    await page.waitForTimeout(300);
+    const row = rows.slice(n).find((r) => r.kind === "gallery" && r.action === "share");
+    const extra = row && (row.extra || row);
+    assert(extra && extra.from === "gallery" && extra.method === "copy", `telemetry row ${JSON.stringify(row)}`);
   });
 
   await check(tag("settings: export, reset, import"), async () => {

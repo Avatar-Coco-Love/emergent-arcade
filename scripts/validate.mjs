@@ -6,6 +6,7 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { selfContainedProblems } from "./self-contained.mjs";
+import { wording } from "./wording.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const gamesDir = join(root, "games");
@@ -45,6 +46,7 @@ for (const [i, g] of games.entries()) {
   // in the gallery's archive section, never removed).
   if (g.status !== undefined && !["active", "archived"].includes(g.status)) fail(`${where}: "status" must be "active" or "archived"`);
   checkChanges(where, g);
+  checkWording(where, g);
 
   // Design rule: 2-3 core mechanics, each a distinct verb.
   const mechs = Array.isArray(g.mechanics) ? g.mechanics : [];
@@ -113,6 +115,28 @@ function checkChanges(where, g) {
     for (const k of Object.keys(c)) {
       if (!["version", "date", "text"].includes(k)) fail(`${where}: unknown key "${k}" in "changes"`);
     }
+  }
+}
+
+// Manifest text uses {tap}, {finger}, {hold}… so the gallery can say tap or
+// click (assets/wording.js has the list). Anything else in braces is a typo.
+// "keyboard" is an optional desktop-only line of keys, like "← → to tilt".
+function checkWording(where, g) {
+  const walk = (v, path) => {
+    if (typeof v === "string") {
+      for (const p of wording.unknown(v)) fail(`${where}: unknown placeholder ${p} in "${path}" (known: ${Object.keys(wording.WORDS).map((w) => `{${w}}`).join(" ")}, or capitalized)`);
+    } else if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${path}[${i}]`));
+    else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k);
+  };
+  walk(g, "");
+  const braces = (v) => typeof v === "string" && /[{}]/.test(v);
+  for (const k of ["id", "file"]) if (braces(g[k])) fail(`${where}: "${k}" can't use placeholders`);
+  for (const m of Array.isArray(g.mechanics) ? g.mechanics : []) {
+    if (m && braces(m.verb)) fail(`${where}: verb "${m.verb}" can't use placeholders (write the phone verb, like "tap"; the gallery translates it)`);
+  }
+  if (g.keyboard !== undefined) {
+    if (typeof g.keyboard !== "string" || !g.keyboard.trim() || g.keyboard.length > 120) fail(`${where}: "keyboard" must be a string of 1-120 characters`);
+    else if (braces(g.keyboard)) fail(`${where}: "keyboard" is desktop-only text and can't use placeholders`);
   }
 }
 
