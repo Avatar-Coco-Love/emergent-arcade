@@ -1,6 +1,6 @@
 # Island Census: design notes
 
-Current: **v1** (playtest: PENDING). Mechanics: **release** (tap) and
+Current: **v1** (playtest: https://claude.ai/artifact/Tk9dtgZU1XGUsaB1vwFuGW). Mechanics: **release** (tap) and
 **fence** (drag), sharing **rabbits, foxes and grass per meadow** on a
 7-meadow island. Turn-based: 2 moves per season, then Next season plays it
 out. Win: get through 8 seasons (two years). A season that ends with either
