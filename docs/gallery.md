@@ -6,6 +6,9 @@ directly). Read this file, not old PR bodies, before changing the gallery.
 Check changes with `node scripts/smoke-gallery.mjs` (Playwright, one line
 per check at 360×740, 740×360 and 1280×800; screenshots go to `--out`).
 
+Playtest (private artifact, feedback/telemetry disabled in that copy):
+https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
+
 ## Files
 
 | file | what |
