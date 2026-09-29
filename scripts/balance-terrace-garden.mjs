@@ -6,7 +6,7 @@
 //   (tilt, open gates, water per terrace, each plant's depth/band/growth).
 //
 // Builds a debug copy of games/terrace-garden.html (state on window, seeded
-// Math.random, no animation loop), then plays seeded runs (three gardens, up
+// Math.random, no animation loop), then plays seeded runs (warm-up + three gardens, up
 // to 3 tries each, spring water carrying over) in headless Chromium by
 // calling step() directly. Prints one line per bot. Adapted from
 // balance-loom.mjs. Needs Playwright (installed globally in Claude Code
@@ -49,6 +49,14 @@ const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/te
 //     plants drink plus `once` for standing water, and each gate opens for
 //     good once the terrace above it has bloomed. Tilts like the reader.
 //   idle: does nothing.
+//   masher: the telemetry habit (v1 garden 1 losses: ~14 gate taps, ~6 s
+//     of tilt, spring empty, 2 of 4 bloomed). Waters by gates: the spring
+//     runs while any plant looks dry, a gate is open while a plant below it
+//     looks dry, unless a plant right above it looks dry too (then it's
+//     shut to fill that terrace). Thinks every `gap` 2.5 s and uses the
+//     reader's tilt on only `tiltP` 10% of its decisions (level otherwise).
+//   learner: the masher on its first try at a garden, the reader after
+//     (the one v1 player who won did it this way, on the second try).
 const HUMAN = { gap: 0.6, react: 0.3, tapT: 0.3, tilt: 'analog', rush: 0 };
 const BOTS = {
   reader: { ...HUMAN, policy: 'reader', rate: 1 },
@@ -61,6 +69,12 @@ const BOTS = {
   novice: { ...HUMAN, policy: 'reader', rate: 1, rush: 3 },
   thrifty: { ...HUMAN, policy: 'reader', rate: 1, once: 150 },
   idle: { ...HUMAN, policy: 'idle', rate: 1 },
+  masher: { ...HUMAN, policy: 'masher', rate: 1, gap: 2.5, tiltP: 0.1 },
+  learner: { ...HUMAN, policy: 'masher', rate: 1, gap: 2.5, tiltP: 0.1, learns: true },
+  hinted: { ...HUMAN, policy: 'masher', rate: 1, gap: 2.5, tiltP: 0, hint: 1 },
+  'hinted-.5': { ...HUMAN, policy: 'masher', rate: 1, gap: 2.5, tiltP: 0, hint: 0.5 },
+  'masher-0': { ...HUMAN, policy: 'masher', rate: 1, gap: 2.5, tiltP: 0 },
+  'masher-.3': { ...HUMAN, policy: 'masher', rate: 1, gap: 2.5, tiltP: 0.3 },
 };
 
 function buildDebug(overrides) {
@@ -78,6 +92,8 @@ window.__seed = s => { __s = s; };
 </script>`;
   const tail = '  fitStage();\n  showControls();\n  newRun();\n  requestAnimationFrame(frame);\n})();';
   if (!html.includes(tail)) throw new Error('game file layout changed: update buildDebug()');
+  if (!html.includes('function endLevel(result, why) {')) throw new Error('game file layout changed: update buildDebug()');
+  html = html.replace('function endLevel(result, why) {', 'function endLevel(result, why) { window.__why = why;');
   html = html.replace('<script>\n(function() {', seed + '\n<script>\n(function() {');
   html = html.replace(tail, `
   window.__dbg = {
@@ -85,6 +101,8 @@ window.__seed = s => { __s = s; };
     get gates() { return gates; }, get plants() { return plants; }, get tank() { return tank; },
     get spilled() { return spilled; }, get leaked() { return leaked; }, get drunk() { return drunk; },
     get level() { return level; }, get attempt() { return attempt; }, get tilt() { return tilt; },
+    get gateTaps() { return gateTaps; }, get reason() { return window.__why; }, get hint() { return hint; },
+    get hints() { return hints; }, endLevel,
     NC, SLOPE, LIP, SILL, GARDENS, earned: unlocked, step, setTilt, tapGate, next, newRun, minStand,
   };
   newRun();
@@ -102,7 +120,8 @@ function playInPage({ seed, bot }) {
   D.earned.clear();
   const DT = 1 / 60;
   const LEVEL_TIME = 300;
-  const advance = t => { for (let k = 0; k < Math.round(t / DT) && D.state === 'playing'; k++) D.step(DT); };
+  let tiltS = 0;
+  const advance = t => { for (let k = 0; k < Math.round(t / DT) && D.state === 'playing'; k++) { D.step(DT); if (Math.abs(D.tilt) > 0.05) tiltS += DT; } };
   const sum = a => a.reduce((s, v) => s + v, 0);
   let rush = bot.rush;
   const trace = [];
@@ -154,6 +173,32 @@ function playInPage({ seed, bot }) {
     const b = D.terraces.length - 1;
     if (D.plants.some(p => p.t === b && !p.bloom && D.terraces[b].h[p.c] > p.hi)) return true;
     return settle(seen[b], t, 999)(D.NC - 1) <= D.LIP - 2;
+  }
+
+  // The hinted bot does what the game's stuck hint says: taps the gate it
+  // points at (and leaves it open), or tilts the arrow's way (at `hint`
+  // strength) and holds that tilt until the hint changes. The spill warning
+  // makes it level out.
+  let held = 0, forced = [];
+  function followHint(gates) {
+    const h = D.hint;
+    if (h && h.tilt) held = h.spill ? 0 : h.tilt * bot.hint;
+    if (h && h.gate !== undefined) forced[h.gate] = true;
+    if (h && h.restart) { D.endLevel('lost', 'restart'); return; }
+    for (let k = 0; k < gates.length; k++) if (forced[k]) gates[k] = true;
+    D.setTilt(held);
+  }
+
+  // The masher's gates: what a plant looks like (dry stem), not depths.
+  function mashGates() {
+    const P = D.plants, n = D.terraces.length;
+    const thirsty = P.filter(p => !p.dry && !p.bloom && p.mood === 'dry');
+    const gates = new Array(n).fill(false);
+    gates[0] = thirsty.length > 0 && D.tank > 0;
+    for (let k = 1; k < n; k++) {
+      gates[k] = thirsty.some(p => p.t >= k) && !thirsty.some(p => p.t === k - 1);
+    }
+    return gates;
   }
 
   function decide() {
@@ -221,6 +266,7 @@ function playInPage({ seed, bot }) {
   let startTank = 0;
   function playGarden() {
     startTank = D.tank;
+    tiltS = 0; held = 0; forced = [];
     if (rush > 0) {
       for (let k = 0; k < D.gates.length; k++) { D.tapGate(k); advance(bot.tapT); }
       D.setTilt(1);
@@ -233,7 +279,9 @@ function playInPage({ seed, bot }) {
     while (D.state === 'playing' && D.elapsed < LEVEL_TIME) {
       if (bot.trace && D.elapsed >= nextTrace) { snap(); nextTrace = D.elapsed + 5; }
       if (bot.policy === 'idle') { advance(1); continue; }
-      const { gates, tl } = decide();
+      const think = bot.learns && D.attempt > 1 ? 0.6 : bot.gap;
+      let { gates, tl } = decide();
+      if (bot.policy === 'masher' && !(bot.learns && D.attempt > 1)) gates = mashGates();
       if (bot.once) {
         const P = D.plants;
         for (let k = 1; k < gates.length; k++) gates[k] = !P.some(p => p.t === k - 1 && !p.dry && !p.bloom);
@@ -241,11 +289,13 @@ function playInPage({ seed, bot }) {
         gates[0] = !D.gates[0].opened || D.gates[0].open && startTank - D.tank < budget;
       }
       advance(bot.react);
-      D.setTilt(tl);
+      const lazy = bot.tiltP !== undefined && !(bot.learns && D.attempt > 1) && rand() > bot.tiltP;
+      D.setTilt(lazy ? 0 : tl);
+      if (bot.hint) followHint(gates);
       for (let k = 0; k < gates.length && D.state === 'playing'; k++) {
         if (D.gates[k].open !== gates[k]) { D.tapGate(k); advance(bot.tapT); }
       }
-      advance(bot.gap / bot.rate * (0.6 + 0.8 * rand()));
+      advance(think / bot.rate * (0.6 + 0.8 * rand()));
     }
   }
 
@@ -253,16 +303,18 @@ function playInPage({ seed, bot }) {
   const NG = D.GARDENS.length;
   for (let lv = 0; lv < NG; lv++) {
     nextTrace = 0;
-    let won = false, tries = 0, time = 0, spilled = 0, leaked = 0, left = 0;
+    let won = false, tries = 0, time = 0, spilled = 0, leaked = 0, left = 0, first1 = null;
     while (!won && tries < 3) {
       tries++;
       playGarden();
       won = D.state === 'won';
+      if (tries === 1) first1 = { won, t: D.elapsed, why: D.state === 'playing' ? 'timeout' : D.reason || '',
+        bloomed: D.plants.filter(p => p.bloom).length, left: D.tank, drunk: D.drunk, taps: D.gateTaps, tilt: tiltS, hints: D.hints };
       time += D.elapsed; spilled += D.spilled; leaked += D.leaked; left = D.tank;
       if (!won && D.state === 'playing') { tries = 99; break; } // timed out
       if (!won && tries < 3) D.next();
     }
-    gardens.push({ won, first: won && tries === 1, tries, time, spilled, leaked, left });
+    gardens.push({ won, first: won && tries === 1, tries, time, spilled, leaked, left, first1 });
     if (!won) break;
     D.next();
   }
@@ -287,7 +339,7 @@ function report(name, rs) {
   const ach = {};
   for (const r of rs) for (const id of r.earned) ach[id] = (ach[id] || 0) + 1;
   const achs = Object.entries(ach).map(([k, v]) => `${k} ${pct(v)}`).join(', ');
-  const per = [0, 1, 2].map(lv => {
+  const per = [0, 1, 2, 3].map(lv => {
     const g = rs.map(r => r.gardens[lv]).filter(Boolean);
     if (!g.length) return '-';
     const w = g.filter(x => x.won);
@@ -295,8 +347,21 @@ function report(name, rs) {
       ` ${Math.round(med(w.map(x => x.time)))}s sp${Math.round(med(g.map(x => x.spilled)))}` +
       ` lk${Math.round(med(g.map(x => x.leaked)))} left${Math.round(med(w.map(x => x.left)))}`;
   }).join(' | ');
+  // First try at garden 1, in the telemetry's terms (compare with
+  // fetch-telemetry's median stats): outcome, time, bloomed, spring left,
+  // gate taps, seconds tilted.
+  const tryOne = lv => {
+    const f = rs.map(r => r.gardens[lv] && r.gardens[lv].first1).filter(Boolean), fl = f.filter(x => !x.won);
+    if (!f.length) return '';
+    const why = {};
+    for (const x of fl) why[x.why] = (why[x.why] || 0) + 1;
+    return `${lv ? 'g' + lv : 'warm-up'} try 1: ${Math.round(med(f.map(x => x.t)))}s bloom ${med(f.map(x => x.bloomed))} left ${Math.round(med(f.map(x => x.left)))}` +
+      ` taps ${med(f.map(x => x.taps))} tilt ${med(f.map(x => x.tilt)).toFixed(1)}s hints ${med(f.map(x => x.hints))}` +
+      (fl.length ? ` (lost ${Object.entries(why).map(([k, v]) => k + ' ' + v).join(' ')} at ${Math.round(med(fl.map(x => x.t)))}s bloom ${med(fl.map(x => x.bloomed))})` : '');
+  };
+  const g1 = [tryOne(0), tryOne(1)].filter(Boolean).join(' | ');
   if (rs[0].trace.length) console.log(rs[0].trace.join('\n'));
-  console.log(`${name.padEnd(11)} run ${pct(rs.filter(r => r.run).length).padStart(4)} | garden 1st/any: ${per} | ${achs}`);
+  console.log(`${name.padEnd(11)} run ${pct(rs.filter(r => r.run).length).padStart(4)} | warm-up, g1–3 1st/any: ${per} | ${achs} || ${g1}`);
 }
 
 const runs = +process.argv[2] || 100;

@@ -231,3 +231,32 @@ reward (hatched ants) was cancelled out by starting the colony smaller,
 so the rest of the run's balance didn't move. Check: time a novice bot's
 first round; if it's over ~40 s, add a warm-up or a speed-up.
 *Evidence: feedback (`docs/games/ant-trails.md`). Provisional.*
+
+## A still screen that's still winnable reads as broken
+
+Terrace Garden v1: 0 of 4 first tries won, 4 of 6 sessions left
+mid-round (median 46 s), and every loss had the same stats (2 of 4
+bloomed, spring empty, nothing spilled, ~14 gate taps, ~6 s of tilt). The
+balance bots won 100%, `novice` included, because every bot already knew
+tilt was the main verb. A bot playing the humans' habit (`masher-0`: run
+the spring while a plant looks dry, open the gates above it, never tilt)
+matched the telemetry exactly. By 39 s its hillside is frozen: the water
+it needs sits behind open sills or at the wrong end of a terrace, and only
+a tilt moves it. The game can still be won, so it never ends and never
+says why. Players read that as "nothing works" and leave. v2 adds a
+warm-up that teaches one verb at a time (the gate stays locked until a
+tilt has bloomed the first plant). It also adds a hint after 3 s of
+stillness that points at a helpful move (tilt direction, gate or
+Restart). A masher that obeys the hints wins garden 1 83–100% on the
+first try (v1: 0%). Two details mattered: a hint-follower at full tilt
+spilled everything until spilling got its own instant warning, and the
+PC player couldn't tilt at all (the mouse didn't tilt; now it drags the
+bar). Check:
+- Write the telemetry's habit as a bot (from its stats: taps, seconds on
+  each verb, what's left at a loss) before trusting any `novice`.
+- If a round can reach a state where nothing changes until the player
+  uses a verb they may not know, show that verb then, or end the round.
+- Every input device must reach every verb.
+
+*Evidence: telemetry (4 players) + bots (`docs/games/terrace-garden.md`).
+Provisional: v2 isn't playtested.*
