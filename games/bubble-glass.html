@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bubble Glass</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #1b2233;
+    --line: #34405a;
+    --text: #eef1f7;
+    --muted: #97a1b8;
+    --accent: #f0c46a;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the board scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #board { display: block; width: 100%; height: 100%; touch-action: none; }
+  #msg {
+    position: absolute;
+    top: 2%;
+    left: 2%;
+    right: 2%;
+    margin: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    line-height: 1.3;
+    color: #f4f6fb;
+    text-shadow: 0 1px 3px #000, 0 0 6px #000;
+    pointer-events: none;
+  }
+  #msg.warn { color: #ffb0a0; }
+  #endCard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(80%, 290px);
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(27, 34, 51, 0.95);
+    border: 1px solid var(--line);
+    text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.25rem; color: var(--accent); }
+  #endCard p { margin: 0 0 4px; color: #cfd6e4; font-size: 0.9rem; }
+  #nextBtn { margin-top: 12px; width: 100%; font-weight: 600; }
+  #nextBtn:disabled { opacity: 0.4; }
+  .bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bar b { color: var(--text); }
+  .pick { display: flex; align-items: center; gap: 4px; }
+  .pick button { padding: 6px 9px; }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.35; cursor: default; }
+  button:active:not(:disabled) { transform: scale(0.97); }
+  button[hidden], #heatWrap[hidden] { display: none; }
+  .gauge {
+    display: inline-block;
+    width: 64px;
+    height: 10px;
+    border-radius: 5px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    vertical-align: middle;
+    overflow: hidden;
+  }
+  .gauge i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #e2583e, #f0a24a); }
+  /* The stuck hint pulses the control it points at. */
+  .nudge { animation: nudge 1.1s ease-in-out infinite; }
+  @keyframes nudge {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(240, 196, 106, 0); border-color: var(--line); }
+    50% { box-shadow: 0 0 0 5px rgba(240, 196, 106, 0.45); border-color: var(--accent); }
+  }
+</style>
+</head>
+<body>
+  <div id="field">
+    <div id="stage">
+      <canvas id="board" aria-label="Bubble Glass. Turn the box to move the sand and the bubble, hold on sand to melt it into glass, tap glass to shatter it."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="nextBtn">Next level</button>
+      </div>
+    </div>
+  </div>
+  <div class="bar">
+    <span class="pick"><button id="prevLv" aria-label="Previous level">◀</button><span>Level <b id="hudLevel"></b></span><button id="nextLv" aria-label="Next level">▶</button></span>
+    <span id="heatWrap">Heat <span class="gauge"><i id="heatFill"></i></span> <b id="hudHeat"></b></span>
+    <button id="tiltBtn" hidden>Tilt: off</button>
+    <button id="resetBtn">Restart</button>
+  </div>
+<script>
+(function() {
+  const GAME_ID = 'bubble-glass';
+  const W = 400, H = 400;
+  // The box: N x N cells. Levels are drawn as MAP x MAP characters, each one
+  // a CH x CH block of cells.
+  const N = 48, CH = 2, MAP = N / CH;
+  const BR = 1.9;                  // bubble radius (cells): it fits a 4-cell gap, not a 2-cell slit
+  const BUBBLE_V = 15;             // bubble speed through liquid (cells per s)
+  const TRICKLE_D = 3;             // sand ahead of the bubble slows it to 1 / (1 + depth / TRICKLE_D) ...
+  const DEEP = 10;                 // ... and this deep it's a wall
+  const SAND_V = 45;               // falling sand (cells per s)
+  const SHARD_V = 30;              // falling glass (cells per s)
+  const ROT_MAX = 180;             // the box turns toward its target at most this fast (deg per s)
+  const KEY_RATE = 120;            // arrow keys turn it this fast (deg per s)
+  const HOLD_DELAY_MS = 170;       // a still press longer than this melts; shorter taps
+  const DRAG_PX = 12;              // a press that moves this far (screen px) turns the box instead
+  const MELT_RATE = 20;            // glass grows this many cells per s while held ...
+  const SHARD_MAX = 40;            // ... up to this size, 1 heat per cell
+  const TAP_R = 3;                 // a tap finds glass this many cells away
+  const STALL_T = 3;               // s of stillness before a hint shows (1.5 in level 1)
+  const LOOK_T = 3.5;              // s the hint looks ahead for each possible turn
+  const UMBRELLA_N = 30;           // grains that land on a shard sheltering the bubble, for Umbrella
+  const BREAKOUT_T = 4;            // s from shattering a shard on the bubble to the vent, for Breakout
+  const LIGHT_DEG = 270;           // Light Touch: a level turned less than this (from level 3)
+  const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win
+  const STEP = 1 / 60;
+  const RING = 193;                // the turning ring's radius (game units)
+  const BOX = 2 * 184 / Math.SQRT2; // the box's side, so its corners clear the ring at any angle
+  const CELL = BOX / N;
+  const RAD = Math.PI / 180;
+
+  // Materials. The simulation reads only these properties, so a new sand
+  // or fixture is a new row plus a map character:
+  //   falls: moves with gravity grain by grain (and trickles past the bubble)
+  //   rigid: moves with gravity as one piece (a shard)
+  //   stops: a wall for the bubble; resist: how much one cell of it slows
+  //   the bubble (falls only); melts: hold turns it into glass; exit: the
+  //   bubble leaves through it. Colours are RGB.
+  const MATERIALS = [
+    { id: 'air', ch: '.', colour: [16, 27, 44] },
+    { id: 'wall', ch: '#', stops: true, colour: [62, 72, 94] },
+    { id: 'sand', ch: 's', falls: true, resist: 1, melts: true, colour: [224, 186, 112] },
+    { id: 'glass', ch: 'g', rigid: true, stops: true, colour: [150, 222, 238] },
+    { id: 'vent', ch: 'V', stops: true, exit: true, colour: [240, 196, 106] },
+  ];
+  const MAT = {};
+  MATERIALS.forEach((m, i) => { MAT[m.id] = i; });
+  const AIR = MAT.air, GLASS = MAT.glass;
+  const FALLS = MATERIALS.map(m => !!m.falls), STOPS = MATERIALS.map(m => !!m.stops);
+  const MELTS = MATERIALS.map(m => !!m.melts), EXIT = MATERIALS.map(m => !!m.exit);
+  const RESIST = MATERIALS.map(m => m.resist || 0);
+  const BY_CH = {};
+  MATERIALS.forEach((m, i) => { BY_CH[m.ch] = i; });
+  BY_CH.o = AIR;                   // the bubble starts here (on liquid)
+
+  // The levels. Each id is permanent (telemetry keys on it): add levels,
+  // never rename or reuse one. verbs: which of turn / melt / shatter work.
+  // ang: the box's angle at the start (degrees, clockwise). heat: the melt budget. melt: map spots [x, y] the stuck hint may point
+  // at for melting. note: shown when the level starts; hint: shown with a
+  // melt hint. map: MAP rows of MAP characters (see MATERIALS, o = bubble).
+  const LEVELS = window.__levels || [
+    { id: 'first-turn', name: 'First turn', verbs: 'turn', heat: 0,
+      note: 'Turn the box: drag around it. The bubble rises, the sand falls.',
+      map: [
+        '########################',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '###############........#',
+        '#......................#',
+        '#.o....................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................V',
+        '#......................V',
+        '#ssssssssssssssssssssss#',
+        '#ssssssssssssssssssssss#',
+        '#ssssssssssssssssssssss#',
+        '########################',
+      ] },
+    { id: 'roof', name: 'Roof', verbs: 'turn melt', heat: 50,
+      note: 'Melting is unlocked: hold on sand to fuse it into glass.',
+      hint: 'Hold on the top of the sand to melt a lid, then turn.', melt: [[11, 15]],
+      map: [
+        '########################',
+        '########################',
+        '########################',
+        '########################',
+        '########################',
+        '########################',
+        '########################',
+        '###########o.###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########........#####',
+        '###########........#####',
+        '###########..####..#####',
+        '###########..####..#####',
+        '##########sss####..#####',
+        '##########sss####..#####',
+        '##########sss####..#####',
+        '##########sss####..#####',
+        '##########sss####..#####',
+        '##########sss####..#####',
+        '##########sss####..#####',
+        '##########sss####..#####',
+        '#################VV#####',
+      ] },
+  ];
+
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  const roundEarned = new Set();
+  function unlock(id) {
+    roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Tell the gallery how a level ended (anonymous play telemetry, see
+  // docs/telemetry.md). level is the position, level_id the permanent id,
+  // run ties one visit together, attempt counts tries at this level. Stats
+  // keys are in docs/games/bubble-glass.md.
+  function report(result, reason) {
+    if (window.parent === window) return;
+    const r1 = v => Math.round(v * 10) / 10;
+    const msg = { type: 'arcade:result', game: GAME_ID,
+      outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
+      level: level + 1, level_id: lv().id, run: runId, attempt,
+      stats: { turns: turns, deg: Math.round(world.deg), melted: world.melted, glass: world.glass,
+        shattered: world.shattered, heat_left: Math.round(world.heat), stuck_s: r1(stuckS), hints: hints,
+        warns: warns, first_input: firstInput, tilt: tiltUsed ? 1 : 0, buried_s: r1(buriedS) } };
+    if (reason) msg.reason = reason;
+    window.parent.postMessage(msg, '*');
+  }
+
+  // Scale the board to the largest square that fits, one canvas pixel per
+  // screen pixel. Drawing always uses W x H game units.
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  let scale = 1;
+  function fitStage() {
+    scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(120, Math.floor(W * scale));
+    const h = Math.max(120, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitStage).observe(field);
+  window.addEventListener('resize', fitStage);
+
+  // The gallery pauses the game while one of its panels covers it.
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; keys.clear(); endPress(); }
+    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+  });
+
+  // ---------- the world (pure simulation: no input, no drawing) ----------
+  // A world holds the grid and everything that moves in it. Cells: t (the
+  // material), sid (the shard a glass cell belongs to), tone (a grain's
+  // shade, which moves with it), was (what a glass cell melted from, so a
+  // shatter gives it back), bub (the bubble covers it). The bubble is a
+  // disc at (bx, by) in cell units. ang is the box's angle (rad, clockwise
+  // on screen) and angT where it's turning to.
+  const DX = [0, 1, 1, 1, 0, -1, -1, -1], DY = [1, 1, 0, -1, -1, -1, 0, 1];
+  // Cells in order of height against each of the 8 gravity directions,
+  // lowest first (two tie orders, alternated so piles don't lean).
+  const ORDER = [];
+  for (let k = 0; k < 8; k++) {
+    const px = -DY[k], py = DX[k];
+    const make = s => {
+      const idx = Array.from({ length: N * N }, (_, i) => i);
+      const key = i => { const x = i % N, y = (i / N) | 0; return -(x * DX[k] + y * DY[k]) * 1000 + s * (x * px + y * py); };
+      idx.sort((a, b) => key(a) - key(b));
+      return Int32Array.from(idx);
+    };
+    ORDER.push([make(1), make(-1)]);
+  }
+
+  function parseLevel(L) {
+    const w = { t: new Uint8Array(N * N), sid: new Int16Array(N * N), tone: new Uint8Array(N * N),
+      was: new Uint8Array(N * N), bub: new Uint8Array(N * N), mark: new Uint32Array(N * N), stamp: 0, flip: 0,
+      shards: [], nextId: 1, bx: 0, by: 0, ang: 0, angT: 0, deg: 0, heat: L.heat, melt: null,
+      sandAcc: 0, shardAcc: 0, won: false, flow: 1, moves: 0, moved: 0, bmoved: 0,
+      melted: 0, glass: 0, shattered: 0, shelter: 0, landed: 0 };
+    for (let my = 0; my < MAP; my++) for (let mx = 0; mx < MAP; mx++) {
+      const ch = L.map[my][mx];
+      const m = BY_CH[ch];
+      if (m === undefined) throw new Error(`level ${L.id}: unknown map character ${ch}`);
+      if (ch === 'o') { w.bx = mx * CH + CH / 2; w.by = my * CH + CH / 2; }
+      for (let dy = 0; dy < CH; dy++) for (let dx = 0; dx < CH; dx++) {
+        const i = (my * CH + dy) * N + mx * CH + dx;
+        w.t[i] = m;
+        w.tone[i] = (Math.random() * 256) | 0;
+        if (m === GLASS) w.was[i] = MAT.sand;
+      }
+    }
+    // Pre-placed glass: each connected patch is one shard.
+    for (let i = 0; i < N * N; i++) {
+      if (w.t[i] !== GLASS || w.sid[i]) continue;
+      const s = { id: w.nextId++, cells: [], held: false };
+      const todo = [i];
+      w.sid[i] = s.id;
+      while (todo.length) {
+        const c = todo.pop();
+        s.cells.push(c);
+        const x = c % N, y = (c / N) | 0;
+        for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+          if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+          const j = ny * N + nx;
+          if (w.t[j] === GLASS && !w.sid[j]) { w.sid[j] = s.id; todo.push(j); }
+        }
+      }
+      w.shards.push(s);
+    }
+    // Centre the bubble where it fits, nearest the map's o.
+    const fits = (x, y) => footprint(x, y).every(j => j >= 0 && !STOPS[w.t[j]]);
+    search: for (let r = 0; r <= 3; r += 0.5) for (let dy = -r; dy <= r; dy += 0.5) for (let dx = -r; dx <= r; dx += 0.5) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) === r && fits(w.bx + dx, w.by + dy)) { w.bx += dx; w.by += dy; break search; }
+    }
+    for (const j of footprint(w.bx, w.by)) if (j >= 0) { w.bub[j] = 1; if (FALLS[w.t[j]]) w.t[j] = AIR; }
+    w.ang = w.angT = (L.ang || 0) * RAD;
+    return w;
+  }
+
+  function cloneWorld(w) {
+    return { ...w, t: w.t.slice(), sid: w.sid.slice(), tone: w.tone.slice(), was: w.was.slice(), bub: w.bub.slice(),
+      mark: new Uint32Array(N * N), stamp: 0, shards: w.shards.map(s => ({ ...s, cells: s.cells.slice() })),
+      melt: w.melt && { ...w.melt } };
+  }
+
+  // Cells the bubble covers when centred at (bx, by) (-1: outside the box).
+  function footprint(bx, by) {
+    const out = [];
+    const x0 = Math.floor(bx - BR), x1 = Math.floor(bx + BR), y0 = Math.floor(by - BR), y1 = Math.floor(by + BR);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const cx = x + 0.5 - bx, cy = y + 0.5 - by;
+      if (cx * cx + cy * cy > BR * BR) continue;
+      out.push(x < 0 || y < 0 || x >= N || y >= N ? -1 : y * N + x);
+    }
+    return out;
+  }
+
+  // Gravity in the box's frame: (gx, gy) for the bubble, and for grains the
+  // two nearest of 8 directions (k0, k1) with the share frac of k1, so a
+  // small turn makes a slope creep instead of nothing happening until 22.5°.
+  function gravity(w) {
+    const gx = Math.sin(w.ang), gy = Math.cos(w.ang);
+    let kf = (w.ang / (Math.PI / 4)) % 8;
+    if (kf < 0) kf += 8;
+    const k0 = Math.floor(kf);
+    return { gx, gy, k0: k0 & 7, k1: (k0 + 1) & 7, frac: kf - k0, main: Math.round(kf) & 7 };
+  }
+
+  const free = (w, j) => w.t[j] === AIR && !w.bub[j];
+  // Where a grain at (x, y) can go in direction k, or -1. A diagonal step
+  // needs one of the two cells beside it open, so grains can't squeeze
+  // between two corners.
+  function grainTo(w, x, y, k) {
+    const nx = x + DX[k], ny = y + DY[k];
+    if (nx < 0 || ny < 0 || nx >= N || ny >= N) return -1;
+    const j = ny * N + nx;
+    if (!free(w, j)) return -1;
+    if (DX[k] && DY[k] && !free(w, y * N + nx) && !free(w, ny * N + x)) return -1;
+    return j;
+  }
+
+  function sandPass(w, g) {
+    const order = ORDER[g.main][w.flip ^= 1];
+    const t = w.t, stamp = ++w.stamp;
+    const sh = w.shelter, down = g.main;
+    for (let n = 0; n < order.length; n++) {
+      const i = order[n];
+      if (!FALLS[t[i]] || w.mark[i] === stamp) continue;
+      const x = i % N, y = (i / N) | 0;
+      const k = Math.random() < g.frac ? g.k1 : g.k0;
+      let j = grainTo(w, x, y, k);
+      if (j < 0) {
+        const a = Math.random() < 0.5 ? 1 : 7;
+        j = grainTo(w, x, y, (k + a) & 7);
+        if (j < 0) j = grainTo(w, x, y, (k + 8 - a) & 7);
+      }
+      if (j < 0) continue;
+      t[j] = t[i]; w.tone[j] = w.tone[i]; t[i] = AIR;
+      w.mark[j] = stamp;
+      w.moves++;
+      // Landed on the shard sheltering the bubble (for Umbrella)?
+      if (sh) {
+        const bx = (j % N) + DX[down], by = ((j / N) | 0) + DY[down];
+        if (bx >= 0 && by >= 0 && bx < N && by < N && w.sid[by * N + bx] === sh) w.landed++;
+      }
+    }
+  }
+
+  function moveShard(w, s, dx, dy) {
+    const off = dy * N + dx;
+    for (const i of s.cells) {
+      const nx = i % N + dx, ny = ((i / N) | 0) + dy;
+      if (nx < 0 || ny < 0 || nx >= N || ny >= N) return false;
+      const j = i + off;
+      if (w.sid[j] === s.id) continue;
+      if (!free(w, j)) return false;
+    }
+    const data = s.cells.map(i => [i + off, w.tone[i], w.was[i]]);
+    for (const i of s.cells) { w.t[i] = AIR; w.sid[i] = 0; }
+    s.cells = data.map(([j, tn, wa]) => { w.t[j] = GLASS; w.sid[j] = s.id; w.tone[j] = tn; w.was[j] = wa; return j; });
+    return true;
+  }
+
+  // Shards fall as one piece along the nearest of the 8 directions; on a
+  // diagonal they slide along a wall.
+  function shardPass(w, g) {
+    const k = g.main, dx = DX[k], dy = DY[k];
+    const h = s => { let v = 0; for (const i of s.cells) v += (i % N) * dx + ((i / N) | 0) * dy; return v / s.cells.length; };
+    const list = w.shards.filter(s => !s.held).sort((a, b) => h(b) - h(a));
+    for (const s of list) {
+      if (moveShard(w, s, dx, dy) || dx && dy && (moveShard(w, s, dx, 0) || moveShard(w, s, 0, dy))) w.moved++;
+    }
+  }
+
+  // Sand straight ahead of the bubble along (ux, uy), weighted by each
+  // material's resist: the deepest of four lanes across its width. A thin
+  // layer across its path only slows it, but a long run of sand along one
+  // side (a film down a tube it fills) is as much a wall as a deep pile.
+  function sandAhead(w, ux, uy) {
+    const px = -uy, py = ux;
+    let most = 0;
+    for (const o of [-1.5, -0.5, 0.5, 1.5]) {
+      let dep = 0;
+      for (let s = BR + 0.6; dep < DEEP && s < BR + DEEP + 2; s += 1) {
+        const x = Math.floor(w.bx + ux * s + px * o), y = Math.floor(w.by + uy * s + py * o);
+        if (x < 0 || y < 0 || x >= N || y >= N) break;
+        const m = w.t[y * N + x];
+        if (!FALLS[m]) break;
+        dep += RESIST[m];
+      }
+      most = Math.max(most, dep);
+    }
+    return most;
+  }
+  const flowFor = dep => dep <= 0 ? 1 : dep >= DEEP ? 0 : 1 / (1 + dep / TRICKLE_D);
+
+  // Try moving the bubble by (mx, my), slowed by the sand ahead along the
+  // move. Grains in the way swap to the cells
+  // it leaves behind (sand is never lost); anything that stops it blocks.
+  function tryBubble(w, mx, my, ux, uy) {
+    const old = footprint(w.bx, w.by);
+    let nx = w.bx + mx, ny = w.by + my;
+    let nf = footprint(nx, ny), shifted = [];
+    const scan = () => {
+      shifted = [];
+      for (const j of nf) {
+        if (j < 0) return false;
+        if (w.bub[j] || w.t[j] === AIR) continue;
+        if (FALLS[w.t[j]]) shifted.push(j); else return false;
+      }
+      return true;
+    };
+    if (!scan()) return false;
+    if (shifted.length) {
+      // Slowed by the sand ahead along this move.
+      const len = Math.hypot(mx, my), f = flowFor(sandAhead(w, mx / len, my / len));
+      if (f <= 0) return false;
+      if (f < 1) { nx = w.bx + mx * f; ny = w.by + my * f; nf = footprint(nx, ny); if (!scan()) return false; }
+    }
+    if (shifted.length) {
+      const inNew = new Set(nf);
+      const back = old.filter(i => i >= 0 && !inNew.has(i));
+      // A small move may not free a cell yet: then grains go to open
+      // liquid just behind the bubble.
+      if (back.length < shifted.length) {
+        const r = BR + 1.5;
+        for (let y = Math.floor(w.by - r); y <= w.by + r && back.length < shifted.length; y++) for (let x = Math.floor(w.bx - r); x <= w.bx + r; x++) {
+          if (x < 0 || y < 0 || x >= N || y >= N) continue;
+          const i = y * N + x, cx = x + 0.5 - w.bx, cy = y + 0.5 - w.by;
+          if (w.t[i] !== AIR || w.bub[i] || inNew.has(i) || cx * ux + cy * uy > -0.5 || cx * cx + cy * cy > r * r) continue;
+          back.push(i);
+          if (back.length >= shifted.length) break;
+        }
+        if (back.length < shifted.length) return false;
+      }
+      back.sort((a, b) => ((a % N) * ux + ((a / N) | 0) * uy) - ((b % N) * ux + ((b / N) | 0) * uy));
+      shifted.forEach((j, n) => { const b = back[n]; w.t[b] = w.t[j]; w.tone[b] = w.tone[j]; w.t[j] = AIR; });
+    }
+    for (const i of old) if (i >= 0) w.bub[i] = 0;
+    for (const j of nf) w.bub[j] = 1;
+    w.bmoved += Math.hypot(nx - w.bx, ny - w.by);
+    w.bx = nx; w.by = ny;
+    return true;
+  }
+
+  // The bubble rises against gravity; blocked, it slips 45° either way or
+  // slides along whatever it's pressed against.
+  function bubbleStep(w, g, dt) {
+    const ux = -g.gx, uy = -g.gy, d = BUBBLE_V * dt;
+    w.flow = flowFor(sandAhead(w, ux, uy));
+    const c = Math.SQRT1_2;
+    const r1 = [(ux - uy) * c, (uy + ux) * c], r2 = [(ux + uy) * c, (uy - ux) * c];
+    const first = Math.random() < 0.5;
+    const cands = [[ux, uy, 1], first ? [...r1, 0.7] : [...r2, 0.7], first ? [...r2, 0.7] : [...r1, 0.7], [ux, 0, 1], [0, uy, 1]];
+    for (const [cx, cy, s] of cands) {
+      if (Math.abs(cx) + Math.abs(cy) < 0.08) continue;
+      if (tryBubble(w, cx * d * s, cy * d * s, ux, uy)) return;
+    }
+    // Sliding along a flat wall, a pixel circle catches on the cells: back
+    // off a little from the wall while sliding.
+    for (const [cx, cy] of [[ux, 0], [0, uy]]) {
+      if (Math.abs(cx) + Math.abs(cy) < 0.08) continue;
+      const bx = cx ? 0 : -ux * 0.35, by = cy ? 0 : -uy * 0.35;
+      if (tryBubble(w, cx * d + bx, cy * d + by, ux, uy)) return;
+    }
+  }
+
+  // The shard (if any) roofing the bubble: one of its cells touches the
+  // bubble's upper side.
+  function shelterOf(w, g) {
+    const ux = -g.gx, uy = -g.gy, r = BR + 1.4;
+    for (let y = Math.floor(w.by - r); y <= w.by + r; y++) for (let x = Math.floor(w.bx - r); x <= w.bx + r; x++) {
+      if (x < 0 || y < 0 || x >= N || y >= N) continue;
+      const i = y * N + x;
+      if (!w.sid[i]) continue;
+      const cx = x + 0.5 - w.bx, cy = y + 0.5 - w.by;
+      if (cx * cx + cy * cy <= r * r && cx * ux + cy * uy > 0.8) return w.sid[i];
+    }
+    return 0;
+  }
+
+  function touchesBubble(w, s) {
+    const r = BR + 1.6;
+    return s.cells.some(i => { const cx = i % N + 0.5 - w.bx, cy = ((i / N) | 0) + 0.5 - w.by; return cx * cx + cy * cy <= r * r; });
+  }
+
+  function atVent(w) {
+    const r = BR + 1.2;
+    for (let y = Math.floor(w.by - r); y <= w.by + r; y++) for (let x = Math.floor(w.bx - r); x <= w.bx + r; x++) {
+      if (x < 0 || y < 0 || x >= N || y >= N || !EXIT[w.t[y * N + x]]) continue;
+      const cx = x + 0.5 - w.bx, cy = y + 0.5 - w.by;
+      if (cx * cx + cy * cy <= r * r) return true;
+    }
+    return false;
+  }
+
+  // Grow the held shard by one cell: the meltable cell touching it that's
+  // nearest the finger (so sliding the finger draws a bar).
+  function growShard(w) {
+    const m = w.melt, s = w.shards.find(q => q.id === m.sid);
+    if (!s || s.cells.length >= SHARD_MAX || w.heat < 1) return false;
+    let best = -1, bd = Infinity;
+    for (const i of s.cells) {
+      const x = i % N, y = (i / N) | 0;
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+        const j = ny * N + nx;
+        if (!MELTS[w.t[j]]) continue;
+        const d = (nx + 0.5 - m.fx) ** 2 + (ny + 0.5 - m.fy) ** 2;
+        if (d < bd) { bd = d; best = j; }
+      }
+    }
+    if (best < 0) return false;
+    glaze(w, s, best);
+    return true;
+  }
+  function glaze(w, s, j) {
+    w.was[j] = w.t[j]; w.t[j] = GLASS; w.sid[j] = s.id; s.cells.push(j);
+    w.heat -= 1; w.glass++;
+  }
+
+  // One simulation step: turn, sand, shards, the bubble, melting.
+  function simStep(w, dt) {
+    const turn = Math.max(-ROT_MAX * RAD * dt, Math.min(ROT_MAX * RAD * dt, w.angT - w.ang));
+    w.ang += turn;
+    w.deg += Math.abs(turn) / RAD;
+    const g = gravity(w);
+    w.moves = 0; w.moved = 0; w.bmoved = 0;
+    w.shelter = shelterOf(w, g);
+    w.sandAcc += SAND_V * dt;
+    while (w.sandAcc >= 1) { sandPass(w, g); w.sandAcc -= 1; }
+    w.shardAcc += SHARD_V * dt;
+    while (w.shardAcc >= 1) { shardPass(w, g); w.shardAcc -= 1; }
+    bubbleStep(w, g, dt);
+    if (w.melt) {
+      w.melt.acc += MELT_RATE * dt;
+      while (w.melt.acc >= 1) { w.melt.acc -= 1; if (!growShard(w)) { w.melt.acc = 0; break; } }
+    }
+    if (atVent(w)) w.won = true;
+  }
+
+  // ---------- actions (the input handlers and the balance bots call these) ----------
+  // Melt: start a shard at the meltable cell nearest (fx, fy) (cell units),
+  // within 1.5 cells. It grows toward the finger while held.
+  function meltStart(w, fx, fy) {
+    if (w.heat < 1) return 0;
+    let best = -1, bd = 1.5 * 1.5;
+    for (let y = Math.floor(fy - 2); y <= fy + 2; y++) for (let x = Math.floor(fx - 2); x <= fx + 2; x++) {
+      if (x < 0 || y < 0 || x >= N || y >= N || !MELTS[w.t[y * N + x]]) continue;
+      const d = (x + 0.5 - fx) ** 2 + (y + 0.5 - fy) ** 2;
+      if (d <= bd) { bd = d; best = y * N + x; }
+    }
+    if (best < 0) return 0;
+    const s = { id: w.nextId++, cells: [], held: true };
+    w.shards.push(s);
+    glaze(w, s, best);
+    w.melted++;
+    w.melt = { sid: s.id, fx, fy, acc: 0 };
+    return s.id;
+  }
+  function meltMove(w, fx, fy) { if (w.melt) { w.melt.fx = fx; w.melt.fy = fy; } }
+  function meltStop(w) {
+    if (!w.melt) return;
+    const s = w.shards.find(q => q.id === w.melt.sid);
+    if (s) s.held = false;
+    w.melt = null;
+  }
+  // Shatter: the shard nearest (fx, fy) within TAP_R turns back into what
+  // it was made of, where it is. Returns the shard, or null.
+  function shatterAt(w, fx, fy) {
+    let best = 0, bd = TAP_R * TAP_R;
+    for (let y = Math.floor(fy - TAP_R); y <= fy + TAP_R; y++) for (let x = Math.floor(fx - TAP_R); x <= fx + TAP_R; x++) {
+      if (x < 0 || y < 0 || x >= N || y >= N) continue;
+      const id = w.sid[y * N + x];
+      if (!id || w.melt && w.melt.sid === id) continue;
+      const d = (x + 0.5 - fx) ** 2 + (y + 0.5 - fy) ** 2;
+      if (d <= bd) { bd = d; best = id; }
+    }
+    if (!best) return null;
+    const s = w.shards.find(q => q.id === best);
+    for (const i of s.cells) { w.t[i] = w.was[i]; w.sid[i] = 0; }
+    w.shards = w.shards.filter(q => q !== s);
+    w.shattered++;
+    return s;
+  }
+  function turnTo(w, a) { w.angT = a; }
+  function materialAt(w, fx, fy) {
+    const x = Math.floor(fx), y = Math.floor(fy);
+    if (x < 0 || y < 0 || x >= N || y >= N) return -1;
+    return w.t[y * N + x];
+  }
+
+  // ---------- looking ahead (the stuck hint and the balance bots) ----------
+  // How far the bubble is from the vent: a shortest path over the points
+  // where it fits (cell corners with nothing that stops it within BR),
+  // costing extra through sand. Infinity if no path.
+  const FOOT0 = [];
+  for (let y = -3; y < 3; y++) for (let x = -3; x < 3; x++) {
+    const cx = x + 0.5, cy = y + 0.5;
+    if (cx * cx + cy * cy <= BR * BR) FOOT0.push([x, y]);
+  }
+  const M1 = N + 1;
+  const hk = new Float64Array(8 * M1 * M1), hp = new Int32Array(8 * M1 * M1);
+  const cost = new Float32Array(M1 * M1);
+  function ventDistance(w) {
+    const dist = new Float32Array(M1 * M1).fill(Infinity);
+    let n = 0;
+    const push = (d, p) => {
+      let i = n++;
+      while (i) { const q = (i - 1) >> 1; if (hk[q] <= d) break; hk[i] = hk[q]; hp[i] = hp[q]; i = q; }
+      hk[i] = d; hp[i] = p;
+    };
+    const pop = () => {
+      const top = hp[0], d = hk[--n], p = hp[n];
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1;
+        if (l >= n) break;
+        const m = l + 1 < n && hk[l + 1] < hk[l] ? l + 1 : l;
+        if (hk[m] >= d) break;
+        hk[i] = hk[m]; hp[i] = hp[m]; i = m;
+      }
+      hk[i] = d; hp[i] = p;
+      return top;
+    };
+    cost.fill(-1);
+    for (let py = 1; py < N; py++) for (let px = 1; px < N; px++) {
+      let sand = 0, ok = true;
+      for (let f = 0; f < FOOT0.length; f++) {
+        const x = px + FOOT0[f][0], y = py + FOOT0[f][1];
+        if (x < 0 || y < 0 || x >= N || y >= N) { ok = false; break; }
+        const m = w.t[y * N + x];
+        if (STOPS[m]) { ok = false; break; }
+        sand += RESIST[m];
+      }
+      if (ok) cost[py * M1 + px] = 1 + 2 * sand / FOOT0.length;
+    }
+    // Start from every point where the bubble would touch a vent cell.
+    const rv = BR + 1.2;
+    for (let i = 0; i < N * N; i++) {
+      if (!EXIT[w.t[i]]) continue;
+      const vx = i % N + 0.5, vy = ((i / N) | 0) + 0.5;
+      for (let py = Math.max(1, Math.ceil(vy - rv)); py <= Math.min(N - 1, vy + rv); py++) {
+        for (let px = Math.max(1, Math.ceil(vx - rv)); px <= Math.min(N - 1, vx + rv); px++) {
+          const p = py * M1 + px;
+          if (cost[p] < 0 || dist[p] === 0 || (vx - px) ** 2 + (vy - py) ** 2 > rv * rv) continue;
+          dist[p] = 0; push(0, p);
+        }
+      }
+    }
+    while (n) {
+      const d = hk[0], p = pop();
+      if (d > dist[p]) continue;
+      const px = p % M1, py = (p / M1) | 0;
+      for (let k = 0; k < 8; k++) {
+        const q = (py + DY[k]) * M1 + px + DX[k];
+        if (cost[q] < 0) continue;
+        const nd = d + (DX[k] && DY[k] ? Math.SQRT2 : 1) * (cost[p] + cost[q]) / 2;
+        if (nd < dist[q]) { dist[q] = nd; push(nd, q); }
+      }
+    }
+    return dist;
+  }
+  function bubbleScore(w, dist) {
+    if (w.won) return -100;
+    const d = (dist || ventDistance(w))[Math.round(w.by) * M1 + Math.round(w.bx)];
+    return d === Infinity ? 999 : d + (w.flow <= 0 ? 8 : 0);
+  }
+  // Simulate a copy of the world for t seconds with the box turning to a.
+  // These are generators that yield every LOOK_CHUNK steps, so the game can
+  // spread a search over frames; finish() runs one to the end (the bots).
+  const LOOK_CHUNK = 30;
+  function* lookaheadG(w, a, t) {
+    const c = cloneWorld(w);
+    c.angT = a;
+    meltStop(c);
+    for (let k = 0; k < Math.round(t / STEP) && !c.won; k++) {
+      simStep(c, STEP);
+      if (k % LOOK_CHUNK === LOOK_CHUNK - 1) yield;
+    }
+    return c;
+  }
+  function finish(gen) { for (;;) { const r = gen.next(); if (r.done) return r.value; } }
+  const lookahead = (w, a, t) => finish(lookaheadG(w, a, t));
+  const snap45 = a => Math.round(a / (45 * RAD)) * 45 * RAD;
+  // The best turn from here: k eighths of a turn (+ is clockwise), with its
+  // score, and the score of doing nothing.
+  function* bestTurnG(w, t) {
+    const base = snap45(w.ang);
+    const wait = bubbleScore(yield* lookaheadG(w, w.ang, t));
+    yield;
+    let best = { k: 0, score: wait, a: w.ang };
+    for (const k of [-1, 1, -2, 2, -3, 3, 4, -4]) {
+      const a = base + k * 45 * RAD;
+      const sc = bubbleScore(yield* lookaheadG(w, a, t));
+      yield;
+      if (sc < best.score - 0.5) best = { k, score: sc, a };
+    }
+    return { best, wait };
+  }
+  const bestTurn = (w, t) => finish(bestTurnG(w, t));
+
+  // ---------- game state ----------
+  let world, level, runId, attempt, state, msgTimer;
+  let elapsed, turns, firstInput, stuckS, buriedS, hints, warns, tiltUsed;
+  let stall = 0, hint = null, hintJob = null, ready = null, lastShatter = null, warned = new Set();
+  let reached = 0, beaten = new Set();
+  const attempts = {};
+  const endCard = document.getElementById('endCard');
+  const nextBtn = document.getElementById('nextBtn');
+
+  // Progress is kept in this browser (best effort).
+  const STORE = 'bubble-glass.progress';
+  try {
+    const p = JSON.parse(localStorage.getItem(STORE) || '{}');
+    reached = Math.min(LEVELS.length - 1, Math.max(0, p.reached | 0));
+    beaten = new Set(Array.isArray(p.beaten) ? p.beaten : []);
+  } catch (e) { /* no storage: start at level 1 */ }
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify({ reached, beaten: [...beaten] })); } catch (e) { /* ignore */ }
+  }
+
+  function lv() { return LEVELS[level]; }
+  function can(verb) { return lv().verbs.includes(verb); }
+
+  function startLevel(i) {
+    level = i;
+    attempts[level] = (attempts[level] || 0) + 1;
+    attempt = attempts[level];
+    world = parseLevel(lv());
+    if (motion.on) { world.ang = world.angT = motion.angle; }
+    elapsed = 0; turns = 0; firstInput = 0; stuckS = 0; buriedS = 0; hints = 0; warns = 0; tiltUsed = motion.on;
+    stall = 0; hint = null; hintJob = null; ready = null; lastShatter = null; warned = new Set(); nudge(null);
+    pops = [];
+    endPress();
+    roundEarned.clear();
+    state = 'playing';
+    endCard.hidden = true;
+    ventAt = findVent(world);
+    say(`${lv().name}. ${lv().note}`, 5000);
+    hud();
+  }
+
+  function hud() {
+    document.getElementById('hudLevel').textContent = `${level + 1}/${LEVELS.length}`;
+    document.getElementById('prevLv').disabled = level <= 0;
+    document.getElementById('nextLv').disabled = level >= reached;
+    const hw = document.getElementById('heatWrap');
+    hw.hidden = !can('melt');
+    document.getElementById('hudHeat').textContent = Math.floor(world.heat);
+    document.getElementById('heatFill').style.width = (lv().heat ? 100 * world.heat / lv().heat : 0) + '%';
+  }
+
+  function win() {
+    state = 'won';
+    endPress();
+    report('won');
+    const last = level === LEVELS.length - 1;
+    beaten.add(lv().id);
+    if (level + 1 > reached && !last) reached = level + 1;
+    save();
+    if (level >= 2 && world.melted === 0) unlock('cold-hands');
+    if (level >= 2 && world.deg < LIGHT_DEG) unlock('light-touch');
+    if (lastShatter !== null && elapsed - lastShatter <= BREAKOUT_T) unlock('breakout');
+    if (LEVELS.every(L => beaten.has(L.id))) unlock('glassblower');
+    msgEl.textContent = '';
+    nudge(null);
+    document.getElementById('endTitle').textContent = last ? 'Every bubble is free!' : 'Bubble free!';
+    const bits = [`${turns} turn${turns === 1 ? '' : 's'}, ${Math.round(world.deg)}° in all`];
+    if (can('melt')) bits.push(`${world.melted} shard${world.melted === 1 ? '' : 's'} melted, ${Math.floor(world.heat)} heat left`);
+    document.getElementById('endDetail').textContent = bits.join('; ') + '.';
+    const n = roundEarned.size;
+    document.getElementById('endAch').textContent = n ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned` : '';
+    nextBtn.textContent = last ? 'Play again from level 1' : 'Next level';
+    nextBtn.disabled = true;
+    endCard.hidden = false;
+    setTimeout(() => { nextBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    hud();
+  }
+
+  function next() {
+    if (state !== 'won') return;
+    startLevel(level === LEVELS.length - 1 ? 0 : level + 1);
+  }
+
+  // Leaving a level (Restart, or the level picker) counts as a lost try
+  // once the player has done anything.
+  function leave(reason, to) {
+    if (state === 'playing' && firstInput) report('lost', reason);
+    startLevel(to);
+  }
+  function restart() { if (!paused) leave('restart', level); }
+
+  function say(text, ms, warn) {
+    msgEl.textContent = text;
+    msgEl.className = warn ? 'warn' : '';
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms || 2500);
+  }
+  // A warning for something that can't be undone, once per level each.
+  function warn(key, text) {
+    if (warned.has(key)) return;
+    warned.add(key);
+    warns++;
+    say(text, 4000, true);
+  }
+
+  // first_input: 1 turn, 2 melt, 3 shatter, 4 a press that did nothing.
+  function touched(kind) { if (!firstInput) firstInput = kind; stall = 0; }
+
+  // ---------- the game's step ----------
+  function step(dt) {
+    elapsed += dt;
+    simStep(world, dt);
+    if (world.flow <= 0) buriedS += dt;
+    if (world.shelter && world.landed >= UMBRELLA_N) unlock('umbrella');
+    if (!world.shelter) world.landed = 0;
+    if (world.melt) {
+      const s = world.shards.find(q => q.id === world.melt.sid);
+      if (s && touchesBubble(world, s)) {
+        warn('wall', can('shatter') ? `Glass is a wall for the bubble. ${TAP} it to break it.`
+          : 'Careful: glass is a wall for the bubble, and it can\'t be broken until level 3.');
+      }
+    }
+    if (world.heat < 1 && lv().heat && world.melted) warn('heat', 'Out of heat: no more glass this level.');
+    if (world.won) { pops = [{ x: world.bx, y: world.by, t: 0 }]; win(); return; }
+    watchStall(dt);
+  }
+
+  // The stuck hint: after STALL_T s with nothing moving and no input, look
+  // for the turn that brings the bubble closest to the vent; failing that, a
+  // place to melt, a shard to shatter, or Restart.
+  function watchStall(dt) {
+    const still = world.moves < 3 && world.moved === 0 && world.bmoved < 0.02 && Math.abs(world.angT - world.ang) < 0.01 && !world.melt && !press;
+    if (!still) { stall = 0; hintJob = null; ready = null; if (hint) nudge(null); return; }
+    stall += dt;
+    const limit = level === 0 ? STALL_T / 2 : STALL_T;
+    if (stall >= limit) stuckS += dt;
+    if (hint) return;
+    // Start looking halfway through the wait, a few steps per frame.
+    if (stall >= limit / 2 && !hintJob && !ready) hintJob = findHintG(cloneWorld(world));
+    if (hintJob) { const r = hintJob.next(); if (r.done) { ready = r.value; hintJob = null; } }
+    if (stall < limit || !ready) return;
+    const h = ready;
+    ready = null;
+    hints++;
+    nudge(h);
+    if (h.turn) say(`${h.turn > 0 ? 'Turn it clockwise ↻' : 'Turn it counterclockwise ↺'} (${motion.on ? 'tip your phone' : touchScreen ? 'drag around the box' : 'drag around the box, or ← →'}).`, 4000);
+    else if (h.melt) say(lv().hint || `${HOLD} on the sand here to melt it into glass.`, 5000);
+    else if (h.shatter) say(`${TAP} the glass to shatter it back into sand.`, 4000);
+    else say(world.heat < 1 && can('melt') ? 'No heat left, and turning won\'t free it. Restart the level.' : 'Stuck for good. Restart the level.', 5000);
+  }
+  function* findHintG(w) {
+    const { best, wait } = yield* bestTurnG(w, LOOK_T);
+    if (best.k && best.score < wait - 2) return { turn: Math.sign(best.k), a: best.a };
+    if (can('shatter')) {
+      for (const s of w.shards) {
+        const c = cloneWorld(w);
+        const x = s.cells[0] % N + 0.5, y = ((s.cells[0] / N) | 0) + 0.5;
+        if (!shatterAt(c, x, y)) continue;
+        const r = yield* bestTurnG(c, LOOK_T);
+        if (Math.min(r.best.score, r.wait) < wait - 2) return { shatter: s.id, x, y };
+      }
+    }
+    if (can('melt') && w.heat >= 8) {
+      for (const [mx, my] of lv().melt || []) {
+        const x = mx * CH + CH / 2, y = my * CH + CH / 2;
+        if (MELTS[materialAt(w, x, y)]) return { melt: true, x, y };
+      }
+    }
+    return { restart: true };
+  }
+  const findHint = w => finish(findHintG(w));
+  function nudge(h) {
+    hint = h;
+    document.getElementById('resetBtn').classList.toggle('nudge', !!(h && h.restart));
+  }
+
+  // ---------- drawing ----------
+  const off = document.createElement('canvas');
+  off.width = off.height = N;
+  const offCtx = off.getContext('2d');
+  const img = offCtx.createImageData(N, N);
+  let pops = [];
+  function drawAngle() { return motion.on ? 0 : world.ang; }
+  // Box cell coordinates -> game units, and back.
+  function toScreen(bx, by) {
+    const a = drawAngle(), x = (bx / N - 0.5) * BOX, y = (by / N - 0.5) * BOX;
+    return [W / 2 + x * Math.cos(a) - y * Math.sin(a), H / 2 + x * Math.sin(a) + y * Math.cos(a)];
+  }
+  function toBox(gx, gy) {
+    const a = -drawAngle(), x = gx - W / 2, y = gy - H / 2;
+    return [((x * Math.cos(a) - y * Math.sin(a)) / BOX + 0.5) * N, ((x * Math.sin(a) + y * Math.cos(a)) / BOX + 0.5) * N];
+  }
+
+  function paintGrid(now) {
+    const d = img.data, w = world;
+    const heldId = w.melt ? w.melt.sid : 0;
+    const glow = 0.5 + 0.5 * Math.sin(now / 150);
+    for (let i = 0; i < N * N; i++) {
+      const m = w.t[i], c = MATERIALS[m].colour, o = i * 4;
+      let r = c[0], g = c[1], b = c[2];
+      if (FALLS[m]) { const v = (w.tone[i] - 128) / 128 * 22; r += v; g += v; b += v * 0.6; }
+      else if (m === GLASS) {
+        const v = (w.tone[i] - 128) / 128 * 10;
+        if (w.sid[i] === heldId) { r = 255; g = 150 + 60 * glow; b = 70; }
+        else { r += v; g += v; b += v; }
+      } else if (m === AIR) { const v = ((i * 2654435761) >>> 28) - 8; b += v * 0.4; }
+      d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
+    }
+    offCtx.putImageData(img, 0, 0);
+  }
+
+  function draw(now) {
+    const s = canvas.width / W;
+    ctx.setTransform(s, 0, 0, s, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    // The ring you turn the box by.
+    ctx.strokeStyle = 'rgba(151, 161, 184, 0.28)';
+    ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(W / 2, H / 2, RING, 0, Math.PI * 2); ctx.stroke();
+    const a = drawAngle();
+    ctx.strokeStyle = 'rgba(151, 161, 184, 0.6)';
+    ctx.lineWidth = 2;
+    for (let k = 0; k < 12; k++) {
+      const q = a + k * Math.PI / 6;
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + Math.cos(q) * (RING - 5), H / 2 + Math.sin(q) * (RING - 5));
+      ctx.lineTo(W / 2 + Math.cos(q) * (RING + 5), H / 2 + Math.sin(q) * (RING + 5));
+      ctx.stroke();
+    }
+    // The box.
+    paintGrid(now);
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(a);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, -BOX / 2, -BOX / 2, BOX, BOX);
+    ctx.strokeStyle = '#4a5776';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(-BOX / 2, -BOX / 2, BOX, BOX);
+    ctx.restore();
+    drawShardEdges();
+    drawVent(now);
+    drawBubble(now);
+    drawPress(now);
+    drawHint(now);
+    if (motion.on) drawGravity();
+    for (const p of pops) {
+      p.t += 1 / 60;
+      const [x, y] = toScreen(p.x, p.y);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0, 1 - p.t)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, BR * CELL + 40 * p.t, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+
+  // Bright outline where glass meets anything else, so shards read as solid.
+  function drawShardEdges() {
+    const w = world;
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(drawAngle());
+    ctx.translate(-BOX / 2, -BOX / 2);
+    ctx.strokeStyle = 'rgba(235, 252, 255, 0.9)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (const s of w.shards) for (const i of s.cells) {
+      const x = i % N, y = (i / N) | 0;
+      if (y === 0 || w.sid[i - N] !== s.id) { ctx.moveTo(x * CELL, y * CELL); ctx.lineTo((x + 1) * CELL, y * CELL); }
+      if (y === N - 1 || w.sid[i + N] !== s.id) { ctx.moveTo(x * CELL, (y + 1) * CELL); ctx.lineTo((x + 1) * CELL, (y + 1) * CELL); }
+      if (x === 0 || w.sid[i - 1] !== s.id) { ctx.moveTo(x * CELL, y * CELL); ctx.lineTo(x * CELL, (y + 1) * CELL); }
+      if (x === N - 1 || w.sid[i + 1] !== s.id) { ctx.moveTo((x + 1) * CELL, y * CELL); ctx.lineTo((x + 1) * CELL, (y + 1) * CELL); }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // The vent: an arrow pointing out of the box.
+  let ventAt = null;
+  function drawVent(now) {
+    if (!ventAt) return;
+    const [vx, vy, ox, oy] = ventAt;
+    const [x, y] = toScreen(vx, vy), [x2, y2] = toScreen(vx + ox * 4, vy + oy * 4);
+    const pulse = 0.6 + 0.4 * Math.sin(now / 300);
+    ctx.fillStyle = `rgba(240, 196, 106, ${pulse})`;
+    const ang = Math.atan2(y2 - y, x2 - x);
+    ctx.save();
+    ctx.translate(x2, y2);
+    ctx.rotate(ang);
+    ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-4, -7); ctx.lineTo(-4, 7); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  function findVent(w) {
+    let sx = 0, sy = 0, n = 0;
+    for (let i = 0; i < N * N; i++) if (EXIT[w.t[i]]) { sx += i % N + 0.5; sy += ((i / N) | 0) + 0.5; n++; }
+    if (!n) return null;
+    const x = sx / n, y = sy / n;
+    const ox = x < 2 ? -1 : x > N - 2 ? 1 : 0, oy = y < 2 ? -1 : y > N - 2 ? 1 : 0;
+    return [x, y, ox, oy];
+  }
+
+  // The bubble: white, amber while sand trickles past it, red and dashed
+  // when the sand ahead is deep enough to be a wall.
+  function drawBubble(now) {
+    const w = world;
+    const [x, y] = toScreen(w.bx, w.by);
+    const r = (BR + 0.4) * CELL;
+    const blocked = w.flow <= 0, slow = w.flow < 1;
+    ctx.fillStyle = 'rgba(220, 240, 255, 0.25)';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = blocked ? '#ff6b5a' : slow ? `rgba(255, 190, 90, ${0.6 + 0.4 * Math.sin(now / 120)})` : '#f4fbff';
+    if (blocked) ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.beginPath(); ctx.arc(x - r * 0.35, y - r * 0.35, r * 0.22, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // While melting: a ring at the finger that fills as the shard grows.
+  function drawPress(now) {
+    if (!press || !world.melt) return;
+    const s = world.shards.find(q => q.id === world.melt.sid);
+    if (!s) return;
+    const p = s.cells.length / SHARD_MAX;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.beginPath(); ctx.arc(press.x, press.y, 26, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = p >= 1 || world.heat < 1 ? '#ff6b5a' : '#ffae55';
+    ctx.beginPath(); ctx.arc(press.x, press.y, 26, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, p)); ctx.stroke();
+    void now;
+  }
+
+  function drawHint(now) {
+    if (!hint || state !== 'playing') return;
+    const pulse = 0.5 + 0.5 * Math.sin(now / 200);
+    ctx.strokeStyle = `rgba(240, 196, 106, ${0.5 + 0.5 * pulse})`;
+    ctx.fillStyle = `rgba(240, 196, 106, ${0.5 + 0.5 * pulse})`;
+    ctx.lineWidth = 3;
+    if (hint.turn) {
+      // Chevrons running around the ring the way to turn.
+      const dir = hint.turn, t = (now / 1000) % 1;
+      for (const base of [-Math.PI / 2, Math.PI / 2]) {
+        for (let k = 0; k < 3; k++) {
+          const q = base + dir * (k * 0.22 + t * 0.22);
+          const x = W / 2 + Math.cos(q) * RING, y = H / 2 + Math.sin(q) * RING;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(q + (dir > 0 ? Math.PI / 2 : -Math.PI / 2));
+          ctx.beginPath(); ctx.moveTo(-6, -7); ctx.lineTo(4, 0); ctx.lineTo(-6, 7); ctx.stroke();
+          ctx.restore();
+        }
+      }
+    } else if (hint.melt || hint.shatter) {
+      let x = hint.x, y = hint.y;
+      if (hint.shatter) {
+        const s = world.shards.find(q => q.id === hint.shatter);
+        if (!s) return;
+        x = s.cells[0] % N + 0.5; y = ((s.cells[0] / N) | 0) + 0.5;
+      }
+      const [sx, sy] = toScreen(x, y);
+      ctx.beginPath(); ctx.arc(sx, sy, 10 + 8 * pulse, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+
+  function drawGravity() {
+    // Tilt mode: the box stays level on screen, so show which way is down.
+    const g = gravity(world);
+    const x = W / 2, y = H / 2, L = RING + 2;
+    const ex = x + g.gx * L, ey = y + g.gy * L;
+    ctx.fillStyle = 'rgba(240, 196, 106, 0.8)';
+    ctx.save();
+    ctx.translate(ex, ey);
+    ctx.rotate(Math.atan2(g.gy, g.gx));
+    ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-6, -8); ctx.lineTo(-6, 8); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // ---------- input ----------
+  // A press outside the box, or one that moves DRAG_PX, turns the box by
+  // the pointer's angle around the centre. A still press on sand melts
+  // after HOLD_DELAY_MS; a quick tap on glass shatters it.
+  let press = null;
+  const touchScreen = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  const TAP = touchScreen ? 'Tap' : 'Click', HOLD = touchScreen ? 'Hold' : 'Click and hold';
+  function toGame(evt) {
+    const r = canvas.getBoundingClientRect();
+    return [(evt.clientX - r.left) / r.width * W, (evt.clientY - r.top) / r.height * H];
+  }
+  function inBox(bx, by) { return bx >= 0 && by >= 0 && bx < N && by < N; }
+  function startTurn(p) {
+    if (motion.on) { motion.on = false; updateTiltBtn(); say('Tilt is off: drag to turn.'); }
+    p.mode = 'turn';
+    p.last = Math.atan2(p.y - H / 2, p.x - W / 2);
+    turns++;
+    touched(1);
+  }
+  canvas.addEventListener('pointerdown', evt => {
+    if (paused || state !== 'playing' || press) return;
+    const [x, y] = toGame(evt);
+    const [bx, by] = toBox(x, y);
+    press = { id: evt.pointerId, x, y, x0: evt.clientX, y0: evt.clientY, mode: 'pending', bx, by };
+    canvas.setPointerCapture(evt.pointerId);
+    if (!inBox(bx, by) || !can('melt') && !can('shatter')) { startTurn(press); return; }
+    press.timer = setTimeout(() => {
+      if (!press || press.mode !== 'pending') return;
+      const [fx, fy] = toBox(press.x, press.y);
+      const m = materialAt(world, fx, fy);
+      if (MELTS[m] && can('melt')) {
+        if (world.heat < 1) { say('No heat left.'); press.mode = 'idle'; touched(4); return; }
+        if (meltStart(world, fx, fy)) { press.mode = 'melt'; touched(2); return; }
+      }
+      if (MELTS[m] && !can('melt')) say('Melting unlocks in level 2. Drag to turn the box.');
+      press.mode = 'idle';
+      touched(4);
+    }, HOLD_DELAY_MS);
+  });
+  canvas.addEventListener('pointermove', evt => {
+    if (!press || evt.pointerId !== press.id) return;
+    const [x, y] = toGame(evt);
+    press.x = x; press.y = y;
+    if (press.mode === 'pending' || press.mode === 'idle') {
+      if (Math.hypot(evt.clientX - press.x0, evt.clientY - press.y0) > DRAG_PX) { clearTimeout(press.timer); startTurn(press); }
+    }
+    if (press.mode === 'turn') {
+      const q = Math.atan2(y - H / 2, x - W / 2);
+      let d = q - press.last;
+      if (d > Math.PI) d -= 2 * Math.PI;
+      if (d < -Math.PI) d += 2 * Math.PI;
+      press.last = q;
+      world.angT += d;
+      // The target never runs far ahead of the box, so letting go stops it.
+      world.angT = Math.max(world.ang - Math.PI / 2, Math.min(world.ang + Math.PI / 2, world.angT));
+    }
+  });
+  function endPress(evt) {
+    if (!press || evt && evt.pointerId !== press.id) return;
+    clearTimeout(press.timer);
+    if (press.mode === 'pending' && evt && evt.type === 'pointerup') {
+      const [fx, fy] = toBox(press.x, press.y);
+      tapAt(fx, fy);
+    }
+    if (press.mode === 'melt') meltStop(world);
+    press = null;
+  }
+  canvas.addEventListener('pointerup', endPress);
+  canvas.addEventListener('pointercancel', endPress);
+
+  function tapAt(fx, fy) {
+    const near = shardNear(fx, fy);
+    if (near && !can('shatter')) { say('Shattering unlocks in level 3.'); touched(4); return; }
+    if (near) {
+      const hit = world.shards.find(s => s.id === near);
+      const onBubble = touchesBubble(world, hit);
+      shatterAt(world, fx, fy);
+      touched(3);
+      if (onBubble) lastShatter = elapsed;
+      if (world.heat < 1 && can('melt') && lv().heat) warn('remake', 'No heat left: that glass can\'t be remade.');
+      return;
+    }
+    touched(4);
+    if (MELTS[materialAt(world, fx, fy)] && can('melt')) say(`${HOLD} on sand to melt it.`);
+  }
+  // The same moves for the balance bots (cell units, radians).
+  function botTurn(a) { turns++; touched(1); world.angT = a; }
+  function botMelt(fx, fy) { if (!can('melt') || !meltStart(world, fx, fy)) return false; touched(2); return true; }
+  function botRelease() { meltStop(world); }
+  function shardNear(fx, fy) {
+    for (let r = 0; r <= TAP_R; r++) for (let y = Math.floor(fy - r); y <= fy + r; y++) for (let x = Math.floor(fx - r); x <= fx + r; x++) {
+      if (x >= 0 && y >= 0 && x < N && y < N && world.sid[y * N + x]) return world.sid[y * N + x];
+    }
+    return 0;
+  }
+
+  // Keys: ← → (or A D) turn the box while held.
+  const keys = new Set();
+  window.addEventListener('keydown', evt => {
+    const k = evt.key;
+    if (!['ArrowLeft', 'ArrowRight', 'a', 'A', 'd', 'D'].includes(k)) return;
+    evt.preventDefault();
+    if (paused || state !== 'playing') return;
+    if (!keys.has(k)) {
+      keys.add(k);
+      if (motion.on) { motion.on = false; updateTiltBtn(); }
+      turns++;
+      touched(1);
+    }
+  });
+  window.addEventListener('keyup', evt => { keys.delete(evt.key); });
+  window.addEventListener('blur', () => keys.clear());
+  function keyTurn(dt) {
+    let dir = 0;
+    for (const k of keys) dir += k === 'ArrowLeft' || k === 'a' || k === 'A' ? -1 : 1;
+    if (!dir) return;
+    world.angT = world.ang + Math.sign(dir) * KEY_RATE * RAD * Math.max(dt, STEP) * 1.5;
+  }
+
+  // Phone tilt (opt in): gravity is the real one, and the box stays level
+  // on screen, like the sand toy in your hand. Gravity's direction on the
+  // screen comes from deviceorientation beta/gamma and the screen's angle.
+  const motion = { on: false, angle: 0, have: false, seen: false, moving: false, still: 0 };
+  const tiltBtn = document.getElementById('tiltBtn');
+  function onOrient(e) {
+    if (e.beta === null || e.gamma === null || e.beta === undefined) return;
+    motion.seen = true;
+    const b = e.beta * RAD, g = e.gamma * RAD;
+    const dx = Math.cos(b) * Math.sin(g), dyUp = -Math.sin(b);
+    const a = ((screen.orientation && screen.orientation.angle) || window.orientation || 0) * RAD;
+    const right = dx * Math.cos(a) - dyUp * Math.sin(a);
+    const up = dx * Math.sin(a) + dyUp * Math.cos(a);
+    if (Math.hypot(right, up) < 0.2) return;   // lying flat: keep the last direction
+    motion.angle = Math.atan2(right, -up);
+    motion.have = true;
+  }
+  function updateTiltBtn() { tiltBtn.textContent = `Tilt: ${motion.on ? 'on' : 'off'}`; }
+  const askFirst = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
+  let listening = false;
+  function listen() {
+    if (listening) return;
+    listening = true;
+    window.addEventListener('deviceorientation', onOrient);
+  }
+  if (touchScreen && typeof DeviceOrientationEvent !== 'undefined') tiltBtn.hidden = false;
+  tiltBtn.addEventListener('click', () => {
+    if (motion.on) { motion.on = false; updateTiltBtn(); return; }
+    const go = () => {
+      listen();
+      setTimeout(() => {
+        if (!motion.have) { say('No tilt sensor found here. Drag to turn instead.'); return; }
+        motion.on = true;
+        tiltUsed = true;
+        updateTiltBtn();
+        say('Tilt on: turn your phone like the toy. Drag to switch back.', 3500);
+      }, 300);
+    };
+    if (askFirst) {
+      DeviceOrientationEvent.requestPermission().then(r => {
+        if (r === 'granted') go(); else say('Tilt is off. Drag to turn instead.');
+      }).catch(() => say('Tilt is not available here. Drag to turn instead.'));
+    } else go();
+  });
+  function readMotion() {
+    if (!motion.on) return;
+    let d = motion.angle - world.ang;
+    d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI;
+    // A turn of the phone counts once it's moved 10° after being still.
+    if (Math.abs(world.angT - (world.ang + d)) > 0.003) {
+      if (!motion.moving && Math.abs(d) > 10 * RAD) { motion.moving = true; turns++; touched(1); }
+    }
+    if (Math.abs(d) < 2 * RAD) motion.moving = false;
+    world.angT = world.ang + d;
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', restart);
+  nextBtn.addEventListener('click', next);
+  document.getElementById('prevLv').addEventListener('click', () => { if (!paused && level > 0) leave('switch', level - 1); });
+  document.getElementById('nextLv').addEventListener('click', () => { if (!paused && level < reached) leave('switch', level + 1); });
+
+  // ---------- loop ----------
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.1);
+    acc += dt;
+    last = now;
+    if (!paused && state === 'playing') { keyTurn(dt); readMotion(); }
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) {
+        if (press && press.mode === 'melt') { const [fx, fy] = toBox(press.x, press.y); meltMove(world, fx, fy); }
+        step(STEP);
+      }
+      acc -= STEP;
+    }
+    hud();
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+
+  runId = Math.random().toString(36).slice(2, 10);
+  fitStage();
+  updateTiltBtn();
+  startLevel(reached);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
