@@ -106,7 +106,14 @@ function playInPage({ seed, bot, lv }) {
   const rand = (() => { let r = seed * 7919; return () => { r = r + 0x6D2B79F5 | 0; let t = Math.imul(r ^ r >>> 15, 1 | r);
     t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })();
   const trace = [];
-  const log = s => { if (bot.trace) trace.push(`  ${D.elapsed.toFixed(1)}s ${s}`); };
+  const log = s => {
+    if (!bot.trace) return;
+    trace.push(`  ${D.elapsed.toFixed(1)}s ang ${Math.round(D.world.ang / D.RAD)} ${s}`);
+    if (bot.trace > 1) { // TRACE=2: the box every decision, one character per 2x2 cells
+      const w = D.world;
+      for (let y = 0; y < N; y += 2) { let r = '    '; for (let x = 0; x < N; x += 2) { const i = y * N + x; r += w.bub[i] || w.bub[i + 1] || w.bub[i + N] || w.bub[i + N + 1] ? 'O' : '.#sgV'[w.t[i]] || '?'; } trace.push(r); }
+    }
+  };
   const W = () => D.world;
   const may = v => bot.verbs.includes(v) && D.LEVELS[D.level].verbs.includes(v);
   // Keys bots can't set a far target: the box turns at KEY_RATE toward it.
@@ -320,6 +327,6 @@ const want = (process.argv[4] && process.argv[4] !== 'all' ? process.argv[4].spl
 for (const lv of want) if (lv < 0 || lv >= ids.length) throw new Error(`unknown level; levels: ${ids.join(', ')}`);
 for (const n of names) {
   if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
-  for (const lv of want) report(n, ids[lv], await run({ ...BOTS[n], trace: !!process.env.TRACE }, lv, runs, file, browser));
+  for (const lv of want) report(n, ids[lv], await run({ ...BOTS[n], trace: +process.env.TRACE || 0 }, lv, runs, file, browser));
 }
 await browser.close();

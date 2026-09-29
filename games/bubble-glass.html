@@ -133,10 +133,11 @@
   // The box: N x N cells. Levels are drawn as MAP x MAP characters, each one
   // a CH x CH block of cells.
   const N = 48, CH = 2, MAP = N / CH;
-  const BR = 1.9;                  // bubble radius (cells): it fits a 4-cell gap, not a 2-cell slit
+  const BR = 2.2;                  // bubble radius (cells): it just fills a 4-cell gap; a 2-cell slit stops it
   const BUBBLE_V = 15;             // bubble speed through liquid (cells per s)
   const TRICKLE_D = 3;             // sand ahead of the bubble slows it to 1 / (1 + depth / TRICKLE_D) ...
   const DEEP = 10;                 // ... and this deep it's a wall
+  const TUBE_K = 4;                // sand ahead counts this much deeper in a tube the bubble fills
   const SAND_V = 45;               // falling sand (cells per s)
   const SHARD_V = 30;              // falling glass (cells per s)
   const ROT_MAX = 180;             // the box turns toward its target at most this fast (deg per s)
@@ -216,34 +217,34 @@
         '#ssssssssssssssssssssss#',
         '########################',
       ] },
-    { id: 'roof', name: 'Roof', verbs: 'turn melt', heat: 50,
+    { id: 'roof', name: 'Roof', verbs: 'turn melt', heat: 70,
       note: 'Melting is unlocked: hold on sand to fuse it into glass.',
-      hint: 'Hold on the top of the sand to melt a lid, then turn.', melt: [[11, 15]],
+      hint: 'Hold on the top of the sand to melt a lid over it.', melt: [[8,  10],  [15,  10]],
       map: [
-        '########################',
-        '########################',
-        '########################',
-        '########################',
-        '########################',
-        '########################',
         '########################',
         '###########o.###########',
         '###########..###########',
         '###########..###########',
         '###########..###########',
-        '###########........#####',
-        '###########........#####',
-        '###########..####..#####',
-        '###########..####..#####',
-        '##########sss####..#####',
-        '##########sss####..#####',
-        '##########sss####..#####',
-        '##########sss####..#####',
-        '##########sss####..#####',
-        '##########sss####..#####',
-        '##########sss####..#####',
-        '##########sss####..#####',
-        '#################VV#####',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '#######sss....sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '###########VV###########',
       ] },
   ];
 
@@ -489,6 +490,10 @@
     }
     return most;
   }
+  function liquidAt(w, x, y) {
+    x = Math.floor(x); y = Math.floor(y);
+    return x >= 0 && y >= 0 && x < N && y < N && w.t[y * N + x] === AIR;
+  }
   const flowFor = dep => dep <= 0 ? 1 : dep >= DEEP ? 0 : 1 / (1 + dep / TRICKLE_D);
 
   // Try moving the bubble by (mx, my), slowed by the sand ahead along the
@@ -509,8 +514,16 @@
     };
     if (!scan()) return false;
     if (shifted.length) {
-      // Slowed by the sand ahead along this move.
-      const len = Math.hypot(mx, my), f = flowFor(sandAhead(w, mx / len, my / len));
+      // Slowed by the sand ahead: straight up (the column it has to let
+      // past) or along this move, whichever is deeper.
+      const len = Math.hypot(mx, my);
+      let dep = Math.max(sandAhead(w, ux, uy), sandAhead(w, mx / len, my / len));
+      // Sand slips past the bubble through the liquid around it. With no
+      // liquid beside it (a tube it fills, or buried in sand) there's hardly
+      // any way past, so sand counts TUBE_K times as deep.
+      const sx = -my / len * (BR + 1), sy = mx / len * (BR + 1);
+      if (!liquidAt(w, w.bx + sx, w.by + sy) && !liquidAt(w, w.bx - sx, w.by - sy)) dep *= TUBE_K;
+      const f = flowFor(dep);
       if (f <= 0) return false;
       if (f < 1) { nx = w.bx + mx * f; ny = w.by + my * f; nf = footprint(nx, ny); if (!scan()) return false; }
     }
