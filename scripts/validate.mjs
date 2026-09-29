@@ -65,6 +65,8 @@ for (const [i, g] of games.entries()) {
     fail(`${where}: games/${g.file} does not exist`);
     continue;
   }
+  // Link preview image for the game's share page (scripts/make-og-images.mjs).
+  if (!existsSync(join(root, "assets", "og", `${g.id}.png`))) fail(`${where}: assets/og/${g.id}.png is missing (run node scripts/make-og-images.mjs ${g.id})`);
   const html = readFileSync(path, "utf8");
   checkSelfContained(g.file, html);
   checkAchievements(where, g, html);
@@ -78,6 +80,8 @@ for (const [i, g] of games.entries()) {
     fail(`${where}: games/${g.file} must handle "arcade:pause" and "arcade:resume" messages`);
   }
 }
+
+if (!existsSync(join(root, "assets", "og", "arcade.png"))) fail("assets/og/arcade.png (the gallery's link preview) is missing (run node scripts/make-og-images.mjs arcade)");
 
 // Every game file must be registered, so nothing ships without review metadata.
 for (const f of readdirSync(gamesDir)) {

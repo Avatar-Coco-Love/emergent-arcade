@@ -4,7 +4,9 @@
 - Direction and current phase: `docs/ROADMAP.md`. Check it before proposing
   new games (it currently favors revisions and playtesting over volume).
 - Static site, no build step. Public files: `index.html`, `assets/`, `games/`.
-  Only those are published to GitHub Pages (see `.github/workflows/pages.yml`).
+  Only those are published to GitHub Pages (see `.github/workflows/pages.yml`),
+  plus per-game link-preview pages `play/<id>/` generated at deploy
+  (`docs/gallery.md`, "Link previews").
 - Each game is one self-contained HTML file in `games/`, registered in
   `games/games.json`. The gallery embeds it in a sandboxed iframe; games must
   not depend on the gallery.
