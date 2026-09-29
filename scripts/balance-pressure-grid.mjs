@@ -1,14 +1,16 @@
-// Headless achievement bots for Pressure Grid (a sandbox: no win rate, so
-// this measures how long each achievement takes).
+// Headless bots for Pressure Grid: round win rate (TARGET eruptions within
+// ROUND_S seconds), and how long each achievement takes within the round.
 //
 // Usage: node scripts/balance-pressure-grid.mjs [runs=100] [bot,bot,...] [CONST=value,...]
 //   e.g. node scripts/balance-pressure-grid.mjs 100 spread,strike BLEED_RATE=0.2
 //
 // Builds a debug copy of games/pressure-grid.html (state on window, no
-// timer), then plays 120 s sessions in headless Chromium by calling tick()
-// directly. Bots act `rate` times per second; seeded randomness picks cells.
-// Prints one line per bot: share of runs that earned each achievement within
-// 120 s, and the median seconds to earn it. Also: "storm" = when a single
+// timer), then plays one round per run in headless Chromium by calling tick()
+// directly, until the round ends (the game's own clock). Bots act
+// `rate` times per second; seeded randomness picks cells. Prints one line per
+// bot: round win rate, median round time and pumps used, median eruptions,
+// then the share of runs that earned each achievement and the median seconds
+// to earn it. Also: "storm" = when a single
 // 0.2 s tick first had 100+ eruptions (the board flashing white), and whether
 // the board settles (no eruptions) within 20 s of the bot stopping.
 // Needs Playwright (installed globally in Claude Code cloud sessions).
@@ -31,7 +33,9 @@ const LIMIT_S = 120;
 // lowest-pressure cell (aims at Full Pressure). strike: pump two neighbours,
 // then siphon one into the other once that makes it erupt (Siphon Strike).
 const BOTS = {
+  spam1: { mode: 'spam', rate: 1 },
   spam3: { mode: 'spam', rate: 3 },
+  spam6: { mode: 'spam', rate: 6 },
   spread3: { mode: 'spread', rate: 3 },
   spread6: { mode: 'spread', rate: 6 },
   sweep3: { mode: 'sweep', rate: 3 },
@@ -51,8 +55,9 @@ function buildDebug(overrides) {
   html = html.replace(tail, `
   window.__dbg = {
     get pressure() { return pressure; }, get eruptions() { return eruptions; }, get siphons() { return siphons; },
+    get round() { return round; }, get pumps() { return pumps; }, get roundTicks() { return roundTicks; },
     GRID_SIZE, TICK_MS, unlocked, tick, doPump, doSiphon,
-    reset() { pressure = makeGrid(0); flash = makeGrid(0); ticks = 0; eruptions = 0; siphons = 0; unlocked.clear(); },
+    reset() { pressure = makeGrid(0); flash = makeGrid(0); ticks = 0; eruptions = 0; siphons = 0; unlocked.clear(); newRound(); },
   };
 })();`);
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pressure-')), 'debug.html');
@@ -89,7 +94,7 @@ function playInPage({ seed, bot, limit }) {
   }
 
   let acc = 0, storm = null;
-  for (let t = 0; t < limit; t += dt) {
+  for (let t = 0; t < limit && (D.round === 'ready' || D.round === 'playing'); t += dt) {
     acc += bot.rate * dt;
     while (acc >= 1) { act(); acc--; note(t); }
     const before = D.eruptions;
@@ -104,7 +109,7 @@ function playInPage({ seed, bot, limit }) {
     D.tick();
     if (t > 5 && D.eruptions === before) settled = true;
   }
-  return { when, eruptions, storm, settled };
+  return { when, eruptions, storm, settled, won: D.round === 'win', time: D.roundTicks * dt, pumps: D.pumps };
 }
 
 async function run(bot, runs, file, browser, workers = 8) {
@@ -129,7 +134,10 @@ function report(name, rs) {
   const storms = rs.filter(r => r.storm !== null).map(r => r.storm);
   const storm = storms.length ? `${Math.round(100 * storms.length / rs.length)}% @${Math.round(med(storms))}s` : '-';
   const settled = `${Math.round(100 * rs.filter(r => r.settled).length / rs.length)}%`;
-  console.log(`${name.padEnd(8)} eruptions ${med(rs.map(r => r.eruptions))} | storm ${storm} | settles ${settled} | ${cols.join(', ')}`);
+  const wins = rs.filter(r => r.won);
+  const round = `win ${Math.round(100 * wins.length / rs.length)}%` +
+    (wins.length ? ` @${Math.round(med(wins.map(r => r.time)))}s ${med(wins.map(r => r.pumps))} pumps` : '');
+  console.log(`${name.padEnd(8)} ${round} | eruptions ${med(rs.map(r => r.eruptions))} | storm ${storm} | settles ${settled} | ${cols.join(', ')}`);
 }
 
 const runs = +process.argv[2] || 100;

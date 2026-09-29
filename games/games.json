@@ -4,10 +4,15 @@
       "id": "pressure-grid",
       "title": "Pressure Grid",
       "file": "pressure-grid.html",
-      "version": 6,
+      "version": 7,
       "added": "2026-09-26",
-      "updated": "2026-09-27",
+      "updated": "2026-09-29",
       "changes": [
+        {
+          "version": 7,
+          "date": "2026-09-29",
+          "text": "Now a 60-second challenge: make 100 eruptions before the clock runs out (it starts on your first tap). Free play continues after the round; New round restarts it."
+        },
         {
           "version": 6,
           "date": "2026-09-27",
@@ -29,7 +34,7 @@
       ],
       "sharedState": "Pressure per cell: written by pump and siphon, read by siphon and by the passive bleed-and-eruption system.",
       "accent": "#ff7a3d",
-      "goal": "Sandbox, with no win condition. Chase the achievements.",
+      "goal": "Make 100 eruptions within 60 seconds. The clock starts on your first pump or siphon; after the round the board stays open for free play.",
       "howToPlay": "Pressure builds wherever you pump it and constantly bleeds into neighboring cells. When a cell reaches the limit it erupts (flashes white), empties, and blasts pressure into its neighbors, which can set off chain reactions. Siphoning lets you move pressure around before that happens, or aim an eruption where you want it.",
       "achievements": [
         {
@@ -359,10 +364,15 @@
       "id": "hourglass-delivery",
       "title": "Hourglass Delivery",
       "file": "hourglass-delivery.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-09-27",
-      "updated": "2026-09-27",
+      "updated": "2026-09-29",
       "changes": [
+        {
+          "version": 3,
+          "date": "2026-09-29",
+          "text": "No gameplay change. Round reports now say why an order failed and how the round went, for anonymous play stats."
+        },
         {
           "version": 2,
           "date": "2026-09-27",
@@ -423,10 +433,15 @@
       "id": "hot-iron",
       "title": "Hot Iron",
       "file": "hot-iron.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-09-27",
-      "updated": "2026-09-28",
+      "updated": "2026-09-29",
       "changes": [
+        {
+          "version": 3,
+          "date": "2026-09-29",
+          "text": "No gameplay change. Round reports now say why a bar was lost and how the round went, for anonymous play stats."
+        },
         {
           "version": 2,
           "date": "2026-09-28",

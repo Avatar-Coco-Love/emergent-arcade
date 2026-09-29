@@ -1,6 +1,6 @@
 # Hourglass Delivery: design notes
 
-Current: **v1**. Mechanics: **pour** (hold) and **knock** (flick), sharing
+Current: **v3**. Mechanics: **pour** (hold) and **knock** (flick), sharing
 the **sand grid** (100×150 cells, 4 px each: empty, loose, packed, wall).
 Win: 8 hourglasses cross the belt and at least 6 leave filled to their
 line. Lose: the 3rd empty glass (the round ends at once). 6 achievements
@@ -102,6 +102,29 @@ balance script so losses can be compared. A 0-achievement first round
 suggests the tester never got sand into a glass, like the pour bot on a
 blocked level.
 
+## Telemetry fields (v3)
+
+Each `arcade:result` also carries (see `docs/telemetry.md`):
+
+- `reason` on a loss (always the 3rd empty glass; it says why they were
+  empty): `idle` (never poured or knocked), `hopper` (the hopper ran dry),
+  `empty` (otherwise).
+- `stats`: `filled`, `missed`, `caught` (grains that landed in any glass),
+  `knocked_in` (of those, grains moved by a knock), `best` (most grains in
+  one glass that left), `poured`, `spilled`, `hopper` (grains left),
+  `pour_s` (seconds pouring), `knocks` (flicks that moved sand), `whiffs`
+  (flicks that hit nothing), `clear_cols` (grid columns with no ledge or peg
+  from top to belt: the pour bot only wins when there is one),
+  `first_input` (seconds to the first pour or knock, −1 if none).
+
+Both 33 s losses so far are the earliest a round can end: the 3rd glass
+arrives at 22 s and takes about 11 s to cross, so they were the first
+three glasses, all empty. A browser check pouring continuously while
+sweeping side to side emptied the hopper to 70 grains in 32 s, caught 119
+grains in total and still filled nothing (best glass 86 of 120).
+Pouring alone drains the hopper about as fast as the glasses arrive
+(60 grains/s against a 2000-grain hopper), so watch the `hopper` reason.
+
 ## Open ideas / known limits
 
 - Playtest link (private artifact, republished on each push):
@@ -121,3 +144,4 @@ blocked level.
 - v2: no gameplay change. Posts `arcade:result` when a round ends, for play
   telemetry. Bot numbers above still apply; compare humans with
   `node scripts/fetch-telemetry.mjs --game hourglass-delivery` (see `docs/telemetry.md`).
+- v3: no gameplay change. Round results add `reason` and `stats` (above).

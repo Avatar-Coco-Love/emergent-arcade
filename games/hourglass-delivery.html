@@ -192,12 +192,19 @@
   }
 
   // Tell the gallery how a round ended (anonymous play telemetry, see
-  // docs/telemetry.md). time is seconds of unpaused play this round.
+  // docs/telemetry.md). time is seconds of unpaused play this round; reason
+  // and stats say how it went (keys in docs/games/hourglass-delivery.md).
   function report(result) {
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
-        outcome: result === 'won' ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
-    }
+    if (window.parent === window) return;
+    const r1 = v => Math.round(v * 10) / 10;
+    const msg = { type: 'arcade:result', game: GAME_ID,
+      outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
+      stats: { filled, missed, caught, knocked_in: knockedIn, best, poured, spilled,
+        hopper, pour_s: r1(pourTime), knocks, whiffs, clear_cols: clearCols,
+        first_input: firstInput === null ? -1 : r1(firstInput) } };
+    // A loss is always the LOSE_AT-th empty glass; the reason says why they were empty.
+    if (result !== 'won') msg.reason = firstInput === null ? 'idle' : hopper <= 0 ? 'hopper' : 'empty';
+    window.parent.postMessage(msg, '*');
   }
 
   // Scale the works to the largest 2:3 box that fits, one canvas pixel per
@@ -240,6 +247,7 @@
   let ledges, glasses, nextGlass, hopper, poured, spilled, pourAcc, pouring, spoutX;
   let knockCool, knockSerial, knocks, filled, missed, elapsed, state, msgTimer, packedCount;
   let lastKnock, lowSandSaid;
+  let caught, knockedIn, best, pourTime, whiffs, clearCols, firstInput; // telemetry only
   const roundEarned = new Set();
   const puffs = [];
 
@@ -292,6 +300,15 @@
     hopper = HOPPER; poured = 0; spilled = 0; pourAcc = 0; pouring = false; spoutX = W / 2;
     knockCool = 0; knockSerial = 0; knocks = 0; filled = 0; missed = 0; elapsed = 0;
     packedCount = 0; lastKnock = null; lowSandSaid = false;
+    caught = 0; knockedIn = 0; best = 0; pourTime = 0; whiffs = 0; firstInput = null;
+    // Columns with no ledge or peg from the top to the belt: pouring alone can
+    // only fill glasses down these (the pour bot wins only when there is one).
+    clearCols = 0;
+    for (let cx = 0; cx < GW; cx++) {
+      let clear = true;
+      for (let cy = 0; cy < BELT_ROW && clear; cy++) if (grid[idx(cx, cy)] === WALL) clear = false;
+      if (clear) clearCols++;
+    }
     puffs.length = 0;
     roundEarned.clear();
     state = 'playing';
@@ -335,7 +352,9 @@
       if (g.gone || Math.abs(x - g.x) > MOUTH_HW) continue;
       if (g.n >= CAP) { g.over = true; spilled++; return true; }
       g.n++;
+      caught++;
       if (t) {
+        knockedIn++;
         const c = (g.tags.get(t) || 0) + 1;
         g.tags.set(t, c);
         if (c >= SLIDE_N) unlock('one-knock');
@@ -446,6 +465,8 @@
 
   function pour(dt) {
     if (!pouring || hopper <= 0) { pourAcc = 0; return; }
+    if (firstInput === null) firstInput = elapsed;
+    pourTime += dt;
     pourAcc += POUR_RATE * dt;
     const c = Math.floor(spoutX / CELL);
     while (pourAcc >= 1 && hopper > 0) {
@@ -480,6 +501,8 @@
       }
     }
     lastKnock = { x, y, dx, dy, t: 0, hit: n > 0 };
+    if (firstInput === null) firstInput = elapsed;
+    if (!n) whiffs++;
     if (n) { knockSerial = serial; knockCool = KNOCK_COOL; knocks++; }
     return n;
   }
@@ -498,6 +521,7 @@
       if (g.gone) { g.fade += dt; continue; }
       if (g.x - MOUTH_HW > W) {
         g.gone = true;
+        best = Math.max(best, g.n);
         if (g.n >= LINE) {
           filled++;
           unlock('first-delivery');

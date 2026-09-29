@@ -1,6 +1,6 @@
 # Hot Iron: design notes
 
-Current: **v2** (playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz). Mechanics: **heat** (hold) and
+Current: **v3** (playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz). Mechanics: **heat** (hold) and
 **strike** (tap), sharing **temperature and thickness per bar segment**
 (16 segments, thickness starts at 1). Win: every segment within `TOL` of the
 dashed target. Lose: 3 cracks, or fuel gone with nothing left in the working
@@ -196,6 +196,25 @@ It may be the first tester on another device (a new browser ID can't tell).
 Three achievements in one first round supports "harden the achievements,
 not the round".
 
+## Telemetry fields (v3)
+
+Each `arcade:result` also carries (see `docs/telemetry.md`):
+
+- `reason` on a loss: `cracks` (the 3rd crack) or `fuel` (fuel gone and
+  nothing hot enough to strike).
+- `stats`: `profile` (0 Double taper, 1 Leaf blade, 2 Waisted bar,
+  3 Chisel), `off` (segments off the line), `err` (mean |thickness −
+  target| × 100), `strikes`, `cracks`, `clangs` (taps on black iron),
+  `stuck` (strikes with both neighbours cold, nothing moved), `heat_s`
+  (seconds holding heat), `fuel` (seconds left), `burned` (% of the bar's
+  metal burned away), `thin` (segments burned to the minimum),
+  `first_input` (seconds to the first heat or strike, −1 if none).
+
+`node scripts/fetch-telemetry.mjs --game hot-iron` prints losses by reason
+and the median of each stat for wins and for losses. The Reset button
+starts a new bar without posting a result, so abandoned bars only show up
+as session time.
+
 ## Open ideas / known limits
 
 - v2 is tuned to the novice bots, which model just two mistakes. Next
@@ -220,3 +239,4 @@ not the round".
 - v2: black iron bounces instead of cracking; flow-preview arrows; fuel
   45 → 60 s, burn rate 0.6 → 0.2, Thrifty at 40%. From the first playtest
   (two rounds lost to cracks in 13–15 s).
+- v3: no gameplay change. Round results add `reason` and `stats` (above).

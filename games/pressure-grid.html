@@ -66,7 +66,7 @@
     <canvas id="board" aria-label="Pressure Grid board. Tap a cell to pump, drag to siphon."></canvas>
   </div>
   <div class="controls">
-    <button id="resetBtn">Reset</button>
+    <button id="resetBtn">New round</button>
     <span class="stat" id="stat"></span>
   </div>
 
@@ -83,6 +83,8 @@
   const SIPHON_FRACTION = 0.6;   // fraction of source cell's pressure moved
   const SIPHON_EFFICIENCY = 0.85; // fraction of siphoned amount that survives the transfer
   const DRAG_THRESHOLD_PX = 12;   // movement needed before a tap becomes a drag
+  const ROUND_S = 60;             // a round: reach TARGET eruptions within this many seconds
+  const TARGET = 100;
 
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
@@ -114,6 +116,13 @@
   let ticks = 0;
   let eruptions = 0;
   let siphons = 0;
+  // Round: the clock starts at the first pump or siphon. After it ends the
+  // board stays playable (free play) until New round.
+  let round, roundTicks, pumps, siphonHits, maxChain;
+  function newRound() {
+    round = 'ready'; roundTicks = 0; pumps = 0; siphonHits = 0; maxChain = 0;
+  }
+  newRound();
 
   // drag tracking
   let pointerDown = false;
@@ -186,9 +195,15 @@
       }
     }
 
-    resolveEruptions();
+    const n = resolveEruptions();
     if (pressure.every(row => row.every(p => p >= 20))) unlock('full-pressure');
     ticks++;
+    if (round === 'playing') {
+      roundTicks++;
+      maxChain = Math.max(maxChain, n);
+      if (eruptions >= TARGET) endRound('win');
+      else if (roundTicks * TICK_MS >= ROUND_S * 1000) endRound('loss');
+    }
     draw();
   }
 
@@ -219,6 +234,37 @@
     return count;
   }
 
+  function startRound() {
+    if (round !== 'ready') return;
+    round = 'playing';
+    // Earlier free-play eruptions don't count toward this round.
+    eruptions = 0; siphons = 0;
+  }
+
+  function endRound(outcome) {
+    round = outcome;
+    // Tell the gallery how the round ended (anonymous play telemetry, see
+    // docs/telemetry.md). time is seconds of unpaused play since the first
+    // input; stats keys are in docs/games/pressure-grid.md.
+    if (window.parent !== window) {
+      const total = pressure.reduce((a, row) => a + row.reduce((b, p) => b + p, 0), 0);
+      const msg = { type: 'arcade:result', game: GAME_ID, outcome,
+        time: Math.round(roundTicks * TICK_MS / 100) / 10,
+        stats: { eruptions, pumps, siphons, siphon_hits: siphonHits, max_chain: maxChain,
+          pressure: Math.round(total) } };
+      if (outcome === 'loss') msg.reason = 'time';
+      window.parent.postMessage(msg, '*');
+    }
+  }
+
+  function statusText() {
+    if (round === 'ready') return `Make ${TARGET} eruptions in ${ROUND_S} s. The clock starts when you do.`;
+    const secs = Math.round(roundTicks * TICK_MS / 1000);
+    if (round === 'playing') return `${ROUND_S - secs} s left · eruptions: ${eruptions}/${TARGET} · siphons: ${siphons}`;
+    const head = round === 'win' ? `Won in ${secs} s!` : `Time's up at ${eruptions}/${TARGET} eruptions.`;
+    return `${head} Free play: eruptions ${eruptions} · siphons ${siphons}`;
+  }
+
   function draw() {
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
@@ -242,7 +288,7 @@
       ctx.stroke();
     }
 
-    statEl.textContent = `ticks: ${ticks} · eruptions: ${eruptions} · siphons: ${siphons}`;
+    statEl.textContent = statusText();
   }
 
   function cellFromClientXY(clientX, clientY) {
@@ -265,6 +311,8 @@
   function doPump(cell) {
     const [x, y] = cell;
     if (!inBounds(x, y)) return;
+    startRound();
+    if (round === 'playing') pumps++;
     pressure[y][x] += CLICK_ADD;
   }
 
@@ -275,11 +323,16 @@
     if (!inBounds(x, y) || !inBounds(tx, ty)) return;
     const amount = pressure[y][x] * SIPHON_FRACTION;
     if (amount <= 0.01) return;
+    startRound();
     pressure[y][x] -= amount;
     pressure[ty][tx] += amount * SIPHON_EFFICIENCY;
     siphons++;
     if (siphons >= 25) unlock('plumber');
-    if (resolveEruptions() > 0) unlock('siphon-strike');
+    const n = resolveEruptions();
+    if (n > 0) {
+      unlock('siphon-strike');
+      if (round === 'playing') { siphonHits++; maxChain = Math.max(maxChain, n); }
+    }
   }
 
   function onPointerDown(evt) {
@@ -339,6 +392,7 @@
     ticks = 0;
     eruptions = 0;
     siphons = 0;
+    newRound();
     draw();
   });
 
