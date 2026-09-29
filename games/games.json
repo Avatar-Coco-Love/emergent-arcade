@@ -710,6 +710,56 @@
           "text": "First version."
         }
       ]
+    },
+    {
+      "id": "terrace-garden",
+      "title": "Terrace Garden",
+      "file": "terrace-garden.html",
+      "version": 1,
+      "added": "2026-09-29",
+      "updated": "2026-09-29",
+      "blurb": "Tilt a terraced hillside to slosh water where each plant wants it, and open the gates to let it down the slope.",
+      "goal": "Make every plant bloom in three gardens in a row, before the spring's water runs out. Each plant needs its own depth of water. Water that spills off the bottom terrace, leaks away or is drunk never comes back.",
+      "howToPlay": "{Tap} the spring's valve at the top to let water out, and {tap} a gate at the end of a terrace to open or close it: an open gate lets water down to the terrace below. Tilt to slosh all the water at once: toward the gates to send it down, away to hold it back, or to pile it up at one end. On a phone, tilt the phone (however you hold it when a garden starts counts as level), or {slide} the bar under the hillside if tilt is off. Each plant has a stake with a green band: it grows while the water over it is inside the band, and drinks as it grows. Too shallow and it waits, too deep and it bubbles. An open gate still keeps a shallow puddle behind it, which only a tilt will bring down. There's no clock: take your time. Spring water left over when a garden blooms carries on to the next one.",
+      "keyboard": "← → or A / D to tilt",
+      "mechanics": [
+        {
+          "name": "tilt",
+          "verb": "tilt",
+          "description": "Tilt the hillside to slosh every terrace's water left or right at once. Let go and it levels out, and the water spreads back."
+        },
+        {
+          "name": "gate",
+          "verb": "tap",
+          "description": "{Tap} a gate (or the spring's valve) to open or close it. An open gate pours the water above its sill onto the terrace below."
+        }
+      ],
+      "sharedState": "The water depth in every column of the hillside. Tilting moves it along each terrace, gates move it between terraces (faster when tilted toward them), and each plant reads the depth over its roots and drinks from it.",
+      "accent": "#5fb8d8",
+      "achievements": [
+        {
+          "id": "no-spill",
+          "title": "No Spill",
+          "description": "Make a garden bloom without spilling a drop off the bottom terrace."
+        },
+        {
+          "id": "full-bloom",
+          "title": "Full Bloom",
+          "description": "Make all three gardens bloom in one run."
+        },
+        {
+          "id": "gatekeeper",
+          "title": "Gatekeeper",
+          "description": "Make a garden bloom without opening any gate (or the spring) twice."
+        }
+      ],
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-09-29",
+          "text": "First version."
+        }
+      ]
     }
   ]
 }

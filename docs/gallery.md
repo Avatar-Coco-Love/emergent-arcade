@@ -93,6 +93,12 @@ logs a `share` row with `from: "gallery"`.
   a sticky Play button, then how it works, What's new (`changes`: newest 3,
   "Show all N versions" for the rest; every game lists v1 onward), version
   and dates, how it's built, share and download.
+- The game iframe is `sandbox="allow-scripts"` plus
+  `allow="accelerometer; gyroscope"`, so a game can read phone tilt (Terrace
+  Garden). Chrome on Android blocks motion sensors in a cross-origin frame
+  without it. iOS asks through `DeviceOrientationEvent.requestPermission`,
+  which may be refused inside the sandbox, so a game that uses tilt needs a
+  touch fallback (Terrace Garden's tilt bar).
 - Loading: an overlay fades in after 0.35 s. The iframe's `load` fires even
   for errors, so a `HEAD` request decides the error state (with Retry); 15 s
   without a load shows "Still loading…" with Retry.
