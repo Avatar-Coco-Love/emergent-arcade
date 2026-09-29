@@ -1,8 +1,9 @@
 # Terrace Garden: design notes
 
-Current: **v1** (playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV). Mechanics: **tilt** (phone
+Current: **v2** (playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV). Mechanics: **tilt** (phone
 tilt, tilt bar, or ← → / A D) and **gate** (tap), sharing the **water depth
-in every column** of a stepped hillside. A run is three gardens. Win a
+in every column** of a stepped hillside. A run is a warm-up and three
+gardens. Win a
 garden: every plant blooms. Lose it: the water that can still reach the
 plants can't make them bloom (spilled off the bottom, leaked, drunk, or
 stranded below them), or the player restarts it. No clock. A lost garden is
@@ -43,6 +44,57 @@ Built against `docs/findings.md`:
 - **One round shows everything.** Each garden adds something: garden 2 a
   fifth terrace and the crack, garden 3 the cactus and a terrace whose two
   plants pull the tilt opposite ways.
+
+## v2: why and what (2026-09-29)
+
+v1 telemetry (4 players, 5 rounds, garden 1 only): 1 win in 5 tries, 0 of
+4 on the first try, 4 of 6 sessions left mid-round (median 46 s in). Every
+loss looked the same: `drunk` ≈ 56 (2 of 4 bloomed), `left` 0, `spilled`
+0, ~14 gate taps, 0–6 s of tilt. The PC player never tilted (the mouse
+couldn't). The one winner tilted 0.8 s on try 1 and 73 s on try 2.
+
+New bot `masher-0` plays that habit: the spring runs while any plant looks
+dry, and a gate opens while a plant below it looks dry, unless one right
+above does. It reproduces the loss exactly (2 bloomed, spring 0, spill 0,
+6 taps). The spring's pulsing valve gets opened first and empties the 300
+in ~17 s. By 39 s the hillside is frozen for good. 60 sits behind terrace
+0's open sill, terrace 1's 111 is 9 px deep under a plant wanting 14–28,
+and 55 sits behind terrace 2's sill above the dry bottom plant. There's
+plenty of water; only a tilt moves it. `hopeless()` rightly calls it
+winnable, so the game never ended or said why. `masher` (tilting on 10% of
+its decisions) wins but takes 121 s with 0 left, like the human win.
+
+v2 adds (maintainer picked 1 + 2 of 3 options; a slower spring was left
+out, since water wasn't short):
+
+- **Warm-up garden** (level 1 in telemetry, like Ant Trails' day 1): 2
+  terraces (floors at y 300 and 470), 130 water already on the top one, no
+  spring. Plant `0:1 16–34` needs a left tilt (level gives 10.8 px; any
+  left tilt past ~0.3 fits, full left gives ~32). The gate stays locked
+  (dim, a tap says "First tilt ◀...") until that plant blooms, then
+  pulses. Plant `1:9 8–26` below needs the gate plus a right tilt to bring
+  the 60 behind the sill down. No spring, so nothing carries into garden
+  1. No Spill and Gatekeeper don't count it. The reader finishes it in 18 s.
+- **Stuck hint** (`watchStall`/`findHint`): after `STALL_T` 3 s (1.5 s in
+  the warm-up) with no gate flowing, no slosh (every |flow| ≤ 3) and no
+  plant growing, it points at a move for the topmost thirsty plant (else
+  the cactus). Too deep: its own gate if shut and the terrace's average
+  depth is over the band, else tilt away. Too dry with enough water on its
+  terrace (`minStand` + 5): close its gate if the plant is on the gate
+  side and the gate is open, else tilt toward the plant. Otherwise the
+  nearest terrace above with 8+ water: its first shut gate on the way
+  down, else tilt ▶. Otherwise the spring or a shut gate below it, or
+  "Restart" if the spring is empty. Shown as gold chevrons over the
+  terrace (plus a pulsing tilt bar), a pulsing ring on the gate, or a
+  pulsing Restart button, with a line of text that names the input
+  ("hold ← → or drag the bar", "slide the bar", "tip your phone").
+  Water spilling off the bottom while tilted right warns at once ("Ease
+  off ▶"): a hint-follower that held full tilt spilled 307 without it.
+- **Tilt bar on PC too** (the mouse drags it), with ◀ ▶ at its ends, and
+  a **white tick on each plant's stake** at the current depth, so "too
+  shallow" shows against the green band. The Spring readout hides in the
+  warm-up.
+- Telemetry: new stat `hints` (hints shown in the round).
 
 ## How it works
 
@@ -92,6 +144,7 @@ Built against `docs/findings.md`:
 
 | # | Name | Terraces | Tank | Plants `[t, col, lo–hi]` | Twist |
 |---|---|---|---|---|---|
+| 0 | Warm-up | 2 | 0 (130 pre-placed) | 0:1 16–34, 1:9 8–26 | gate locked until the first bloom |
 | 1 | First steps | 4 | 300 | 0:5 6–18, 1:2 14–28, 2:8 3–10, 3:4 6–16 | – |
 | 2 | The cracked terrace | 5 | 440 | 0:3 8–20, 1:1 18–32 + 1:9 2–7, 2:6 10–22, 3:8 4–12, 4:2 10–20 | terrace 2 leaks |
 | 3 | The dry corner | 5 | 400 | 0:8 6–14, 1:2 12–26 + 1:9 cactus, 2:5 16–30, 3:1 3–8 + 3:9 12–24, 4:6 8–18 | cactus |
@@ -110,50 +163,62 @@ into garden 3).
 | GROW_T / DRINK | 7 s / 4 per s | DRY_MAX / DRY_T / ROT_T | 1.5 px / 5 s / 1.5 s |
 | LEAK | 0.04 per s | MOTION_FULL / MOTION_DEAD | 20° / 3° |
 | GATE_R | 30 px | STEP / SUB | 1/60 s / 4 |
+| STALL_T | 3 s (warm-up 1.5) | | |
 
 ## Layout (400×600)
 
 Spring tank top-left (a gauge of what's left) with its valve over column 0.
 Terraces are planter shelves on a dark hill. Each gate is a valve drawn
 above the terrace's right end (tap target radius 30). A tilt gauge sits at
-the top centre. Under the canvas: the tilt bar (touch without motion),
-then Garden n/3, Bloomed, Spring, Enable tilt (iOS) and Restart garden.
+the top centre, the message line under it. Under the canvas: the tilt bar
+(everywhere but phones with working motion), then Garden (warm-up or
+n/3), Bloomed, Spring (not in the warm-up), Enable tilt (iOS) and Restart
+garden.
 
-## Balance (v1, `node scripts/balance-terrace-garden.mjs 100`)
+## Balance (v2, `node scripts/balance-terrace-garden.mjs 100`)
 
 Each seed plays one run, with up to 3 tries per garden. Per garden:
 first-try win % / any-try win %, median seconds for wins, median spilled,
-median spring water left at a win.
+median spring water left at a win. The last column is the first try in
+telemetry terms (compare `fetch-telemetry`'s medians).
 
-| Bot | Run | Garden 1 | Garden 2 | Garden 3 |
-|---|---|---|---|---|
-| reader | 100% | 100/100 55 s, sp 0, left 102 | 100/100 90 s, leak 139, left 152 | 100/100 66 s, sp 12, left 229 |
-| reader 0.5× / 2× | 100% / 100% | 100 | 100 (leak 159 / 131) | 100 |
-| slow-hands (0.7 s react) | 100% | 100/100 61 s | 100/100 99 s | 100/100 71 s |
-| keys (full tilt or level only) | 45% | 100/100 52 s, sp 8 | 95/95 | 41/47, sp 77, left 0 |
-| novice (rush, then reader) | 100% | 100/100 51 s, sp 15, left 78 | 100/100 | 100/100 |
-| thrifty (Gatekeeper plan) | 100% | 100/100 42 s, left 25 | 100/100 53 s | 100/100 57 s |
-| no-tilt / flood / idle | 0% | 0 | – | – |
+| Bot | Run | Warm-up | Garden 1 | Garden 2 | Garden 3 | Garden 1, try 1 |
+|---|---|---|---|---|---|---|
+| reader | 100% | 100 18 s | 100/100 55 s, left 103 | 100/100 87 s, leak 135 | 100/100 66 s, sp 11 | 15 taps, 36 s tilt |
+| reader 0.5× / 2× | 100% | 100 | 100 | 100 | 100 | |
+| slow-hands | 100% | 100 20 s | 100 60 s | 100 99 s | 100 70 s | |
+| keys | 56% | 100 17 s | 100/100 53 s | 98/98 | 41/57, sp 100 | |
+| novice | 100% | 100 22 s | 100/100 55 s | 100/100 | 100/100 | |
+| thrifty | 100% | 100 19 s | 100/100 43 s, left 25 | 100/100 53 s | 100/100 57 s | |
+| **hinted** (masher that obeys hints at full tilt) | 0% | 100 23 s | **83/99 52 s**, sp 96, left 0 | 0 (leak 468) | – | 10 taps, 12 s tilt, 3 hints |
+| **hinted-.5** (same, half tilt) | 0% | 100 23 s | **100/100 51 s**, left 0 | 0 (leak 275) | – | |
+| masher (tilts on 10% of decisions) | 0% | 91 191 s | 97/97 117 s, left 0 | 0/2 | – | 12 taps, 12 s tilt |
+| learner (masher on try 1, reader after) | 83% | 91 | 97 | 0/100 | 20/94 | |
+| masher-0 / no-tilt / flood / idle | 0% | 0 (stuck) | – | – | – | |
 
-Achievements: No Spill reader 94%, novice 61%, keys 17%. Full Bloom =
-run %. Gatekeeper: only the planned `thrifty` bot earns it (100%, with 150
-of standing-water slack; with 100 it runs dry in gardens 2–3).
+v1 for comparison: masher-0 garden 1 0% (stuck from 39 s, 2 bloomed, left
+0), hinted-style play 0%, reader 100% 54 s. The skilled bots' numbers for
+gardens 1–3 didn't move.
 
-What decides a garden: reading depths and tilting to fit them (`no-tilt`
-0%), then not wasting water (spills, puddles left behind sills). Speed
-barely matters. The planned cascade (spring once, each gate once) is faster
-than reacting, which makes Gatekeeper a planning challenge.
+Achievements: No Spill reader 89%, novice 88%, keys 14%. Full Bloom = run
+%. Gatekeeper: `thrifty` 100%.
+
+What decides a garden: reading depths and tilting to fit them, then not
+wasting water. Players who only tilt when told (`hinted`) now get through
+the warm-up and garden 1, then lose garden 2 to the crack: their gate
+habit parks everything on the leaky terrace. That's the garden's twist,
+so it stays. A player who reads depths after one loss (`learner`) wins
+it on a retry.
 
 Harness: `TRACE=1` prints the first run's state every 5 s (tilt, gates,
 water per terrace, each plant's depth/band/growth). The reader predicts
 where water settles for each tilt and gate state (`settle()`) and picks
-the best. That was needed: "tilt toward the plant" backfires with little
-water, and tilting left to deepen one terrace holds the terrace above
-away from its open gate.
+the best. The debug build exposes the game's `hint` for the `hinted`
+bots.
 
 ## Telemetry
 
-One `arcade:result` per garden, with `level` (1–3), `run`, `attempt`,
+One `arcade:result` per garden, with `level` (v2: 1 = warm-up, 2–4 = gardens 1–3; v1: 1–3), `run`, `attempt`,
 `reason` for a loss (`dry` = the water that can reach the plants can't
 finish them; `restart` = Restart garden after the first input), `tilt`
 (`motion`, `bar` or `keys`: the input used for most of the tilting, or the
@@ -165,9 +230,21 @@ device's default if the player never tilted) and `stats`:
 | `drunk` | water the plants drank | `left` | spring water left |
 | `start` | spring water at the start (incl. carry) | `gate_taps` | gate/valve taps |
 | `tilt_s` | seconds tilted (any input) | `bloomed` / `plants` | plants in bloom / total |
-| `first_input` | seconds to the first tap or tilt (−1 if none) | | |
+| `first_input` | seconds to the first tap or tilt (−1 if none) | `hints` | stuck hints shown (v2) |
 
 ## Open ideas
+
+- **Did v2 fix the first minute?** Watch v2 telemetry: warm-up win rate and
+  time (bots 18–23 s), garden 1 (level 2) first-try wins, `tilt_s` (v1
+  median 6 s), `hints`, and mid-round quits. If players still quit in the
+  warm-up with `hints` > 0, the hint isn't read: make the chevrons bigger
+  or put them on the bar itself.
+- **Garden 2 is the next wall** for hint-followers (0%, all to the crack).
+  If telemetry shows it, show the crack's loss rate (drips already), or
+  have the hint point at the crack's gate when most water sits on it.
+- The spring still empties in ~17 s if left open. Slowing it
+  (`SPRING_RATE` 18 → ~10) was the third option, held back because water
+  wasn't short. Revisit if `left` stays 0 at garden 1 wins.
 
 - **PC keys are the weak spot in garden 3** (`keys` bot 47%): full tilt
   only, so terrace 4's two plants (3–8 at the left, 12–24 at the right) and
@@ -175,18 +252,18 @@ device's default if the player never tilted) and `stats`:
   bot doesn't model. A slower ramp (`TILT_RATE` 1.2) and more water didn't
   help the bot. Watch `tilt: keys` results. If PC players lose garden 3,
   try Shift for half tilt or a gentler lip.
-- Real phone tilt is untested. The private playtest page may block motion
-  sensors, so the first playtest uses the tilt bar. After merging, check on
-  the live site on Android: that tilt works in the cabinet (the iframe's
-  `allow` attribute), that "level" feels right held upright, and whether
-  20° for full tilt is too much or too little.
-- Bots are likely optimistic (findings: humans lost 4 of 5 games the bots
-  win 70–89%). The spare water in garden 1 (~25% for a reader) is the first
-  number to check against telemetry (`left`, `spilled`, `reason`).
-- A stuck garden (water stranded below every thirsty plant but the checks
-  still pass) needs the player to press Restart. If telemetry shows long
-  rounds ending in `restart`, tighten `hopeless()` (e.g. count only water
-  above the sills as reachable).
+- Phone tilt: one v1 round reported `tilt: motion` (6 s tilted), so motion
+  events do reach the playtest page on at least one phone. That player
+  restarted after 10 s and used the bar afterwards. Still to check on the
+  live site: that "level" feels right held upright, and whether 20° for
+  full tilt is too much.
+- Bots were optimistic (v1: reader/novice 100%, humans 0/4 first tries).
+  The v1 `novice` already knew tilt was the verb. `masher-0` is the one
+  that matched the humans. Keep comparing its line with each new batch
+  of telemetry.
+- A stuck garden now shows a hint (and "Restart" when nothing can reach the
+  plants). If telemetry still shows long rounds ending in `restart`,
+  tighten `hopeless()` (count only water above the sills as reachable).
 - Plants are small on a phone (a 21 px column). If players misread the
   bands, make the stakes wider or show the target band as a tick on the
   terrace wall.
