@@ -186,5 +186,27 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom };
+  function terraceGarden() {
+    let body = `<rect width="72" height="72" fill="#16262b"/>`;
+    // Three terraces stepping down to the right, water pooled on each.
+    [[6, 24, 7], [16, 44, 5], [26, 64, 8]].forEach(([x, y, d]) => {
+      body += `<rect x="${x}" y="${y - d}" width="40" height="${d}" fill="#46a0cd"/>`;
+      body += `<rect x="${x - 2}" y="${y}" width="44" height="4" fill="#6b5238"/>`;
+      body += `<rect x="${x - 2}" y="${y - 11}" width="2" height="11" fill="#4d3b29"/>`;
+    });
+    // An open gate pouring onto the terrace below.
+    body += `<path d="M 47 24 Q 52 24 53 38" stroke="#6ebee1" stroke-width="2.5" fill="none"/>`;
+    body += `<circle cx="47" cy="12" r="3.5" fill="#5fb8d8" stroke="#e9f2ee" stroke-width="1"/>`;
+    // A plant in bloom on the bottom terrace, one growing above it.
+    body += `<path d="M 36 64 V 50" stroke="#7fd86a" stroke-width="2"/>`;
+    for (let k = 0; k < 6; k++) {
+      const a = k * Math.PI / 3;
+      body += `<circle cx="${(36 + Math.cos(a) * 3.5).toFixed(1)}" cy="${(48 + Math.sin(a) * 3.5).toFixed(1)}" r="2.2" fill="#ffd27a"/>`;
+    }
+    body += `<circle cx="36" cy="48" r="1.8" fill="#c0703a"/>`;
+    body += `<path d="M 28 44 V 35" stroke="#6ccf6a" stroke-width="2"/><circle cx="28" cy="34" r="2.5" fill="#3f6b3a"/>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden };
 })();

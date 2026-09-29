@@ -190,3 +190,20 @@ a physics game, ask what the player can choose that changes the
 *equilibrium* (which knots, how far), since a relaxing system forgets how
 you got there. Keep every warning-to-failure delay above reaction time.
 *Evidence: bots (`docs/games/loom.md`). Provisional.*
+
+## One global verb against many local states makes the order matter
+
+Terrace Garden v1: tilt moves the water on every terrace at once, and a
+tap opens one gate. A bot that tilted toward the plant it was feeding
+starved it, because the same left tilt held the terrace above away from
+its open gate, so nothing came down. Winning bots first tilt toward the
+gates to bring water down, then shape it. With little water, "tilt toward
+the plant" also backfires (the water piles against the wall, short of the
+plant), so the bot has to predict where the water settles. Gates alone win
+0%: an open gate leaves a puddle below its sill that only a tilt drains.
+Check: when one verb acts on everything, look for a moment where the
+global move helps one place and hurts another. That conflict is where the
+decisions are. Also test a bot that can only use the verb at full strength
+(PC keys: `keys` 47% vs analog 100% in garden 3), since a global verb
+needs fine control. *Evidence: bots (`docs/games/terrace-garden.md`).
+Provisional: not playtested.*

@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Terrace Garden</title>
+<style>
+  :root {
+    --bg: #10181a;
+    --panel: #1c292b;
+    --text: #e9f2ee;
+    --muted: #93a8a2;
+    --accent: #5fb8d8;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the hillside scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #hill {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    border-radius: 10px;
+    background: #16262b;
+  }
+  #msg {
+    position: absolute;
+    top: 2%;
+    left: 34%;
+    right: 8px;
+    margin: 0;
+    text-align: right;
+    font-size: 0.85rem;
+    color: #eef6f2;
+    text-shadow: 0 1px 3px #000;
+    pointer-events: none;
+  }
+  #endCard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(86%, 300px);
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(28, 41, 43, 0.95);
+    border: 1px solid #36504f;
+    text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #endCard h2.won { color: #ffd27a; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #cfdcd7; font-size: 0.9rem; }
+  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
+  #playAgain:disabled { opacity: 0.4; }
+  .bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bar b { color: var(--text); }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #36504f;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+  button[hidden], #tiltBar[hidden] { display: none; }
+  /* Tilt bar: only on touch screens without a working motion sensor. */
+  #tiltBar {
+    flex: none;
+    position: relative;
+    height: 34px;
+    margin: 0 8%;
+    border-radius: 17px;
+    background: var(--panel);
+    border: 1px solid #36504f;
+    touch-action: none;
+  }
+  #tiltBar::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    margin-left: -1px;
+    background: #36504f;
+  }
+  #tiltThumb {
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    width: 44px;
+    height: 26px;
+    margin-left: -22px;
+    border-radius: 13px;
+    background: var(--accent);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <div id="field">
+    <div id="stage">
+      <canvas id="hill" aria-label="Terrace Garden. Tilt to slosh the water, tap a gate to open or close it."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="playAgain">Next garden</button>
+      </div>
+    </div>
+  </div>
+  <div id="tiltBar" hidden aria-label="Tilt"><div id="tiltThumb"></div></div>
+  <div class="bar">
+    <span>Garden <b id="hudGarden"></b></span>
+    <span>Bloomed <b id="hudBloom"></b></span>
+    <span>Spring <b id="hudSpring"></b></span>
+    <button id="motionBtn" hidden>Enable tilt</button>
+    <button id="resetBtn">Restart garden</button>
+  </div>
+<script>
+(function() {
+  const GAME_ID = 'terrace-garden';
+  const W = 400, H = 600;
+  const NC = 12, CW = 21;          // water columns per terrace, column width (px)
+  const TW = NC * CW;              // terrace width (px)
+  const TOP_Y = 180, BOT_Y = 560;  // floors of the top and bottom terraces
+  // Depths are in px of water: 1 unit of water = 1 px deep over one column.
+  const BACK = 64;                 // uphill wall of each terrace
+  const WALL = 40;                 // a closed gate holds water up to here ...
+  const SILL = 5;                  // ... an open one lets it out down to here
+  const LIP = 30;                  // the bottom terrace's edge: above it, water spills off
+  const SLOPE = 5.5;               // surface slope at full tilt (px per column)
+  const PIPE = 160;                // how hard a level difference pushes water (1/s²)
+  const FRICT = 3;                 // how fast sloshing dies down (1/s)
+  const GATE_K = 5;                // outflow per s per px of water over the sill (or lip)
+  const SPRING_RATE = 18;          // water per s from the open spring
+  const TILT_RATE = 2.5;           // tilt eases toward its target at this rate (per s)
+  const GROW_T = 7;                // s in its band for a plant to bloom ...
+  const DRINK = 4;                 // ... drinking this much water per s meanwhile
+  const DRY_MAX = 1.5;             // the dry plant counts as dry below this depth ...
+  const DRY_T = 5;                 // ... blooms after this long dry ...
+  const ROT_T = 1.5;               // ... and wilts back to nothing after this long wet
+  const LEAK = 0.04;               // share of its water the cracked terrace loses per s
+  const MOTION_FULL = 20;          // degrees of phone tilt for full tilt
+  const MOTION_DEAD = 3;           // degrees ignored around level
+  const GATE_R = 30;               // reach of a tap to the nearest gate (px)
+  const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win/loss
+  const STEP = 1 / 60, SUB = 4;
+  const VIS = Math.atan(SLOPE / CW); // the drawing leans this far at full tilt, so water looks level
+
+  // The run: three gardens. Each plant is [terrace, column, lo, hi] (the
+  // depth it grows in); dry: true wants no water at all. Spring water left in
+  // the tank at a win carries on to the next garden.
+  const GARDENS = [
+    { name: 'First steps', note: 'Water each plant to its green mark.', tank: 300, n: 4, leak: -1,
+      plants: [[0, 5, 6, 18], [1, 2, 14, 28], [2, 8, 3, 10], [3, 4, 6, 16]] },
+    { name: 'The cracked terrace', note: 'The cracked terrace leaks while water sits on it.', tank: 440, n: 5, leak: 2,
+      plants: [[0, 3, 8, 20], [1, 1, 18, 32], [1, 9, 2, 7], [2, 6, 10, 22], [3, 8, 4, 12], [4, 2, 10, 20]] },
+    { name: 'The dry corner', note: 'The cactus blooms only while its corner stays dry.', tank: 400, n: 5, leak: -1,
+      plants: [[0, 8, 6, 14], [1, 2, 12, 26], [1, 9, 0, 0, true], [2, 5, 16, 30], [3, 1, 3, 8], [3, 9, 12, 24], [4, 6, 8, 18]] },
+  ];
+
+  const canvas = document.getElementById('hill');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  const roundEarned = new Set();
+  function unlock(id) {
+    roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Tell the gallery how a garden ended (anonymous play telemetry, see
+  // docs/telemetry.md). level is the garden, run ties one run together,
+  // attempt counts retries, tilt is how the player mostly tilted. Stats keys
+  // are in docs/games/terrace-garden.md.
+  function report(result, reason) {
+    if (window.parent === window) return;
+    const r1 = v => Math.round(v * 10) / 10;
+    const msg = { type: 'arcade:result', game: GAME_ID,
+      outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
+      level: level + 1, run: runId, attempt, tilt: tiltSource(),
+      stats: { spilled: spilled, leaked: leaked, drunk: drunk, left: tank, start: tankStart,
+        gate_taps: gateTaps, tilt_s: tiltKeys + tiltBar + tiltMotion, bloomed: bloomedCount(),
+        plants: plants.length, first_input: firstInput === null ? -1 : r1(firstInput) } };
+    if (reason) msg.reason = reason;
+    window.parent.postMessage(msg, '*');
+  }
+
+  // Scale the hillside to the largest W:H box that fits, one canvas pixel per
+  // screen pixel. Drawing always uses W x H game units.
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitStage() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(100, Math.floor(W * scale));
+    const h = Math.max(150, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitStage).observe(field);
+  window.addEventListener('resize', fitStage);
+
+  // The gallery pauses the game while one of its panels covers it.
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; keys.clear(); }
+    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+  });
+
+  const endCard = document.getElementById('endCard');
+  const playAgainBtn = document.getElementById('playAgain');
+
+  // ---------- state ----------
+  // terraces[i]: { x0, y, h (depths), f (flow between columns) }.
+  // gates[0] is the spring's valve; gates[k] sits at the downhill end of
+  // terrace k-1. The bottom terrace has no gate, only its lip.
+  let terraces = [], gates = [], plants = [];
+  let level, runId, attempt, carry, tank, tankStart, state, msgTimer;
+  let elapsed, spilled, leaked, drunk, gateTaps, firstInput;
+  let tilt = 0, tiltTarget = 0, tiltKeys = 0, tiltBar = 0, tiltMotion = 0;
+  let splash = [], wobble = 0;
+
+  function garden() { return GARDENS[level]; }
+  function bloomedCount() { return plants.filter(p => p.bloom).length; }
+  function waterOn(i) { let v = 0; for (const d of terraces[i].h) v += d; return v; }
+
+  function newRun() {
+    level = 0;
+    carry = 0;
+    runId = Math.random().toString(36).slice(2, 10);
+    startLevel(1);
+  }
+
+  function startLevel(att) {
+    attempt = att;
+    const g = garden();
+    const off = (W - 28 - TW) / (g.n - 1);
+    terraces = [];
+    for (let i = 0; i < g.n; i++) {
+      terraces.push({ x0: 14 + i * off, y: TOP_Y + i * (BOT_Y - TOP_Y) / (g.n - 1),
+        h: new Float64Array(NC), f: new Float64Array(NC - 1), leaky: i === g.leak });
+    }
+    // Where a gate's water lands on the terrace below.
+    for (let i = 0; i + 1 < g.n; i++) {
+      const x = terraces[i].x0 + TW;
+      terraces[i].land = Math.min(NC - 1, Math.floor((x - terraces[i + 1].x0) / CW));
+    }
+    gates = [];
+    for (let k = 0; k < g.n; k++) gates.push({ open: false, opened: 0, flow: 0 });
+    plants = g.plants.map(([t, c, lo, hi, dry]) => ({ t, c, lo, hi, dry: !!dry, grow: 0, bloom: false, mood: 'dry' }));
+    tank = g.tank + carry;
+    tankStart = tank;
+    elapsed = 0; spilled = 0; leaked = 0; drunk = 0; gateTaps = 0; firstInput = null;
+    tiltKeys = 0; tiltBar = 0; tiltMotion = 0;
+    tilt = 0; tiltTarget = 0; motion.base = null;
+    splash = [];
+    roundEarned.clear();
+    state = 'playing';
+    endCard.hidden = true;
+    say(`${g.name}. ${g.note}`, 4000);
+    hud();
+  }
+
+  function hud() {
+    document.getElementById('hudGarden').textContent = `${level + 1}/${GARDENS.length}`;
+    document.getElementById('hudBloom').textContent = `${bloomedCount()}/${plants.length}`;
+    document.getElementById('hudSpring').textContent = Math.round(tank);
+  }
+
+  function endLevel(result, why) {
+    state = result;
+    keys.clear();
+    report(result, why);
+    msgEl.textContent = '';
+    const title = document.getElementById('endTitle');
+    const last = level === GARDENS.length - 1;
+    const sp = Math.round(spilled), lk = Math.round(leaked);
+    if (result === 'won') {
+      if (spilled < 0.5) unlock('no-spill');
+      if (gates.every(g => g.opened <= 1)) unlock('gatekeeper');
+      if (last) unlock('full-bloom');
+      title.textContent = last ? 'The whole hillside bloomed!' : `${garden().name}: in bloom!`;
+      carry = last ? 0 : tank;
+      document.getElementById('endDetail').textContent =
+        `${sp ? sp + ' water spilled' : 'Not a drop spilled'}${lk ? `, ${lk} leaked` : ''}.` +
+        (last ? '' : ` ${Math.round(tank)} left in the spring carries on to the next garden.`);
+      playAgainBtn.textContent = last ? 'New run' : 'Next garden';
+    } else {
+      title.textContent = why === 'restart' ? 'Garden restarted' : 'Out of water';
+      document.getElementById('endDetail').textContent =
+        `${bloomedCount()} of ${plants.length} plants bloomed. ${sp} water spilled off the edge` +
+        `${lk ? `, ${lk} leaked` : ''}, ${Math.round(drunk)} drunk.`;
+      playAgainBtn.textContent = 'Try this garden again';
+    }
+    title.className = result;
+    const n = roundEarned.size;
+    document.getElementById('endAch').textContent = n
+      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned` : '';
+    playAgainBtn.disabled = true;
+    endCard.hidden = false;
+    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    hud();
+  }
+
+  function next() {
+    if (state === 'won') {
+      if (level === GARDENS.length - 1) { newRun(); return; }
+      level++;
+      startLevel(1);
+    } else {
+      startLevel(attempt + 1);
+    }
+  }
+
+  // Restart garden: counts as a lost try once the player has done anything.
+  // Ignored while the end card shows (it has its own button).
+  function restart() {
+    if (state !== 'playing' || paused) return;
+    if (firstInput !== null) { endLevel('lost', 'restart'); next(); }
+    else startLevel(attempt);
+  }
+
+  function say(text, ms) {
+    msgEl.textContent = text;
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms || 2500);
+  }
+
+  // ---------- the two verbs ----------
+  function touched() { if (firstInput === null) firstInput = elapsed; }
+
+  // Gate: open or close one gate (or the spring's valve).
+  function tapGate(k) {
+    if (state !== 'playing') return;
+    touched();
+    const g = gates[k];
+    g.open = !g.open;
+    if (g.open) g.opened++;
+    gateTaps++;
+    if (k === 0 && g.open && tank <= 0) say('The spring is empty.');
+  }
+
+  // Tilt: every input (keys, tilt bar, phone tilt, the balance bots) sets a
+  // target from -1 (left) to 1 (right); the hillside eases toward it.
+  function setTilt(v) { tiltTarget = Math.max(-1, Math.min(1, v)); }
+
+  // ---------- simulation ----------
+  // Each terrace is a row of water columns. Water flows between neighbours by
+  // their level difference plus the tilt, loses speed to friction, and never
+  // goes below zero. It only ever leaves: through gates (onto the terrace
+  // below), off the bottom lip, through the crack, or into a plant.
+  function flowStep(h) {
+    const push = SLOPE * tilt;
+    for (const T of terraces) {
+      const d = T.h, f = T.f;
+      const damp = Math.exp(-FRICT * h);
+      for (let j = 0; j < NC - 1; j++) f[j] = f[j] * damp + h * PIPE * (d[j] - d[j + 1] + push);
+      // Never take more out of a column than it holds.
+      for (let j = 0; j < NC; j++) {
+        const out = (j < NC - 1 ? Math.max(0, f[j]) : 0) + (j > 0 ? Math.max(0, -f[j - 1]) : 0);
+        if (out * h > d[j] && out > 0) {
+          const s = d[j] / (out * h);
+          if (j < NC - 1 && f[j] > 0) f[j] *= s;
+          if (j > 0 && f[j - 1] < 0) f[j - 1] *= s;
+        }
+      }
+      for (let j = 0; j < NC - 1; j++) { d[j] -= h * f[j]; d[j + 1] += h * f[j]; }
+      for (let j = 0; j < NC; j++) if (d[j] < 0) d[j] = 0;
+    }
+    // Spring.
+    const sg = gates[0];
+    sg.flow = 0;
+    if (sg.open && tank > 0) {
+      const q = Math.min(tank, SPRING_RATE * h);
+      tank -= q; terraces[0].h[0] += q; sg.flow = q / h;
+    }
+    // Gates and the bottom lip.
+    for (let i = 0; i < terraces.length; i++) {
+      const T = terraces[i], last = i === terraces.length - 1;
+      const g = last ? null : gates[i + 1];
+      const edge = last ? LIP : g.open ? SILL : WALL;
+      const over = T.h[NC - 1] - edge;
+      let q = 0;
+      if (over > 0) q = Math.min(over, GATE_K * over * h * (1 + 2 * Math.max(0, tilt)));
+      T.h[NC - 1] -= q;
+      if (last) { spilled += q; T.spill = q / h; }
+      else { terraces[i + 1].h[T.land] += q; g.flow = q / h; }
+      if (T.leaky) {
+        for (let j = 0; j < NC; j++) { const l = T.h[j] * LEAK * h; T.h[j] -= l; leaked += l; }
+      }
+    }
+  }
+
+  function grow(h) {
+    for (const p of plants) {
+      const d = terraces[p.t].h[p.c];
+      if (p.dry) {
+        p.mood = d <= DRY_MAX ? 'ok' : 'wet';
+        p.grow = Math.max(0, Math.min(1, p.grow + (p.mood === 'ok' ? h / DRY_T : -h / ROT_T)));
+        p.bloom = p.grow >= 1;
+        continue;
+      }
+      if (p.bloom) continue;
+      p.mood = d < p.lo ? 'dry' : d > p.hi ? 'deep' : 'ok';
+      if (p.mood !== 'ok') continue;
+      const q = Math.min(d, DRINK * h);
+      terraces[p.t].h[p.c] -= q;
+      drunk += q;
+      p.grow += h / GROW_T;
+      if (p.grow >= 1) { p.grow = 1; p.bloom = true; }
+    }
+  }
+
+  // Least water that can hold `lo` px over column c at full tilt toward the
+  // nearer wall (water piles against it, sloping down by SLOPE per column).
+  function minStand(lo, c) {
+    let best = Infinity;
+    for (const dir of [-1, 1]) {
+      let v = 0;
+      for (let j = 0; j < NC; j++) v += Math.max(0, lo + SLOPE * dir * (j - c));
+      best = Math.min(best, v);
+    }
+    return best;
+  }
+
+  // Lost when the water that can still reach a plant (the spring and the
+  // terraces above it and its own) can't make it bloom, or all of it together
+  // can't cover what the plants still drink.
+  function hopeless() {
+    let owed = 0, all = tank;
+    for (let i = 0; i < terraces.length; i++) all += waterOn(i);
+    for (const p of plants) {
+      if (p.bloom || p.dry) continue;
+      const need = (1 - p.grow) * GROW_T * DRINK;
+      owed += need;
+      let reach = tank;
+      for (let i = 0; i <= p.t; i++) reach += waterOn(i);
+      if (reach + 1e-6 < need + minStand(p.lo, p.c) * (p.grow > 0 && terraces[p.t].h[p.c] >= p.lo ? 0 : 1)) return true;
+    }
+    return all + 1e-6 < owed;
+  }
+
+  function step(dt) {
+    elapsed += dt;
+    tilt += Math.max(-TILT_RATE * dt, Math.min(TILT_RATE * dt, tiltTarget - tilt));
+    if (Math.abs(tilt) > 0.05) {
+      if (keys.size) tiltKeys += dt; else if (bar.active) tiltBar += dt; else if (motion.active) tiltMotion += dt;
+    }
+    const h = dt / SUB;
+    for (let s = 0; s < SUB; s++) flowStep(h);
+    grow(dt);
+    if (plants.every(p => p.bloom)) { endLevel('won'); return; }
+    if (hopeless()) endLevel('lost', 'dry');
+  }
+
+  // ---------- drawing ----------
+  const colX = (T, j) => T.x0 + (j + 0.5) * CW;
+
+  function effects(dt) {
+    wobble += dt;
+    for (const s of splash) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 400 * dt; s.life -= dt; }
+    splash = splash.filter(s => s.life > 0);
+    if (state !== 'playing' || paused) return;
+    const drop = (x, y, n) => { for (let k = 0; k < n; k++) splash.push({ x, y, vx: (Math.random() - 0.5) * 60, vy: -40 - Math.random() * 60, life: 0.4 }); };
+    for (let i = 0; i < terraces.length; i++) {
+      const T = terraces[i];
+      if (i + 1 < terraces.length && gates[i + 1].flow > 3 && Math.random() < 0.5) {
+        const L = terraces[i + 1];
+        drop(colX(L, T.land), L.y - L.h[T.land], 1);
+      }
+      if (T.leaky && waterOn(i) > 5 && Math.random() < 0.2) {
+        splash.push({ x: T.x0 + 30 + Math.random() * (TW - 60), y: T.y + 14, vx: 0, vy: 20, life: 0.6 });
+      }
+    }
+  }
+
+  function draw(now) {
+    const sx = canvas.width / W, sy = canvas.height / H;
+    ctx.setTransform(sx, 0, 0, sy, 0, 0);
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#1d3440'); sky.addColorStop(1, '#101b1d');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(tilt * VIS);
+    ctx.scale(1 - 0.1 * Math.abs(tilt), 1 - 0.1 * Math.abs(tilt));
+    ctx.translate(-W / 2, -H / 2);
+
+    // The hill behind the terraces.
+    ctx.fillStyle = '#233128';
+    ctx.beginPath();
+    ctx.moveTo(-40, 90);
+    for (const T of terraces) { ctx.lineTo(T.x0, T.y - BACK); ctx.lineTo(T.x0, T.y + 20); }
+    const B = terraces[terraces.length - 1];
+    ctx.lineTo(B.x0 + TW, B.y + 20); ctx.lineTo(B.x0 + TW, H + 60); ctx.lineTo(-40, H + 60);
+    ctx.closePath(); ctx.fill();
+
+    drawSpring();
+    for (let i = 0; i < terraces.length; i++) drawTerrace(i);
+    for (const p of plants) drawPlant(p);
+    for (const s of splash) {
+      ctx.fillStyle = `rgba(150,215,240,${Math.min(1, s.life * 2)})`;
+      ctx.fillRect(s.x - 1, s.y - 1, 2, 2);
+    }
+    ctx.restore();
+
+    // Tilt gauge, top centre (not tilted).
+    ctx.strokeStyle = 'rgba(233,242,238,0.35)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(W / 2 - 30, 16); ctx.lineTo(W / 2 + 30, 16); ctx.stroke();
+    ctx.fillStyle = '#5fb8d8';
+    ctx.beginPath(); ctx.arc(W / 2 + 30 * tilt, 16, 5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawSpring() {
+    const T = terraces[0], g = gates[0];
+    const x = T.x0, top = 44, bot = 104, w = 120;
+    const cap = Math.max(tankStart, 1);
+    ctx.fillStyle = '#34453d';
+    ctx.fillRect(x - 4, top - 4, w + 8, bot - top + 8);
+    ctx.fillStyle = '#132226';
+    ctx.fillRect(x, top, w, bot - top);
+    const lvl = (bot - top) * Math.min(1, tank / cap);
+    ctx.fillStyle = '#3d8fb0';
+    ctx.fillRect(x, bot - lvl, w, lvl);
+    ctx.fillStyle = '#cfe6ee'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('spring', x + w / 2, top + 13);
+    // Valve over column 0, and the stream when it runs.
+    const vx = colX(T, 0);
+    if (g.flow > 0) {
+      ctx.strokeStyle = 'rgba(110,190,225,0.85)'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(vx, bot + 10); ctx.lineTo(vx, T.y - T.h[0]); ctx.stroke();
+    }
+    drawValve(vx, bot + 8, g.open);
+    // Until the spring is first opened, a ring pulses around its valve.
+    if (!g.opened && state === 'playing') {
+      const t = (wobble % 1.2) / 1.2;
+      ctx.strokeStyle = `rgba(95,184,216,${1 - t})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(vx, bot + 8, 10 + 12 * t, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+
+  function drawValve(x, y, open) {
+    ctx.fillStyle = open ? '#5fb8d8' : '#7c6a52';
+    ctx.strokeStyle = '#e9f2ee'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    if (open) { ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); } else { ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); }
+    ctx.stroke();
+  }
+
+  function drawTerrace(i) {
+    const T = terraces[i], last = i === terraces.length - 1;
+    const x1 = T.x0 + TW;
+    // Earth slab and walls.
+    ctx.fillStyle = T.leaky ? '#5a4632' : '#6b5238';
+    ctx.fillRect(T.x0 - 6, T.y, TW + 12, 16);
+    ctx.fillStyle = '#4d3b29';
+    ctx.fillRect(T.x0 - 6, T.y - BACK, 6, BACK);
+    if (T.leaky) {
+      ctx.strokeStyle = '#1d140c'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (const cx of [60, 130, 200]) { ctx.moveTo(T.x0 + cx, T.y); ctx.lineTo(T.x0 + cx + 6, T.y + 8); ctx.lineTo(T.x0 + cx + 2, T.y + 16); }
+      ctx.stroke();
+    }
+    // Water.
+    ctx.fillStyle = 'rgba(70,160,205,0.8)';
+    ctx.beginPath();
+    ctx.moveTo(T.x0, T.y);
+    ctx.lineTo(T.x0, T.y - T.h[0]);
+    for (let j = 0; j < NC; j++) ctx.lineTo(colX(T, j), T.y - T.h[j]);
+    ctx.lineTo(x1, T.y - T.h[NC - 1]);
+    ctx.lineTo(x1, T.y);
+    ctx.closePath(); ctx.fill();
+    // Gate (or the bottom lip) at the downhill end.
+    if (last) {
+      ctx.fillStyle = '#4d3b29';
+      ctx.fillRect(x1, T.y - LIP, 6, LIP);
+      if (T.spill > 1) {
+        ctx.strokeStyle = 'rgba(110,190,225,0.8)'; ctx.lineWidth = Math.min(6, 1 + T.spill / 15);
+        ctx.beginPath(); ctx.moveTo(x1 + 5, T.y - LIP); ctx.quadraticCurveTo(x1 + 16, T.y - LIP, x1 + 18, H); ctx.stroke();
+      }
+      return;
+    }
+    const g = gates[i + 1], L = terraces[i + 1];
+    ctx.fillStyle = '#4d3b29';
+    ctx.fillRect(x1, T.y - SILL, 6, SILL);
+    if (!g.open) { ctx.fillStyle = '#9a7a52'; ctx.fillRect(x1, T.y - WALL, 6, WALL - SILL); }
+    if (g.flow > 1) {
+      ctx.strokeStyle = 'rgba(110,190,225,0.8)'; ctx.lineWidth = Math.min(7, 1 + g.flow / 15);
+      const top = T.y - Math.max(SILL, T.h[NC - 1]);
+      ctx.beginPath(); ctx.moveTo(x1 + 3, top); ctx.quadraticCurveTo(x1 + 12, top, colX(L, T.land), L.y - L.h[T.land]); ctx.stroke();
+    }
+    drawValve(x1 + 3, T.y - WALL - 12, g.open);
+  }
+
+  function drawPlant(p) {
+    const T = terraces[p.t], x = colX(T, p.c), y = T.y;
+    // Stake with the plant's band.
+    ctx.fillStyle = 'rgba(233,242,238,0.25)';
+    ctx.fillRect(x + 7, y - 36, 2, 36);
+    ctx.fillStyle = p.dry ? '#e0a040' : '#6ccf6a';
+    if (p.dry) ctx.fillRect(x + 5, y - 3, 6, 3);
+    else ctx.fillRect(x + 5, y - p.hi, 6, p.hi - p.lo);
+    const sway = Math.sin(wobble * 2 + p.c) * (p.mood === 'ok' ? 1.5 : 0.5);
+    const hgt = 8 + 26 * p.grow;
+    if (p.dry) {
+      // Cactus: a green column with arms, pink flower in bloom.
+      ctx.fillStyle = p.mood === 'wet' ? '#5d7d6a' : '#5fa35a';
+      ctx.fillRect(x - 3, y - hgt, 6, hgt);
+      if (p.grow > 0.4) { ctx.fillRect(x - 9, y - hgt * 0.6, 6, 3); ctx.fillRect(x - 9, y - hgt * 0.8, 3, hgt * 0.2); }
+      if (p.bloom) { ctx.fillStyle = '#ff7eb6'; ctx.beginPath(); ctx.arc(x, y - hgt - 3, 5, 0, Math.PI * 2); ctx.fill(); }
+      if (p.mood === 'wet') bubbles(x, y);
+      return;
+    }
+    ctx.strokeStyle = p.bloom ? '#7fd86a' : p.mood === 'dry' ? '#a08a4a' : p.mood === 'deep' ? '#4f8a7a' : '#6ccf6a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + sway, y - hgt / 2, x + sway * 2, y - hgt); ctx.stroke();
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath(); ctx.ellipse(x - 4, y - hgt * 0.45, 4, 2, -0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + 4, y - hgt * 0.65, 4, 2, 0.5, 0, Math.PI * 2); ctx.fill();
+    const hx = x + sway * 2, hy = y - hgt;
+    if (p.bloom) {
+      ctx.fillStyle = '#ffd27a';
+      for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; ctx.beginPath(); ctx.arc(hx + Math.cos(a) * 5, hy + Math.sin(a) * 5, 3.5, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#c0703a'; ctx.beginPath(); ctx.arc(hx, hy, 3, 0, Math.PI * 2); ctx.fill();
+    } else {
+      // Bud with a ring showing how far it has grown.
+      ctx.fillStyle = '#3f6b3a'; ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(hx, hy, 6, -Math.PI / 2, -Math.PI / 2 + p.grow * Math.PI * 2); ctx.stroke();
+    }
+    if (p.mood === 'deep') bubbles(x, y - T.h[p.c] / 2);
+  }
+
+  function bubbles(x, y) {
+    ctx.strokeStyle = 'rgba(220,240,250,0.7)'; ctx.lineWidth = 1;
+    for (let k = 0; k < 3; k++) {
+      const t = (wobble * 0.8 + k / 3) % 1;
+      ctx.beginPath(); ctx.arc(x - 4 + k * 4, y - t * 14, 1.5, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+
+  // ---------- input ----------
+  // Gates: a tap picks the nearest gate (or the spring's valve) in reach.
+  function toGame(evt) {
+    const rect = canvas.getBoundingClientRect();
+    let x = (evt.clientX - rect.left) * W / rect.width - W / 2;
+    let y = (evt.clientY - rect.top) * H / rect.height - H / 2;
+    const a = -tilt * VIS, s = 1 - 0.1 * Math.abs(tilt);
+    return { x: (x * Math.cos(a) - y * Math.sin(a)) / s + W / 2, y: (x * Math.sin(a) + y * Math.cos(a)) / s + H / 2 };
+  }
+  function gateSpot(k) {
+    if (k === 0) return { x: colX(terraces[0], 0), y: 112 };
+    const T = terraces[k - 1];
+    return { x: T.x0 + TW + 3, y: T.y - WALL / 2 - 8 };
+  }
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    window.focus();
+    if (state !== 'playing' || paused) return;
+    const p = toGame(evt);
+    let best = -1, bd = GATE_R;
+    gates.forEach((g, k) => { const s = gateSpot(k), d = Math.hypot(s.x - p.x, s.y - p.y); if (d < bd) { bd = d; best = k; } });
+    if (best >= 0) tapGate(best);
+  });
+
+  // Keys: hold ← → or A / D; let go and the hillside levels out.
+  const keys = new Set();
+  const LEFT = ['ArrowLeft', 'a', 'A'], RIGHT = ['ArrowRight', 'd', 'D'];
+  function keyTilt() {
+    let v = 0;
+    for (const k of keys) v += LEFT.includes(k) ? -1 : 1;
+    return Math.max(-1, Math.min(1, v));
+  }
+  window.addEventListener('keydown', evt => {
+    if (!LEFT.includes(evt.key) && !RIGHT.includes(evt.key)) return;
+    evt.preventDefault();
+    if (state !== 'playing' || paused) return;
+    if (!keys.has(evt.key)) touched();
+    keys.add(evt.key);
+  });
+  window.addEventListener('keyup', evt => { keys.delete(evt.key); });
+  window.addEventListener('blur', () => keys.clear());
+
+  // Tilt bar: drag the thumb; let go and it springs back to level.
+  const barEl = document.getElementById('tiltBar'), thumb = document.getElementById('tiltThumb');
+  const bar = { active: false, id: null, value: 0 };
+  function barAt(evt) {
+    const r = barEl.getBoundingClientRect();
+    bar.value = Math.max(-1, Math.min(1, ((evt.clientX - r.left) / r.width - 0.5) * 2.4));
+  }
+  barEl.addEventListener('pointerdown', evt => {
+    if (bar.id !== null || state !== 'playing' || paused) return;
+    evt.preventDefault();
+    bar.id = evt.pointerId; bar.active = true;
+    barEl.setPointerCapture(evt.pointerId);
+    touched();
+    barAt(evt);
+  });
+  barEl.addEventListener('pointermove', evt => { if (evt.pointerId === bar.id) barAt(evt); });
+  const barUp = evt => { if (evt.pointerId !== bar.id) return; bar.id = null; bar.active = false; bar.value = 0; };
+  barEl.addEventListener('pointerup', barUp);
+  barEl.addEventListener('pointercancel', barUp);
+
+  // Phone tilt: the part of gravity along the screen's width, whether the
+  // phone is held upright (turn it like a steering wheel) or flat (tip it
+  // like a tray). However it's held when a garden starts counts as level.
+  const motion = { active: false, base: null, value: 0 };
+  const touchScreen = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  function onOrient(e) {
+    if (e.beta === null || e.gamma === null || e.beta === undefined) return;
+    const b = e.beta * Math.PI / 180, g = e.gamma * Math.PI / 180;
+    const dx = Math.sin(g) * Math.cos(b), dy = -Math.sin(b);
+    const a = ((screen.orientation && screen.orientation.angle) || window.orientation || 0) * Math.PI / 180;
+    const along = dx * Math.cos(a) - dy * Math.sin(a);
+    const roll = Math.asin(Math.max(-1, Math.min(1, along))) * 180 / Math.PI;
+    if (!motion.active) { motion.active = true; showControls(); }
+    if (motion.base === null) motion.base = roll;
+    let d = roll - motion.base;
+    d = Math.abs(d) < MOTION_DEAD ? 0 : d - Math.sign(d) * MOTION_DEAD;
+    motion.value = Math.max(-1, Math.min(1, d / MOTION_FULL));
+  }
+  const motionBtn = document.getElementById('motionBtn');
+  const askFirst = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
+  if (typeof DeviceOrientationEvent !== 'undefined' && !askFirst) window.addEventListener('deviceorientation', onOrient);
+  motionBtn.addEventListener('click', () => {
+    DeviceOrientationEvent.requestPermission().then(r => {
+      if (r === 'granted') { window.addEventListener('deviceorientation', onOrient); motion.base = null; }
+      else say('Tilt is off. Use the bar instead.');
+    }).catch(() => say('Tilt is not available here. Use the bar instead.')).then(() => { motionBtn.hidden = true; });
+  });
+  function showControls() {
+    barEl.hidden = !touchScreen || motion.active;
+    motionBtn.hidden = !askFirst || motion.active;
+  }
+  function tiltSource() {
+    const m = Math.max(tiltKeys, tiltBar, tiltMotion);
+    if (m === 0) return motion.active ? 'motion' : touchScreen ? 'bar' : 'keys';
+    return m === tiltKeys ? 'keys' : m === tiltBar ? 'bar' : 'motion';
+  }
+  function readTilt() {
+    if (keys.size) setTilt(keyTilt());
+    else if (bar.active) setTilt(bar.value);
+    else if (motion.active) setTilt(motion.value);
+    else setTilt(0);
+    thumb.style.left = (50 + 50 * tilt / 1.2) + '%';
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', restart);
+  playAgainBtn.addEventListener('click', next);
+
+  // ---------- loop ----------
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.1);
+    acc += dt;
+    last = now;
+    readTilt();
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) step(STEP);
+      acc -= STEP;
+    }
+    if (!paused) effects(dt);
+    hud();
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+
+  fitStage();
+  showControls();
+  newRun();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
