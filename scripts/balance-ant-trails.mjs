@@ -6,7 +6,7 @@
 //
 // Builds a debug copy of games/ant-trails.html (state on window, seeded
 // Math.random, no animation loop), then plays seeded games in headless
-// Chromium by calling step() directly, one whole run (up to 5 days) each.
+// Chromium by calling step() directly, one whole run (up to 6 days) each.
 // Needs Playwright (installed globally in Claude Code cloud sessions).
 import fs from 'fs';
 import os from 'os';
@@ -22,16 +22,16 @@ try { ({ chromium } = await import('playwright')); } catch {
 
 const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/ant-trails.html');
 
-// Every bot plays whole runs (up to 5 days, the colony carrying over).
+// Every bot plays whole runs (up to 6 days, the colony carrying over).
 //   idle: no input.
 //   trail: redraws a straight nest-to-pile trail whenever the nearest one fades.
-//   wash: trail, plus rain on a spider that's hunting near ants (and on day 5,
+//   wash: trail, plus rain on a spider that's hunting near ants (and on the rival day,
 //     rain on the rivals' nest mouth now and then).
 //   far: wash, but trails the farthest pile first.
 //   novice: a first-time player. Reads for a few seconds, then draws a wobbly
 //     trail from near the nest to a random pile every 3-5 s, and 1 in 5 of its
 //     gestures is a mistaken hold (rain on its own trail near the nest). Never
-//     washes a spider on days 1-2; from day 3 it reacts to 1 threat in 2, late.
+//     washes a spider on days 1-3; from day 4 it reacts to 1 threat in 2, late.
 const BOTS = {
   idle: {},
   trail: { trail: true },
@@ -63,7 +63,7 @@ window.__seed = s => { __s = s; };
     get state() { return state; }, get elapsed() { return elapsed; }, get delivered() { return delivered; },
     get rivalDelivered() { return rivalDelivered; }, get lost() { return lost; }, get gland() { return gland; },
     get rain() { return rain; }, get bonusMet() { return bonusMet; }, get sundown() { return sundown; },
-    earned: roundEarned, NEST, INK_PX, W, H, step, layTrail, scentAt, newRun, nextDay,
+    earned: roundEarned, DAYS, NEST, INK_PX, W, H, step, layTrail, scentAt, newRun, nextDay,
     setDay(n) { day = n; startDay(); },
     setRain(x, y) { if (x == null) rain = null; else if (rain) { rain.x = x; rain.y = y; } else rain = { x, y, t: 0 }; },
   };
@@ -101,7 +101,7 @@ function playInPage({ seed, bot, from }) {
           D.setRain(s.x, s.y);
         } else if (D.rain) D.setRain(null);
         const busy = t < rainUntil;
-        const canWash = bot.wash || (bot.novice && D.day >= 2);
+        const canWash = bot.wash || (bot.novice && D.day >= 3);
         if (canWash && !busy && t > washCool) {
           const threat = D.spiders.find(sp => sp.eat <= 0 && sp.followT > 0.5 && D.ants.some(a => hyp(a.x - sp.x, a.y - sp.y) < 60));
           if (threat && (bot.wash || rnd() < 0.5)) {
@@ -176,18 +176,18 @@ async function run(bot, runs, file, browser, from, workers = 8) {
 }
 
 // One line per bot: for each day, % of runs that won it (and, in brackets,
-// % of those that reached it), median ants at dawn, median ants lost that day
+// % of those that reached it), median seconds to win it, median ants at dawn, median ants lost that day
 // and % bonus; then achievements.
-function report(name, rs, from) {
+function report(name, rs, from, nDays) {
   const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
   const pct = (n, d) => d ? Math.round(100 * n / d) : 0;
   const cols = [];
-  for (let d = from; d < 5; d++) {
+  for (let d = from; d < nDays; d++) {
     const at = rs.map(r => r.days.find(x => x.day === d)).filter(Boolean);
     const won = at.filter(x => x.won);
     cols.push(`d${d + 1} ${String(pct(won.length, rs.length)).padStart(3)}% (${pct(won.length, at.length)}%) ` +
-      `ants ${med(at.map(x => x.dawn))} lost ${med(at.map(x => x.lost))} bonus ${pct(at.filter(x => x.bonus).length, at.length)}%` +
-      (d === 4 ? ` rivals ${med(at.map(x => x.rivals))}` : ''));
+      `${Math.round(med(won.map(x => x.t)))}s ants ${med(at.map(x => x.dawn))} lost ${med(at.map(x => x.lost))} bonus ${pct(at.filter(x => x.bonus).length, at.length)}%` +
+      (d === nDays - 1 ? ` rivals ${med(at.map(x => x.rivals))}` : ''));
   }
   const ach = {};
   for (const r of rs) for (const id of r.earned) ach[id] = (ach[id] || 0) + 1;
@@ -205,8 +205,10 @@ for (const kv of (process.argv[4] || '').split(',').filter(Boolean)) {
 }
 const file = buildDebug(overrides);
 const browser = await chromium.launch();
+const nDays = await (async () => { const pg = await browser.newPage(); await pg.goto(pathToFileURL(file).href);
+  const n = await pg.evaluate(() => window.__dbg.DAYS.length); await pg.close(); return n; })();
 for (const n of names) {
   if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
-  report(n, await run(BOTS[n], runs, file, browser, from), from);
+  report(n, await run(BOTS[n], runs, file, browser, from), from, nDays);
 }
 await browser.close();

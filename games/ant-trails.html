@@ -58,6 +58,16 @@
     pointer-events: none;
   }
   #bonus.done { color: #bfe89a; }
+  #ffBtn {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    background: rgba(37, 27, 19, 0.8);
+    font-variant-numeric: tabular-nums;
+  }
+  #ffBtn.on { color: #1d140c; background: var(--accent); border-color: var(--accent); font-weight: 600; }
   #endCard {
     position: absolute;
     left: 50%;
@@ -122,6 +132,7 @@
       <canvas id="ground" aria-label="Ant Trails ground. Drag to lay a scent trail, hold to wash scent away."></canvas>
       <p id="msg" role="status"></p>
       <p id="bonus"></p>
+      <button id="ffBtn" aria-label="Game speed">▶▶ 1×</button>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -150,21 +161,25 @@
   const W = 400, H = 600;
   const CELL = 10, GW = W / CELL, GH = H / CELL; // scent grid: 40 x 60 cells
 
-  // The run: five days in a row. Ants alive at sundown carry over to the next day.
-  const START_ANTS = 22;           // colony on day 1
+  // The run: six days in a row. Ants alive at sundown carry over to the next day.
+  const START_ANTS = 15;           // colony on day 1
+  const SPEEDS = [1, 2, 3];        // fast-forward button cycles through these
   const MIN_ANTS = 8;              // fewer ants than this and the colony gives up (the run ends)
   const HATCH_EVERY = 10;          // a new ant hatches for every this many crumbs
   const REST_S = 10;               // overnight, one ant hatches per this many seconds of spare daylight...
   const BONUS_ANTS = 3;            // ...and this many for meeting the day's bonus challenge
-  const SPARE = 20;                // Swift (and day 3's bonus): win with this many seconds left
+  const SPARE = 20;                // Swift (and days 1 and 4's bonus): win with this many seconds left
   const BIG_COLONY = 32;           // Big Colony: this many ants at once
-  const SAFE_LOST = 3;             // day 2's bonus: lose at most this many ants
+  const SAFE_LOST = 3;             // day 3's bonus: lose at most this many ants
   const NEST = { x: 200, y: 555, r: 16 };
   const JITTER = 12;               // piles and spiders shift up to this far each run
   // Each day has its own food layout ([x, y, crumbs], 'far' marks Long Haul's
   // pile), spider starts, twist and bonus challenge. Layouts are mirrored
   // left-right at random, so a new run looks different too.
   const DAYS = [
+    { name: 'First crumbs', goal: 20, sun: 60, bonus: 'swift',
+      piles: [[285, 420, 25]], spiders: [],
+      note: 'One pile close to home, and no spider yet.' },
     { name: 'First light', goal: 50, sun: 90, bonus: 'far',
       piles: [[315, 420, 15], [85, 270, 25], [300, 85, 40, 'far']], spiders: [[40, 60]],
       note: 'Lead the colony to food.' },
@@ -261,6 +276,7 @@
         dawn: play.dawn, ants: ants.length, lost, hatched, crumbs: delivered, bonus: bonusMet ? 1 : 0,
         trails: play.trails, trail_px: Math.round(play.trailPx), rains: play.rains, rain_s: r1(play.rainS),
         rain_spider_s: r1(play.rainSpiderS), first_input: play.first < 0 ? -1 : r1(play.first),
+        ff_s: r1(play.ffS),
       };
       if (rivalNest) stats.rivals = rivalDelivered;
       window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
@@ -364,7 +380,7 @@
     rain = null;
     bonusMet = false;
     roundEarned.clear();
-    play = { dawn: ants.length, trails: 0, trailPx: 0, rains: 0, rainS: 0, rainSpiderS: 0, first: -1 };
+    play = { dawn: ants.length, trails: 0, trailPx: 0, rains: 0, rainS: 0, rainSpiderS: 0, first: -1, ffS: 0 };
     state = 'playing';
     endCard.hidden = true;
     showBonus();
@@ -386,7 +402,7 @@
   function endDay(result, why) {
     const spare = sundown - elapsed;
     if (result === 'won') {
-      if (lost === 0) unlock('untouchable');
+      if (lost === 0 && cfg.spiders.length) unlock('untouchable');
       if (spare >= SPARE) unlock('swift');
       if (cfg.bonus === 'safe' && lost <= SAFE_LOST) meetBonus();
       if (cfg.bonus === 'swift' && spare >= SPARE) meetBonus();
@@ -708,6 +724,7 @@
 
   function step(dt) {
     elapsed += dt;
+    if (speed > 1) play.ffS += dt;
     gland = Math.min(GLAND_MAX, gland + GLAND_REGEN * dt);
     if (rain) {
       play.rainS += dt;
@@ -943,10 +960,23 @@
   });
   newRunBtn.addEventListener('click', newRun);
 
+  // Fast-forward: the same simulation, more steps per frame.
+  let speed = 1;
+  const ffBtn = document.getElementById('ffBtn');
+  function cycleSpeed() {
+    speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+    ffBtn.textContent = `▶▶ ${speed}×`;
+    ffBtn.classList.toggle('on', speed > 1);
+  }
+  ffBtn.addEventListener('click', cycleSpeed);
+  window.addEventListener('keydown', evt => {
+    if ((evt.key === 'f' || evt.key === 'F') && !evt.repeat) cycleSpeed();
+  });
+
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   function frame(now) {
-    acc += Math.min((now - last) / 1000, 0.1);
+    acc += Math.min((now - last) / 1000, 0.1) * speed;
     last = now;
     while (acc >= STEP) {
       if (state === 'playing' && !paused) step(STEP);

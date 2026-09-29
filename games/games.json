@@ -271,10 +271,15 @@
       "id": "ant-trails",
       "title": "Ant Trails",
       "file": "ant-trails.html",
-      "version": 4,
+      "version": 5,
       "added": "2026-09-27",
-      "updated": "2026-09-28",
+      "updated": "2026-09-29",
       "changes": [
+        {
+          "version": 5,
+          "date": "2026-09-29",
+          "text": "A new, short first day: one pile near the nest and no spider, to learn trails. A fast-forward button (▶▶) speeds up the wait. The run is now six days."
+        },
         {
           "version": 4,
           "date": "2026-09-28",
@@ -296,9 +301,10 @@
           "text": "First version."
         }
       ],
-      "blurb": "Draw scent trails to lead your ants to food over five days. The colony carries over, and every day brings something new: scattered food, storms, a second spider, a rival colony.",
-      "goal": "Survive a five-day run. Each day, carry the day's crumbs into the nest before sundown (90 seconds) without the colony dropping below 8 ants. Ants alive at sundown start the next day.",
-      "howToPlay": "Ants wander until they smell something. Drag to draw a scent trail (it uses up the scent meter, which refills). Ants follow trails away from the nest, grab a crumb, and walk straight home, laying scent as they go, so busy routes grow into bright highways. Scent fades over time. Spiders follow scent too, and move fastest on the strongest trails. {Press} and hold to make it rain: rain washes scent away, so you can throw a spider off a trail, but your ants lose that trail as well. Soldiers keep spiders away from the nest, and a new ant hatches for every 10 crumbs. Every day has a new food layout and a twist: day 3 brings storm clouds that wash trails as they drift by, day 4 a second spider, day 5 a rival colony of red ants that raids the same food and follows your trails. Ants you lose stay lost, but overnight one ant hatches for every 10 seconds of daylight you had left, plus 3 more if you met the day's bonus challenge (bottom left). Lose a day and you can retry it with the ants you had at dawn, or start a new run.",
+      "blurb": "Draw scent trails to lead your ants to food over six days. The colony carries over, and every day brings something new: scattered food, storms, a second spider, a rival colony.",
+      "goal": "Survive a six-day run. Each day, carry the day's crumbs into the nest before sundown (60 seconds on day 1, then 90) without the colony dropping below 8 ants. Ants alive at sundown start the next day.",
+      "howToPlay": "Ants wander until they smell something. Drag to draw a scent trail (it uses up the scent meter, which refills). Ants follow trails away from the nest, grab a crumb, and walk straight home, laying scent as they go, so busy routes grow into bright highways. Scent fades over time. Spiders follow scent too, and move fastest on the strongest trails. {Press} and hold to make it rain: rain washes scent away, so you can throw a spider off a trail, but your ants lose that trail as well. Soldiers keep spiders away from the nest, and a new ant hatches for every 10 crumbs. Day 1 is a short warm-up with one pile and no spider. Every day after it has a new food layout and a twist: day 4 brings storm clouds that wash trails as they drift by, day 5 a second spider, day 6 a rival colony of red ants that raids the same food and follows your trails. Ants you lose stay lost, but overnight one ant hatches for every 10 seconds of daylight you had left, plus 3 more if you met the day's bonus challenge (bottom left). Lose a day and you can retry it with the ants you had at dawn, or start a new run. The ▶▶ button (bottom right) runs the day at 2× or 3× speed.",
+      "keyboard": "F to fast-forward (1×, 2×, 3×)",
       "mechanics": [
         {
           "name": "trail",
@@ -337,12 +343,12 @@
         {
           "id": "long-haul",
           "title": "Long Haul",
-          "description": "Carry off the whole far pile on day 1."
+          "description": "Carry off the whole far pile on day 2."
         },
         {
           "id": "untouchable",
           "title": "Untouchable",
-          "description": "Win a day without losing an ant."
+          "description": "Win a day with a spider in it without losing an ant."
         },
         {
           "id": "swift",
@@ -352,17 +358,17 @@
         {
           "id": "weathered",
           "title": "Weathered",
-          "description": "Win the storm day (day 3)."
+          "description": "Win the storm day (day 4)."
         },
         {
           "id": "double-trouble",
           "title": "Double Trouble",
-          "description": "Win day 4 against two spiders."
+          "description": "Win day 5 against two spiders."
         },
         {
           "id": "turf-war",
           "title": "Turf War",
-          "description": "Win day 5 with the rival colony holding less than half as many crumbs as yours."
+          "description": "Win day 6 with the rival colony holding less than half as many crumbs as yours."
         },
         {
           "id": "big-colony",
@@ -372,7 +378,7 @@
         {
           "id": "full-season",
           "title": "Full Season",
-          "description": "Win all five days in one run without a retry."
+          "description": "Win all six days in one run without a retry."
         }
       ]
     },
@@ -661,12 +667,12 @@
       "id": "loom",
       "title": "Loom",
       "file": "loom.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-09-29",
       "updated": "2026-09-29",
       "blurb": "Stretch a knotted net onto a dotted silhouette and pin it there before the pins pop or the strands snap.",
-      "goal": "Hold four shapes in a row (Tablecloth, Banner, Sail, Kite): cover every dot with a knot at once and keep it there for a second. Three slips (a pin popping loose or a strand snapping) lose the shape, and snapped strands stay snapped for the rest of the run.",
-      "howToPlay": "Drag a knot to pull the net: the knot follows your {finger}, and the further your {finger} leads it, the harder you pull. {Tap} a knot to pin it where it is (up to 4 pins); {tap} a pin to take it out, or drag it to pull it out and move that knot. A knot you let go of without a pin slides back as the net relaxes, so pin it quickly. Strands turn from linen to gold to red as they stretch; a red strand that stays red snaps. The ring around a pin fills with the load it holds, and a red ring shakes and then pops the pin. While you pull, the same ring around your knot shows the load a pin would hold if you pinned it there. A dot only needs a knot somewhere inside its circle, so the near edge needs less stretch than the middle. A taut edge between two pins lines up the knots along it, which can cover extra dots without extra pins.",
+      "goal": "Hold seven shapes in a row: cover every dot with a knot at once and keep it there for a second. Three slips (a pin popping loose or a strand snapping) lose the shape (one frayed strand snapping loses it at once), and snapped strands stay snapped for the rest of the run.",
+      "howToPlay": "Drag a knot to pull the net: the knot follows your {finger}, and the further your {finger} leads it, the harder you pull. {Tap} a knot to pin it where it is (up to 4 pins); {tap} a pin to take it out, or drag it to pull it out and move that knot. A knot you let go of without a pin slides back as the net relaxes, so pin it quickly. Strands turn from linen to gold to red as they stretch; a red strand that stays red snaps. The ring around a pin fills with the load it holds, and a red ring shakes and then pops the pin. While you pull, the same ring around your knot shows the load a pin would hold if you pinned it there. A dot only needs a knot somewhere inside its circle, so the near edge needs less stretch than the middle. A taut edge between two pins lines up the knots along it, which can cover extra dots without extra pins. Later shapes add twists: a blue dot only counts under the blue knot, and dashed frayed strands tear at a third of the usual stretch, so keep them slack. Shapes are mirrored at random each run.",
       "mechanics": [
         {
           "name": "pull",
@@ -690,20 +696,35 @@
         {
           "id": "full-run",
           "title": "Loom Master",
-          "description": "Hold all four shapes in one run."
+          "description": "Hold all seven shapes in one run."
         },
         {
           "id": "unbroken",
           "title": "Unbroken",
-          "description": "Hold all four shapes without snapping a single strand."
+          "description": "Hold all seven shapes without snapping a single strand."
         },
         {
           "id": "kite-flyer",
           "title": "Kite Flyer",
           "description": "Hold the Kite without a single slip."
+        },
+        {
+          "id": "old-rope",
+          "title": "Old Rope",
+          "description": "Hold the Hammock on your first try."
+        },
+        {
+          "id": "true-colours",
+          "title": "True Colours",
+          "description": "Hold the Arrow without a single slip."
         }
       ],
       "changes": [
+        {
+          "version": 2,
+          "date": "2026-09-29",
+          "text": "Three new shapes with new twists: a dyed knot that only its own dot accepts, and frayed strands that tear at a light stretch. Shapes are mirrored at random. Two new achievements."
+        },
         {
           "version": 1,
           "date": "2026-09-29",

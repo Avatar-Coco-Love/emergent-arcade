@@ -207,3 +207,27 @@ decisions are. Also test a bot that can only use the verb at full strength
 (PC keys: `keys` 47% vs analog 100% in garden 3), since a global verb
 needs fine control. *Evidence: bots (`docs/games/terrace-garden.md`).
 Provisional: not playtested.*
+
+## A general trick beats a set of levels; break it with rules, not sizes
+
+Loom v1 had four shapes, and one rule solved them all ("corners to the
+outer dots, pinned at the inner edge"). A player said so after one run
+("every other level blindfolded"). A bot playing only that rule (`habit`)
+won 100%. Bigger or stranger silhouettes didn't help, because the rule
+generalises. What broke it was a rule about *which* knot (a dyed dot takes
+only its own knot) and *which* strands can take stretch (frayed ones).
+Also, a penalty that relieves the constraint doesn't teach: a frayed snap
+costing one slip let `habit` win anyway, since the snapped strand freed its
+row. Making it an instant tear did. Check: write the one-line rule a
+player would use after level 1 as a bot, and make sure each later level
+fails it. *Evidence: feedback + bots (`docs/games/loom.md`). Provisional.*
+
+## Onboarding: the first round is a hook, not a test
+
+Ant Trails v4's first day took 60–90 s of mostly waiting, and a player
+quit before seeing day 2 ("you gotta hook a player"). v5 adds a 17–40 s
+warm-up day (one near pile, no spider) and fast-forward. The warm-up's
+reward (hatched ants) was cancelled out by starting the colony smaller,
+so the rest of the run's balance didn't move. Check: time a novice bot's
+first round; if it's over ~40 s, add a warm-up or a speed-up.
+*Evidence: feedback (`docs/games/ant-trails.md`). Provisional.*
