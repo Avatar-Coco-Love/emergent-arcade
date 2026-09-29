@@ -2,6 +2,7 @@
 //
 // Usage: node scripts/balance-hot-iron.mjs [runs=200] [bot,bot,...] [CONST=value,...]
 //   e.g. node scripts/balance-hot-iron.mjs 200 reader,blind COOL=0.12,TOL=0.08
+//   TAPS=1 also prints the first 12 blows (segment:temperature@time) of 4 bars.
 //
 // Builds a debug copy of games/hot-iron.html (state on window, seeded
 // Math.random, no animation loop), then plays seeded bars in headless
@@ -60,6 +61,32 @@ const BOTS = {
   novice: { ...HUMAN, policy: 'reader', rate: 1, novice: true, grow: 2.5 },
   'novice-slow': { ...HUMAN, policy: 'reader', rate: 1, react: 0.5, novice: true, grow: 2.5 },
   idle: { ...HUMAN, policy: 'idle', rate: 1 },
+  // habit-*: the v3 telemetry habit (one player, 5 rounds, all lost to 3
+  // cracks in 12-35 s; ~40% of strikes cracked, 0 clangs, 0 stuck, 4-22 s of
+  // heat, Steer unlocked). Never reads colour: heats a spot for `hold` s
+  // (+-40%), lets go, then strikes `taps` times, `gap` s apart.
+  //   habit-nb: heats the segment most below the outline and strikes its
+  //     thicker neighbour (what howToPlay says to do to thicken).
+  //   habit-self: heats the segment most off the outline and strikes it.
+  //   habit-short: habit-self with short holds.
+  // glow: the reader's targeting and steering, but it strikes as soon as the
+  //   donor glows (0.27-0.5: dull red to just past cherry). glow-nosteer
+  //   also ignores the neighbours. glow-red (the v3 telemetry match): slower
+  //   hands and 0.27-0.47, i.e. up to just past v3's cherry step.
+  //   glow-col: glow-red judged by colour, from first glow to just past
+  //   cherry wherever the colour step is (T_WORK + 0.02): the pessimistic
+  //   case for a lower T_WORK. glow-hinted: glow-red until its first crack,
+  //   then it waits for the working range (the v4 crack hint and marks).
+  glow: { ...HUMAN, policy: 'reader', rate: 1, glow: [0.27, 0.5] },
+  'glow-nosteer': { ...HUMAN, policy: 'reader', rate: 1, glow: [0.27, 0.5], nosteer: true },
+  'glow-slow': { ...HUMAN, policy: 'reader', rate: 1, gap: 1.5, glow: [0.27, 0.5] },
+  'glow-red': { ...HUMAN, policy: 'reader', rate: 1, gap: 1.5, glow: [0.27, 0.47] },
+  'glow-col': { ...HUMAN, policy: 'reader', rate: 1, gap: 1.5, glow: [0.27, 'work'] },
+  'glow-hinted': { ...HUMAN, policy: 'reader', rate: 1, gap: 1.5, glow: [0.27, 0.47], learn: 1 },
+  'habit-nb': { ...HUMAN, policy: 'habit', rate: 1, gap: 0.8, hold: 2, taps: 1, pick: 4, at: 'nb' },
+  'habit-mix': { ...HUMAN, policy: 'habit', rate: 1, gap: 0.8, hold: 2, taps: 1, pick: 4, at: 'mix' },
+  'habit-self': { ...HUMAN, policy: 'habit', rate: 1, gap: 0.8, hold: 2, taps: 1, pick: 4, at: 'self' },
+  'habit-short': { ...HUMAN, policy: 'habit', rate: 1, gap: 0.8, hold: 0.8, taps: 1, pick: 4, at: 'self' },
 };
 
 function buildDebug(overrides) {
@@ -82,7 +109,8 @@ window.__seed = s => { __s = s; };
   window.__dbg = {
     get state() { return state; }, get elapsed() { return elapsed; }, get segs() { return segs; },
     get target() { return target; }, get fuel() { return fuel; }, get cracks() { return cracks; },
-    get strikes() { return strikes; },
+    get strikes() { return strikes; }, get clangs() { return clangs; }, get stuck() { return stuck; },
+    get heatTime() { return heatTime; },
     N, T_WORK, T_BURN, TOL, TH_MIN, FUEL_MAX, STRIKE_BASE, STRIKE_GAIN, FLOW_T0, FLOW_SPAN, FLOW_NEED,
     PROFILES, softness, earned: roundEarned, step, strike, setHeat, newBar,
   };
@@ -105,12 +133,18 @@ function playInPage({ seed, bot }) {
   const DT = 1 / 60, N = D.N, S = D.segs;
   const gap = bot.gap / bot.rate, react = bot.react;
   let heating = null, lastT = null;
+  const glowHi = bot.glow && (bot.glow[1] === 'work' ? D.T_WORK + 0.02 : bot.glow[1]);
+  const newGlow = () => bot.glow ? bot.glow[0] + (glowHi - bot.glow[0]) * rand() : 0;
+  let glowAt = newGlow();
+  const taps = [];
   const advance = t => { for (let k = 0; k < Math.round(t / DT) && D.state === 'playing'; k++) D.step(DT); };
   const setHeat = x => { heating = x; D.setHeat(x); };
   const tap = i => {
     const r = rand();
     if (r < bot.miss / 2) i--; else if (r < bot.miss) i++;
-    D.strike(Math.max(0, Math.min(N - 1, i)));
+    i = Math.max(0, Math.min(N - 1, i));
+    if (taps.length < 12) taps.push(`${i}:${S[i].T.toFixed(2)}@${D.elapsed.toFixed(1)}`);
+    D.strike(i);
   };
   const soft = D.softness;
   const err = i => S[i].th - D.target[i];
@@ -170,7 +204,11 @@ function playInPage({ seed, bot }) {
     const blow = T => th * (D.STRIKE_BASE + D.STRIKE_GAIN * Math.min(1, (T - D.T_WORK) / (D.T_BURN - D.T_WORK)));
     const wr = soft(Tp[recv]), wo = other >= 0 && other < N ? soft(Tp[other]) : 0;
     const recvOk = bot.nosteer || (wr >= 0.4 && wo / (wr + wo + 1e-9) <= 0.25);
-    const hotEnough = Tp[donor] >= D.T_WORK + 0.04;
+    // glow: strikes once the donor looks red at all (can't tell dull red
+    // from cherry): a threshold drawn per blow between the two.
+    // glow-hinted: after `learn` cracks it waits for the working range.
+    const glowing = bot.glow && !(bot.learn && D.cracks >= bot.learn);
+    const hotEnough = Tp[donor] >= (glowing ? glowAt : D.T_WORK + 0.04);
     const notTooMuch = blow(Tp[donor]) <= Math.max(j.amount + D.TOL * 0.4, blow(D.T_WORK + 0.1));
     if (hotEnough && notTooMuch && recvOk) return { strike: donor };
     if (hotEnough && !notTooMuch) return { wait: true };
@@ -199,6 +237,18 @@ function playInPage({ seed, bot }) {
   let blindPhase = 0, blindTarget = 0;
   while (D.state === 'playing' && D.elapsed < 400) {
     if (bot.policy === 'idle') { advance(1); continue; }
+    if (bot.policy === 'habit') {
+      // Pick by shape only (one of the `pick` segments furthest off the
+      // outline), heat it, let go, strike without looking at colour.
+      const order = [...Array(N).keys()].sort((a, b) => err(a) - err(b));
+      const j = order[Math.floor(rand() * bot.pick)];
+      const t = j === 0 ? 1 : j === N - 1 ? N - 2 : (err(j - 1) > err(j + 1) ? j - 1 : j + 1);
+      advance(gap);
+      if (D.fuel > 0) { setHeat(j + 0.5); advance(bot.hold * (0.6 + 0.8 * rand())); advance(react); setHeat(null); }
+      for (let k = 0; k < bot.taps && D.state === 'playing'; k++) { advance(gap); tap(t); }
+      if (D.fuel <= 0) advance(1);
+      continue;
+    }
     if (bot.policy === 'blind') {
       // Heat for a fixed time, then strike twice, never looking at colour.
       if (blindPhase === 0) {
@@ -231,7 +281,7 @@ function playInPage({ seed, bot }) {
       continue;
     }
     if (heating !== null) { advance(react); setHeat(null); }
-    if (a.strike !== undefined) { tap(a.strike); advance(gap); continue; }
+    if (a.strike !== undefined) { tap(a.strike); glowAt = newGlow(); advance(gap); continue; }
     advance(0.2);
   }
   if (heating !== null) setHeat(null);
@@ -239,7 +289,7 @@ function playInPage({ seed, bot }) {
     won: D.state === 'won', lost: D.state === 'lost', time: D.elapsed, fuelLeft: D.fuel / D.FUEL_MAX,
     cracks: D.cracks, strikes: D.strikes, profile: seed % D.PROFILES.length,
     off: S.filter((x, i) => Math.abs(x.th - D.target[i]) > D.TOL).length, earned: [...D.earned],
-    burned: N - S.reduce((a, x) => a + x.th, 0),
+    burned: N - S.reduce((a, x) => a + x.th, 0), clangs: D.clangs, stuck: D.stuck, heat: D.heatTime, taps,
   };
 }
 
@@ -261,12 +311,14 @@ function report(name, rs) {
   const ach = {};
   for (const r of rs) for (const id of r.earned) ach[id] = (ach[id] || 0) + 1;
   const achs = Object.entries(ach).map(([k, v]) => `${k} ${pct(v)}`).join(', ');
-  const wins = rs.filter(r => r.won);
+  const wins = rs.filter(r => r.won), losses = rs.filter(r => r.lost);
   const why = `cracked ${pct(rs.filter(r => r.cracks >= 3).length)}, no fuel ${pct(rs.filter(r => r.lost && r.cracks < 3).length)}, timeout ${pct(rs.filter(r => !r.won && !r.lost).length)}`;
   const perProfile = [0, 1, 2, 3].map(p => { const g = rs.filter(r => r.profile === p); return g.length ? Math.round(100 * g.filter(r => r.won).length / g.length) : '-'; }).join('/');
   console.log(`${name.padEnd(11)} win ${pct(wins.length).padStart(4)} (by shape ${perProfile}) | ${why}` +
     ` | wins: ${Math.round(med(wins.map(r => r.time)))}s, ${med(wins.map(r => r.strikes))} strikes, fuel left ${Math.round(100 * med(wins.map(r => r.fuelLeft)))}%` +
-    ` | cracks ${med(rs.map(r => r.cracks))}, off ${med(rs.map(r => r.off))}, burned ${med(rs.map(r => r.burned)).toFixed(2)} | ${achs}`);
+    ` | cracks ${med(rs.map(r => r.cracks))}, off ${med(rs.map(r => r.off))}, burned ${med(rs.map(r => r.burned)).toFixed(2)}` +
+    (losses.length ? ` | losses: ${Math.round(med(losses.map(r => r.time)))}s, ${med(losses.map(r => r.strikes))} strikes, heat ${Math.round(med(losses.map(r => r.heat)))}s, clangs ${med(losses.map(r => r.clangs))}, stuck ${med(losses.map(r => r.stuck))}` : '') +
+    ` | ${achs}`);
 }
 
 const runs = +process.argv[2] || 200;
@@ -277,6 +329,8 @@ const file = buildDebug(overrides);
 const browser = await chromium.launch();
 for (const n of names) {
   if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
-  report(n, await run(BOTS[n], runs, file, browser));
+  const rs = await run(BOTS[n], runs, file, browser);
+  if (process.env.TAPS) for (const r of rs.slice(0, 4)) console.log(r.profile, r.taps.join(" "));
+  report(n, rs);
 }
 await browser.close();

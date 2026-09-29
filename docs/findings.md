@@ -260,3 +260,29 @@ bar). Check:
 
 *Evidence: telemetry (4 players) + bots (`docs/games/terrace-garden.md`).
 Provisional: v2 isn't playtested.*
+
+## A player can know the verbs and miss the moment
+
+Hot Iron v3: 0 of 5 rounds won (one new player), all lost to 3 cracks in
+12–35 s. The medians looked like the v1 tester (didn't know the verbs), but
+the rows said otherwise: 0 clangs (heats before striking), 0 stuck blows,
+Steer unlocked (tried the neighbour trick), and ~40% of blows cracked,
+spread over the round. The player knew both verbs, but couldn't tell dull
+red (cracks) from cherry (works). A bot with the reader's own targeting that
+strikes as soon as the metal looks red (`glow-red`) lost the same way
+(7%), while the same bot waiting for cherry after its first crack won 95%.
+So the missing piece was a threshold on the shared state, not a verb.
+More lives didn't help (5–6 cracks: 13–15%): a player who can't see the
+rule doesn't learn it from more failures. v4 marks strikeable metal
+directly on the bar (a hammer above it), says what to do after a crack, and
+narrows the crack band: glow-red 68%, a colour-judged version 36%, all
+colour-blind bots still 0%. Check:
+- Read the rows for what the player already does right (here, 0 clangs)
+  before assuming they don't know a verb.
+- If success depends on a threshold in a continuous display (a colour, a
+  level), show the threshold where the player acts, not only in a legend.
+- A bot that does the right thing at a slightly wrong threshold can match
+  telemetry better than a bot that does the wrong thing.
+
+*Evidence: telemetry (1 player, 5 rounds) + bots
+(`docs/games/hot-iron.md`). Provisional: v4 isn't playtested.*
