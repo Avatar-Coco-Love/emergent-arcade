@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loom</title>
+<style>
+  :root {
+    --bg: #150f19;
+    --panel: #241a2b;
+    --text: #f1e8f0;
+    --muted: #a898a8;
+    --accent: #e0679a;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the table scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #table {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    border-radius: 10px;
+    background: #1d1523;
+  }
+  #msg {
+    position: absolute;
+    top: 3%;
+    left: 8px;
+    right: 8px;
+    margin: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #f5e9f1;
+    text-shadow: 0 1px 3px #000;
+    pointer-events: none;
+  }
+  #endCard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(86%, 300px);
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(36, 26, 43, 0.95);
+    border: 1px solid #45344f;
+    text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #endCard h2.won { color: #ffd27a; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #d8cad6; font-size: 0.9rem; }
+  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
+  #playAgain:disabled { opacity: 0.4; }
+  .bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bar b { color: var(--text); }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #45344f;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <div id="field">
+    <div id="stage">
+      <canvas id="table" aria-label="Loom. Drag a knot to pull the cloth, tap a knot to pin it."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="playAgain">Next shape</button>
+      </div>
+    </div>
+  </div>
+  <div class="bar">
+    <span><b id="hudShape"></b> <span id="hudLevel"></span></span>
+    <span>Pins <b id="hudPins"></b></span>
+    <span>Slips <b id="hudSlips"></b></span>
+    <button id="resetBtn">Restart shape</button>
+  </div>
+<script>
+(function() {
+  const GAME_ID = 'loom';
+  const W = 400, H = 480;
+  const COLS = 6, ROWS = 6;        // knots in the net
+  const REST = 32;                 // strand rest length (px)
+  const CX = 200, CY = 245;        // centre of the net at rest
+  // Strands only pull: force = strain (stretch / rest length) while taut.
+  const FRICTION = 0.01;           // a free knot stays put under this net force
+  const MOB = 1500;                // px/s of drift per unit of force over friction
+  const VMAX = 600;                // fastest a knot drifts (px/s)
+  const GRIP_K = 1 / 8;            // pull force per px the finger leads its knot ...
+  const GRIP_MAX = 1;              // ... up to this
+  const WARN = 0.4;                // strain where a strand turns hot
+  const SNAP = 0.6;                // strain past which a strand snaps ...
+  const SNAP_DELAY = 0.8;          // ... after this long over it (s)
+  const PIN_HOLD = 0.6;            // force a pin holds; past it the pin works loose ...
+  const POP_DELAY = 0.6;           // ... and pops after this long (s)
+  const RING_RED = 0.8;            // a load ring turns red at this share of PIN_HOLD
+  const MAX_PINS = 4;              // pins in the cloth at once
+  const MAX_SLIPS = 3;             // snaps + popped pins in one shape: the cloth gets away
+  const DOT_R = 12;                // a knot this close covers a dot
+  const HOLD_WIN = 1.0;            // every dot covered, hands off, for this long (s)
+  const GRACE = 0.6;               // a released knot stays put this long (s)
+  const GRAB_R = 26;               // reach of a touch to the nearest knot (px)
+  const TAP_SLOP_PX = 10;
+  const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win/loss
+  const STEP = 1 / 60, SUB = 4;
+
+  // The run: four silhouettes in a row. Snapped strands stay snapped. Each
+  // dot is [x, y, knot]: the knot the design has in mind (corners to
+  // corners, edge knots lined up by a taut edge). Any knot covers any dot;
+  // only the balance bots read the third number.
+  const SHAPES = [
+    { name: 'Tablecloth', outline: [[100, 145], [300, 145], [300, 345], [100, 345]],
+      dots: [[100, 145, 0], [300, 145, 5], [300, 345, 35], [100, 345, 30]] },
+    { name: 'Banner', outline: [[85, 185], [315, 185], [315, 305], [85, 305]],
+      dots: [[85, 185, 0], [315, 185, 5], [315, 305, 35], [85, 305, 30], [177, 185, 2], [223, 305, 33]] },
+    { name: 'Sail', outline: [[135, 130], [320, 355], [135, 355]],
+      dots: [[135, 130, 0], [135, 355, 30], [320, 355, 35], [135, 220, 12], [209, 355, 32]] },
+    { name: 'Kite', outline: [[200, 85], [320, 245], [200, 405], [80, 245]],
+      dots: [[200, 85, 0], [320, 245, 5], [200, 405, 35], [80, 245, 30]] },
+  ];
+
+  const canvas = document.getElementById('table');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  const roundEarned = new Set();
+  function unlock(id) {
+    roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Tell the gallery how a shape ended (anonymous play telemetry, see
+  // docs/telemetry.md). time is seconds of unpaused play on this shape; level
+  // is the shape, run ties one run's shapes together, attempt counts retries.
+  // Stats keys are in docs/games/loom.md.
+  function report(result, reason) {
+    if (window.parent === window) return;
+    const r1 = v => Math.round(v * 10) / 10;
+    const msg = { type: 'arcade:result', game: GAME_ID,
+      outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
+      level: level + 1, run: runId, attempt,
+      stats: { snaps, pops, pulls, pins: pinsPlaced, max_pins: maxPins, holes: startHoles.length,
+        covered: coveredCount(), first_input: firstInput === null ? -1 : r1(firstInput) } };
+    if (reason) msg.reason = reason;
+    window.parent.postMessage(msg, '*');
+  }
+
+  // Scale the table to the largest W:H box that fits, one canvas pixel per
+  // screen pixel. Drawing always uses W x H game units.
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitStage() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(100, Math.floor(W * scale));
+    const h = Math.max(120, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitStage).observe(field);
+  window.addEventListener('resize', fitStage);
+  fitStage();
+
+  // The gallery pauses the game while one of its panels covers it.
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') paused = true;
+    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+  });
+
+  const endCard = document.getElementById('endCard');
+  const playAgainBtn = document.getElementById('playAgain');
+
+  // Net: knots in a COLS x ROWS grid, strands between horizontal and
+  // vertical neighbours (a knotted net, so it shears freely).
+  const strands = [];
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const i = r * COLS + c;
+    if (c < COLS - 1) strands.push({ a: i, b: i + 1 });
+    if (r < ROWS - 1) strands.push({ a: i, b: i + COLS });
+  }
+  let knots = [];
+
+  let level, runId, attempt, runSnaps, startHoles, state, msgTimer;
+  let elapsed, holdT, snaps, pops, pulls, pinsPlaced, maxPins, firstInput;
+  let grabbed = null, finger = { x: 0, y: 0 }, slipWatch = null, hinted = false;
+  let lint = [], flyingPins = [], flash = 0;
+
+  function shape() { return SHAPES[level]; }
+  function pinsIn() { return knots.filter(k => k.pinned).length; }
+  function holes() { return strands.map((s, i) => s.alive ? -1 : i).filter(i => i >= 0); }
+
+  function newRun() {
+    level = 0;
+    runId = Math.random().toString(36).slice(2, 10);
+    runSnaps = 0;
+    for (const s of strands) s.alive = true;
+    startLevel(1);
+  }
+
+  // Lay the net flat (holes from earlier shapes stay) and start a shape.
+  function startLevel(att) {
+    attempt = att;
+    if (att === 1) startHoles = holes();
+    for (let i = 0; i < strands.length; i++) {
+      const s = strands[i];
+      s.alive = !startHoles.includes(i);
+      s.strain = -1; s.over = 0;
+    }
+    knots = [];
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      knots.push({ x: CX + (c - (COLS - 1) / 2) * REST, y: CY + (r - (ROWS - 1) / 2) * REST,
+        pinned: false, over: 0, load: 0, grace: 0 });
+    }
+    elapsed = 0; holdT = 0; snaps = 0; pops = 0; pulls = 0; pinsPlaced = 0; maxPins = 0;
+    firstInput = null; grabbed = null; slipWatch = null;
+    lint = []; flyingPins = [];
+    roundEarned.clear();
+    state = 'playing';
+    endCard.hidden = true;
+    say(`${shape().name}: cover every dot.`);
+    hud();
+  }
+
+  function hud() {
+    document.getElementById('hudShape').textContent = shape().name;
+    document.getElementById('hudLevel').textContent = `${level + 1}/${SHAPES.length}`;
+    document.getElementById('hudPins').textContent = `${pinsIn()}/${MAX_PINS}`;
+    document.getElementById('hudSlips').textContent = `${snaps + pops}/${MAX_SLIPS}`;
+  }
+
+  function endLevel(result, why) {
+    state = result;
+    if (grabbed !== null) release();
+    report(result, why);
+    msgEl.textContent = '';
+    const title = document.getElementById('endTitle');
+    const last = level === SHAPES.length - 1;
+    if (result === 'won') {
+      title.textContent = last ? 'Every shape held!' : `${shape().name} held!`;
+      const slips = snaps + pops, h = holes().length;
+      document.getElementById('endDetail').textContent =
+        `${maxPins} pin${maxPins === 1 ? '' : 's'}, ${slips} slip${slips === 1 ? '' : 's'}.` +
+        (last ? ` ${runSnaps} snap${runSnaps === 1 ? '' : 's'} in the whole run.`
+          : h ? ` ${h} snapped strand${h === 1 ? '' : 's'} carr${h === 1 ? 'ies' : 'y'} over.` : '');
+      playAgainBtn.textContent = last ? 'New run' : 'Next shape';
+    } else {
+      title.textContent = why === 'torn' ? 'Torn!' : 'It got away!';
+      document.getElementById('endDetail').textContent =
+        `${snaps} snap${snaps === 1 ? '' : 's'} and ${pops} popped pin${pops === 1 ? '' : 's'}. ` +
+        `${coveredCount()} of ${shape().dots.length} dots were covered.`;
+      playAgainBtn.textContent = 'Try this shape again';
+    }
+    title.className = result;
+    const n = roundEarned.size;
+    document.getElementById('endAch').textContent = n
+      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned` : '';
+    playAgainBtn.disabled = true;
+    endCard.hidden = false;
+    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    hud();
+  }
+
+  function next() {
+    if (state === 'won') {
+      if (level === SHAPES.length - 1) { newRun(); return; }
+      level++;
+      startLevel(1);
+    } else {
+      startLevel(attempt + 1);
+    }
+  }
+
+  function say(text) {
+    msgEl.textContent = text;
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { msgEl.textContent = ''; }, 2500);
+  }
+
+  function coveredBy(d) {
+    for (const k of knots) if (Math.hypot(k.x - d[0], k.y - d[1]) <= DOT_R) return true;
+    return false;
+  }
+  function coveredCount() { return shape().dots.filter(coveredBy).length; }
+
+  // ---------- the two verbs ----------
+  function touched() { if (firstInput === null) firstInput = elapsed; }
+
+  // Pull: grab a knot. Pulling a pinned knot pulls its pin out.
+  function grab(i) {
+    if (state !== 'playing') return;
+    touched();
+    const k = knots[i];
+    if (k.pinned) { k.pinned = false; k.over = 0; }
+    grabbed = i;
+    finger = { x: k.x, y: k.y };
+    pulls++;
+    hud();
+  }
+  function setFinger(x, y) { finger = { x, y }; }
+  function release() {
+    if (grabbed === null) return;
+    const k = knots[grabbed];
+    k.grace = GRACE;
+    slipWatch = { i: grabbed, x: k.x, y: k.y };
+    grabbed = null;
+  }
+
+  // Pin: tap a free knot to fix it where it is; tap a pin to take it out.
+  function tapKnot(i) {
+    if (state !== 'playing') return;
+    touched();
+    const k = knots[i];
+    if (k.pinned) { k.pinned = false; k.over = 0; hud(); return; }
+    if (pinsIn() >= MAX_PINS) { say(`All ${MAX_PINS} pins are in. Tap a pin to take it out.`); return; }
+    k.pinned = true; k.over = 0;
+    pinsPlaced++;
+    maxPins = Math.max(maxPins, pinsIn());
+    if (slipWatch && slipWatch.i === i) slipWatch = null;
+    hud();
+  }
+
+  // ---------- simulation ----------
+  const fx = new Float64Array(COLS * ROWS), fy = new Float64Array(COLS * ROWS);
+
+  function physics(h) {
+    fx.fill(0); fy.fill(0);
+    for (const s of strands) {
+      if (!s.alive) continue;
+      const a = knots[s.a], b = knots[s.b];
+      const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1e-6;
+      s.strain = len / REST - 1;
+      if (s.strain > 0) {
+        const f = s.strain / len;
+        fx[s.a] += f * dx; fy[s.a] += f * dy;
+        fx[s.b] -= f * dx; fy[s.b] -= f * dy;
+      }
+      if (s.strain > SNAP) {
+        s.over += h;
+        if (s.over >= SNAP_DELAY) snap(s);
+      } else s.over = Math.max(0, s.over - 2 * h);
+    }
+    for (let i = 0; i < knots.length; i++) {
+      const k = knots[i];
+      let gx = fx[i], gy = fy[i];
+      if (k.pinned) {
+        k.load = Math.hypot(gx, gy);
+        if (k.load > PIN_HOLD) {
+          k.over += h;
+          if (k.over >= POP_DELAY) pop(k);
+        } else k.over = Math.max(0, k.over - 2 * h);
+        continue;
+      }
+      k.load = Math.hypot(gx, gy); // what a pin here would hold
+      if (i === grabbed) {
+        const dx = finger.x - k.x, dy = finger.y - k.y, d = Math.hypot(dx, dy);
+        const g = Math.min(GRIP_MAX, GRIP_K * d);
+        if (d > 1e-6) { gx += g * dx / d; gy += g * dy / d; }
+      } else if (k.grace > 0) { k.grace -= h; continue; }
+      const m = Math.hypot(gx, gy);
+      if (m <= FRICTION) continue;
+      const v = Math.min(VMAX, MOB * (m - FRICTION));
+      k.x += gx / m * v * h;
+      k.y += gy / m * v * h;
+      k.x = Math.max(4, Math.min(W - 4, k.x));
+      k.y = Math.max(4, Math.min(H - 4, k.y));
+    }
+  }
+
+  function snap(s) {
+    if (!s.alive || state !== 'playing') return;
+    s.alive = false; s.over = 0;
+    snaps++; runSnaps++;
+    const a = knots[s.a], b = knots[s.b];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    for (let j = 0; j < 10; j++) {
+      const t = Math.random() * Math.PI * 2, v = 30 + Math.random() * 60;
+      lint.push({ x: mx, y: my, vx: Math.cos(t) * v, vy: Math.sin(t) * v, life: 0.6 });
+    }
+    flash = 0.25;
+    hud();
+    if (slipped('torn')) return;
+    say(`Snap! ${slipsLeft()}`);
+  }
+
+  function pop(k) {
+    if (state !== 'playing') return;
+    k.pinned = false; k.over = 0; k.grace = 0;
+    pops++;
+    const t = Math.random() * Math.PI * 2;
+    flyingPins.push({ x: k.x, y: k.y, vx: Math.cos(t) * 90, vy: -60 - Math.random() * 40, life: 0.7 });
+    hud();
+    if (slipped('slipped')) return;
+    say(`A pin popped loose! ${slipsLeft()}`);
+  }
+
+  // Snaps and pops are slips; MAX_SLIPS of them in one shape lose it.
+  function slipped(why) {
+    if (snaps + pops < MAX_SLIPS) return false;
+    endLevel('lost', why);
+    return true;
+  }
+  function slipsLeft() {
+    const n = MAX_SLIPS - snaps - pops;
+    return n === 1 ? 'One more slip and it gets away.' : `${n} more slips and it gets away.`;
+  }
+
+  function step(dt) {
+    elapsed += dt;
+    for (let n = 0; n < SUB && state === 'playing'; n++) physics(dt / SUB);
+    if (state !== 'playing') return;
+    // A knot let go without a pin slides back: show once that pins hold it.
+    if (slipWatch) {
+      const k = knots[slipWatch.i];
+      if (k.pinned || grabbed === slipWatch.i) slipWatch = null;
+      else if (Math.hypot(k.x - slipWatch.x, k.y - slipWatch.y) > 14) {
+        if (!hinted) { say('It slid back. Tap a knot to pin it.'); hinted = true; }
+        slipWatch = null;
+      }
+    }
+    if (grabbed === null && coveredCount() === shape().dots.length) {
+      holdT += dt;
+      if (holdT >= HOLD_WIN) win();
+    } else holdT = 0;
+  }
+
+  function win() {
+    unlock('first-shape');
+    if (shape().name === 'Kite' && snaps + pops === 0) unlock('kite-flyer');
+    if (level === SHAPES.length - 1) {
+      unlock('full-run');
+      if (runSnaps === 0) unlock('unbroken');
+    }
+    endLevel('won');
+  }
+
+  function effects(dt) {
+    for (const p of lint) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94; p.life -= dt; }
+    lint = lint.filter(p => p.life > 0);
+    for (const p of flyingPins) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.life -= dt; }
+    flyingPins = flyingPins.filter(p => p.life > 0);
+    flash = Math.max(0, flash - dt);
+  }
+
+  // ---------- drawing ----------
+  function mix(c1, c2, t) {
+    t = Math.max(0, Math.min(1, t));
+    return `rgb(${c1.map((v, i) => Math.round(v + (c2[i] - v) * t)).join(',')})`;
+  }
+  const LINEN = [232, 220, 200], GOLD = [242, 193, 78], RED = [255, 70, 70];
+  function strandColor(s) {
+    if (s.strain < WARN) return mix(LINEN, GOLD, s.strain / WARN);
+    return mix(GOLD, RED, (s.strain - WARN) / (SNAP - WARN));
+  }
+
+  // A ring around a pin (or the knot being pulled) filling with its load:
+  // white, gold from half of PIN_HOLD, red from RING_RED of it.
+  function loadRing(x, y, f) {
+    ctx.strokeStyle = f > RING_RED ? '#ff5a5a' : f > 0.5 ? '#f2c14e' : 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(x, y, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke();
+  }
+
+  function draw(now) {
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+    ctx.fillStyle = '#1d1523';
+    ctx.fillRect(0, 0, W, H);
+    // Faint weave on the table.
+    ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 10; x < W; x += 20) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let y = 10; y < H; y += 20) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+    if (flash > 0) { ctx.fillStyle = `rgba(255,80,80,${flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
+
+    // The silhouette and its dots.
+    const sh = shape();
+    ctx.beginPath();
+    sh.outline.forEach(([x, y], j) => j ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(224,103,154,0.07)';
+    ctx.fill();
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = 'rgba(224,103,154,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    const holding = holdT > 0;
+    for (const d of sh.dots) {
+      const on = coveredBy(d);
+      ctx.setLineDash(on ? [] : [3, 3]);
+      ctx.strokeStyle = on ? (holding ? '#ffd27a' : '#9be37a') : 'rgba(240,160,195,0.9)';
+      ctx.lineWidth = on ? 2 : 1.5;
+      ctx.beginPath(); ctx.arc(d[0], d[1], DOT_R, 0, Math.PI * 2); ctx.stroke();
+      if (holding) {
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#ffd27a';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(d[0], d[1], DOT_R + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * holdT / HOLD_WIN); ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]);
+
+    // Strands: slack ones sag, taut ones warm up from linen to gold to red.
+    for (const s of strands) {
+      const a = knots[s.a], b = knots[s.b];
+      if (!s.alive) {
+        // Frayed ends where a strand snapped.
+        const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+        ctx.strokeStyle = 'rgba(160,140,130,0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y); ctx.lineTo(a.x + dx / len * 7, a.y + dy / len * 7 + 2);
+        ctx.moveTo(b.x, b.y); ctx.lineTo(b.x - dx / len * 7, b.y - dy / len * 7 + 2);
+        ctx.stroke();
+        continue;
+      }
+      if (s.strain <= 0) {
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        const sag = Math.sqrt(Math.max(0, REST * REST - len * len)) * 0.35;
+        ctx.strokeStyle = 'rgba(200,188,172,0.75)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my + sag, b.x, b.y); ctx.stroke();
+        continue;
+      }
+      const hot = s.over > 0 && Math.sin(now / 40) > 0;
+      ctx.strokeStyle = hot ? '#ffffff' : strandColor(s);
+      ctx.lineWidth = 2 + Math.min(1.5, s.strain * 2.5);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+
+    // Knots and pins. A pin's ring fills with the load it holds.
+    for (let i = 0; i < knots.length; i++) {
+      const k = knots[i];
+      if (k.pinned) {
+        const f = Math.min(1, k.load / PIN_HOLD);
+        let x = k.x, y = k.y;
+        if (k.over > 0) { x += (Math.random() - 0.5) * 3; y += (Math.random() - 0.5) * 3; }
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath(); ctx.arc(x + 1.5, y + 2, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#d9a441';
+        ctx.beginPath(); ctx.arc(x, y, 7.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#f7d88a';
+        ctx.beginPath(); ctx.arc(x - 2, y - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+        loadRing(x, y, f);
+      } else {
+        ctx.fillStyle = '#f4ead8';
+        ctx.beginPath(); ctx.arc(k.x, k.y, 4.5, 0, Math.PI * 2); ctx.fill();
+        if (k.grace > 0) {
+          ctx.strokeStyle = `rgba(244,234,216,${k.grace / GRACE * 0.6})`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(k.x, k.y, 9, 0, Math.PI * 2); ctx.stroke();
+        }
+      }
+    }
+
+    // The pull: a line from the knot to the finger, thicker the harder it pulls.
+    if (grabbed !== null) {
+      const k = knots[grabbed];
+      const g = Math.min(GRIP_MAX, GRIP_K * Math.hypot(finger.x - k.x, finger.y - k.y)) / GRIP_MAX;
+      ctx.strokeStyle = `rgba(224,103,154,${0.4 + 0.5 * g})`;
+      ctx.lineWidth = 1 + 3 * g;
+      ctx.beginPath(); ctx.moveTo(k.x, k.y); ctx.lineTo(finger.x, finger.y); ctx.stroke();
+      // The load a pin would hold if it went in here, on the same ring.
+      ctx.strokeStyle = 'rgba(224,103,154,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(k.x, k.y, 11, 0, Math.PI * 2); ctx.stroke();
+      loadRing(k.x, k.y, Math.min(1, k.load / PIN_HOLD));
+    }
+
+    for (const p of lint) {
+      ctx.fillStyle = `rgba(240,225,205,${Math.min(1, p.life * 2)})`;
+      ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
+    }
+    for (const p of flyingPins) {
+      ctx.fillStyle = `rgba(217,164,65,${Math.min(1, p.life * 2)})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // ---------- input ----------
+  // One pointer at a time. A touch picks the nearest knot in reach. Moving
+  // past TAP_SLOP_PX pulls it (the knot follows as hard as the finger leads
+  // it); lifting without moving pins or unpins it.
+  let pointerId = null, downKnot = null, downPx = null, dragging = false;
+
+  function toGame(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: (evt.clientX - rect.left) * W / rect.width, y: (evt.clientY - rect.top) * H / rect.height };
+  }
+  function nearestKnot(p) {
+    let best = null, bd = GRAB_R;
+    knots.forEach((k, i) => { const d = Math.hypot(k.x - p.x, k.y - p.y); if (d < bd) { bd = d; best = i; } });
+    return best;
+  }
+
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    if (pointerId !== null || state !== 'playing' || paused) return;
+    const p = toGame(evt);
+    downKnot = nearestKnot(p);
+    if (downKnot === null) return;
+    pointerId = evt.pointerId;
+    canvas.setPointerCapture(evt.pointerId);
+    downPx = [evt.clientX, evt.clientY];
+    dragging = false;
+  });
+  canvas.addEventListener('pointermove', evt => {
+    if (evt.pointerId !== pointerId) return;
+    const p = toGame(evt);
+    if (!dragging && Math.hypot(evt.clientX - downPx[0], evt.clientY - downPx[1]) > TAP_SLOP_PX) {
+      if (state !== 'playing' || paused) return;
+      dragging = true;
+      grab(downKnot);
+    }
+    if (dragging) setFinger(p.x, p.y);
+  });
+  function up(evt, cancelled) {
+    if (evt.pointerId !== pointerId) return;
+    pointerId = null;
+    if (dragging) release();
+    else if (!cancelled && state === 'playing' && !paused) tapKnot(downKnot);
+    dragging = false;
+  }
+  canvas.addEventListener('pointerup', evt => up(evt, false));
+  canvas.addEventListener('pointercancel', evt => up(evt, true));
+
+  document.getElementById('resetBtn').addEventListener('click', () => startLevel(attempt + 1));
+  playAgainBtn.addEventListener('click', next);
+
+  // ---------- loop ----------
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.1);
+    acc += dt;
+    last = now;
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) step(STEP);
+      acc -= STEP;
+    }
+    if (!paused) effects(dt);
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+
+  newRun();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
