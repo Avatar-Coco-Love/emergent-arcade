@@ -119,7 +119,7 @@
   const PX_PER_TH = 64;            // drawn height of thickness 1.0
   // Temperature is 0 (cold) to ~1.2. The player only ever sees heat colours.
   const T_COLD = 0.25;             // black: below this the hammer just bounces off
-  const T_WORK = 0.45;             // cherry: from T_COLD to here a strike cracks the bar
+  const T_WORK = 0.38;             // cherry: from T_COLD to here a strike cracks the bar (v3 0.45)
   const T_BURN = 0.9;              // white: above this the metal burns away
   const HEAT_RATE = 0.55;          // heating under the finger (per s, thickness 1)
   const HEAT_SIGMA = 0.7;          // spread of the heat under the finger (segments)
@@ -136,7 +136,7 @@
   const TH_MIN = 0.15;             // thinnest a segment gets (burned away)
   const TOL = 0.1;                 // every segment within this of the target wins
   const FUEL_MAX = 60;             // seconds of heating per bar
-  const THRIFTY_LEFT = 0.4;        // Thrifty: win with this share of the fuel left
+  const THRIFTY_LEFT = 0.45;       // Thrifty: win with this share of the fuel left (v3 0.4)
   const MAX_CRACKS = 3;
   const PROFILE_AMP = 0.35;        // targets range at most 1 ± this ...
   const TRANSPORT = 6;             // ... and all need this much metal moved
@@ -193,7 +193,7 @@
     const err = segs.reduce((a, s, i) => a + Math.abs(s.th - target[i]), 0) / N;
     const msg = { type: 'arcade:result', game: GAME_ID,
       outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
-      stats: { profile, off, err: r1(100 * err), strikes, cracks, clangs, stuck,
+      stats: { profile, off, err: r1(100 * err), strikes, cracks, clangs, stuck, hints,
         heat_s: r1(heatTime), fuel: r1(fuel), burned: r1(100 * (N - segs.reduce((a, s) => a + s.th, 0)) / N),
         thin: segs.filter(s => s.th <= TH_MIN).length, first_input: firstInput === null ? -1 : r1(firstInput) } };
     if (reason) msg.reason = reason;
@@ -231,7 +231,8 @@
   let segs, target, profile = Math.floor(Math.random() * PROFILES.length);
   let fuel, cracks, strikes, elapsed, state, heatX, msgTimer;
   let clangs, stuck, heatTime, firstInput; // telemetry only
-  let sparks = [], flows = [], rings = [], shake = 0, legendPulse = 0;
+  let sparks = [], flows = [], rings = [], shake = 0, legendPulse = 0, readyPulse = 0;
+  let hints, thickenHinted; // telemetry: hints shown this round
 
   function newBar(p) {
     profile = p === undefined ? (profile + 1) % PROFILES.length : p;
@@ -242,6 +243,7 @@
     strikes = 0;
     elapsed = 0;
     clangs = 0; stuck = 0; heatTime = 0; firstInput = null;
+    hints = 0; thickenHinted = false; readyPulse = 0;
     heatX = null;
     sparks = []; flows = []; rings = [];
     roundEarned.clear();
@@ -270,10 +272,10 @@
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
   }
 
-  function say(text) {
+  function say(text, ms = 2500) {
     msgEl.textContent = text;
     clearTimeout(msgTimer);
-    msgTimer = setTimeout(() => { msgEl.textContent = ''; }, 2500);
+    msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms);
   }
 
   function segX(i) { return X0 + (i + 0.5) * SW; }
@@ -309,7 +311,12 @@
       cracks++;
       shake = 0.25;
       legendPulse = 1.2;
-      say('Too cool to work: cracked!');
+      readyPulse = 3;
+      hints++;
+      // v4: say what to do instead, and flash the marks that show where.
+      say(cracks === 1
+        ? 'Cracked! Dull red is too cool. Keep heating until it glows bright cherry and a hammer mark shows above it.'
+        : 'Cracked! Strike only where a hammer mark shows.', 5000);
       if (cracks >= MAX_CRACKS) endGame('lost', 'The bar split', 'cracks');
       return;
     }
@@ -325,6 +332,13 @@
     let d = s.th * (STRIKE_BASE + STRIKE_GAIN * u) * Math.min(1, ws / FLOW_NEED);
     d = Math.min(d, s.th - TH_MIN);
     if (d <= 0) return;
+    // v4: thinning a segment that needs to grow gets the indirect verb spelled
+    // out, once a round (players tried to thicken by striking the thin part).
+    if (!thickenHinted && s.th < target[i] - TOL) {
+      thickenHinted = true;
+      hints++;
+      say('That made it thinner. To thicken a segment, heat it and strike the segment next to it: the metal flows into the hotter side.', 6000);
+    }
     s.th -= d;
     if (wl > 0) segs[i - 1].th += d * wl / ws;
     if (wr > 0) segs[i + 1].th += d * wr / ws;
@@ -396,14 +410,15 @@
     for (let k = flows.length - 1; k >= 0; k--) if ((flows[k].t -= dt) <= 0) flows.splice(k, 1);
     for (let k = rings.length - 1; k >= 0; k--) if ((rings[k].t -= dt) <= 0) rings.splice(k, 1);
     if (legendPulse > 0) legendPulse -= dt;
+    if (readyPulse > 0) readyPulse -= dt;
     if (shake > 0) shake -= dt;
   }
 
   // ---------- drawing ----------
   // Classic forge colours; the only way the player reads temperature.
   const RAMP = [
-    [0, 44, 40, 38], [0.25, 60, 34, 28], [0.33, 104, 26, 16], [0.44, 138, 26, 14],
-    [0.47, 190, 34, 18], [0.6, 238, 92, 22], [0.75, 255, 196, 60], [0.9, 255, 246, 222], [1.3, 255, 255, 255],
+    [0, 44, 40, 38], [0.25, 60, 34, 28], [0.31, 104, 26, 16], [0.37, 138, 26, 14],
+    [0.40, 190, 34, 18], [0.6, 238, 92, 22], [0.75, 255, 196, 60], [0.9, 255, 246, 222], [1.3, 255, 255, 255],
   ];
   function heatColor(T) {
     if (T <= 0) return `rgb(${RAMP[0][1]},${RAMP[0][2]},${RAMP[0][3]})`;
@@ -528,6 +543,17 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
+    // v4 ready marks: a small hammer above every segment hot enough to strike
+    // (dull red has none). They flash for a few seconds after a crack.
+    if (state === 'playing') {
+      const flash = readyPulse > 0 && Math.sin(readyPulse * 12) > 0;
+      for (let i = 0; i < N; i++) {
+        if (segs[i].T < T_WORK) continue;
+        const y = BAR_Y - Math.max(segs[i].th, target[i]) * PX_PER_TH / 2 - 13;
+        drawHammer(segX(i), y, flash ? '#fff1c2' : '#f2c46b', flash ? 1 : 0.75);
+      }
+    }
+
     // Where the last strike sent the metal.
     for (const fl of flows) {
       const y = BAR_Y + segs[fl.to].th * PX_PER_TH / 2 + 10;
@@ -589,7 +615,7 @@
     ctx.strokeStyle = legendPulse > 0 && Math.sin(legendPulse * 16) > 0 ? '#ffd27a' : '#d8ccc4';
     ctx.lineWidth = legendPulse > 0 ? 2.5 : 1.5;
     ctx.beginPath(); ctx.moveTo(wx0, ly + 16); ctx.lineTo(wx0, ly + 20); ctx.lineTo(wx1, ly + 20); ctx.lineTo(wx1, ly + 16); ctx.stroke();
-    drawHammer((wx0 + wx1) / 2, ly + 30);
+    drawHammer((wx0 + wx1) / 2, ly + 30, '#f2c46b'); // same as the ready marks
     ctx.strokeStyle = '#8a7a72';
     const cx = lx + lw * (T_COLD + T_WORK) / 2 / 1.05; // crack glyph under dull red
     ctx.beginPath();
@@ -619,10 +645,10 @@
       ctx.fill();
     }
   }
-  function drawHammer(x, y) {
-    ctx.fillStyle = '#b8aca4';
-    ctx.fillRect(x - 8, y - 5, 16, 7);
-    ctx.fillRect(x - 1.5, y + 2, 3, 9);
+  function drawHammer(x, y, color = '#b8aca4', k = 1) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x - 8 * k, y - 5 * k, 16 * k, 7 * k);
+    ctx.fillRect(x - 1.5 * k, y + 2 * k, 3 * k, 9 * k);
   }
 
   // ---------- input ----------

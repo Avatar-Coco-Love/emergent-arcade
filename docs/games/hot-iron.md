@@ -1,6 +1,6 @@
 # Hot Iron: design notes
 
-Current: **v3** (playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz). Mechanics: **heat** (hold) and
+Current: **v4** (playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz). Mechanics: **heat** (hold) and
 **strike** (tap), sharing **temperature and thickness per bar segment**
 (16 segments, thickness starts at 1). Win: every segment within `TOL` of the
 dashed target. Lose: 3 cracks, or fuel gone with nothing left in the working
@@ -55,6 +55,15 @@ Built to satisfy all three entries in `docs/findings.md`:
   just sees the result instead of inferring it from two colours. Heating a
   thin segment makes both neighbours' arrows point into it, which is the
   "how do I thicken it" answer the tester couldn't find.
+- v4, ready marks: a small gold hammer above every segment at or above
+  `T_WORK` (the same hammer marks the working range on the legend). Dull
+  red has none. The first crack says "Dull red is too cool. Keep heating
+  until it glows bright cherry and a hammer mark shows above it" (later
+  ones: "Strike only where a hammer mark shows"), and the marks flash for
+  3 s. A blow that thins a segment already below the outline spells out
+  the indirect verb once a round ("To thicken a segment, heat it and strike
+  the segment next to it"). The crack band is narrower: `T_WORK` 0.45 →
+  0.38, with the cherry step in the colour ramp moved to 0.37–0.40.
 - Targets: 4 profiles (Double taper, Leaf blade, Waisted bar, Chisel), in
   rotation. Each is shifted to the bar's volume, so metal conservation makes
   every one reachable. Each is scaled so the same amount of metal has to
@@ -68,11 +77,11 @@ Built to satisfy all three entries in `docs/findings.md`:
 | Const | Value | Const | Value |
 |---|---|---|---|
 | N / SW | 16 / 23 px | PX_PER_TH | 64 px per thickness 1 |
-| T_WORK / T_BURN | 0.45 / 0.9 | TOL | 0.1 |
+| T_WORK / T_BURN | 0.38 (v3 0.45) / 0.9 | TOL | 0.1 |
 | HEAT_RATE / HEAT_SIGMA | 0.55 / 0.7 seg | COND / COOL | 0.1 / 0.07 |
 | CAP_MIN | 0.35 | TH_MIN | 0.15 |
 | STRIKE_BASE / GAIN | 0.06 / 0.3 | FLOW_T0 / SPAN / NEED / POW | 0.3 / 0.45 / 0.6 / 2 |
-| FUEL_MAX | 60 s of holding (v1 45) | THRIFTY_LEFT | 0.4 (v1 0.25) |
+| FUEL_MAX | 60 s of holding (v1 45) | THRIFTY_LEFT | 0.45 (v1 0.25, v2 0.4) |
 | T_COLD | 0.25 (new in v2) | BURN_RATE (v2) | 0.2 (v1 0.6) |
 | TRANSPORT / PROFILE_AMP | 6 / 0.35 (cap, not reached) | HOLD_DELAY_MS | 170 |
 
@@ -85,7 +94,44 @@ target. Heat legend at the bottom. Any
 press in a segment's column counts, so the finger needn't cover the colour
 it's watching.
 
-## Balance (v2, `node scripts/balance-hot-iron.mjs 300`, ±3 pts)
+## Balance (v4, `node scripts/balance-hot-iron.mjs 300`, ±3 pts)
+
+New bots, built from the v3 telemetry (see Player data, v3): `glow`
+plays with the reader's targeting and steering but strikes as soon as the
+donor glows, at a threshold drawn per blow. `glow-red` (the match) has
+slower hands (1.5 s think) and strikes anywhere from 0.27 to 0.47 (dull red
+to just past v3's cherry step). `glow-col` is the same habit judged by
+colour: up to just past wherever the cherry step is (`T_WORK` + 0.02), the
+pessimistic case for v4. `glow-hinted` is glow-red until its first crack,
+then waits for the hammer mark. `habit-nb` (heat the thin segment, strike
+its neighbour, no colour) was the first guess; it loses to fuel and burning
+at ~110 s, not like the humans.
+
+| Bot | v3 win | v4 win | v4 by shape (DT/Leaf/Waist/Chisel) | v4 notes |
+|---|---|---|---|---|
+| reader | 100% | 99% | 100/97/100/100 | 96 s, 38 strikes, 41% fuel left |
+| reader 0.5× / 2× | 100 / 100% | 100 / 100% | | |
+| slow-hands / slow-early | 99 / 98% | 99 / 99% | | |
+| novice / novice-slow | 97 / 73% | 99 / 92% | | |
+| **glow-red** (telemetry match) | **7%** | **68%** | 65/53/69/83 | losses: cracks, 97 s |
+| **glow-col** (colour-judged) | 7% | **36%** | 39/23/21/63 | losses: cracks, 63 s |
+| **glow-hinted** | 95% | **98%** | | 1 crack (the one that teaches) |
+| glow / glow-slow | 22 / 13% | 69 / 72% | | |
+| nosteer, glow-nosteer | 0% | 0% | | cracked 98–100% |
+| blind / blind-seam / habit-nb | 0% | 0% | | fuel out 90–100% |
+| idle | 0% | 0% | | never ends |
+
+v3 glow-red losses: 42 s, 13 strikes, 14 s of heat, 0 clangs, 0 stuck,
+off 9 (humans: 25 s, 6 strikes, 9 s of heat, 0 clangs, 0 stuck, shape
+barely moved). Giving more cracks doesn't teach the rule: `MAX_CRACKS` 5
+or 6 takes glow-red only to 13–15%. Narrowing the crack band does
+(T_WORK 0.38: 67%), and the colour-blind bots stay at 0%.
+
+Achievements (reader): Forged 99%, Clean Work 93% (v3 84%), Thrifty 28% at
+the 45% mark (40% would give 52%; 50% gives 8%), Steer 100%. glow-hinted:
+Clean 21%, Thrifty 34%.
+
+## Balance (v2, superseded, `node scripts/balance-hot-iron.mjs 300`, ±3 pts)
 
 New bots: `novice` makes the first playtest's two mistakes before playing
 as the reader: 3 taps on the cold bar where it looks most wrong, then
@@ -196,7 +242,33 @@ It may be the first tester on another device (a new browser ID can't tell).
 Three achievements in one first round supports "harden the achievements,
 not the round".
 
-## Telemetry fields (v3)
+### v3, 2026-09-29 (one new player, touch, 5 rounds in 2 minutes)
+
+| Round | Shape | Length | Strikes | Cracks | Clangs | Heat s | Off / err at loss (start) |
+|---|---|---|---|---|---|---|---|
+| 1 | Waisted | 25.2 s | 6 | 3 | 0 | 16.5 | 12 / 14.3 (12 / 14.3) |
+| 2 | Chisel | 24.6 s | 12 | 3 | 0 | 8.8 | 3 / 7.2 (3 / 8.2) |
+| 3 | Double taper | 34.8 s | 6 | 3 | 1 | 22.5 | 11 / 17.6 (12 / 14.3) |
+| 4 | Leaf | 12.5 s | 3 | 3 | 0 | 7.0 | 13 / 14.2 (13 / 14.2) |
+| 5 | Waisted | 13.4 s | 8 | 3 | 0 | 3.8 | 12 / 13.4 (12 / 14.3) |
+
+All lost to cracks, first input at ~1 s, Steer unlocked once, 0 stuck
+strikes. What the rows show (the medians hid it):
+- They heat before striking (0 clangs, and every strike landed where
+  there was heat), so v2's "Clang" lesson landed.
+- About 40% of blows cracked, spread through the round, so they strike on
+  dull red about as often as on cherry. They can't tell the two apart.
+- The shape barely moved in any round: the blows that worked were weak
+  (just past cherry), and the round ended before any skill showed.
+- Steer (≥90% of a blow to one side) means they tried the "strike the
+  neighbour" trick at least once, so the rating's question ("how to make
+  the blade thicker") had partly been answered. The missing rule was when
+  to strike, not which verb to use.
+- Heat per strike comes in two modes (0.5–0.7 s in rounds 2 and 5,
+  2.3–3.7 s in 1, 3 and 4): short holds that strike the same spot early,
+  and long holds that strike the neighbour, which is only dull red.
+
+## Telemetry fields (v3, v4)
 
 Each `arcade:result` also carries (see `docs/telemetry.md`):
 
@@ -205,7 +277,8 @@ Each `arcade:result` also carries (see `docs/telemetry.md`):
 - `stats`: `profile` (0 Double taper, 1 Leaf blade, 2 Waisted bar,
   3 Chisel), `off` (segments off the line), `err` (mean |thickness −
   target| × 100), `strikes`, `cracks`, `clangs` (taps on black iron),
-  `stuck` (strikes with both neighbours cold, nothing moved), `heat_s`
+  `stuck` (strikes with both neighbours cold, nothing moved), `hints`
+  (v4: crack and thicken hints shown), `heat_s`
   (seconds holding heat), `fuel` (seconds left), `burned` (% of the bar's
   metal burned away), `thin` (segments burned to the minimum),
   `first_input` (seconds to the first heat or strike, −1 if none).
@@ -216,6 +289,14 @@ starts a new bar without posting a result, so abandoned bars only show up
 as session time.
 
 ## Open ideas / known limits
+
+- v4 telemetry to watch: cracks per strike (v3 ~40%), first-try wins,
+  round length (v3 12–35 s), `hints`. If losses are still cracks within
+  30 s, the next step is a warm-up first bar that teaches one verb at a time
+  (strike locked until a hammer mark has shown once, then a thicken step).
+- glow-col (36%) is the pessimistic reading of v4: a player who strikes
+  at first glow wherever the cherry step is. The marks are what should
+  close that gap; the bots can't model reading them.
 
 - v2 is tuned to the novice bots, which model just two mistakes. Next
   playtest: does the tester survive past 15 s (telemetry: loss length),
@@ -240,3 +321,6 @@ as session time.
   45 → 60 s, burn rate 0.6 → 0.2, Thrifty at 40%. From the first playtest
   (two rounds lost to cracks in 13–15 s).
 - v3: no gameplay change. Round results add `reason` and `stats` (above).
+- v4: hammer marks above strikeable metal, a crack hint and a thicken hint,
+  `T_WORK` 0.45 → 0.38 (cherry step moved), Thrifty at 45%. From v3
+  telemetry (0/5, all cracks, ~40% of blows on dull red).
