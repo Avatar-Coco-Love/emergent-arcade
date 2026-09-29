@@ -17,6 +17,31 @@
           "version": 6,
           "date": "2026-09-27",
           "text": "Eruptions blast out less pressure (40 → 24), so chain-reaction storms burn out instead of running forever."
+        },
+        {
+          "version": 5,
+          "date": "2026-09-26",
+          "text": "Sharper graphics on high-resolution screens."
+        },
+        {
+          "version": 4,
+          "date": "2026-09-26",
+          "text": "Cleanup pass: small bug fixes."
+        },
+        {
+          "version": 3,
+          "date": "2026-09-26",
+          "text": "Plays in the full-screen cabinet with pause and resume."
+        },
+        {
+          "version": 2,
+          "date": "2026-09-26",
+          "text": "Achievements added, and the game now fits its window."
+        },
+        {
+          "version": 1,
+          "date": "2026-09-26",
+          "text": "First version: pump and siphon pressure across the grid, and set off chains of eruptions."
         }
       ],
       "blurb": "Pump pressure into cells, siphon it toward neighbors, and ride the chain reactions when cells erupt.",
@@ -81,6 +106,31 @@
           "version": 6,
           "date": "2026-09-28",
           "text": "Harder: seeds fly slower and gravity pulls harder, so every shot curves. Planets wither per seed flung, not per second, and the aim preview is longer."
+        },
+        {
+          "version": 5,
+          "date": "2026-09-27",
+          "text": "No gameplay change. Reports how each round ends, for anonymous play stats."
+        },
+        {
+          "version": 4,
+          "date": "2026-09-26",
+          "text": "Sharper graphics on high-resolution screens."
+        },
+        {
+          "version": 3,
+          "date": "2026-09-26",
+          "text": "Cleanup pass: small bug fixes."
+        },
+        {
+          "version": 2,
+          "date": "2026-09-26",
+          "text": "Plays in the full-screen cabinet. Fixes to the win screen and to aiming."
+        },
+        {
+          "version": 1,
+          "date": "2026-09-26",
+          "text": "First version, with achievements."
         }
       ],
       "blurb": "Place planets, fling seeds around them, and grow a garden in orbit. Every seed that lands makes its planet pull harder.",
@@ -145,6 +195,21 @@
           "version": 4,
           "date": "2026-09-27",
           "text": "No gameplay change. Reports how each round ends, for anonymous play stats."
+        },
+        {
+          "version": 3,
+          "date": "2026-09-27",
+          "text": "Gate 4 moved into open sky, away from the left edge. Dusk comes sooner (70 → 60 s)."
+        },
+        {
+          "version": 2,
+          "date": "2026-09-27",
+          "text": "A dusk timer, more natural flocking, and rebalanced startles."
+        },
+        {
+          "version": 1,
+          "date": "2026-09-27",
+          "text": "First version."
         }
       ],
       "blurb": "Lure a flock of starlings through a string of gates before night falls. Startle them for speed, but panic spreads from bird to bird.",
@@ -214,6 +279,21 @@
           "version": 4,
           "date": "2026-09-28",
           "text": "No gameplay change. Play stats now include the day, the run and why a day was lost."
+        },
+        {
+          "version": 3,
+          "date": "2026-09-28",
+          "text": "A five-day run: each day has its own layout and twist (storm clouds, two spiders, a rival colony), plus bonus challenges, retries for a lost day and 5 new achievements."
+        },
+        {
+          "version": 2,
+          "date": "2026-09-27",
+          "text": "No gameplay change. Reports how each round ends, for anonymous play stats."
+        },
+        {
+          "version": 1,
+          "date": "2026-09-27",
+          "text": "First version."
         }
       ],
       "blurb": "Draw scent trails to lead your ants to food over five days. The colony carries over, and every day brings something new: scattered food, storms, a second spider, a rival colony.",
@@ -308,6 +388,16 @@
           "version": 3,
           "date": "2026-09-28",
           "text": "Bigger stamina bar (100 → 125), because players said it ran out too fast."
+        },
+        {
+          "version": 2,
+          "date": "2026-09-27",
+          "text": "No gameplay change. Reports how each round ends, for anonymous play stats."
+        },
+        {
+          "version": 1,
+          "date": "2026-09-27",
+          "text": "First version."
         }
       ],
       "blurb": "A grass fire is running at the village. Cut firebreaks, fight fire with fire, and watch the wind.",
@@ -377,6 +467,11 @@
           "version": 2,
           "date": "2026-09-27",
           "text": "No gameplay change. Reports how each round ends, for anonymous play stats."
+        },
+        {
+          "version": 1,
+          "date": "2026-09-27",
+          "text": "First version."
         }
       ],
       "blurb": "Pour sand onto brass ledges, let it pile up, then knock it loose to fill the hourglasses rolling past.",
@@ -446,6 +541,11 @@
           "version": 2,
           "date": "2026-09-28",
           "text": "Black iron bounces instead of cracking, arrows preview where the heat flows, and fuel lasts longer (45 → 60 s)."
+        },
+        {
+          "version": 1,
+          "date": "2026-09-27",
+          "text": "First version."
         }
       ],
       "blurb": "Heat an iron bar and hammer it into shape: heat decides where the metal goes.",
@@ -548,6 +648,13 @@
           "title": "Comeback",
           "description": "Get through both years with two strikes on the board."
         }
+      ],
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-09-29",
+          "text": "First version."
+        }
       ]
     },
     {
@@ -594,6 +701,13 @@
           "id": "kite-flyer",
           "title": "Kite Flyer",
           "description": "Hold the Kite without a single slip."
+        }
+      ],
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-09-29",
+          "text": "First version."
         }
       ]
     }

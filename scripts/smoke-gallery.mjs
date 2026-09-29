@@ -185,6 +185,24 @@ for (const vp of VIEWPORTS) {
     assert(await page.locator("#panel").isHidden(), "close button");
   });
 
+  await check(tag("what's new: newest 3, then show all"), async () => {
+    const n = (first.changes || []).length;
+    await page.locator('.toolbar [data-panel="about"]').click();
+    const items = page.locator("#aboutChangeList li");
+    assert(await items.count() === Math.min(n, 3), "expected the newest 3 versions");
+    const toggle = page.locator("#aboutChangesAll");
+    if (n > 3) {
+      await toggle.click();
+      assert(await items.count() === n, "show all didn't list every version");
+      await shot("about-all-versions");
+      await toggle.click();
+      assert(await items.count() === 3, "show fewer didn't collapse");
+    } else {
+      assert(await toggle.isHidden(), "toggle shown with 3 or fewer versions");
+    }
+    await page.keyboard.press("Escape");
+  });
+
   await check(tag("focus trap in panel"), async () => {
     await page.locator('.toolbar [data-panel="achievements"]').click();
     for (let i = 0; i < 6; i++) await page.keyboard.press("Tab");

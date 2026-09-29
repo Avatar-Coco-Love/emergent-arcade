@@ -351,6 +351,30 @@ window.ArcadeCabinet = (function () {
     return (game.changes || []).filter((c) => c.version > version).sort((a, b) => b.version - a.version);
   }
 
+  // The newest CHANGES_SHOWN versions, with a toggle for the full list.
+  const CHANGES_SHOWN = 3;
+  let showAllChanges = false;
+
+  function renderChanges() {
+    const all = changesSince(current, 0);
+    const changes = showAllChanges ? all : all.slice(0, CHANGES_SHOWN);
+    $("aboutChanges").hidden = !all.length;
+    $("aboutChangeList").replaceChildren(
+      ...changes.map((c) =>
+        el("li", {}, [el("b", { textContent: `v${c.version}` }), el("span", { className: "muted", textContent: ` · ${UI.shortDate(c.date)}` }), el("p", { textContent: c.text })])
+      )
+    );
+    const toggle = $("aboutChangesAll");
+    toggle.hidden = all.length <= CHANGES_SHOWN;
+    toggle.textContent = showAllChanges ? "Show fewer" : `Show all ${all.length} versions`;
+    toggle.setAttribute("aria-expanded", String(showAllChanges));
+  }
+
+  $("aboutChangesAll").addEventListener("click", () => {
+    showAllChanges = !showAllChanges;
+    renderChanges();
+  });
+
   function renderAbout() {
     const g = current;
     $("aboutGoal").textContent = g.goal;
@@ -364,13 +388,8 @@ window.ArcadeCabinet = (function () {
     );
     $("aboutBlurb").textContent = g.blurb;
     $("aboutHow").textContent = g.howToPlay || "";
-    const changes = changesSince(g, 0).slice(0, 3);
-    $("aboutChanges").hidden = !changes.length;
-    $("aboutChangeList").replaceChildren(
-      ...changes.map((c) =>
-        el("li", {}, [el("b", { textContent: `v${c.version}` }), el("span", { className: "muted", textContent: ` · ${UI.shortDate(c.date)}` }), el("p", { textContent: c.text })])
-      )
-    );
+    showAllChanges = false;
+    renderChanges();
     const archived = g.status === "archived" ? " · archived (still playable)" : "";
     $("aboutMeta").textContent = `Version ${g.version} · added ${UI.shortDate(g.added)} · updated ${UI.shortDate(g.updated)}${archived}`;
     $("aboutState").textContent = `Shared state: ${g.sharedState}`;
