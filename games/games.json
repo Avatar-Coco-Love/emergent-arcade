@@ -492,6 +492,63 @@
           "description": "Overheat a segment until it burns away to nothing."
         }
       ]
+    },
+    {
+      "id": "island-census",
+      "title": "Island Census",
+      "file": "island-census.html",
+      "version": 1,
+      "added": "2026-09-29",
+      "updated": "2026-09-29",
+      "blurb": "Keep rabbits and foxes in balance on a small island for two years, one season at a time.",
+      "goal": "Get through 8 seasons (two years) with both rabbits and foxes alive. Every season that ends with either species outside its band on the census meters is a strike; three strikes, or either species dying out, ends the round.",
+      "howToPlay": "The island is a set of meadows joined by paths. Each season you get 2 moves, then press Next season to watch it play out. Tap a meadow to release 8 rabbits there. Drag across a path to put up a fence: foxes can't cross it, but rabbits slip under it. You can have 3 fences up at once, and dragging across a fence takes it down for free. Rabbits eat grass (meadows turn brown when grazed bare), breed fastest in spring and not at all in winter, and move away from foxes and crowding. Foxes eat rabbits, raise cubs when well fed, starve when not, and follow the rabbits: the orange arrows on the paths show where they're heading next. Numbers under each meadow are its rabbits (white) and foxes (orange). The meters at the top show both totals against their green band. Protect rabbits too well and the foxes starve; leave the foxes free and they eat the island bare. The second year brings one surprise, announced a season ahead.",
+      "mechanics": [
+        {
+          "name": "release",
+          "verb": "tap",
+          "description": "Tap a meadow to release 8 rabbits into it. Uses one of the season's 2 moves."
+        },
+        {
+          "name": "fence",
+          "verb": "drag",
+          "description": "Drag across a path to fence it: foxes can't cross it, rabbits can. Up to 3 fences stand at once; putting one up uses a move, taking one down is free."
+        }
+      ],
+      "sharedState": "Rabbits, foxes and grass per meadow. Releasing writes rabbits; fences decide which paths foxes can use. Each season rabbits eat grass and breed, foxes eat the rabbits in their meadow and breed or starve, rabbits move away from foxes and toward grass, and foxes move toward rabbits, except across a fence. The census reads the island's totals.",
+      "accent": "#7cc56a",
+      "achievements": [
+        {
+          "id": "census-taken",
+          "title": "Census Taken",
+          "description": "Get through both years with rabbits and foxes still on the island."
+        },
+        {
+          "id": "perfect-count",
+          "title": "Perfect Count",
+          "description": "Get through both years without a single strike."
+        },
+        {
+          "id": "safe-haven",
+          "title": "Safe Haven",
+          "description": "End a season with 20 or more rabbits in a meadow whose every path is fenced, while foxes still live on the island."
+        },
+        {
+          "id": "long-winter",
+          "title": "Long Winter",
+          "description": "End a winter with both species inside their bands."
+        },
+        {
+          "id": "light-touch",
+          "title": "Light Touch",
+          "description": "Get through both years using 8 moves or fewer."
+        },
+        {
+          "id": "comeback",
+          "title": "Comeback",
+          "description": "Get through both years with two strikes on the board."
+        }
+      ]
     }
   ]
 }

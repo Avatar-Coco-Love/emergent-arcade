@@ -159,3 +159,17 @@ player reaches the new content instead of replaying round 1. Whether
 players actually stay for round 3 is the telemetry question
 (rounds per session). *Evidence: bots (`docs/games/ant-trails.md`).
 Provisional: not playtested.*
+
+## Feeding one side of a predator–prey loop can hurt it
+
+Island Census v1 draft: starting with 75 rabbits instead of 60 lowered
+every bot (idle 13% → 8%, reader 92% → 81%, novice 45% → 30%). The extra
+rabbits fed a bigger fox boom, which then ate more than the extra. Ecology
+calls this the paradox of enrichment. The verbs inherit it: releasing
+rabbits during a fox boom feeds the next crash, so "add more of what's
+low" is the wrong first guess. The game's real lever is a fenced refuge,
+opened when the foxes starve. Check: in a game with coupled populations,
+test a bot that just tops up whatever is low. If it does worse than doing
+nothing at some moments, the timing of a verb matters, which is the
+decision the game is about. *Evidence: bots
+(`docs/games/island-census.md`). Provisional.*
