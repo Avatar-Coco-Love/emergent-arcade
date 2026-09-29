@@ -4,8 +4,8 @@
 //   e.g. node scripts/balance-loom.mjs 100 reader,pinner SNAP=0.7,MAX_PINS=4
 //
 // Builds a debug copy of games/loom.html (state on window, seeded
-// Math.random, no animation loop), then plays seeded runs (three shapes, up
-// to 3 tries each) of the four shapes in headless Chromium by calling step() directly. Prints
+// Math.random, no animation loop), then plays seeded runs (every shape, up
+// to 3 tries each) in headless Chromium by calling step() directly. Prints
 // one line per bot. Adapted from balance-hot-iron.mjs.
 // Needs Playwright (installed globally in Claude Code cloud sessions).
 import fs from 'fs';
@@ -51,6 +51,9 @@ const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/lo
 //   inset-rule: no-rings, but always aims `inset` of DOT_R inside each dot
 //     (a fixed rule instead of reading the rings).
 //   idle: does nothing.
+//   habit: the v1 trick played "blindfolded": the known plan on the first
+//     four shapes, then greedy corners-first pairing, aiming inside each dot,
+//     no rings, never easing off, blind to dyed knots. habit-dye sees dyes.
 const HUMAN = { gap: 0.5, react: 0.25, speed: 350, aim: 3, lead: 6, stopAt: 0.45, inset: 0, rings: true, ring: true };
 const BOTS = {
   reader: { ...HUMAN, policy: 'reader', rate: 1 },
@@ -67,6 +70,8 @@ const BOTS = {
   novice: { ...HUMAN, policy: 'pinner', rate: 1, mapped: true, yanks: 3 },
   'novice-read': { ...HUMAN, policy: 'reader', rate: 1, yanks: 3 },
   idle: { ...HUMAN, policy: 'idle', rate: 1 },
+  habit: { ...HUMAN, policy: 'pinner', rate: 1, corners: true, noDye: true, inset: 0.5, gentleHabit: true, habit: true, rings: false, ring: false, stopAt: 9 },
+  'habit-dye': { ...HUMAN, policy: 'pinner', rate: 1, corners: true, inset: 0.5, gentleHabit: true, habit: true, rings: false, ring: false, stopAt: 9 },
 };
 
 function buildDebug(overrides) {
@@ -90,8 +95,8 @@ window.__seed = s => { __s = s; };
     get state() { return state; }, get elapsed() { return elapsed; }, get knots() { return knots; },
     get level() { return level; }, get snaps() { return snaps; }, get pops() { return pops; },
     get pulls() { return pulls; }, get maxPins() { return maxPins; }, get runSnaps() { return runSnaps; },
-    get grabbed() { return grabbed; }, get attempt() { return attempt; },
-    strands, SHAPES, RING_RED, WARN, SNAP, PIN_HOLD, MAX_PINS, DOT_R, GRACE, REST,
+    get grabbed() { return grabbed; }, get attempt() { return attempt; }, get shape() { return shape(); },
+    strands, SHAPES, snapFrac, RING_RED, WARN, SNAP, PIN_HOLD, MAX_PINS, DOT_R, GRACE, REST,
     earned: unlocked, draw, get canvas() { return canvas; }, step, grab, setFinger, release, tapKnot, next, newRun, pinsIn, coveredBy,
   };
   newRun();
@@ -123,7 +128,7 @@ function playInPage({ seed, bot }) {
     for (const st of D.strands) {
       if (!st.alive) continue;
       const a = K()[st.a], b = K()[st.b];
-      if (Math.hypot((a.x + b.x) / 2 - c.x, (a.y + b.y) / 2 - c.y) < 80) m = Math.max(m, st.strain);
+      if (Math.hypot((a.x + b.x) / 2 - c.x, (a.y + b.y) / 2 - c.y) < 80) m = Math.max(m, D.snapFrac(st) * D.SNAP);
     }
     return m;
   };
@@ -173,15 +178,20 @@ function playInPage({ seed, bot }) {
   // Greedy pairing: closest dot-knot pairs first.
   function pairs(dots) {
     const ks = K(), out = new Map(), used = new Set(), cand = [];
-    dots.forEach((d, j) => ks.forEach((k, i) => cand.push([dist(k, d), j, i])));
+    // Dyed dots take their own knot (unless the bot ignores dye); corners
+    // first for the habit bot, which plays every shape like the first four.
+    if (!bot.noDye) dots.forEach((d, j) => { if (d[3] === 'dye') { out.set(j, d[2]); used.add(d[2]); } });
+    const corners = [0, 5, 30, 35];
+    dots.forEach((d, j) => ks.forEach((k, i) => cand.push([dist(k, d) - (bot.corners && corners.includes(i) ? 1000 : 0), j, i])));
     cand.sort((a, b) => a[0] - b[0]);
     for (const [, j, i] of cand) if (!out.has(j) && !used.has(i)) { out.set(j, i); used.add(i); }
     return out;
   }
 
   function playShape() {
-    const dots = D.SHAPES[D.level].dots;
-    const plan = bot.policy === 'reader' || bot.mapped ? new Map(dots.map((d, j) => [j, d[2]])) : pairs(dots);
+    const dots = D.shape.dots;
+    const known = bot.policy === 'reader' || bot.mapped || (bot.habit && D.level < 4);
+    const plan = known ? new Map(dots.map((d, j) => [j, d[2]])) : pairs(dots);
     advance(gap);
     while (D.state === 'playing' && D.elapsed < LEVEL_TIME) {
       if (bot.policy === 'idle') { advance(1); continue; }
@@ -191,7 +201,7 @@ function playInPage({ seed, bot }) {
       if (j < 0) { advance(0.25); continue; }
       const i = plan.get(j);
       const k = K()[i];
-      pull(i, dots[j][0], dots[j][1], bot.policy === 'reader');
+      pull(i, dots[j][0], dots[j][1], bot.policy === 'reader' || bot.gentleHabit);
       if (yanks > 0) { yanks--; advance(D.GRACE + 1 + gap); continue; }
       advance(gap * 0.4);
       if (!bot.nopins && !K()[i].pinned && D.pinsIn() < D.MAX_PINS) D.tapKnot(i);
@@ -253,7 +263,7 @@ function report(name, rs) {
   const ach = {};
   for (const r of rs) for (const id of r.earned) ach[id] = (ach[id] || 0) + 1;
   const achs = Object.entries(ach).map(([k, v]) => `${k} ${pct(v)}`).join(', ');
-  const per = rs[0].shapes.map((_, lv) => lv).concat([1, 2, 3]).filter((v, i, a) => a.indexOf(v) === i && v < 4).map(lv => {
+  const per = [...Array(NSHAPES).keys()].map(lv => {
     const g = rs.map(r => r.shapes[lv]).filter(Boolean);
     const w = g.filter(x => x.won);
     const first = g.length ? Math.round(100 * g.filter(x => x.first).length / g.length) : '-';
@@ -269,6 +279,8 @@ const overrides = {};
 for (const kv of (process.argv[4] || '').split(/,(?![^\[]*\])/).filter(Boolean)) { const [k, v] = kv.split('='); overrides[k] = v; }
 const file = buildDebug(overrides);
 const browser = await chromium.launch();
+const NSHAPES = await (async () => { const pg = await browser.newPage(); await pg.goto(pathToFileURL(file).href);
+  const n = await pg.evaluate(() => window.__dbg.SHAPES.length); await pg.close(); return n; })();
 for (const n of names) {
   if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
   report(n, await run(BOTS[n], runs, file, browser));

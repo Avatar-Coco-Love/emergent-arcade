@@ -124,6 +124,7 @@
   const GRIP_MAX = 1;              // ... up to this
   const WARN = 0.4;                // strain where a strand turns hot
   const SNAP = 0.6;                // strain past which a strand snaps ...
+  const FRAY_WARN = 0.12, FRAY_SNAP = 0.2; // the same for a frayed strand
   const SNAP_DELAY = 0.8;          // ... after this long over it (s)
   const PIN_HOLD = 0.6;            // force a pin holds; past it the pin works loose ...
   const POP_DELAY = 0.6;           // ... and pops after this long (s)
@@ -138,10 +139,13 @@
   const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win/loss
   const STEP = 1 / 60, SUB = 4;
 
-  // The run: four silhouettes in a row. Snapped strands stay snapped. Each
+  // The run: seven silhouettes in a row. Snapped strands stay snapped. Each
   // dot is [x, y, knot]: the knot the design has in mind (corners to
-  // corners, edge knots lined up by a taut edge). Any knot covers any dot;
-  // only the balance bots read the third number.
+  // corners, edge knots lined up by a taut edge). Any knot covers a plain
+  // dot; only the balance bots read the third number. A dyed dot
+  // ([x, y, knot, 'dye']) counts only under its own knot, which is dyed to
+  // match. `frayed` lists strands (knot pairs) that snap at FRAY_SNAP.
+  // Each shape is mirrored left-right at random (knot numbers too).
   const SHAPES = [
     { name: 'Tablecloth', outline: [[100, 145], [300, 145], [300, 345], [100, 345]],
       dots: [[100, 145, 0], [300, 145, 5], [300, 345, 35], [100, 345, 30]] },
@@ -151,7 +155,18 @@
       dots: [[135, 130, 0], [135, 355, 30], [320, 355, 35], [135, 220, 12], [209, 355, 32]] },
     { name: 'Kite', outline: [[200, 85], [320, 245], [200, 405], [80, 245]],
       dots: [[200, 85, 0], [320, 245, 5], [200, 405, 35], [80, 245, 30]] },
+    { name: 'Pennant', note: 'The blue dot only takes the blue knot.',
+      outline: [[110, 150], [335, 245], [110, 340]],
+      dots: [[110, 150, 0], [110, 340, 30], [335, 245, 17, 'dye']] },
+    { name: 'Hammock', note: 'Frayed edges (dashed) tear at a third of the stretch.',
+      outline: [[90, 190], [310, 190], [310, 300], [90, 300]],
+      dots: [[90, 190, 6], [310, 190, 11], [310, 300, 29], [90, 300, 24]],
+      frayed: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [30, 31], [31, 32], [32, 33], [33, 34], [34, 35]] },
+    { name: 'Arrow', note: 'The blue knot takes the point. Watch the pins.',
+      outline: [[200, 110], [310, 330], [200, 280], [90, 330]],
+      dots: [[200, 110, 2, 'dye'], [310, 330, 35], [90, 330, 30]] },
   ];
+  const DYE = '#5ab4ff';
 
   const canvas = document.getElementById('table');
   const ctx = canvas.getContext('2d');
@@ -229,7 +244,17 @@
   let grabbed = null, finger = { x: 0, y: 0 }, slipWatch = null, hinted = false;
   let lint = [], flyingPins = [], flash = 0;
 
-  function shape() { return SHAPES[level]; }
+  // The shape being played, mirrored or not.
+  let cur = null;
+  const mirrorKnot = i => Math.floor(i / COLS) * COLS + (COLS - 1 - i % COLS);
+  function layShape(flip) {
+    const sh = SHAPES[level], fx = x => flip ? W - x : x, fk = flip ? mirrorKnot : i => i;
+    cur = { name: sh.name, note: sh.note, outline: sh.outline.map(([x, y]) => [fx(x), y]),
+      dots: sh.dots.map(d => [fx(d[0]), d[1], fk(d[2]), d[3]]),
+      frayed: (sh.frayed || []).map(([a, b]) => [fk(a), fk(b)]) };
+    cur.dyed = cur.dots.filter(d => d[3] === 'dye').map(d => d[2]);
+  }
+  function shape() { return cur; }
   function pinsIn() { return knots.filter(k => k.pinned).length; }
   function holes() { return strands.map((s, i) => s.alive ? -1 : i).filter(i => i >= 0); }
 
@@ -244,11 +269,12 @@
   // Lay the net flat (holes from earlier shapes stay) and start a shape.
   function startLevel(att) {
     attempt = att;
-    if (att === 1) startHoles = holes();
+    if (att === 1) { startHoles = holes(); layShape(Math.random() < 0.5); }
     for (let i = 0; i < strands.length; i++) {
       const s = strands[i];
       s.alive = !startHoles.includes(i);
       s.strain = -1; s.over = 0;
+      s.fray = cur.frayed.some(([a, b]) => (a === s.a && b === s.b) || (a === s.b && b === s.a));
     }
     knots = [];
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
@@ -261,7 +287,7 @@
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
-    say(`${shape().name}: cover every dot.`);
+    say(`${shape().name}: ${shape().note || 'cover every dot.'}`, shape().note ? 4000 : 2500);
     hud();
   }
 
@@ -288,10 +314,11 @@
           : h ? ` ${h} snapped strand${h === 1 ? '' : 's'} carr${h === 1 ? 'ies' : 'y'} over.` : '');
       playAgainBtn.textContent = last ? 'New run' : 'Next shape';
     } else {
-      title.textContent = why === 'torn' ? 'Torn!' : 'It got away!';
-      document.getElementById('endDetail').textContent =
-        `${snaps} snap${snaps === 1 ? '' : 's'} and ${pops} popped pin${pops === 1 ? '' : 's'}. ` +
-        `${coveredCount()} of ${shape().dots.length} dots were covered.`;
+      title.textContent = why === 'torn' || why === 'frayed' ? 'Torn!' : 'It got away!';
+      document.getElementById('endDetail').textContent = why === 'frayed'
+        ? 'A frayed strand gave way: they can’t take much stretch. Keep them slack.'
+        : `${snaps} snap${snaps === 1 ? '' : 's'} and ${pops} popped pin${pops === 1 ? '' : 's'}. ` +
+          `${coveredCount()} of ${shape().dots.length} dots were covered.`;
       playAgainBtn.textContent = 'Try this shape again';
     }
     title.className = result;
@@ -314,16 +341,19 @@
     }
   }
 
-  function say(text) {
+  function say(text, ms) {
     msgEl.textContent = text;
     clearTimeout(msgTimer);
-    msgTimer = setTimeout(() => { msgEl.textContent = ''; }, 2500);
+    msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms || 2500);
   }
 
   function coveredBy(d) {
+    if (d[3] === 'dye') return Math.hypot(knots[d[2]].x - d[0], knots[d[2]].y - d[1]) <= DOT_R;
     for (const k of knots) if (Math.hypot(k.x - d[0], k.y - d[1]) <= DOT_R) return true;
     return false;
   }
+  // How close a strand is to snapping: 1 at its snap strain.
+  function snapFrac(s) { return s.strain / (s.fray ? FRAY_SNAP : SNAP); }
   function coveredCount() { return shape().dots.filter(coveredBy).length; }
 
   // ---------- the two verbs ----------
@@ -378,7 +408,7 @@
         fx[s.a] += f * dx; fy[s.a] += f * dy;
         fx[s.b] -= f * dx; fy[s.b] -= f * dy;
       }
-      if (s.strain > SNAP) {
+      if (snapFrac(s) > 1) {
         s.over += h;
         if (s.over >= SNAP_DELAY) snap(s);
       } else s.over = Math.max(0, s.over - 2 * h);
@@ -422,6 +452,7 @@
     }
     flash = 0.25;
     hud();
+    if (s.fray) { endLevel('lost', 'frayed'); return; } // old rope gives way at once
     if (slipped('torn')) return;
     say(`Snap! ${slipsLeft()}`);
   }
@@ -470,6 +501,8 @@
   function win() {
     unlock('first-shape');
     if (shape().name === 'Kite' && snaps + pops === 0) unlock('kite-flyer');
+    if (shape().name === 'Hammock' && attempt === 1) unlock('old-rope');
+    if (shape().name === 'Arrow' && snaps + pops === 0) unlock('true-colours');
     if (level === SHAPES.length - 1) {
       unlock('full-run');
       if (runSnaps === 0) unlock('unbroken');
@@ -492,8 +525,9 @@
   }
   const LINEN = [232, 220, 200], GOLD = [242, 193, 78], RED = [255, 70, 70];
   function strandColor(s) {
-    if (s.strain < WARN) return mix(LINEN, GOLD, s.strain / WARN);
-    return mix(GOLD, RED, (s.strain - WARN) / (SNAP - WARN));
+    const warn = s.fray ? FRAY_WARN : WARN, snapAt = s.fray ? FRAY_SNAP : SNAP;
+    if (s.strain < warn) return mix(LINEN, GOLD, s.strain / warn);
+    return mix(GOLD, RED, (s.strain - warn) / (snapAt - warn));
   }
 
   // A ring around a pin (or the knot being pulled) filling with its load:
@@ -532,9 +566,13 @@
     for (const d of sh.dots) {
       const on = coveredBy(d);
       ctx.setLineDash(on ? [] : [3, 3]);
-      ctx.strokeStyle = on ? (holding ? '#ffd27a' : '#9be37a') : 'rgba(240,160,195,0.9)';
+      ctx.strokeStyle = on ? (holding ? '#ffd27a' : '#9be37a') : d[3] === 'dye' ? DYE : 'rgba(240,160,195,0.9)';
       ctx.lineWidth = on ? 2 : 1.5;
       ctx.beginPath(); ctx.arc(d[0], d[1], DOT_R, 0, Math.PI * 2); ctx.stroke();
+      if (d[3] === 'dye') {
+        ctx.fillStyle = 'rgba(90,180,255,0.3)';
+        ctx.beginPath(); ctx.arc(d[0], d[1], DOT_R - 3, 0, Math.PI * 2); ctx.fill();
+      }
       if (holding) {
         ctx.setLineDash([]);
         ctx.strokeStyle = '#ffd27a';
@@ -547,6 +585,7 @@
     // Strands: slack ones sag, taut ones warm up from linen to gold to red.
     for (const s of strands) {
       const a = knots[s.a], b = knots[s.b];
+      ctx.setLineDash([]);
       if (!s.alive) {
         // Frayed ends where a strand snapped.
         const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
@@ -558,6 +597,8 @@
         ctx.stroke();
         continue;
       }
+      // Frayed strands are drawn broken and thin.
+      ctx.setLineDash(s.fray ? [4, 3] : []);
       if (s.strain <= 0) {
         const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
         const len = Math.hypot(b.x - a.x, b.y - a.y);
@@ -569,27 +610,29 @@
       }
       const hot = s.over > 0 && Math.sin(now / 40) > 0;
       ctx.strokeStyle = hot ? '#ffffff' : strandColor(s);
-      ctx.lineWidth = 2 + Math.min(1.5, s.strain * 2.5);
+      ctx.lineWidth = (s.fray ? 1.5 : 2) + Math.min(1.5, snapFrac(s) * 1.5);
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
+    ctx.setLineDash([]);
 
     // Knots and pins. A pin's ring fills with the load it holds.
     for (let i = 0; i < knots.length; i++) {
       const k = knots[i];
+      const dyed = shape().dyed.includes(i);
       if (k.pinned) {
         const f = Math.min(1, k.load / PIN_HOLD);
         let x = k.x, y = k.y;
         if (k.over > 0) { x += (Math.random() - 0.5) * 3; y += (Math.random() - 0.5) * 3; }
         ctx.fillStyle = 'rgba(0,0,0,0.35)';
         ctx.beginPath(); ctx.arc(x + 1.5, y + 2, 8, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#d9a441';
+        ctx.fillStyle = dyed ? DYE : '#d9a441';
         ctx.beginPath(); ctx.arc(x, y, 7.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#f7d88a';
+        ctx.fillStyle = dyed ? '#bfe2ff' : '#f7d88a';
         ctx.beginPath(); ctx.arc(x - 2, y - 2, 2.5, 0, Math.PI * 2); ctx.fill();
         loadRing(x, y, f);
       } else {
-        ctx.fillStyle = '#f4ead8';
-        ctx.beginPath(); ctx.arc(k.x, k.y, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = dyed ? DYE : '#f4ead8';
+        ctx.beginPath(); ctx.arc(k.x, k.y, dyed ? 6 : 4.5, 0, Math.PI * 2); ctx.fill();
         if (k.grace > 0) {
           ctx.strokeStyle = `rgba(244,234,216,${k.grace / GRACE * 0.6})`;
           ctx.lineWidth = 1.5;
