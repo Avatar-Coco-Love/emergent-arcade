@@ -128,5 +128,27 @@ window.ArcadeUI = (function () {
   const reducedMotion = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const touch = () => !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
 
-  return { el, icon, store, shortDate, toaster, trapFocus, focusables, saveFile, typing, reducedMotion, touch };
+  // Phones get the system share sheet; everything else copies the link
+  // ("Link copied"), else shows it in a prompt. Resolves to the method used
+  // (share, copy, prompt), or null if the share sheet was dismissed.
+  async function share({ title, text, url }, toast) {
+    if (navigator.share && touch()) {
+      try {
+        await navigator.share({ title, text, url });
+        return "share";
+      } catch (err) {
+        if (err && err.name === "AbortError") return null;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast("Link copied");
+      return "copy";
+    } catch (_) {
+      window.prompt("Copy this link:", url);
+      return "prompt";
+    }
+  }
+
+  return { el, icon, store, shortDate, toaster, trapFocus, focusables, saveFile, typing, reducedMotion, touch, share };
 })();

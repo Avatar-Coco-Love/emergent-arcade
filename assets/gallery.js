@@ -13,6 +13,7 @@
   const Progress = window.ArcadeProgress;
   const Ach = window.ArcadeAchievements;
   const Cabinet = window.ArcadeCabinet;
+  const Wording = window.ArcadeWording;
 
   const galleryView = $("galleryView");
   const gameList = $("gameList");
@@ -67,7 +68,7 @@
   function matches(g) {
     if (state.verb && !g.mechanics.some((m) => m.verb === state.verb)) return false;
     if (!state.q) return true;
-    const hay = [g.title, g.blurb, ...g.mechanics.flatMap((m) => [m.name, m.verb])].join(" ").toLowerCase();
+    const hay = [g.title, g.blurb, ...g.mechanics.flatMap((m) => [m.name, m.verb, Wording.verb(m.verb)])].join(" ").toLowerCase();
     return state.q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w));
   }
 
@@ -124,7 +125,7 @@
 
   function card(game, from, index) {
     const chips = game.mechanics.map((m) =>
-      el("span", { className: "chip" }, [el("b", { textContent: m.name }), ` · ${m.verb}`])
+      el("span", { className: "chip" }, [el("b", { textContent: m.name }), ` · ${Wording.verb(m.verb)}`])
     );
     const meta = el("div", { className: "card-meta" }, [
       el("span", { textContent: `v${game.version} · updated ${UI.shortDate(game.updated)}` }),
@@ -181,7 +182,7 @@
       });
       return btn;
     };
-    $("verbChips").replaceChildren(chip("", "All verbs"), ...verbs.map((v) => chip(v, v)));
+    $("verbChips").replaceChildren(chip("", "All verbs"), ...verbs.map((v) => chip(v, Wording.verb(v))));
   }
 
   function renderHeader() {
@@ -291,6 +292,14 @@
       if (evt.target.closest("[data-close]")) dialog.close();
     });
   }
+
+  // Shares the arcade itself, the same way the cabinet shares a game.
+  const galleryToast = UI.toaster($("galleryToasts"), 3);
+  $("shareArcadeBtn").addEventListener("click", async () => {
+    const url = config.siteUrl || `${location.origin}${location.pathname}`;
+    const method = await UI.share({ title: "Emergent Arcade", text: $("tagline").textContent, url }, galleryToast);
+    if (method) telemetry.event("share", { method, from: "gallery" });
+  });
 
   $("arcadeInfoBtn").addEventListener("click", () => {
     openDialog($("arcadeInfoDialog"), $("arcadeInfoBtn"));
@@ -436,6 +445,7 @@
   // ---------- boot ----------
 
   $("telemetryNote").hidden = !telemetry.active();
+  for (const span of document.querySelectorAll("[data-verb]")) span.textContent = Wording.verb(span.dataset.verb);
   galleryStatus.textContent = "Loading games…";
 
   fetch("games/games.json", { cache: "no-cache" })
@@ -444,7 +454,8 @@
       return res.json();
     })
     .then((data) => {
-      games = data.games || [];
+      // {tap}-style placeholders become "tap" or "click" (assets/wording.js).
+      games = (data.games || []).map((g) => Wording.game(g));
       route();
     })
     .catch((err) => {

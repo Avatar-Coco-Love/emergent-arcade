@@ -280,26 +280,8 @@ window.ArcadeCabinet = (function () {
 
   async function share(from) {
     const game = current;
-    const url = playUrl(game);
-    let method = "copy";
-    // Phones get the system share sheet; everything else copies the link.
-    if (navigator.share && UI.touch()) {
-      try {
-        await navigator.share({ title: `${game.title} · Emergent Arcade`, text: game.blurb, url });
-        method = "share";
-      } catch (err) {
-        if (err && err.name === "AbortError") return;
-      }
-    }
-    if (method === "copy") {
-      try {
-        await navigator.clipboard.writeText(url);
-        toast("Link copied");
-      } catch (_) {
-        method = "prompt";
-        window.prompt("Copy this link:", url);
-      }
-    }
+    const method = await UI.share({ title: `${game.title} · Emergent Arcade`, text: game.blurb, url: playUrl(game) }, toast);
+    if (!method) return;
     telemetry.event("share", { game_id: game.id, game_version: game.version, method, from });
   }
 
@@ -387,10 +369,15 @@ window.ArcadeCabinet = (function () {
     $("aboutControls").replaceChildren(
       ...g.mechanics.map((m) =>
         el("li", { className: "verb-row" }, [
-          el("span", { className: "verb-tag", textContent: m.verb }),
+          el("span", { className: "verb-tag", textContent: window.ArcadeWording.verb(m.verb) }),
           el("div", {}, [el("b", { textContent: m.name }), el("span", { className: "desc", textContent: m.description })]),
         ])
-      )
+      ),
+      // Desktop-only key controls (the manifest's "keyboard"; dropped on touch).
+      ...(g.keyboard ? [el("li", { className: "verb-row keys" }, [
+        el("span", { className: "verb-tag", textContent: "keys" }),
+        el("div", {}, [el("span", { className: "desc", textContent: g.keyboard })]),
+      ])] : [])
     );
     $("aboutBlurb").textContent = g.blurb;
     $("aboutHow").textContent = g.howToPlay || "";

@@ -22,7 +22,7 @@ published from a branch.
      "goal": "What the player is trying to do (or say it's a sandbox).",
      "howToPlay": "A short paragraph shown in the gallery's How to play panel.",
      "mechanics": [
-       { "name": "pump", "verb": "tap", "description": "..." },
+       { "name": "pump", "verb": "tap", "description": "{Tap} a cell to ..." },
        { "name": "siphon", "verb": "drag", "description": "..." }
      ],
      "sharedState": "Which value(s) the mechanics read and write.",
@@ -36,7 +36,35 @@ published from a branch.
    `id` is the game's permanent identity: feedback and achievements are keyed
    on it, so never rename it.
 
+   **Tap or click.** Players are on phones and on PCs, so manifest text
+   never says "tap" or "finger" outright. Write a placeholder and the gallery
+   fills in the word for the device's main input (`(pointer: coarse)` is a
+   finger, anything else a mouse; `assets/wording.js`):
+
+   | placeholder | phone | mouse |
+   |---|---|---|
+   | `{tap}` `{taps}` `{tapped}` `{tapping}` | tap… | click… |
+   | `{finger}` `{fingers}` | finger(s) | pointer(s) |
+   | `{hold}` | hold | click and hold |
+   | `{press}` (as in "`{Press}` and hold", "`{press}` Next season") | press | click |
+   | `{slide}` | slide | move |
+   | `{swipe}` `{swipes}` `{swiped}` | swipe… | drag… |
+
+   A capital first letter capitalizes the word (`{Tap}` → Tap / Click).
+   Works in every prose field (blurb, goal, howToPlay, descriptions,
+   achievements, `changes`); not in `id`, `file` or `verb`. Write verbs in
+   their phone form (`"tap"`, `"hold"`): the gallery's chips and the ⓘ
+   panel's labels translate them the same way. "drag" and "flick" read fine
+   with a mouse, so they stay plain words. `validate.mjs` rejects any other
+   `{…}`. Link previews (share pages, `assets/og/` images) use the phone
+   words. Add a row to `WORDS` in `assets/wording.js` for a new word.
+
    Optional fields (checked by `validate.mjs`):
+
+   - `keyboard`: keys for PC players, one line of 1–120 characters, e.g.
+     `"← → or A / D to tilt"`. Shown as a "keys" row under the verbs in the
+     ⓘ panel, only when the main input is a mouse (phone players never see
+     it). Plain text, no placeholders.
 
    - `changes`: `[{ "version": 1, "date": "YYYY-MM-DD", "text": "..." }]`,
      one short line per version (1–280 characters, player-facing: what

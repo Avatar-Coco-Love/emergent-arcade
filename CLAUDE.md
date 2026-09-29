@@ -16,6 +16,9 @@
   full-screen "cabinet" with a toolbar and panels) and must handle
   `arcade:pause` / `arcade:resume` messages. Games with rounds post
   `arcade:result` (win/loss, time) when one ends (`docs/telemetry.md`).
+- Manifest text is read on phones and PCs: write `{tap}`, `{finger}`,
+  `{hold}`… instead of "tap"/"click", and PC keys in the optional
+  `keyboard` line (`docs/adding-a-game.md`, "Tap or click").
 - A game's `id` is its permanent feedback key; never rename it. Revisions
   edit the file in place and bump `version` + `updated` in the manifest.
 - Always run `node scripts/validate.mjs` before pushing. After changing
