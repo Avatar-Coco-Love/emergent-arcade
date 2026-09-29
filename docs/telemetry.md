@@ -103,7 +103,9 @@ Cost: one extra ~150-byte cell per round and no extra requests. Session
 rows are unchanged; "where did players stop" is derived from them (a
 session's play time beyond its finished rounds means they left mid-round).
 
-Pressure Grid is a sandbox with no rounds, so it only produces session rows.
+Games without levels can send `reason` and `stats` too (Hot Iron,
+Hourglass Delivery and Pressure Grid do). The summary then adds losses by
+reason and the median of each stat for wins and for losses.
 `validate.mjs` requires `arcade:result` in every game whose `goal` doesn't
 start with "Sandbox".
 

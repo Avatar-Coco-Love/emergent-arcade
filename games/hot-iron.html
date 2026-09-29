@@ -184,12 +184,20 @@
   }
 
   // Tell the gallery how a round ended (anonymous play telemetry, see
-  // docs/telemetry.md). time is seconds of unpaused play this round.
-  function report(result) {
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
-        outcome: result === 'won' ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
-    }
+  // docs/telemetry.md). time is seconds of unpaused play this round; reason
+  // and stats say how it went (keys in docs/games/hot-iron.md).
+  function report(result, reason) {
+    if (window.parent === window) return;
+    const r1 = v => Math.round(v * 10) / 10;
+    const off = segs.filter((s, i) => Math.abs(s.th - target[i]) > TOL).length;
+    const err = segs.reduce((a, s, i) => a + Math.abs(s.th - target[i]), 0) / N;
+    const msg = { type: 'arcade:result', game: GAME_ID,
+      outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
+      stats: { profile, off, err: r1(100 * err), strikes, cracks, clangs, stuck,
+        heat_s: r1(heatTime), fuel: r1(fuel), burned: r1(100 * (N - segs.reduce((a, s) => a + s.th, 0)) / N),
+        thin: segs.filter(s => s.th <= TH_MIN).length, first_input: firstInput === null ? -1 : r1(firstInput) } };
+    if (reason) msg.reason = reason;
+    window.parent.postMessage(msg, '*');
   }
 
   // Scale the forge to the largest W:H box that fits, one canvas pixel per
@@ -222,6 +230,7 @@
 
   let segs, target, profile = Math.floor(Math.random() * PROFILES.length);
   let fuel, cracks, strikes, elapsed, state, heatX, msgTimer;
+  let clangs, stuck, heatTime, firstInput; // telemetry only
   let sparks = [], flows = [], rings = [], shake = 0, legendPulse = 0;
 
   function newBar(p) {
@@ -232,6 +241,7 @@
     cracks = 0;
     strikes = 0;
     elapsed = 0;
+    clangs = 0; stuck = 0; heatTime = 0; firstInput = null;
     heatX = null;
     sparks = []; flows = []; rings = [];
     roundEarned.clear();
@@ -241,10 +251,10 @@
     document.getElementById('hudShape').textContent = PROFILES[profile].name;
   }
 
-  function endGame(result, why) {
+  function endGame(result, why, reason) {
     state = result;
     heatX = null;
-    report(result);
+    report(result, reason);
     msgEl.textContent = '';
     const title = document.getElementById('endTitle');
     title.textContent = result === 'won' ? `${PROFILES[profile].name} forged!` : why;
@@ -282,11 +292,13 @@
   // ---------- mechanic 2: strike (tap) ----------
   function strike(i) {
     if (state !== 'playing' || i < 0 || i >= N) return;
+    if (firstInput === null) firstInput = elapsed;
     const s = segs[i];
     s.hit = 0.18;
     if (s.T < T_COLD) {
       // Black iron is too hard to move or to break: the blow just rings.
       rings.push({ x: segX(i), t: 0.4 });
+      clangs++;
       legendPulse = 1.2;
       say('Clang! Black iron is too cold to move. Hold on it to heat it.');
       return;
@@ -298,7 +310,7 @@
       shake = 0.25;
       legendPulse = 1.2;
       say('Too cool to work: cracked!');
-      if (cracks >= MAX_CRACKS) endGame('lost', 'The bar split');
+      if (cracks >= MAX_CRACKS) endGame('lost', 'The bar split', 'cracks');
       return;
     }
     const u = Math.min(1, (s.T - T_WORK) / (T_BURN - T_WORK));
@@ -306,6 +318,7 @@
     const wr = i < N - 1 ? softness(segs[i + 1].T) : 0;
     const ws = wl + wr;
     if (ws <= 0) {
+      stuck++;
       say('The metal has nowhere to go: its neighbours are cold.');
       return;
     }
@@ -337,6 +350,8 @@
     elapsed += dt;
     const dT = new Array(N).fill(0);
     if (heatX !== null && fuel > 0) {
+      if (firstInput === null) firstInput = elapsed;
+      heatTime += dt;
       fuel = Math.max(0, fuel - dt);
       for (let i = 0; i < N; i++) {
         const d = (i + 0.5 - heatX) / HEAT_SIGMA;
@@ -363,7 +378,7 @@
     }
     checkWin();
     // Out of fuel: the round ends once nothing is hot enough to strike.
-    if (state === 'playing' && fuel <= 0 && segs.every(s => s.T < T_WORK)) endGame('lost', 'The fire went out');
+    if (state === 'playing' && fuel <= 0 && segs.every(s => s.T < T_WORK)) endGame('lost', 'The fire went out', 'fuel');
   }
 
   // ---------- effects ----------

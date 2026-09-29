@@ -144,6 +144,7 @@ for (const [k, rows] of [...groups].sort()) {
     console.log(`  rounds to first win: median ${median(toFirstWin) ?? "-"} (${toFirstWin.length} won, ${neverWon} never won)`);
   }
   if (rounds.some((r) => r.level !== "" && r.level != null)) levelSummary(rounds, sessions);
+  else if (rounds.some((r) => r.reason || r.stats)) roundDetail(rounds);
   if (ach.size) console.log(`  achievements: ${[...ach].sort((a, b) => b[1] - a[1]).map(([id, n]) => `${id} ${n}`).join(", ")}`);
 }
 if (galleryRows.length) gallerySummary(galleryRows);
@@ -175,6 +176,19 @@ function gallerySummary(rows) {
   }
   const searches = by("search");
   if (searches.length) console.log(`  searches: ${searches.length}, ${searches.filter((r) => Number(r.results) === 0).length} with no results`);
+}
+
+// Games without levels that send reason/stats: losses by reason, and the
+// median of each stat for wins and for losses.
+function roundDetail(rounds) {
+  const reasons = new Map();
+  for (const r of rounds) if (r.outcome === "loss") reasons.set(r.reason || "?", (reasons.get(r.reason || "?") || 0) + 1);
+  if (reasons.size) console.log(`  losses by reason: ${[...reasons].map(([k, n]) => `${k} ${n}`).join(", ")}`);
+  for (const outcome of ["win", "loss"]) {
+    const stats = rounds.filter((r) => r.outcome === outcome && r.stats).map((r) => parseStats(r.stats));
+    const keys = [...new Set(stats.flatMap(Object.keys))];
+    if (keys.length) console.log(`  median stats (${outcome}, ${stats.length}): ${keys.map((k) => `${k} ${median(stats.filter((x) => k in x).map((x) => x[k]))}`).join(" ")}`);
+  }
 }
 
 // "dawn=22 lost=4" -> { dawn: 22, lost: 4 }

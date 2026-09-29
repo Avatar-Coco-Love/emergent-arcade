@@ -49,6 +49,14 @@ second, when the round should reward decisions over speed. A decay rate
 still makes sense when time pressure is the point. *Evidence: bots.
 Provisional.*
 
+Pressure Grid v7: a spreading rate (bleed) works like a decay rate. Any
+"reach 100 eruptions" goal, against a clock or against a pump budget with
+no clock, was decided by tap rate. With 150 pumps, centre spam won 100% at
+6/s and 0% at 3/s. Every bot that read the board won 0%, because pressure
+bled away between slow taps. Check: a budget of actions doesn't remove
+the speed test while a passive system undoes each action over time.
+*Evidence: bots (`docs/games/pressure-grid.md`). Provisional.*
+
 ## Sweep reaction time apart from think time
 
 Hot Iron: heat is a hold verb that draws fuel. When the rate sweep scaled
@@ -100,7 +108,7 @@ number, enough to show direction:
 | Wildfire Line v2 | 70%, 71 s | 0/1, lost at 65 s |
 | Ant Trails v2 | 63% by 90 s | 1/1, won at 83 s |
 | Orbit Garden v5 | 96–100%, 32–39 s | 1/1, won at 23 s |
-| Pressure Grid v6 (sandbox) | 28–105 s per achievement, none gets all 6 | all 6 in 64 s |
+| Pressure Grid v6 (sandbox, v7 adds a round) | 28–105 s per achievement, none gets all 6 | all 6 in 64 s |
 
 Orbit Garden matched a bot-based prediction (a human flings faster than
 the 1.5 s bot and wins sooner), which supports "a decay rate turns a
