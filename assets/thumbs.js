@@ -162,5 +162,29 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus };
+  function loom() {
+    let body = `<rect width="72" height="72" fill="#1d1523"/>`;
+    // A 4x4 net stretched toward its top-right corner, pinned at two corners.
+    const P = [];
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+      const u = c / 3, v = r / 3;
+      P.push([14 + u * 38 + u * (1 - v) * 10, 20 + v * 36 - u * (1 - v) * 10]);
+    }
+    const line = (a, b, col, w) => `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${col}" stroke-width="${w}"/>`;
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+      const i = r * 4 + c;
+      if (c < 3) body += line(P[i], P[i + 1], r === 0 ? (c === 2 ? "#ff5a5a" : "#f2c14e") : "#e8dcc8", r === 0 ? 1.8 : 1.2);
+      if (r < 3) body += line(P[i], P[i + 4], "#e8dcc8", 1.2);
+    }
+    // The dotted target the corner is being pulled onto.
+    body += `<circle cx="62" cy="10" r="5" fill="none" stroke="#f0a0c3" stroke-width="1.2" stroke-dasharray="2 2"/>`;
+    for (const q of P) body += `<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="1.6" fill="#f4ead8"/>`;
+    for (const q of [P[0], P[12]]) {
+      body += `<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="3.6" fill="#d9a441"/>`;
+      body += `<circle cx="${(q[0] - 1).toFixed(1)}" cy="${(q[1] - 1).toFixed(1)}" r="1.2" fill="#f7d88a"/>`;
+    }
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom };
 })();

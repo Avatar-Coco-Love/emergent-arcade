@@ -549,6 +549,53 @@
           "description": "Get through both years with two strikes on the board."
         }
       ]
+    },
+    {
+      "id": "loom",
+      "title": "Loom",
+      "file": "loom.html",
+      "version": 1,
+      "added": "2026-09-29",
+      "updated": "2026-09-29",
+      "blurb": "Stretch a knotted net onto a dotted silhouette and pin it there before the pins pop or the strands snap.",
+      "goal": "Hold four shapes in a row (Tablecloth, Banner, Sail, Kite): cover every dot with a knot at once and keep it there for a second. Three slips (a pin popping loose or a strand snapping) lose the shape, and snapped strands stay snapped for the rest of the run.",
+      "howToPlay": "Drag a knot to pull the net: the knot follows your finger, and the further your finger leads it, the harder you pull. Tap a knot to pin it where it is (up to 4 pins); tap a pin to take it out, or drag it to pull it out and move that knot. A knot you let go of without a pin slides back as the net relaxes, so pin it quickly. Strands turn from linen to gold to red as they stretch; a red strand that stays red snaps. The ring around a pin fills with the load it holds, and a red ring shakes and then pops the pin. While you pull, the same ring around your knot shows the load a pin would hold if you pinned it there. A dot only needs a knot somewhere inside its circle, so the near edge needs less stretch than the middle. A taut edge between two pins lines up the knots along it, which can cover extra dots without extra pins.",
+      "mechanics": [
+        {
+          "name": "pull",
+          "verb": "drag",
+          "description": "Drag a knot to stretch the net. The pull grows with how far your finger leads the knot, and it raises the tension in the strands around it."
+        },
+        {
+          "name": "pin",
+          "verb": "tap",
+          "description": "Tap a knot to pin it in place (up to 4 at once); tap a pin to take it out. A pin holds its knot until the strands around it pull harder than it can hold, then it pops loose."
+        }
+      ],
+      "sharedState": "Tension in every strand of the net (its stretch). Pulling writes it around the dragged knot; pins fix knots so tension builds between them, and each pin reads the tension of its strands (too much and it pops, releasing its knot and passing the load on). A strand past its limit snaps for good. Where the knots end up, which the silhouette reads, is set by that tension balance.",
+      "accent": "#e0679a",
+      "achievements": [
+        {
+          "id": "first-shape",
+          "title": "Pinned Down",
+          "description": "Hold your first shape."
+        },
+        {
+          "id": "full-run",
+          "title": "Loom Master",
+          "description": "Hold all four shapes in one run."
+        },
+        {
+          "id": "unbroken",
+          "title": "Unbroken",
+          "description": "Hold all four shapes without snapping a single strand."
+        },
+        {
+          "id": "kite-flyer",
+          "title": "Kite Flyer",
+          "description": "Hold the Kite without a single slip."
+        }
+      ]
     }
   ]
 }

@@ -173,3 +173,20 @@ test a bot that just tops up whatever is low. If it does worse than doing
 nothing at some moments, the timing of a verb matters, which is the
 decision the game is about. *Evidence: bots
 (`docs/games/island-census.md`). Provisional.*
+
+## In a frictionless spring system, only where the pins end up matters
+
+Loom v1 (a spring net with pull and pin): once friction was near zero, the
+net's resting shape depended only on the pinned positions, not on the
+order or speed of the pulls. A bot that knew which knot goes where but
+yanked blindly won 95% of runs; one that also read tension won 100%. The
+first ~10 tries at raising the difficulty (pull speed, easing off, strain
+limits) changed nothing. Tension only mattered where a resting load sat
+near its limit (Kite pins pop at the dot centres, hold at the inner edges).
+Also, a threshold that fires faster than a human can react (pins popping
+0.3 s after going red) made reading the warning useless: the ring-reading
+bot did no better than the blind one until the delay was 0.6 s. Check: for
+a physics game, ask what the player can choose that changes the
+*equilibrium* (which knots, how far), since a relaxing system forgets how
+you got there. Keep every warning-to-failure delay above reaction time.
+*Evidence: bots (`docs/games/loom.md`). Provisional.*
