@@ -71,7 +71,19 @@ if (format === "json") {
   process.exit(0);
 }
 
-// summary: per game+version rating stats, then every comment
+// Quick tags ("fun", "too hard"...) arrive as an array (JSON reads) or as
+// text (CSV exports).
+function tagList(v) {
+  if (Array.isArray(v)) return v.map(String);
+  if (typeof v !== "string" || !v.trim()) return [];
+  try {
+    const parsed = JSON.parse(v);
+    if (Array.isArray(parsed)) return parsed.map(String);
+  } catch (_) {}
+  return v.split(",").map((t) => t.trim()).filter(Boolean);
+}
+
+// summary: per game+version rating stats, tag counts, then every comment
 const groups = new Map();
 for (const r of data.rows) {
   const k = `${r.game_id}@v${r.game_version}`;
@@ -85,9 +97,13 @@ for (const [k, rows] of [...groups].sort(([a], [b]) => a.localeCompare(b, "en", 
   const dist = [1, 2, 3, 4, 5].map((n) => `${n}★:${rated.filter((r) => Number(r.rating) === n).length}`).join(" ");
   const notes = rows.length - rated.length ? `, ${rows.length - rated.length} comment-only` : "";
   console.log(`\n## ${k}: ${rated.length} rating(s), avg ${avg.toFixed(2)}  (${dist})${notes}`);
+  const tagCounts = new Map();
+  for (const r of rows) for (const t of tagList(r.tags)) tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
+  if (tagCounts.size) console.log(`tags: ${[...tagCounts].sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t} ${n}`).join(", ")}`);
   for (const r of rows) {
     const tag = Number(r.rating) >= 1 ? `${r.rating}★` : "note";
-    if (String(r.comment).trim()) console.log(`- [${tag} ${String(r.received_at).slice(0, 10)}] ${r.comment}`);
+    const tags = tagList(r.tags);
+    if (String(r.comment).trim()) console.log(`- [${tag} ${String(r.received_at).slice(0, 10)}${tags.length ? ` · ${tags.join(", ")}` : ""}] ${r.comment}`);
   }
 }
 if (!groups.size) console.log("No feedback yet.");

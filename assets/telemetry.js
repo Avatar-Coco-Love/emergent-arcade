@@ -9,6 +9,11 @@
 //                      docs/telemetry.md)
 //   achievement(id)    a new achievement was unlocked this session
 //   end()              cabinet closed, game switched, or the tab was hidden
+//   event(action, f)   a gallery-level action (card opened, share, download,
+//                      sort/filter, settings), sent as a kind "gallery" row
+//
+// A player can turn all of it off for their browser in the gallery's
+// settings (arcade.telemetryOptOut, see assets/progress.js).
 //
 // Each round result is sent right away (so a closed tab loses nothing), and
 // end() sends one session summary. No personal data: the only id is the
@@ -26,8 +31,12 @@ window.ArcadeTelemetry = (function () {
     return window.matchMedia && matchMedia("(pointer: coarse)").matches ? "touch" : "mouse";
   }
 
+  function active() {
+    return enabled && !(window.ArcadeProgress && window.ArcadeProgress.telemetryOptedOut());
+  }
+
   function send(payload) {
-    if (!enabled) return;
+    if (!active()) return;
     const body = JSON.stringify(Object.assign(payload, {
       client_id: window.ArcadeFeedback.clientId(),
       device: device(),
@@ -138,5 +147,11 @@ window.ArcadeTelemetry = (function () {
     s = null;
   }
 
-  return { start, pause, resume, result, achievement, end, enabled };
+  // Gallery rows land in the backend's "events" tab (backend v3 keeps any
+  // new kind and any extra field; docs/backend-api.md).
+  function event(action, fields) {
+    send(Object.assign({ kind: "gallery", action }, fields || {}));
+  }
+
+  return { start, pause, resume, result, achievement, end, event, enabled, active };
 })();

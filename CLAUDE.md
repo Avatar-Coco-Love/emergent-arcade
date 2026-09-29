@@ -16,7 +16,9 @@
   `arcade:result` (win/loss, time) when one ends (`docs/telemetry.md`).
 - A game's `id` is its permanent feedback key; never rename it. Revisions
   edit the file in place and bump `version` + `updated` in the manifest.
-- Always run `node scripts/validate.mjs` before pushing.
+- Always run `node scripts/validate.mjs` before pushing. After changing
+  `index.html` or `assets/`, also run `node scripts/smoke-gallery.mjs`
+  (design notes: `docs/gallery.md`).
 - Never push to `main`. Propose new or revised games as a PR (the template has
   the design checklist). Merging to `main` is what deploys.
 - Feedback readback: `node scripts/fetch-feedback.mjs` (needs

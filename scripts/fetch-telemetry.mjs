@@ -77,8 +77,20 @@ if (input) {
     process.exit(0);
   }
   rowsIn = data.rows;
+
+  // Gallery events (kind "gallery") live in the "events" tab.
+  const ev = new URL(url);
+  ev.searchParams.set("tab", "events");
+  ev.searchParams.set("kind", "gallery");
+  try {
+    const evData = await (await fetch(ev, { redirect: "follow" })).json();
+    if (evData.ok) rowsIn = rowsIn.concat(evData.rows.filter((r) => r.kind === "gallery"));
+  } catch (err) {
+    console.error(`(gallery events not read: ${err.message})`);
+  }
 }
-const data = { rows: rowsIn };
+const galleryRows = rowsIn.filter((r) => r.kind === "gallery");
+const data = { rows: rowsIn.filter((r) => r.kind !== "gallery") };
 
 const median = (xs) => {
   if (!xs.length) return null;
@@ -133,6 +145,36 @@ for (const [k, rows] of [...groups].sort()) {
   }
   if (rounds.some((r) => r.level !== "" && r.level != null)) levelSummary(rounds, sessions);
   if (ach.size) console.log(`  achievements: ${[...ach].sort((a, b) => b[1] - a[1]).map(([id, n]) => `${id} ${n}`).join(", ")}`);
+}
+if (galleryRows.length) gallerySummary(galleryRows);
+
+// Gallery events (docs/telemetry.md#gallery-events): how players find and
+// pass on games. One line per kind of action.
+function gallerySummary(rows) {
+  const count = (list, key) => {
+    const m = new Map();
+    for (const r of list) {
+      const v = r[key] === undefined || r[key] === "" ? "?" : String(r[key]);
+      m.set(v, (m.get(v) || 0) + 1);
+    }
+    return [...m].sort((a, b) => b[1] - a[1]).map(([v, n]) => `${v} ${n}`).join(", ");
+  };
+  const by = (action) => rows.filter((r) => r.action === action);
+  const players = new Set(rows.map((r) => r.client_id).filter(Boolean));
+  console.log(`\ngallery: ${rows.length} event(s) from ${players.size} player(s)`);
+  const opens = by("open");
+  if (opens.length) {
+    console.log(`  opens: ${opens.length}; from ${count(opens, "from")}`);
+    console.log(`  opens by game: ${count(opens, "game_id")}`);
+    const listed = opens.filter((r) => r.from === "list");
+    if (listed.length) console.log(`  list position opened: ${count(listed, "position")} (sort: ${count(listed, "sort")})`);
+  }
+  for (const [action, key] of [["share", "method"], ["download", "game_id"], ["sort", "sort"], ["filter", "verb"], ["settings", "setting"], ["nudge", "result"]]) {
+    const list = by(action);
+    if (list.length) console.log(`  ${action}: ${list.length} (${count(list, key)})`);
+  }
+  const searches = by("search");
+  if (searches.length) console.log(`  searches: ${searches.length}, ${searches.filter((r) => Number(r.results) === 0).length} with no results`);
 }
 
 // "dawn=22 lost=4" -> { dawn: 22, lost: 4 }

@@ -7,6 +7,13 @@
       "version": 6,
       "added": "2026-09-26",
       "updated": "2026-09-27",
+      "changes": [
+        {
+          "version": 6,
+          "date": "2026-09-27",
+          "text": "Eruptions blast out less pressure (40 → 24), so chain-reaction storms burn out instead of running forever."
+        }
+      ],
       "blurb": "Pump pressure into cells, siphon it toward neighbors, and ride the chain reactions when cells erupt.",
       "mechanics": [
         {
@@ -64,6 +71,13 @@
       "version": 6,
       "added": "2026-09-26",
       "updated": "2026-09-28",
+      "changes": [
+        {
+          "version": 6,
+          "date": "2026-09-28",
+          "text": "Harder: seeds fly slower and gravity pulls harder, so every shot curves. Planets wither per seed flung, not per second, and the aim preview is longer."
+        }
+      ],
       "blurb": "Place planets, fling seeds around them, and grow a garden in orbit. Every seed that lands makes its planet pull harder.",
       "goal": "Get 3 planets blooming at the same time before your 40 seeds run out.",
       "howToPlay": "Seeds launch from the launcher at the bottom and bend around every planet on their way up. Each seed that lands makes its planet heavier, and heavier planets pull harder, so a big planet can start stealing seeds meant for its neighbors. Every seed you fling makes every planet wither a little, so misses cost you twice. Seeds fly slowly and curve a lot: drag upward to fling, and aim by the short dotted preview, not straight at the planet. There's no rush; take your time lining up each shot.",
@@ -121,6 +135,13 @@
       "version": 4,
       "added": "2026-09-27",
       "updated": "2026-09-27",
+      "changes": [
+        {
+          "version": 4,
+          "date": "2026-09-27",
+          "text": "No gameplay change. Reports how each round ends, for anonymous play stats."
+        }
+      ],
       "blurb": "Lure a flock of starlings through a string of gates before night falls. Startle them for speed, but panic spreads from bird to bird.",
       "goal": "Fly 15 birds through each of the 5 gates, in order and close together, before night falls (60 seconds of light) and before the flock drops below 15 birds.",
       "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. Hold anywhere and calm birds fly toward your finger; keep holding and move it to lead them. The lure pulls hardest on birds near it, but birds that get too close are spooked. Tap to startle the birds near the tap: they panic (turning red) and burst away from it. Scared birds still match their neighbors' heading, so a tap just behind the flock sends it surging forward, the fastest way across open sky. A gate only counts birds that flew through it in the last few seconds, so bring the flock through together. The sky darkens as the light runs out (the time left is in the bottom bar); if the flock hasn't cleared all 5 gates by nightfall, the round is lost. Fear spreads to neighbors and fades over time. Scared birds ignore your lure, birds packed too tightly get scared on their own, and panicked birds can fly off the edge of the sky and be lost, so be careful startling near the edges.",
@@ -183,6 +204,13 @@
       "version": 4,
       "added": "2026-09-27",
       "updated": "2026-09-28",
+      "changes": [
+        {
+          "version": 4,
+          "date": "2026-09-28",
+          "text": "No gameplay change. Play stats now include the day, the run and why a day was lost."
+        }
+      ],
       "blurb": "Draw scent trails to lead your ants to food over five days. The colony carries over, and every day brings something new: scattered food, storms, a second spider, a rival colony.",
       "goal": "Survive a five-day run. Each day, carry the day's crumbs into the nest before sundown (90 seconds) without the colony dropping below 8 ants. Ants alive at sundown start the next day.",
       "howToPlay": "Ants wander until they smell something. Drag to draw a scent trail (it uses up the scent meter, which refills). Ants follow trails away from the nest, grab a crumb, and walk straight home, laying scent as they go, so busy routes grow into bright highways. Scent fades over time. Spiders follow scent too, and move fastest on the strongest trails. Press and hold to make it rain: rain washes scent away, so you can throw a spider off a trail, but your ants lose that trail as well. Soldiers keep spiders away from the nest, and a new ant hatches for every 10 crumbs. Every day has a new food layout and a twist: day 3 brings storm clouds that wash trails as they drift by, day 4 a second spider, day 5 a rival colony of red ants that raids the same food and follows your trails. Ants you lose stay lost, but overnight one ant hatches for every 10 seconds of daylight you had left, plus 3 more if you met the day's bonus challenge (bottom left). Lose a day and you can retry it with the ants you had at dawn, or start a new run.",
@@ -270,6 +298,13 @@
       "version": 3,
       "added": "2026-09-27",
       "updated": "2026-09-28",
+      "changes": [
+        {
+          "version": 3,
+          "date": "2026-09-28",
+          "text": "Bigger stamina bar (100 → 125), because players said it ran out too fast."
+        }
+      ],
       "blurb": "A grass fire is running at the village. Cut firebreaks, fight fire with fire, and watch the wind.",
       "goal": "Let the fire burn itself out with at least 3 of the 4 houses still standing. Losing a second house ends the round.",
       "howToPlay": "Fire spreads from patch to patch of grass, fastest downwind and on tall grass, and it can't cross bare ground. Drag to cut a firebreak: it clears a one-patch-wide strip of grass along your stroke but costs stamina (more in tall grass), which refills slowly. Draw over a line again to widen it. Tap to light a backburn: it's free and wide, and it burns up the grass before the main fire gets there, but it's real fire and it spreads like the rest. Burning out right against a cut line is the safe way to do it. The arrow in the corner shows the wind. It shifts every 20 seconds or so, and the next direction flashes 4 seconds before it turns. Watch for sparks: the leading edge of the main fire throws embers several patches downwind, so thin lines can be jumped.",
@@ -327,6 +362,13 @@
       "version": 2,
       "added": "2026-09-27",
       "updated": "2026-09-27",
+      "changes": [
+        {
+          "version": 2,
+          "date": "2026-09-27",
+          "text": "No gameplay change. Reports how each round ends, for anonymous play stats."
+        }
+      ],
       "blurb": "Pour sand onto brass ledges, let it pile up, then knock it loose to fill the hourglasses rolling past.",
       "goal": "Fill at least 6 of the 8 hourglasses on the belt. A third empty glass ends the round.",
       "howToPlay": "Hold anywhere to pour sand from the top at your finger; slide while holding to move the spout. Sand falls, slides off slopes and piles up on the ledges, and sand that sits still for a moment packs down (it turns darker) and holds its shape. Flick (a quick swipe) to knock the sand where your swipe starts loose and shove it the way you swiped: a whole pile can slide off the end of its ledge at once. Hourglasses roll along the belt at the bottom, and any sand that falls into one counts toward its line. Pouring straight down is slow and the glasses keep moving, so load up a ledge ahead of time and knock the pile off just as a glass rolls underneath. The hopper holds 2000 grains, shown top left.",
@@ -384,6 +426,13 @@
       "version": 2,
       "added": "2026-09-27",
       "updated": "2026-09-28",
+      "changes": [
+        {
+          "version": 2,
+          "date": "2026-09-28",
+          "text": "Black iron bounces instead of cracking, arrows preview where the heat flows, and fuel lasts longer (45 → 60 s)."
+        }
+      ],
       "blurb": "Heat an iron bar and hammer it into shape: heat decides where the metal goes.",
       "goal": "Hammer the bar until every segment matches the dashed outline. Three cracks, or running out of fuel with nothing left hot enough to work, ends the round.",
       "howToPlay": "Hold anywhere above or below the bar to heat the part under your finger (slide to move the heat); it burns fuel from the gauge at the top. Heat spreads along the bar and always fades, and thin metal heats and cools faster. Tap to strike a segment. Temperature only shows as colour: black iron is too cold to move (the hammer just bounces off), and striking dull red cracks the bar; from cherry red through orange and yellow each blow thins the segment, hotter blows thin it more; white-hot metal burns away. The metal you knock out of a segment flows into its neighbours, mostly into the hotter one: a cold neighbour takes almost nothing. So to thicken a segment, get it hotter than the segment on the other side and strike the segment next to it. Arrows under a hot segment show where its metal will go if you strike it now. A green dot under a segment means it matches the outline. The legend at the bottom shows the working range. There is no clock: take your time, but fuel spent on metal that cools off is wasted.",

@@ -35,6 +35,18 @@ published from a branch.
 
    `id` is the game's permanent identity: feedback and achievements are keyed
    on it, so never rename it.
+
+   Optional fields (checked by `validate.mjs`):
+
+   - `changes`: `[{ "version": 1, "date": "YYYY-MM-DD", "text": "..." }]`,
+     one short line per version (1–280 characters, player-facing: what
+     changed in play, not how). The cabinet's ⓘ panel shows the latest three
+     under "What's new", and the first time a browser opens a version newer
+     than the one it last saw, a one-time callout shows the newest line.
+     Versions are 1..`version`, one entry each.
+   - `status`: `"active"` (the default) or `"archived"`. Archived games stay
+     playable and keep their link, but the gallery lists them in a separate
+     Archive section with a badge. Retire a game this way; never delete it.
 3. Add achievements (at least 3). List them in the manifest, then
    announce each one from the game with this snippet (see either existing game):
 
@@ -107,6 +119,8 @@ published from a branch.
 2. Edit `games/<id>.html` in place. The PR diff is the record of what changed.
 3. In `games/games.json`, bump `version` by 1 and set `updated`. New ratings
    are then tagged with the new version, so you can compare before and after.
+   Add a `changes` entry for the new version: returning players see it once
+   as a "what's new" callout, and cards show an "Updated" badge until opened.
 4. Update `docs/games/<id>.md` in the same PR (new constants, balance
    numbers, open ideas).
 5. Open a PR; mention which feedback motivated the change.
