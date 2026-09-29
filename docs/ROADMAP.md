@@ -14,6 +14,12 @@ and 6 games in. Revisit it when a phase's exit condition is met.
   game has been hand-played on a phone. The arcade can learn from players,
   but so far only simulated players have taught it anything.
 
+**Update 2026-09-29:** the maintainer wants more games alongside the
+revisions, to give players more choice and bring in more data. New games
+are back on, one per PR, still checked against `docs/findings.md` and
+balanced with a `novice` bot before they ship. Revisions from player data
+still come first when there is any.
+
 ## Principle: depth before volume
 
 Shipping a new game an hour is easy. Making any one of them great is hard.

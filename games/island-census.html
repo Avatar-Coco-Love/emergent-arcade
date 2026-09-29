@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Island Census</title>
+<style>
+  :root {
+    --bg: #0b1d28;
+    --panel: #15303e;
+    --text: #e9efe6;
+    --muted: #93a8a8;
+    --accent: #7cc56a;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the island scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #sea {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    border-radius: 10px;
+    background: #0f2d3d;
+  }
+  #msg {
+    position: absolute;
+    top: 15%;
+    left: 8px;
+    right: 8px;
+    margin: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #f4f1e6;
+    text-shadow: 0 1px 3px #000, 0 0 6px #000;
+    pointer-events: none;
+  }
+  #endCard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(86%, 300px);
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(18, 38, 50, 0.95);
+    border: 1px solid #2c5264;
+    text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #endCard h2.won { color: #b6e38a; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #cbd8d3; font-size: 0.9rem; }
+  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
+  #playAgain:disabled { opacity: 0.4; }
+  .bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bar b { color: var(--text); letter-spacing: 2px; }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #2c5264;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.45; }
+  #nextBtn { font-weight: 600; }
+  #nextBtn.ready { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+</style>
+</head>
+<body>
+  <div id="field">
+    <div id="stage">
+      <canvas id="sea" aria-label="Island Census. Tap a meadow to release rabbits, drag across a path to fence it against foxes."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="playAgain">New island</button>
+      </div>
+    </div>
+  </div>
+  <div class="bar">
+    <span>Moves <b id="hudMoves"></b></span>
+    <button id="nextBtn">Next season ▸</button>
+    <button id="resetBtn">New island</button>
+  </div>
+
+<script>
+(function() {
+  const GAME_ID = 'island-census';
+  const W = 400, H = 600;
+  // Island layout
+  const N_MEADOWS = 7;
+  const CX = 200, CY = 342, RX = 122, RY = 180; // meadow centres fall in this ellipse
+  const MIN_D = 108;               // closest two meadow centres may be
+  const PATH_MAX = 175;            // longest path between meadows (unless needed to connect)
+  const K_MIN = 22, K_MAX = 38;    // grass a meadow holds when full
+  // The run
+  const SEASONS = 8;               // two years, spring first
+  const MOVES = 2;                 // moves per season (release or put up a fence)
+  const MAX_FENCES = 3;            // fences standing at once; taking one down is free
+  const RELEASE = 8;               // rabbits per release
+  const R_BAND_LO = 20, R_BAND_HI = 150; // census band for rabbits
+  const F_BAND_LO = 4, F_BAND_HI = 16;   // census band for foxes
+  const MAX_STRIKES = 3;           // seasons outside the band that end the round
+  const START_R = 60, START_F = 7;
+  const LANDING = 4;               // foxes that swim over in the 'landing' event
+  // Population model, rates per season (each season runs SUB small steps)
+  const SUB = 8;
+  const GROW = [1.0, 0.7, 0.5, 0.3];     // grass regrowth, spring..winter
+  const BREED = [0.9, 0.6, 0.3, 0.0];    // rabbit births per well-fed rabbit
+  const FDIE = [0.4, 0.4, 0.5, 0.6];    // fox deaths per fox
+  const EAT = 1.0;                 // grass a rabbit eats per season
+  const RDIE = 0.1;                // rabbit deaths per season (old age)
+  const STARVE = 0.8;              // extra rabbit deaths when there's no grass
+  const HUNT = 8.5;                 // rabbits a fox catches per season when there are plenty
+  const HALF = 8;                  // ... half that many when a meadow holds this many rabbits
+  const FCONV = 0.15;              // fox cubs raised per rabbit caught
+  const FEAR = 0.3;                // rabbits leave meadows with foxes in them
+  const RMIG = 0.5;                // how readily rabbits move to a better meadow
+  const FMIG = 3;                  // how readily foxes move toward more rabbits
+  const F_GONE = 0.2;              // a meadow with fewer foxes than this has none
+  // Achievements
+  const HAVEN_R = 20;              // Safe Haven: rabbits in a fully fenced meadow
+  const LIGHT_MOVES = 8;           // Light Touch: win with this many moves or fewer
+  // Feel
+  const ANIM_S = 1.6;              // a season plays out over this long on screen
+  const TAP_SLOP_PX = 12;
+  const END_INPUT_LOCK_MS = 1000;
+  const SEASON_NAMES = ['Spring', 'Summer', 'Autumn', 'Winter'];
+  const EVENTS = {
+    drought: { season: 1, text: 'Drought: grass barely grows this summer.' },
+    landing: { season: 2, text: 'A fox family swims over this autumn.' },
+    harsh: { season: 3, text: 'Hard winter: foxes and rabbits die faster.' },
+    bumper: { season: 0, text: 'Bumper spring: rabbits breed half as fast again.' },
+  };
+
+  const canvas = document.getElementById('sea');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+  const hyp = Math.hypot;
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded
+  // (it records them); harmless when the file is opened on its own.
+  const unlocked = new Set();
+  const roundEarned = new Set();
+  function unlock(id) {
+    roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // ---------- state ----------
+  let meadows, paths, hull, R, F, G, season, moves, strikes, state, elapsed;
+  let event, eventMeadow, strikeLog;
+  let releases, fencesUp, fencesDown, firstInput; // telemetry only
+  let anim = null, lockUntil = 0, msgTimer = null;
+
+  function genIsland() {
+    for (;;) {
+      const pts = [];
+      for (let tries = 0; pts.length < N_MEADOWS && tries < 3000; tries++) {
+        const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random());
+        const x = CX + Math.cos(a) * r * RX, y = CY + Math.sin(a) * r * RY;
+        if (pts.every(p => hyp(p.x - x, p.y - y) >= MIN_D)) pts.push({ x, y });
+      }
+      if (pts.length < N_MEADOWS) continue;
+      const ms = pts.map(p => {
+        const K = K_MIN + Math.random() * (K_MAX - K_MIN);
+        return { x: p.x, y: p.y, K, r: 20 + K * 0.6 };
+      });
+      const ps = linkMeadows(ms);
+      if (ps) return { ms, ps };
+    }
+  }
+
+  function segCross(a, b, c, d) {
+    const o = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+    return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+  }
+  function segDist(p, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy)));
+    return hyp(p.x - a.x - t * dx, p.y - a.y - t * dy);
+  }
+  // Paths: shortest non-crossing links first, up to 4 per meadow, then join
+  // any separate groups with the shortest link that fits.
+  function linkMeadows(ms) {
+    const cand = [];
+    for (let i = 0; i < ms.length; i++) for (let j = i + 1; j < ms.length; j++) {
+      cand.push({ a: i, b: j, d: hyp(ms[i].x - ms[j].x, ms[i].y - ms[j].y) });
+    }
+    cand.sort((p, q) => p.d - q.d);
+    const ps = [], deg = ms.map(() => 0);
+    const fits = c => deg[c.a] < 4 && deg[c.b] < 4 &&
+      ps.every(p => p.a === c.a || p.a === c.b || p.b === c.a || p.b === c.b || !segCross(ms[p.a], ms[p.b], ms[c.a], ms[c.b])) &&
+      ms.every((m, k) => k === c.a || k === c.b || segDist(m, ms[c.a], ms[c.b]) > m.r + 8);
+    const add = c => { ps.push({ a: c.a, b: c.b, fence: false }); deg[c.a]++; deg[c.b]++; };
+    for (const c of cand) if (c.d < PATH_MAX && fits(c)) add(c);
+    for (;;) {
+      const comp = ms.map((_, i) => i);
+      const find = i => comp[i] === i ? i : (comp[i] = find(comp[i]));
+      for (const p of ps) comp[find(p.a)] = find(p.b);
+      if (ms.every((_, i) => find(i) === find(0))) break;
+      const c = cand.find(c => find(c.a) !== find(c.b) && fits(c));
+      if (!c) return null;
+      add(c);
+    }
+    return ps;
+  }
+
+  function convexHull(pts) {
+    const ps = [...pts].sort((p, q) => p.x - q.x || p.y - q.y);
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const half = list => {
+      const h = [];
+      for (const p of list) {
+        while (h.length >= 2 && cross(h[h.length - 2], h[h.length - 1], p) <= 0) h.pop();
+        h.push(p);
+      }
+      h.pop();
+      return h;
+    };
+    return half(ps).concat(half([...ps].reverse()));
+  }
+
+  function neighbours(i) {
+    return paths.filter(p => p.a === i || p.b === i);
+  }
+
+  function newIsland() {
+    const isl = genIsland();
+    meadows = isl.ms;
+    paths = isl.ps;
+    hull = convexHull(meadows);
+    const n = meadows.length;
+    G = meadows.map(m => m.K * 0.8);
+    R = new Array(n).fill(0);
+    F = new Array(n).fill(0);
+    // Foxes start in a den and one meadow next to it; rabbits everywhere else.
+    const den = Math.floor(Math.random() * n);
+    const nb = neighbours(den).map(p => p.a === den ? p.b : p.a);
+    const second = nb[Math.floor(Math.random() * nb.length)];
+    F[den] = START_F - 2;
+    F[second] = 2;
+    const w = meadows.map((m, i) => i === den ? 0.2 * m.K : m.K);
+    const ws = w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < n; i++) R[i] = START_R * w[i] / ws;
+    // One event in the second year, announced a season ahead.
+    const keys = Object.keys(EVENTS);
+    event = keys[Math.floor(Math.random() * keys.length)];
+    let far = 0;
+    meadows.forEach((m, i) => { if (hyp(m.x - CX, m.y - CY) > hyp(meadows[far].x - CX, meadows[far].y - CY)) far = i; });
+    eventMeadow = far;
+    season = 0;
+    moves = MOVES;
+    strikes = 0;
+    strikeLog = [];
+    elapsed = 0;
+    state = 'planning';
+    releases = 0; fencesUp = 0; fencesDown = 0; firstInput = null;
+    roundEarned.clear();
+    anim = null;
+    result = null;
+    pendingMsg = '';
+    endCard.hidden = true;
+    say('');
+    updateHud();
+  }
+
+  const totR = () => Math.round(R.reduce((a, b) => a + b, 0));
+  const totF = () => Math.round(F.reduce((a, b) => a + b, 0));
+  const eventSeason = () => 4 + EVENTS[event].season; // always in year 2
+  const eventNow = () => season === eventSeason() ? event : null;
+
+  // ---------- the two verbs ----------
+  function noteInput() { if (firstInput === null) firstInput = elapsed; }
+
+  function release(i) {
+    if (state !== 'planning') return false;
+    noteInput();
+    if (moves <= 0) { say('No moves left: press Next season.'); return false; }
+    R[i] += RELEASE;
+    moves--;
+    releases++;
+    ripple(meadows[i].x, meadows[i].y, '#f3ecdc');
+    updateHud();
+    return true;
+  }
+
+  function toggleFence(p) {
+    if (state !== 'planning') return false;
+    noteInput();
+    if (p.fence) {
+      p.fence = false;
+      fencesDown++;
+    } else {
+      if (paths.filter(q => q.fence).length >= MAX_FENCES) { say(`All ${MAX_FENCES} fences are up. Drag across one to take it down.`); return false; }
+      if (moves <= 0) { say('No moves left: press Next season.'); return false; }
+      p.fence = true;
+      moves--;
+      fencesUp++;
+      if (fencesUp === 1) say('Foxes can’t cross a fence. Rabbits slip under it.');
+    }
+    const a = meadows[p.a], b = meadows[p.b];
+    ripple((a.x + b.x) / 2, (a.y + b.y) / 2, '#e7c890');
+    updateHud();
+    return true;
+  }
+
+  // ---------- one season ----------
+  // Runs the whole season at once (the screen then replays it), and records
+  // each small step so the animals can be seen moving.
+  function runSeason() {
+    if (state !== 'planning') return;
+    noteInput();
+    const s = season % 4, ev = eventNow(), n = meadows.length, dt = 1 / SUB;
+    const grow = GROW[s] * (ev === 'drought' ? 0.3 : 1);
+    const breed = BREED[s] * (ev === 'bumper' ? 1.5 : 1);
+    const fdie = FDIE[s] * (ev === 'harsh' ? 1.5 : 1);
+    const rdie = RDIE * (ev === 'harsh' ? 2 : 1);
+    if (ev === 'landing') F[eventMeadow] += LANDING;
+    const frames = [snap()], hops = [];
+    for (let k = 0; k < SUB; k++) {
+      for (let i = 0; i < n; i++) {
+        G[i] += dt * grow * (meadows[i].K - G[i]);
+        const need = R[i] * EAT * dt, eaten = Math.min(need, G[i]);
+        G[i] -= eaten;
+        const fed = need > 0 ? eaten / need : 1;
+        const kills = Math.min(R[i] * 0.9, dt * F[i] * HUNT * R[i] / (R[i] + HALF));
+        R[i] += dt * R[i] * (breed * fed - rdie - STARVE * (1 - fed)) - kills;
+        F[i] += FCONV * kills - dt * fdie * F[i];
+      }
+      const dR = new Array(n).fill(0), dF = new Array(n).fill(0);
+      const deg = meadows.map((_, i) => neighbours(i).length);
+      for (const p of paths) {
+        const { a, b } = p;
+        // Rabbits go where there's more grass per rabbit and fewer foxes;
+        // fences don't stop them.
+        const pa = (R[a] + 1) / (G[a] + 2) + FEAR * F[a], pb = (R[b] + 1) / (G[b] + 2) + FEAR * F[b];
+        const [ra, rb] = pa > pb ? [a, b] : [b, a];
+        const mr = dt * RMIG * R[ra] * Math.abs(pa - pb) / (pa + pb) / deg[ra];
+        dR[ra] -= mr; dR[rb] += mr;
+        if (mr > 0.4) hops.push({ k, from: ra, to: rb, fox: false, n: mr });
+        // Foxes go where there are more rabbits per fox, unless fenced.
+        if (!p.fence) {
+          const qa = R[a] / (F[a] + 1), qb = R[b] / (F[b] + 1);
+          const [fa, fb] = qb > qa ? [a, b] : [b, a];
+          const mf = dt * FMIG * F[fa] * Math.abs(qa - qb) / (qa + qb + 0.01) / deg[fa];
+          dF[fa] -= mf; dF[fb] += mf;
+          if (mf > 0.15) hops.push({ k, from: fa, to: fb, fox: true, n: mf });
+        }
+      }
+      for (let i = 0; i < n; i++) {
+        R[i] = Math.max(0, R[i] + dR[i]);
+        F[i] = Math.max(0, F[i] + dF[i]);
+        if (F[i] < F_GONE) F[i] = 0;
+        if (R[i] < 0.3) R[i] = 0;
+      }
+      frames.push(snap());
+    }
+    endSeason();
+    anim = { t: 0, frames, hops };
+  }
+
+  function snap() { return { R: R.slice(), F: F.slice(), G: G.slice() }; }
+
+  function endSeason() {
+    const s = season % 4, r = totR(), f = totF();
+    let strike = null;
+    if (r < R_BAND_LO) strike = 'Too few rabbits';
+    else if (r > R_BAND_HI) strike = 'Too many rabbits';
+    else if (f < F_BAND_LO) strike = 'Too few foxes';
+    else if (f > F_BAND_HI) strike = 'Too many foxes';
+    if (strike) { strikes++; strikeLog.push(strike); }
+    // Achievements that read the census.
+    if (f > 0 && meadows.some((m, i) => R[i] >= HAVEN_R && neighbours(i).every(p => p.fence))) unlock('safe-haven');
+    if (s === 3 && !strike && f > 0 && r > 0) unlock('long-winter');
+    season++;
+    moves = MOVES;
+    let reason = null;
+    if (f === 0) reason = 'foxes';
+    else if (r === 0) reason = 'rabbits';
+    else if (strikes >= MAX_STRIKES) reason = 'census';
+    if (reason) finish(false, reason);
+    else if (season >= SEASONS) finish(true);
+    else {
+      state = 'animating';
+      const upcoming = season === eventSeason() - 1 ? 'Next season: ' + EVENTS[event].text
+        : season === eventSeason() ? EVENTS[event].text : '';
+      pendingMsg = strike ? `${strike}! Strike ${strikes} of ${MAX_STRIKES}.` + (upcoming ? ' ' + upcoming : '') : upcoming;
+    }
+  }
+  let pendingMsg = '';
+
+  let result = null;
+  function finish(won, reason) {
+    state = 'animating';
+    result = { won, reason };
+    const used = releases + fencesUp;
+    if (won) {
+      unlock('census-taken');
+      if (strikes === 0) unlock('perfect-count');
+      if (used <= LIGHT_MOVES) unlock('light-touch');
+      if (strikes === MAX_STRIKES - 1) unlock('comeback');
+    }
+    report(won ? 'won' : 'lost', reason);
+  }
+
+  // Tell the gallery how a round ended (anonymous play telemetry, see
+  // docs/telemetry.md). Keys are listed in docs/games/island-census.md.
+  function report(res, reason) {
+    if (window.parent === window) return;
+    const r1 = v => Math.round(v * 10) / 10;
+    const msg = { type: 'arcade:result', game: GAME_ID,
+      outcome: res === 'won' ? 'win' : 'loss', time: r1(elapsed),
+      stats: { seasons: season, strikes, rabbits: totR(), foxes: totF(), releases,
+        fences: fencesUp, unfences: fencesDown, standing: paths.filter(p => p.fence).length,
+        first_input: firstInput === null ? -1 : r1(firstInput) } };
+    if (reason) msg.reason = reason;
+    window.parent.postMessage(msg, '*');
+  }
+
+  function showEnd() {
+    const won = result.won;
+    state = won ? 'won' : 'lost';
+    lockUntil = performance.now() + END_INPUT_LOCK_MS;
+    endTitle.textContent = won ? 'Census complete' : 'Census failed';
+    endTitle.className = won ? 'won' : 'lost';
+    endDetail.textContent = won
+      ? `Two years, ${totR()} rabbits and ${totF()} foxes, ${strikes} strike${strikes === 1 ? '' : 's'}.`
+      : result.reason === 'foxes' ? `The last fox died in ${seasonLabel(season - 1)}.`
+      : result.reason === 'rabbits' ? `The last rabbit died in ${seasonLabel(season - 1)}.`
+      : `Three seasons out of balance, by ${seasonLabel(season - 1)}.`;
+    const titles = { 'census-taken': 'Census Taken', 'perfect-count': 'Perfect Count', 'safe-haven': 'Safe Haven',
+      comeback: 'Comeback', 'long-winter': 'Long Winter', 'light-touch': 'Light Touch' };
+    endAch.textContent = roundEarned.size ? 'Earned: ' + [...roundEarned].map(id => titles[id]).join(', ') : '';
+    endCard.hidden = false;
+    playAgainBtn.disabled = true;
+    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    updateHud();
+  }
+
+  function seasonLabel(s) { return `${SEASON_NAMES[s % 4].toLowerCase()} of year ${Math.floor(s / 4) + 1}`; }
+
+  // ---------- HUD ----------
+  const hudMoves = document.getElementById('hudMoves');
+  const nextBtn = document.getElementById('nextBtn');
+  function updateHud() {
+    hudMoves.textContent = '●'.repeat(state === 'planning' ? moves : 0) + '○'.repeat(MOVES - (state === 'planning' ? moves : 0));
+    nextBtn.disabled = state !== 'planning';
+    nextBtn.classList.toggle('ready', state === 'planning' && moves === 0);
+  }
+  function say(t, ms = 3200) {
+    msgEl.textContent = t;
+    clearTimeout(msgTimer);
+    if (t) msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms);
+  }
+
+  // ---------- fitting ----------
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitSea() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(100, Math.floor(W * scale));
+    const h = Math.max(150, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitSea).observe(field);
+  window.addEventListener('resize', fitSea);
+  fitSea();
+
+  // The gallery pauses the game while one of its panels covers it.
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') paused = true;
+    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+  });
+
+  const endCard = document.getElementById('endCard');
+  const endTitle = document.getElementById('endTitle');
+  const endDetail = document.getElementById('endDetail');
+  const endAch = document.getElementById('endAch');
+  const playAgainBtn = document.getElementById('playAgain');
+
+  // ---------- input ----------
+  let pointerId = null, stroke = null;
+  function toGame(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: (evt.clientX - rect.left) * W / rect.width, y: (evt.clientY - rect.top) * H / rect.height };
+  }
+  function meadowAt(p, slack = 8) {
+    let best = -1, bd = Infinity;
+    meadows.forEach((m, i) => { const d = hyp(p.x - m.x, p.y - m.y); if (d < m.r + slack && d < bd) { bd = d; best = i; } });
+    return best;
+  }
+  // The path a stroke means: from one meadow to a neighbour, or the first
+  // path the stroke crosses.
+  function pathForStroke(pts) {
+    const a = meadowAt(pts[0], 0), b = meadowAt(pts[pts.length - 1], 0);
+    if (a >= 0 && b >= 0 && a !== b) {
+      const p = paths.find(p => (p.a === a && p.b === b) || (p.a === b && p.b === a));
+      if (p) return p;
+    }
+    for (let k = 1; k < pts.length; k++) {
+      for (const p of paths) if (segCross(pts[k - 1], pts[k], meadows[p.a], meadows[p.b])) return p;
+    }
+    return null;
+  }
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    if (pointerId !== null || paused || state !== 'planning') return;
+    pointerId = evt.pointerId;
+    canvas.setPointerCapture(evt.pointerId);
+    stroke = { px: [evt.clientX, evt.clientY], pts: [toGame(evt)], moved: false };
+  });
+  canvas.addEventListener('pointermove', evt => {
+    if (evt.pointerId !== pointerId || !stroke) return;
+    if (hyp(evt.clientX - stroke.px[0], evt.clientY - stroke.px[1]) > TAP_SLOP_PX) stroke.moved = true;
+    stroke.pts.push(toGame(evt));
+  });
+  function up(evt, cancelled) {
+    if (evt.pointerId !== pointerId) return;
+    pointerId = null;
+    const s = stroke;
+    stroke = null;
+    if (cancelled || !s || paused || state !== 'planning') return;
+    if (!s.moved) {
+      const i = meadowAt(s.pts[0]);
+      if (i >= 0) release(i);
+      else say('Tap a meadow to release rabbits there.');
+    } else {
+      const p = pathForStroke(s.pts);
+      if (p) toggleFence(p);
+      else say('Drag across a path to fence it.');
+    }
+  }
+  canvas.addEventListener('pointerup', evt => up(evt, false));
+  canvas.addEventListener('pointercancel', evt => up(evt, true));
+
+  nextBtn.addEventListener('click', () => { if (!paused) runSeason(); updateHud(); });
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if (performance.now() < lockUntil) return;
+    newIsland();
+  });
+  playAgainBtn.addEventListener('click', () => newIsland());
+
+  // ---------- drawing ----------
+  let ripples = [];
+  function ripple(x, y, c) { ripples.push({ x, y, c, t: 0 }); }
+
+  // Where foxes would go next, from the current numbers (the arrows on paths).
+  function foxIntent() {
+    const out = [];
+    for (const p of paths) {
+      if (p.fence) continue;
+      const { a, b } = p;
+      const qa = R[a] / (F[a] + 1), qb = R[b] / (F[b] + 1);
+      const [fa, fb] = qb > qa ? [a, b] : [b, a];
+      const deg = neighbours(fa).length;
+      const m = FMIG * F[fa] * Math.abs(qa - qb) / (qa + qb + 0.01) / deg;
+      if (m > 0.3) out.push({ from: fa, to: fb, m });
+    }
+    return out;
+  }
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function view() {
+    if (!anim) return { R, F, G, k: 0, f: 0 };
+    const pos = Math.min(1, anim.t / ANIM_S) * SUB;
+    const k = Math.min(SUB - 1, Math.floor(pos)), f = pos - k;
+    const A = anim.frames[k], B = anim.frames[k + 1];
+    return { R: A.R.map((v, i) => lerp(v, B.R[i], f)), F: A.F.map((v, i) => lerp(v, B.F[i], f)),
+      G: A.G.map((v, i) => lerp(v, B.G[i], f)), k, f };
+  }
+
+  // Deterministic spots inside a meadow for its animals (sunflower spiral).
+  function spot(m, j, off) {
+    const q = j + off, rr = (m.r - 6) * Math.sqrt((q + 0.5) / 44), a = q * 2.39996;
+    return { x: m.x + Math.cos(a) * Math.min(rr, m.r - 6), y: m.y + Math.sin(a) * Math.min(rr, m.r - 6) };
+  }
+
+  function draw() {
+    const s = canvas.width / W;
+    ctx.setTransform(s, 0, 0, s, 0, 0);
+    ctx.fillStyle = '#0f2d3d';
+    ctx.fillRect(0, 0, W, H);
+    if (!meadows) return;
+    const v = view();
+    // Island: sand, then turf, around the meadows (the hull fills the gaps
+    // between paths so there are no lakes).
+    for (const [pad, col] of [[34, '#c9b27a'], [24, '#5f7a45']]) {
+      ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const m of meadows) { ctx.beginPath(); ctx.arc(m.x, m.y, m.r + pad, 0, Math.PI * 2); ctx.fill(); }
+      ctx.lineWidth = 2 * pad + 20;
+      ctx.beginPath(); hull.forEach((m, k) => k ? ctx.lineTo(m.x, m.y) : ctx.moveTo(m.x, m.y)); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
+    // Paths
+    ctx.lineCap = 'round';
+    for (const p of paths) {
+      const a = meadows[p.a], b = meadows[p.b];
+      ctx.strokeStyle = '#a88b5a'; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+    // Fox intent arrows (planning only)
+    if (state === 'planning') {
+      for (const fi of foxIntent()) {
+        const a = meadows[fi.from], b = meadows[fi.to];
+        const d = hyp(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / d, uy = (b.y - a.y) / d;
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, sz = 5 + Math.min(4, fi.m * 2);
+        ctx.fillStyle = `rgba(255,138,61,${Math.min(1, 0.45 + fi.m / 3)})`;
+        for (const o of [-9, 3]) {
+          const cx = mx + ux * o, cy = my + uy * o;
+          ctx.beginPath();
+          ctx.moveTo(cx + ux * sz, cy + uy * sz);
+          ctx.lineTo(cx - ux * sz - uy * sz, cy - uy * sz + ux * sz);
+          ctx.lineTo(cx - ux * sz * 0.3, cy - uy * sz * 0.3);
+          ctx.lineTo(cx - ux * sz + uy * sz, cy - uy * sz - ux * sz);
+          ctx.closePath(); ctx.fill();
+        }
+      }
+    }
+    // Fences: a bar of posts across the path
+    for (const p of paths) {
+      if (!p.fence) continue;
+      const a = meadows[p.a], b = meadows[p.b];
+      const d = hyp(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / d, uy = (b.y - a.y) / d;
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      ctx.strokeStyle = '#3b2616'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(mx - uy * 16, my + ux * 16); ctx.lineTo(mx + uy * 16, my - ux * 16); ctx.stroke();
+      ctx.strokeStyle = '#e7c890'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(mx - uy * 16, my + ux * 16); ctx.lineTo(mx + uy * 16, my - ux * 16); ctx.stroke();
+      ctx.fillStyle = '#e7c890';
+      for (const o of [-15, 0, 15]) { ctx.beginPath(); ctx.arc(mx - uy * o, my + ux * o, 3, 0, Math.PI * 2); ctx.fill(); }
+    }
+    // Meadows: grass colour shows how much is left
+    meadows.forEach((m, i) => {
+      const g = Math.max(0, Math.min(1, v.G[i] / m.K));
+      ctx.fillStyle = `rgb(${Math.round(lerp(122, 78, g))},${Math.round(lerp(98, 150, g))},${Math.round(lerp(58, 66, g))})`;
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(20,30,15,0.5)'; ctx.lineWidth = 2; ctx.stroke();
+    });
+    // Animals
+    meadows.forEach((m, i) => {
+      const nr = Math.round(v.R[i]), nf = Math.round(v.F[i]);
+      ctx.fillStyle = '#f3ecdc';
+      for (let j = 0; j < Math.min(nr, 40); j++) {
+        const p = spot(m, j, 3);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 2.3, 0, Math.PI * 2); ctx.fill();
+      }
+      for (let j = 0; j < Math.min(nf, 12); j++) {
+        const p = spot(m, j * 3 + 1, 0);
+        drawFox(p.x, p.y);
+      }
+      // counts under the meadow
+      ctx.font = 'bold 12px -apple-system, Segoe UI, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      const ty = m.y + m.r + 3;
+      const tr = String(nr), tf = String(nf);
+      ctx.fillStyle = 'rgba(8,20,26,0.65)';
+      const wv = ctx.measureText(tr + '  ' + tf).width + 12;
+      roundRect(m.x - wv / 2, ty - 1, wv, 16, 5); ctx.fill();
+      ctx.textAlign = 'right'; ctx.fillStyle = '#f3ecdc'; ctx.fillText(tr, m.x - 3, ty + 1);
+      ctx.textAlign = 'left'; ctx.fillStyle = '#ff9a55'; ctx.fillText(tf, m.x + 3, ty + 1);
+    });
+    // Animals on the move
+    if (anim && anim.t < ANIM_S) {
+      for (const h of anim.hops) {
+        if (h.k !== v.k) continue;
+        const a = meadows[h.from], b = meadows[h.to];
+        const cnt = Math.min(4, Math.ceil(h.n));
+        for (let c = 0; c < cnt; c++) {
+          const t = Math.min(1, v.f + c * 0.12);
+          const x = lerp(a.x, b.x, 0.2 + 0.6 * t), y = lerp(a.y, b.y, 0.2 + 0.6 * t);
+          if (h.fox) drawFox(x, y);
+          else { ctx.fillStyle = '#f3ecdc'; ctx.beginPath(); ctx.arc(x, y, 2.3, 0, Math.PI * 2); ctx.fill(); }
+        }
+      }
+    }
+    for (const rp of ripples) {
+      ctx.strokeStyle = rp.c; ctx.globalAlpha = Math.max(0, 1 - rp.t / 0.6); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(rp.x, rp.y, 10 + rp.t * 60, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    // Live stroke
+    if (stroke && stroke.moved) {
+      ctx.strokeStyle = 'rgba(231,200,144,0.8)'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]);
+      ctx.beginPath(); stroke.pts.forEach((p, k) => k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    drawHud(v);
+  }
+
+  function drawFox(x, y) {
+    ctx.fillStyle = '#ff8a3d';
+    ctx.strokeStyle = '#3a1a08'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, y + 4); ctx.lineTo(x - 4.5, y - 3.5); ctx.lineTo(x + 4.5, y - 3.5); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+
+  // Top: season, strikes, and one band meter per species.
+  function drawHud(v) {
+    ctx.fillStyle = 'rgba(8,20,26,0.7)';
+    roundRect(8, 8, W - 16, 78, 8); ctx.fill();
+    const shown = Math.min(season, SEASONS - 1);
+    const sIdx = state === 'planning' ? shown : Math.max(0, season - 1);
+    ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.font = 'bold 14px -apple-system, Segoe UI, sans-serif';
+    ctx.fillStyle = '#e9efe6';
+    ctx.fillText(`${SEASON_NAMES[sIdx % 4]} · Year ${Math.floor(sIdx / 4) + 1}`, 18, 15);
+    ctx.font = '11px -apple-system, Segoe UI, sans-serif';
+    ctx.fillStyle = '#93a8a8';
+    ctx.fillText(`season ${sIdx + 1} of ${SEASONS}` + (eventSeason() === sIdx ? ` · ${event === 'bumper' ? 'bumper spring' : event === 'harsh' ? 'hard winter' : event}` : ''), 18, 33);
+    // strikes
+    ctx.textAlign = 'right'; ctx.fillStyle = '#93a8a8'; ctx.fillText('strikes', W - 72, 17);
+    for (let k = 0; k < MAX_STRIKES; k++) {
+      const x = W - 58 + k * 18, y = 23;
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2);
+      if (k < strikes) { ctx.fillStyle = '#ff6b5a'; ctx.fill(); }
+      else { ctx.strokeStyle = '#4b6a74'; ctx.lineWidth = 2; ctx.stroke(); }
+    }
+    const r = Math.round(v.R.reduce((a, b) => a + b, 0)), f = Math.round(v.F.reduce((a, b) => a + b, 0));
+    meter(18, 50, 'rabbits', r, R_BAND_LO, R_BAND_HI, 200, '#f3ecdc');
+    meter(18, 68, 'foxes', f, F_BAND_LO, F_BAND_HI, 30, '#ff9a55');
+  }
+  function meter(x, y, label, val, lo, hi, max, col) {
+    const bx = x + 58, bw = W - 16 - 10 - bx - 34;
+    ctx.font = '11px -apple-system, Segoe UI, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = col; ctx.fillText(label, x, y + 4);
+    ctx.fillStyle = '#233f4b'; roundRect(bx, y, bw, 8, 4); ctx.fill();
+    ctx.fillStyle = 'rgba(124,197,106,0.45)';
+    ctx.fillRect(bx + bw * lo / max, y, bw * (hi - lo) / max, 8);
+    const ok = val >= lo && val <= hi;
+    const mx = bx + bw * Math.min(1, val / max);
+    ctx.fillStyle = ok ? col : '#ff6b5a';
+    ctx.fillRect(mx - 1.5, y - 3, 3, 14);
+    ctx.textAlign = 'left'; ctx.font = 'bold 12px -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(String(val), bx + bw + 8, y + 4);
+  }
+
+  // ---------- loop ----------
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.1);
+    last = now;
+    if (!paused) {
+      if (state === 'planning' || state === 'animating') elapsed += dt;
+      ripples.forEach(r => { r.t += dt; });
+      ripples = ripples.filter(r => r.t < 0.6);
+      if (anim && state === 'animating') {
+        anim.t += dt;
+        if (anim.t >= ANIM_S) {
+          if (result) showEnd();
+          else { state = 'planning'; anim = null; if (pendingMsg) say(pendingMsg, 4200); pendingMsg = ''; updateHud(); }
+        }
+      }
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  newIsland();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

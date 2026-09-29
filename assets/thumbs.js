@@ -143,5 +143,24 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron };
+  function islandCensus() {
+    let body = `<rect width="72" height="72" fill="#0f2d3d"/>`;
+    // Island: sand rim, turf, three meadows joined by paths, one fenced.
+    const ms = [[22, 24, 11, "#4e9642"], [50, 30, 10, "#6f8a4a"], [34, 52, 11, "#58923f"]];
+    for (const [pad, col] of [[9, "#c9b27a"], [6, "#5f7a45"]]) {
+      for (const [x, y, r] of ms) body += `<circle cx="${x}" cy="${y}" r="${r + pad}" fill="${col}"/>`;
+    }
+    body += `<path d="M 22 24 L 50 30 L 34 52 Z" stroke="#a88b5a" stroke-width="3" fill="none" stroke-linejoin="round"/>`;
+    for (const [x, y, r, col] of ms) body += `<circle cx="${x}" cy="${y}" r="${r}" fill="${col}"/>`;
+    // Fence across the path between the right meadow and the bottom one.
+    body += `<path d="M 37 37 L 47 45" stroke="#3b2616" stroke-width="3.5"/><path d="M 37 37 L 47 45" stroke="#e7c890" stroke-width="1.4"/>`;
+    // Rabbits (white dots) and foxes (orange triangles).
+    for (const [x, y] of [[18, 21], [24, 20], [21, 27], [27, 26], [31, 49], [36, 55], [30, 55], [38, 49]]) {
+      body += `<circle cx="${x}" cy="${y}" r="1.6" fill="#f3ecdc"/>`;
+    }
+    for (const [x, y] of [[47, 28], [53, 31]]) body += `<path d="M ${x} ${y + 3} L ${x - 3.2} ${y - 2.5} L ${x + 3.2} ${y - 2.5} Z" fill="#ff8a3d"/>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus };
 })();
