@@ -47,7 +47,35 @@ stay aligned; the script extends an existing tab's header row itself.
 
 Nothing else: no names, IPs (Apps Script doesn't expose them), cookies or
 user agents. The gallery footer tells players the stats are recorded. Turn
-telemetry off with `telemetry: false` in `assets/config.js`.
+telemetry off with `telemetry: false` in `assets/config.js` (whole site), or
+a player turns it off for their browser in the gallery's ⚙ settings
+("Send anonymous play stats from this browser", stored as
+`arcade.telemetryOptOut`). The opt-out stops every row below, gallery events
+included, and sends nothing to say so.
+
+### Gallery events
+
+How players find, share and keep games (roadmap phase 1 and 2). They go out
+as `kind = gallery` rows, which backend v3 stores in the `events` tab with
+no redeploy ([backend-api.md](backend-api.md)); every field except the
+common columns is in `extra`. One row per action:
+
+| `action` | when | fields |
+|---|---|---|
+| `open` | a cabinet opens a game | `game_id`, `game_version`, `from` (`list`, `continue`, `archive`, `link`), `position` (1-based, for cards), `sort` (`featured` or the sort), `verb` if filtered, `searching` if a search was active |
+| `share` | Share pressed | `game_id`, `game_version`, `method` (`share` sheet, `copy`, `prompt`), `from` (`toolbar`, `menu`, `about`) |
+| `download` | a standalone copy was saved | `game_id`, `game_version`, `from` |
+| `sort` | the sort changed | `sort` |
+| `filter` | a verb chip was pressed | `verb` (`all` when cleared) |
+| `search` | 1.5 s after typing stops | `query_len`, `results` (never the text) |
+| `settings` | a settings action | `setting`: `export`, `import`, `reset_achievements`, `reset_all`, `reset_game_achievements` (with `game_id`), `stats_on` |
+| `nudge` | the "Rate this game?" callout was answered | `game_id`, `game_version`, `result` (`rate`, `dismiss`) |
+| `about_arcade` | the "About the arcade" dialog opened | |
+
+`node scripts/fetch-telemetry.mjs` reads them too and prints a short
+`gallery:` section (opens by source and list position, shares by method,
+downloads, sorts, filters, settings, nudge answers, searches with no
+results).
 
 ### Games with levels (optional fields)
 

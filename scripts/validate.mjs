@@ -5,6 +5,7 @@
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { selfContainedProblems } from "./self-contained.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const gamesDir = join(root, "games");
@@ -39,6 +40,11 @@ for (const [i, g] of games.entries()) {
   for (const key of ["added", "updated"]) {
     if (g[key] && !/^\d{4}-\d{2}-\d{2}$/.test(g[key])) fail(`${where}: "${key}" must be YYYY-MM-DD`);
   }
+
+  // Optional: "status" ("active" by default; "archived" games stay playable
+  // in the gallery's archive section, never removed).
+  if (g.status !== undefined && !["active", "archived"].includes(g.status)) fail(`${where}: "status" must be "active" or "archived"`);
+  checkChanges(where, g);
 
   // Design rule: 2-3 core mechanics, each a distinct verb.
   const mechs = Array.isArray(g.mechanics) ? g.mechanics : [];
@@ -81,6 +87,31 @@ for (const f of readdirSync(gamesDir)) {
   }
 }
 
+// Optional "changes": [{ version, date, text }], shown as "What's new" in the
+// cabinet and once as a callout when a player opens an updated version.
+function checkChanges(where, g) {
+  if (g.changes === undefined) return;
+  if (!Array.isArray(g.changes)) {
+    fail(`${where}: "changes" must be a list of { version, date, text }`);
+    return;
+  }
+  const versions = new Set();
+  for (const c of g.changes) {
+    if (!c || typeof c !== "object") {
+      fail(`${where}: each "changes" entry must be an object`);
+      continue;
+    }
+    if (!Number.isInteger(c.version) || c.version < 1 || c.version > g.version) fail(`${where}: changes entry version must be an integer from 1 to ${g.version}`);
+    if (versions.has(c.version)) fail(`${where}: two "changes" entries for v${c.version}`);
+    versions.add(c.version);
+    if (typeof c.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(c.date)) fail(`${where}: changes entry for v${c.version} needs a YYYY-MM-DD "date"`);
+    if (typeof c.text !== "string" || !c.text.trim() || c.text.length > 280) fail(`${where}: changes entry for v${c.version} needs a "text" of 1-280 characters`);
+    for (const k of Object.keys(c)) {
+      if (!["version", "date", "text"].includes(k)) fail(`${where}: unknown key "${k}" in "changes"`);
+    }
+  }
+}
+
 // Platform rule: every game declares 3+ achievements in the manifest and
 // announces each one from the game file (see docs/adding-a-game.md).
 function checkAchievements(where, g, html) {
@@ -103,23 +134,10 @@ function checkAchievements(where, g, html) {
   if (list.length && !html.includes(`'${g.id}'`) && !html.includes(`"${g.id}"`)) fail(`${where}: games/${g.file} must identify itself with its id "${g.id}"`);
 }
 
-// Design rule: one self-contained HTML file, primitives only, no external assets.
+// Design rule: one self-contained HTML file, primitives only, no external
+// assets (rules in scripts/self-contained.mjs).
 function checkSelfContained(file, html) {
-  const where = `games/${file}`;
-  if (!/^\s*<!DOCTYPE html>/i.test(html)) fail(`${where}: must start with <!DOCTYPE html>`);
-  const rules = [
-    [/<script\b[^>]*\bsrc\s*=/i, "external <script src>"],
-    [/<link\b[^>]*\brel\s*=\s*["']?(stylesheet|preload|modulepreload)/i, "external stylesheet/preload <link>"],
-    [/<(img|audio|video|source|iframe|embed|object)\b/i, "media/embed element (use canvas/SVG/CSS primitives)"],
-    [/url\(\s*["']?(?!data:|#)[^)"']+/i, "CSS url() pointing at a file"],
-    [/@import\b/i, "CSS @import"],
-    [/\bimport\s*\(|\bimport\s+[\w{*][^;]*\bfrom\b/, "JS module import"],
-    [/\bnew\s+(Audio|Image)\s*\(/, "new Audio()/new Image() (loads external assets)"],
-    [/\b(fetch|XMLHttpRequest|WebSocket|EventSource)\b/, "network access"],
-  ];
-  for (const [re, label] of rules) {
-    if (re.test(html)) fail(`${where}: not self-contained, found ${label}`);
-  }
+  for (const problem of selfContainedProblems(html)) fail(`games/${file}: ${problem}`);
 }
 
 if (errors.length) {

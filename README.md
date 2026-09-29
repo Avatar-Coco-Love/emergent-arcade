@@ -14,9 +14,14 @@ The full spec is in [`docs/PROJECT_BRIEF.md`](docs/PROJECT_BRIEF.md).
 index.html                 gallery page (scrollable card list + full-screen cabinet)
 assets/
   config.js                site settings: repo name, feedback endpoint URL
-  gallery.js / .css        gallery, cabinet, panels and feedback form UI
+  gallery.js / .css        gallery: cards, search/sort/filter, settings, routing
+  cabinet.js               the full-screen cabinet: toolbar, panels, toasts, share, download
+  ui.js                    small shared helpers (DOM, storage, toasts, focus trap)
+  progress.js              what the arcade remembers per browser; export/import/reset
+  download.js              builds a standalone, offline copy of one game
   feedback.js              feedback transport (Apps Script, or GitHub issue fallback)
   achievements.js          records achievement unlocks per player (localStorage)
+  telemetry.js             anonymous play stats and gallery events
   thumbs.js                gallery card art per game (inline SVG from primitives)
 games/
   games.json               manifest: one entry per game (id, version, mechanics, ...)
@@ -27,8 +32,12 @@ feedback/apps-script/
   Code.gs                  Google Apps Script backend that stores feedback in a Sheet
 scripts/
   validate.mjs             checks manifest + design rules; runs in CI
+  self-contained.mjs       the "one self-contained file" rules (validate + smoke test)
+  smoke-gallery.mjs        Playwright check of the gallery at phone and desktop sizes
   fetch-feedback.mjs       reads accumulated feedback back for review
-docs/                      brief, feedback backend setup, how to add/revise a game
+  fetch-telemetry.mjs      reads play stats and gallery events back
+docs/                      brief, feedback backend setup, how to add/revise a game,
+                           gallery.md (the gallery/cabinet design)
 .github/workflows/pages.yml  validate on PRs, deploy to Pages on merge to main
 ```
 
@@ -52,17 +61,25 @@ Supabase (free projects pause after a week idle, which means maintenance).
 ## How it works
 
 - **Gallery** (`index.html`) loads `games/games.json` and renders one card
-  per game. Selecting a card routes to `#/play/<id>` (a shareable link) and
-  opens the **cabinet**: a screen-filling window with the game in a
-  sandboxed iframe and a toolbar on top (back, ▶ play, ⓘ how to play, 🏆
-  achievements, ★ rate, ⛶ full screen). The ⓘ, 🏆 and ★ buttons open a
-  panel over the game and pause it; ▶ closes the panel and resumes. Nothing in the cabinet scrolls except
-  long panel text.
+  per game (version, New/Updated badge, achievement progress), with search,
+  sort and verb filters kept in the URL (`#/?sort=updated&verb=drag`), a
+  "Continue playing" row and an Archive section. Selecting a card routes to
+  `#/play/<id>` (a shareable link) and opens the **cabinet**: a
+  screen-filling window with the game in a sandboxed iframe and a toolbar
+  on top (back, title and version, ▶ play, ⓘ how to play, 🏆 achievements,
+  ★ rate, share, download, ⛶ full screen; the last three move into a ⋯ menu
+  on phones). The ⓘ, 🏆 and ★ buttons open a panel over the game and pause
+  it; ▶ closes the panel and resumes. Nothing in the cabinet scrolls except
+  long panel text. Details: [`docs/gallery.md`](docs/gallery.md).
+- **Download** saves a game as one HTML file that plays offline, with a
+  small shim that keeps achievements in that browser.
+- **Progress** (achievements and what the arcade remembers) lives in the
+  player's browser; the ⚙ settings export, import and reset it.
 - **Games stay standalone.** A game file doesn't depend on the gallery, so
   it can still be opened directly (`games/pressure-grid.html`). Its only
   contact with the gallery is optional `postMessage`: it listens for
   `arcade:pause` / `arcade:resume` and sends `arcade:achievement`.
-- **Feedback** (1-5 stars + optional comment) lives in the ★ panel and is
+- **Feedback** (1-5 stars and/or a comment, plus optional quick tags) lives in the ★ panel and is
   tagged with the game's `id` and manifest `version`. Revising a game bumps
   its version, so ratings for old and new versions stay separate.
 - **Achievements**: each game lists 3+ achievements in `games.json` and
@@ -88,6 +105,7 @@ Supabase (free projects pause after a week idle, which means maintenance).
 ```sh
 python3 -m http.server          # preview at http://localhost:8000
 node scripts/validate.mjs       # same check CI runs
+node scripts/smoke-gallery.mjs  # after gallery/cabinet changes (Playwright + Chromium)
 FEEDBACK_READ_KEY=... node scripts/fetch-feedback.mjs   # review feedback
 ```
 

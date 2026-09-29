@@ -6,6 +6,9 @@
 window.ArcadeFeedback = (function () {
   const config = window.ARCADE_CONFIG || {};
   const MAX_COMMENT = 1000;
+  // Quick tags a player can add to a rating or comment. Backend v3 keeps the
+  // `tags` array in the row's extra cell (docs/backend-api.md).
+  const TAGS = ["fun", "confusing", "too hard", "too easy", "buggy"];
 
   function clientId() {
     // Anonymous per-browser id, only used to spot duplicate submissions.
@@ -22,22 +25,28 @@ window.ArcadeFeedback = (function () {
     }
   }
 
-  function buildPayload(game, rating, comment) {
-    return {
+  // A rating (1-5) or a comment is required; the other is optional.
+  function buildPayload(game, rating, comment, tags) {
+    const payload = {
       game_id: game.id,
       game_version: game.version,
-      rating: rating,
+      rating: rating >= 1 && rating <= 5 ? rating : "",
       comment: (comment || "").trim().slice(0, MAX_COMMENT),
       client_id: clientId(),
       submitted_at: new Date().toISOString(),
     };
+    const clean = (tags || []).filter((t) => TAGS.includes(t));
+    if (clean.length) payload.tags = clean;
+    return payload;
   }
 
   function issueUrl(payload) {
-    const title = `[feedback] ${payload.game_id} v${payload.game_version}: ${payload.rating}/5`;
+    const r = payload.rating;
+    const title = `[feedback] ${payload.game_id} v${payload.game_version}: ${r ? `${r}/5` : "comment"}`;
     const body = [
       `**Game:** \`${payload.game_id}\` (version ${payload.game_version})`,
-      `**Rating:** ${"★".repeat(payload.rating)}${"☆".repeat(5 - payload.rating)} (${payload.rating}/5)`,
+      r ? `**Rating:** ${"★".repeat(r)}${"☆".repeat(5 - r)} (${r}/5)` : "**Rating:** _(none, comment only)_",
+      ...(payload.tags ? [`**Tags:** ${payload.tags.join(", ")}`] : []),
       "",
       "**Comment:**",
       payload.comment || "_(none)_",
@@ -49,8 +58,8 @@ window.ArcadeFeedback = (function () {
   }
 
   // Resolves to { via: "sheet" } or { via: "github", url }.
-  async function submit(game, rating, comment) {
-    const payload = buildPayload(game, rating, comment);
+  async function submit(game, rating, comment, tags) {
+    const payload = buildPayload(game, rating, comment, tags);
     if (config.feedbackEndpoint) {
       try {
         // text/plain keeps this a CORS "simple request" (no preflight), which
@@ -70,5 +79,5 @@ window.ArcadeFeedback = (function () {
     return { via: "github", url: issueUrl(payload) };
   }
 
-  return { submit, clientId, MAX_COMMENT };
+  return { submit, clientId, buildPayload, issueUrl, MAX_COMMENT, TAGS };
 })();

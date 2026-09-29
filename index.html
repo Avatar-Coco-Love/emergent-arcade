@@ -9,21 +9,131 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="#/">Emergent Arcade</a>
+    <div class="header-row">
+      <a class="brand" href="#/">Emergent Arcade</a>
+      <span id="trophyTotal" class="trophy-total" title="Achievements unlocked in this browser"></span>
+      <button class="tool" type="button" id="arcadeInfoBtn" aria-label="About the arcade" title="About the arcade">?</button>
+      <button class="tool" type="button" id="settingsBtn" aria-label="Progress and settings" title="Progress and settings">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
     <p class="tagline">Tiny games, two or three verbs each, all tangled in the same state.</p>
   </header>
 
   <main>
     <section id="galleryView" aria-label="Game gallery">
-      <ul id="gameList" class="game-list"></ul>
-      <p id="galleryStatus" class="status" role="status"></p>
+      <section id="continueRow" class="continue" hidden aria-labelledby="continueTitle">
+        <h2 id="continueTitle" class="section-title">Continue playing</h2>
+        <ul id="continueList" class="continue-list"></ul>
+      </section>
+
+      <div class="catalog-controls" role="search">
+        <input type="search" id="search" placeholder="Search games" aria-label="Search games" autocomplete="off">
+        <select id="sort" aria-label="Sort games">
+          <option value="">Featured</option>
+          <option value="new">Newest</option>
+          <option value="updated">Recently updated</option>
+          <option value="title">Title</option>
+          <option value="left">Most achievements left</option>
+        </select>
+      </div>
+      <div id="verbChips" class="verb-chips" role="group" aria-label="Filter by verb"></div>
+
+      <h2 id="listTitle" class="visually-hidden">Games</h2>
+      <ul id="gameList" class="game-list" aria-labelledby="listTitle"></ul>
+      <div id="galleryStatus" class="status gallery-status" role="status"></div>
+
+      <section id="archiveSection" class="archive" hidden aria-labelledby="archiveTitle">
+        <h2 id="archiveTitle" class="section-title">Archive</h2>
+        <p class="muted archive-note">Retired experiments. Still playable, kept for the record.</p>
+        <ul id="archiveList" class="game-list"></ul>
+      </section>
     </section>
   </main>
 
   <footer class="site-footer">
     <a id="repoLink" target="_blank" rel="noopener">Source on GitHub</a>
-    <p class="muted" id="telemetryNote" hidden>To tune the games, the arcade records anonymous play stats: time played, wins and losses, and achievements. No names, no cookies.</p>
+    <p class="muted" id="telemetryNote" hidden>To tune the games, the arcade records anonymous play stats: time played, wins and losses, and achievements. No names, no cookies. <button type="button" class="linkish" id="telemetryNoteBtn">Turn off for this browser</button></p>
   </footer>
+
+  <!-- Progress and settings: everything the arcade remembers lives in this
+       browser, so this is also where it's moved or erased. -->
+  <dialog id="settingsDialog" class="dialog" aria-labelledby="settingsTitle">
+    <div class="dialog-head">
+      <h2 id="settingsTitle">Progress and settings</h2>
+      <button type="button" class="tool" data-close aria-label="Close" title="Close">&times;</button>
+    </div>
+    <div class="dialog-body">
+      <p id="settingsSummary" class="lead"></p>
+      <p class="muted small">Progress is saved in this browser only. Export it to move it to another device.</p>
+
+      <div class="setting-group">
+        <button type="button" class="secondary" id="exportBtn">Export progress</button>
+        <button type="button" class="secondary" id="importBtn">Import progress</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+      <div id="importPreview" class="confirm" hidden>
+        <span id="importText"></span>
+        <button type="button" class="primary" id="importYes">Import</button>
+        <button type="button" class="secondary" id="importNo">Cancel</button>
+      </div>
+      <p id="settingsStatus" class="status" role="status"></p>
+
+      <h3>Play stats</h3>
+      <label class="check">
+        <input type="checkbox" id="statsToggle">
+        <span>Send anonymous play stats from this browser</span>
+      </label>
+      <p id="statsNote" class="muted small"></p>
+
+      <h3>Reset</h3>
+      <div class="danger-zone">
+        <div class="setting-row">
+          <button type="button" class="secondary" id="resetAchBtn">Reset all achievements</button>
+          <div id="resetAchConfirm" class="confirm" hidden>
+            <span>Erase every achievement in every game?</span>
+            <button type="button" class="danger" id="resetAchYes">Yes, reset</button>
+            <button type="button" class="secondary" data-cancel>Cancel</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <button type="button" class="secondary" id="resetAllBtn">Reset everything</button>
+          <div id="resetAllConfirm" class="confirm" hidden>
+            <span>Erase achievements, intro and "what's new" memory, recently played and rating memory? Your play-stats choice is kept.</span>
+            <button type="button" class="danger" id="resetAllYes">Yes, reset everything</button>
+            <button type="button" class="secondary" data-cancel>Cancel</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <button type="button" class="secondary" id="newIdBtn">New anonymous id</button>
+          <p class="muted small">Ratings and play stats carry a random id so duplicates can be spotted: <code id="clientIdText"></code>. A new one makes this browser look like a new player.</p>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="arcadeInfoDialog" class="dialog" aria-labelledby="arcadeInfoTitle">
+    <div class="dialog-head">
+      <h2 id="arcadeInfoTitle">About the arcade</h2>
+      <button type="button" class="tool" data-close aria-label="Close" title="Close">&times;</button>
+    </div>
+    <div class="dialog-body prose">
+      <p class="lead">Emergent Arcade is a growing collection of tiny experiments in emergent game design.</p>
+      <h3>The rules every game follows</h3>
+      <ul>
+        <li>Two or three core verbs (tap, drag, hold…), each doing something different.</li>
+        <li>The verbs share state: each one reads a value another one writes, so they tangle.</li>
+        <li>One scene, simple shapes, no art or audio files. One self-contained HTML file.</li>
+      </ul>
+      <h3>How the games are made</h3>
+      <p>An AI proposes and builds each game within those rules. Headless bots balance it, a human reviews it, and then your ratings and anonymous play stats decide whether it gets revised or retired. Retired games stay playable in the archive.</p>
+      <p>What the arcade has learned so far is written down as it goes:</p>
+      <ul>
+        <li><a id="findingsLink" target="_blank" rel="noopener">Design findings</a></li>
+        <li><a id="sourceLink" target="_blank" rel="noopener">Source code and method</a></li>
+      </ul>
+    </div>
+  </dialog>
 
   <!-- The cabinet: fills the screen while a game is open. The game and every
        panel (how to play, achievements, rating) live inside it, so the page
@@ -31,39 +141,66 @@
   <section id="cabinet" class="cabinet-backdrop" hidden aria-label="Now playing">
     <div class="cabinet">
       <div class="toolbar">
-        <a class="tool back" href="#/" aria-label="Back to all games" title="All games">&larr;</a>
-        <h1 id="cabTitle"></h1>
+        <a class="tool back" id="backLink" href="#/" aria-label="Back to all games" title="All games">&larr;</a>
+        <h1 id="cabHeading"><span id="cabTitle"></span> <span id="cabVersion" class="ver"></span></h1>
         <button class="tool" type="button" id="playBtn" aria-label="Play" title="Play">&#9654;&#xFE0E;</button>
-        <button class="tool" type="button" data-panel="about" aria-label="How to play" title="How to play">&#9432;</button>
+        <button class="tool" type="button" data-panel="about" aria-label="How to play" title="How to play (?)">&#9432;</button>
         <button class="tool" type="button" data-panel="achievements" aria-label="Achievements" title="Achievements">🏆<span id="achBadge" class="badge"></span></button>
         <button class="tool" type="button" data-panel="rate" aria-label="Rate this game" title="Rate this game">&#9733;</button>
-        <button class="tool" type="button" id="fullscreenBtn" aria-label="Full screen" title="Full screen" hidden>&#x26F6;</button>
+        <button class="tool wide-only" type="button" data-action="share" aria-label="Share" title="Share"></button>
+        <button class="tool wide-only" type="button" data-action="download" aria-label="Download" title="Download a copy"></button>
+        <button class="tool wide-only" type="button" data-action="fullscreen" aria-label="Full screen" title="Full screen (F)">&#x26F6;</button>
+        <button class="tool narrow-only" type="button" id="moreBtn" aria-label="More" title="More" aria-haspopup="true" aria-expanded="false" aria-controls="moreMenu">&#8943;</button>
       </div>
 
       <div class="screen">
         <iframe id="gameFrame" title="Game" sandbox="allow-scripts"></iframe>
 
-        <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+        <div id="loadState" class="screen-state" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <p id="loadText">Loading…</p>
+          <button type="button" class="secondary" id="retryBtn" hidden>Retry</button>
+        </div>
 
-        <div id="panel" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="panelTitle">
+        <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+
+        <div id="moreMenu" class="menu" hidden>
+          <button type="button" class="menu-item" data-action="share"><span class="menu-label">Share</span></button>
+          <button type="button" class="menu-item" data-action="download"><span class="menu-label">Download a copy</span></button>
+          <button type="button" class="menu-item" data-action="fullscreen"><span class="menu-label">Full screen</span></button>
+        </div>
+
+        <div id="panel" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="panelTitle" tabindex="-1">
           <div class="panel-head">
             <h2 id="panelTitle"></h2>
-            <button type="button" class="tool" id="panelClose" aria-label="Close" title="Close">&times;</button>
+            <button type="button" class="tool" id="panelClose" aria-label="Close" title="Close (Esc)">&times;</button>
           </div>
           <div class="panel-body">
 
-            <div data-body="about">
-              <p id="aboutBlurb" class="lead"></p>
+            <div data-body="about" class="about">
+              <p class="goal-label">Goal</p>
+              <p id="aboutGoal" class="goal"></p>
+              <ul id="aboutControls" class="verb-rows"></ul>
+              <div class="play-bar">
+                <button type="button" class="primary big" id="aboutPlay">Play</button>
+              </div>
               <h3>How it works</h3>
+              <p id="aboutBlurb"></p>
               <p id="aboutHow"></p>
-              <ul id="aboutControls" class="controls-list"></ul>
-              <h3>Goal</h3>
-              <p id="aboutGoal"></p>
+              <div id="aboutChanges" hidden>
+                <h3>What's new</h3>
+                <ul id="aboutChangeList" class="change-list"></ul>
+              </div>
+              <h3>About this game</h3>
+              <p id="aboutMeta" class="muted"></p>
               <details class="built">
                 <summary>How it's built</summary>
                 <p id="aboutState"></p>
               </details>
-              <button type="button" class="primary" id="aboutPlay">Play</button>
+              <div class="about-actions">
+                <button type="button" class="secondary" data-action="share">Share</button>
+                <button type="button" class="secondary" data-action="download">Download a copy</button>
+              </div>
             </div>
 
             <div data-body="achievements">
@@ -83,7 +220,10 @@
               <fieldset class="stars" id="stars">
                 <legend class="visually-hidden">Rating from 1 to 5</legend>
               </fieldset>
-              <label for="comment" class="comment-label">Anything to add? <span class="muted">(optional)</span></label>
+              <fieldset class="tags" id="tags">
+                <legend class="comment-label">Quick tags <span class="muted">(optional)</span></legend>
+              </fieldset>
+              <label for="comment" class="comment-label">Anything to add? <span class="muted">(optional with a rating)</span></label>
               <textarea id="comment" name="comment" rows="4" maxlength="1000" placeholder="What felt good? What felt off? Did the mechanics play off each other?"></textarea>
               <div class="feedback-actions">
                 <button type="submit" class="primary" id="submitBtn" disabled>Send feedback</button>
@@ -98,10 +238,14 @@
   </section>
 
 <script src="assets/config.js"></script>
+<script src="assets/ui.js"></script>
 <script src="assets/feedback.js"></script>
 <script src="assets/achievements.js"></script>
+<script src="assets/progress.js"></script>
 <script src="assets/telemetry.js"></script>
 <script src="assets/thumbs.js"></script>
+<script src="assets/download.js"></script>
+<script src="assets/cabinet.js"></script>
 <script src="assets/gallery.js"></script>
 </body>
 </html>
