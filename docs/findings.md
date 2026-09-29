@@ -286,3 +286,31 @@ colour-blind bots still 0%. Check:
 
 *Evidence: telemetry (1 player, 5 rounds) + bots
 (`docs/games/hot-iron.md`). Provisional: v4 isn't playtested.*
+
+## When two things always move apart, turning alone can separate them
+
+Bubble Glass v1 (a sealed sand box that turns through 360°; sand falls, the
+bubble rises): six versions of the melt level (sand shafts that pour onto
+the bubble's tube, to be lidded with glass) all fell to a rotate-only bot.
+The one-rule `habit` bot ("turn so the vent is up") went from 100% to 0%,
+but a bot that rocks the box got through in 30–40 s where the melt reader
+took 7 s. Each fix closed one route and opened another: a lid needs a shaft
+wider than its neck, and those shoulders park the sand at some slant; sand
+that drains slowly arrives as a film the bubble slides past; a bubble that
+lets a thin layer through works as a ratchet when rocked. What finally
+mattered: sand gets past the bubble only through open liquid (none in a
+tube it fills), shafts on both sides of the tube, and the bubble just
+filling the tube (a 3-cell footprint in a 4-cell tube left a lane for sand).
+A jammed glass plug, by contrast, needed shattering with no exceptions,
+since turning can't move it. The maintainer chose "melt makes it much
+faster, not required" for melt levels. Check:
+- If the physics lets two things always move in opposite directions under
+  a global verb, that verb alone can usually separate them. A second verb
+  is *required* only where it changes topology (a wall that can't be moved,
+  or removed), not where it saves time.
+- Search for the single-verb solution with a bot that explores (random big
+  moves when stuck), not only a greedy one: the greedy rotate-only bot
+  failed where an exploring one won.
+
+*Evidence: bots (`docs/games/bubble-glass.md`). Provisional: not
+playtested.*

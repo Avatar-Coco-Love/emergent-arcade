@@ -188,7 +188,7 @@
   // ang: the box's angle at the start (degrees, clockwise). heat: the melt budget. melt: map spots [x, y] the stuck hint may point
   // at for melting. note: shown when the level starts; hint: shown with a
   // melt hint. map: MAP rows of MAP characters (see MATERIALS, o = bubble).
-  const LEVELS = window.__levels || [
+  const LEVELS = [
     { id: 'first-turn', name: "First turn", verbs: 'turn', heat: 0,
       note: "Turn the box: drag around it. The bubble rises, the sand falls.",
       map: [
@@ -218,8 +218,8 @@
         '########################',
       ] },
     { id: 'roof', name: "Roof", verbs: 'turn melt', heat: 70,
-      note: "Melting is unlocked: hold on sand to fuse it into glass.",
-      hint: "Hold on the top of the sand to melt a lid over it.", melt: [[8,  10],  [15,  10]],
+      note: "Melting is unlocked: {hold} on sand to fuse it into glass. The sand beside the tube will pour onto the bubble.",
+      hint: "{Hold} on the top of the sand to melt a lid over it, then turn.", melt: [[8,  10],  [15,  10]],
       map: [
         '########################',
         '###########o.###########',
@@ -247,7 +247,7 @@
         '###########VV###########',
       ] },
     { id: 'the-plug', name: "The plug", verbs: 'turn melt shatter', heat: 40,
-      note: "Shattering is unlocked: tap glass to break it back into sand.",
+      note: "Shattering is unlocked: {tap} glass to break it back into sand. Watch where that sand falls.",
       map: [
         '########################',
         'V.....................##',
@@ -276,7 +276,7 @@
       ] },
     { id: 'lid-and-plug', name: "Lid and plug", verbs: 'turn melt shatter', heat: 70,
       note: "Two shafts of sand and a glass plug.",
-      hint: "Hold on the top of the sand to melt a lid over it.", melt: [[8,  5],  [15,  5]],
+      hint: "{Hold} on the top of the sand to melt a lid over it.", melt: [[8,  5],  [15,  5]],
       map: [
         '########################',
         '###########o.###########',
@@ -304,7 +304,7 @@
         '####VV##################',
       ] },
     { id: 'hourglass', name: "Hourglass", verbs: 'turn melt shatter', heat: 60,
-      note: "The last box.",
+      note: "A glass shelf holds up the sand. What happens when it breaks?",
       map: [
         '###########VV###########',
         '###########..###########',
@@ -986,8 +986,15 @@
   }
   function restart() { if (!paused) leave('restart', level); }
 
+  // Level text says {tap} / {hold}; show the word for this device.
+  function words(t) {
+    return t.replace(/\{(tap|hold)\}/gi, (m, w) => {
+      const v = w.toLowerCase() === 'tap' ? TAP : HOLD;
+      return w[0] === w[0].toUpperCase() ? v : v.toLowerCase();
+    });
+  }
   function say(text, ms, warn) {
-    msgEl.textContent = text;
+    msgEl.textContent = words(text);
     msgEl.className = warn ? 'warn' : '';
     clearTimeout(msgTimer);
     msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms || 2500);

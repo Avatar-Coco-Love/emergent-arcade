@@ -208,5 +208,21 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden };
+  function bubbleGlass() {
+    let body = `<rect width="72" height="72" fill="#0f1420"/>`;
+    // The box, turned a little, inside its ring.
+    body += `<circle cx="36" cy="36" r="33" fill="none" stroke="#34405a" stroke-width="2"/>`;
+    body += `<g transform="rotate(-18 36 36)">`;
+    body += `<rect x="15" y="15" width="42" height="42" fill="#101b2c" stroke="#4a5776" stroke-width="2"/>`;
+    // Sand heaped in the lower corner, a glass shard roofing the bubble.
+    body += `<path d="M 16 56 L 16 40 Q 30 36 42 46 L 56 50 L 56 56 Z" fill="#e0ba70"/>`;
+    body += `<rect x="30" y="27" width="16" height="5" fill="#96deee" stroke="#ecfcff" stroke-width="0.8"/>`;
+    body += `<circle cx="38" cy="22" r="4.5" fill="rgba(220,240,255,0.25)" stroke="#f4fbff" stroke-width="1.4"/>`;
+    body += `<circle cx="36.5" cy="20.5" r="1.1" fill="#ffffff"/>`;
+    body += `<rect x="34" y="14" width="8" height="2" fill="#f0c46a"/>`;
+    body += `</g>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass };
 })();
