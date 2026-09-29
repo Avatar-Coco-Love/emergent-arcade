@@ -104,6 +104,9 @@ published from a branch.
    its `id` to `assets/thumbs.js` (a function returning a 72×72 inline SVG
    drawn from primitives). Without one, the card shows a generated pixel
    pattern in the game's `accent` color.
+   Then draw its link-preview image: `node scripts/make-og-images.mjs <id>`
+   writes `assets/og/<id>.png` (validation fails without it). Rerun it when
+   the card art, title or blurb changes.
 6. Run `node scripts/validate.mjs` and play it locally
    (`python3 -m http.server`, then open http://localhost:8000).
 7. Write `docs/games/<id>.md`: key constants, layout, balance numbers and

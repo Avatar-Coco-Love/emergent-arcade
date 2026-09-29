@@ -30,6 +30,10 @@ jobs:
           mkdir -p _site
           cp -r index.html assets games _site/
           touch _site/.nojekyll
+      - name: Build share pages
+        # play/<id>/ pages carry each game's link-preview card (Facebook
+        # ignores everything after "#") and forward to #/play/<id>.
+        run: node scripts/build-share-pages.mjs _site
       - name: Version asset URLs
         # Pages lets browsers cache files for 10 minutes. Tagging each
         # assets/ link with the commit makes a fresh index.html load its

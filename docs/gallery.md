@@ -78,6 +78,26 @@ first.
   under the same key the gallery uses, and shows a toast. It does nothing
   inside a frame. The output passes `scripts/self-contained.mjs`.
 
+## Link previews (Facebook, Messenger)
+
+Crawlers ignore everything after `#`, so `#/play/<id>` links alone would
+all show the arcade's card. Instead:
+
+- `index.html` has Open Graph tags (absolute URLs, `siteUrl` in
+  `assets/config.js`) with `assets/og/arcade.png`.
+- At deploy, `scripts/build-share-pages.mjs _site` writes
+  `play/<id>/index.html` per game: the game's title, blurb and
+  `assets/og/<id>.png?v=<version>`, then `location.replace("../../#/play/<id>")`
+  (JS, so crawlers stay on the tags). These pages exist only on the
+  published site.
+- The cabinet's share button hands out `<siteUrl>play/<id>/` when the page
+  is on `siteUrl`, else the old `#/play/<id>` link (local, playtest copies).
+- Images: 1200×630 PNGs drawn by `scripts/make-og-images.mjs [id ...]`
+  (Playwright) from the card art, title, blurb and accent; committed.
+  `validate.mjs` requires one per game plus `arcade.png`.
+- Facebook caches previews. After changing one, paste the link into
+  https://developers.facebook.com/tools/debug/ and press "Scrape Again".
+
 ## Manifest fields the gallery reads
 
 Required ones are in `docs/adding-a-game.md`. Optional: `accent` (card and
