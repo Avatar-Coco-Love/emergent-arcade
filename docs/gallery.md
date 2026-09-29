@@ -59,7 +59,8 @@ first.
   to the game when closed with Play). Shortcuts when focus is outside the
   game: `?` toggles How to play, `F` full screen, Esc.
 - The ⓘ panel doubles as the first-time intro: goal, one big row per verb,
-  a sticky Play button, then how it works, What's new (`changes`), version
+  a sticky Play button, then how it works, What's new (`changes`: newest 3,
+  "Show all N versions" for the rest; every game lists v1 onward), version
   and dates, how it's built, share and download.
 - Loading: an overlay fades in after 0.35 s. The iframe's `load` fires even
   for errors, so a `HEAD` request decides the error state (with Retry); 15 s

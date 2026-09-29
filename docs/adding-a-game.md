@@ -41,7 +41,7 @@ published from a branch.
    - `changes`: `[{ "version": 1, "date": "YYYY-MM-DD", "text": "..." }]`,
      one short line per version (1–280 characters, player-facing: what
      changed in play, not how). The cabinet's ⓘ panel shows the latest three
-     under "What's new", and the first time a browser opens a version newer
+     under "What's new" (with a "Show all N versions" toggle for the rest), and the first time a browser opens a version newer
      than the one it last saw, a one-time callout shows the newest line.
      Versions are 1..`version`, one entry each.
    - `status`: `"active"` (the default) or `"archived"`. Archived games stay

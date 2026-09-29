@@ -433,6 +433,7 @@ body.playing .site-header, body.playing .site-footer { display: none; }
 .change-list li { padding-left: 10px; border-left: 3px solid var(--border); font-size: 0.9rem; }
 .change-list li:first-child { border-left-color: var(--game-accent, var(--accent)); }
 .change-list p { margin: 2px 0 0; }
+.change-toggle { min-height: var(--tap); margin-top: 4px; }
 .built { margin: 12px auto; font-size: 0.88rem; color: var(--muted); }
 .built summary { cursor: pointer; color: var(--text); min-height: var(--tap); display: flex; align-items: center; }
 .about-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
