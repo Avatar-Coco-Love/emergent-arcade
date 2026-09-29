@@ -57,6 +57,10 @@ const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/te
 //     reader's tilt on only `tiltP` 10% of its decisions (level otherwise).
 //   learner: the masher on its first try at a garden, the reader after
 //     (the one v1 player who won did it this way, on the second try).
+//   masher-0 / masher-.3: the masher tilting on 0% / 30% of its decisions
+//     (masher-0 is the one that matched v1's human losses).
+//   hinted / hinted-.5: masher-0, but does what the game's stuck hint says,
+//     tilting at full / half strength (see followHint).
 const HUMAN = { gap: 0.6, react: 0.3, tapT: 0.3, tilt: 'analog', rush: 0 };
 const BOTS = {
   reader: { ...HUMAN, policy: 'reader', rate: 1 },
