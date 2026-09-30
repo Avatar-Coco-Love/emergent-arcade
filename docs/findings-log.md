@@ -366,3 +366,33 @@ lands, so a short tube above them made the lids pointless. Check:
   free, the hazard is decoration.
 
 *Evidence: bots (`docs/games/bubble-glass.md`). Provisional.*
+
+## A two-way verb forgives its own misuse
+
+Tidewright v1 draft (2026-09-30): sluice gates drain water from behind a
+sand wall, but let the sea in when it stands higher. A bot that left every
+gate open lived to wave 9 of a game tuned for 20: the sea that poured in
+at each crest drained back out of the same open gates as soon as the wave
+fell, so the mistake undid itself. A second bot that opened every gate in
+each calm and shut them before each crest, never looking at the water or
+the tide, tied the skilled bot (17 vs 16 waves): gate *timing* was the
+whole skill, and reading the shared water level added nothing. Two rules
+fixed it: the crest bursts through an open gate and spreads along the wall
+(inflow outruns the drain), and a spring tide holds the sea above the gate
+sills and the flood line until it ebbs, so a gate opened on the timer's
+schedule floods the village (timer: 5 waves, skilled: 20). The first spring
+tide killed in ~2 s, faster than reaction, and two in a row (or one after a
+double wave) killed every bot with no counterplay; an ebb window late in
+the calm made reading the tide the skill. Also seen: gateless bots won the
+first season until seepage came from the waves rather than the tide.
+Check:
+- For a two-way verb, compare the cost of leaving it in the wrong state
+  with what using it right saves. If the verb undoes its own mistakes,
+  add an asymmetry (inflow faster than outflow, damage on the way in).
+- Test "must read the value" with a bot that runs the verb on a schedule.
+  If it ties the skilled bot, the value doesn't matter yet.
+- A hazard that blocks the verb (can't drain) needs a window to use it;
+  its failure delay must beat reaction time (Hot Iron).
+
+*Evidence: bots (`docs/games/tidewright.md`, tuning table in
+`docs/history/tidewright.md`). Provisional.*

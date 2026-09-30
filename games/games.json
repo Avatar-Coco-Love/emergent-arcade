@@ -968,6 +968,75 @@
         ],
         "epoch": 2
       }
+    },
+    {
+      "id": "tidewright",
+      "title": "Tidewright",
+      "file": "tidewright.html",
+      "version": 1,
+      "added": "2026-09-30",
+      "updated": "2026-09-30",
+      "blurb": "Flick sand onto a seawall and work the sluice gates to keep the village dry, wave after wave.",
+      "goal": "Keep the water behind the wall below the flood line for as many waves as you can. Every 6 waves a season is won and the wall carries over.",
+      "howToPlay": "You look out from the village at your sand wall, with the sea behind it. The white line shows how high the next wave will reach; the timer says when. Flick (a quick {swipe}) anywhere above a column to throw sand onto it: a faster {swipe} throws more, and a sideways {swipe} spreads it that way. Sand comes from a pile that refills slowly. Water that gets over or through the wall pools at its foot and softens it, and sand thrown into standing water mostly washes away. {Tap} a gate handle to open that sluice: it drains the pooled water out while the sea is low, but lets the sea pour in when a wave comes or on a spring tide, when the blue sea line stands above the gates. Drain in the calm, shut before the crest, build on dry sand. From wave 3 the sea seeps through the wall; later waves bring rogue waves, rain, spring tides, double waves and storms.",
+      "keyboard": "← → pick a column, hold and release Space to throw sand (longer = more), 1-4 open or shut a gate",
+      "mechanics": [
+        {
+          "name": "shore up",
+          "verb": "flick",
+          "description": "Flick above a column to throw sand onto the wall there; {swipe} speed sets how much, sideways {swipes} spread it. Sand thrown into standing water mostly washes away."
+        },
+        {
+          "name": "sluice",
+          "verb": "tap",
+          "description": "{Tap} a gate handle to open or shut it. Open gates drain the water behind the wall down to the sill, or let the sea in when it stands higher."
+        }
+      ],
+      "sharedState": "Wall height and standing water per column. Flicks raise the wall, and read the water (wet sand washes out). Gates lower the water, and read the wall's sea side (the sea pours in whenever it stands above the sill). Waves overtop wherever the crest beats the wall and add water; standing water softens the wall each second.",
+      "accent": "#5fb0e0",
+      "achievements": [
+        {
+          "id": "breakwater",
+          "title": "Breakwater",
+          "description": "Hold 5 waves."
+        },
+        {
+          "id": "sluice-master",
+          "title": "Sluice Master",
+          "description": "Drain half a flood out through the gates in one wave, without letting the sea in."
+        },
+        {
+          "id": "dry-feet",
+          "title": "Dry Feet",
+          "description": "Win a season without the water ever passing a third of the way to the flood line."
+        },
+        {
+          "id": "stand-firm",
+          "title": "Stand Firm",
+          "description": "Meet 3 rogue waves in one run without a drop over the wall."
+        },
+        {
+          "id": "old-salt",
+          "title": "Old Salt",
+          "description": "Hold 18 waves in one run."
+        }
+      ],
+      "score": {
+        "label": "Waves held",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 500,
+        "epoch": 1
+      },
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-09-30",
+          "text": "First version."
+        }
+      ]
     }
   ]
 }

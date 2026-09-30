@@ -128,6 +128,22 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
+  function tidewright() {
+    let body = `<rect width="72" height="72" fill="#7fb3cf"/>`;
+    // The sea rising behind a sand wall, spilling over its one low spot.
+    body += `<rect x="0" y="26" width="72" height="30" fill="#2f7ca3"/>`;
+    const tops = [34, 31, 33, 30, 45, 44, 32, 30, 33, 31, 34, 32];
+    tops.forEach((t, i) => { body += `<rect x="${i * 6}" y="${t}" width="6.4" height="${56 - t}" fill="${i === 4 || i === 5 ? "#9a7a4a" : "#dcbd78"}"/>`; });
+    body += `<rect x="25" y="28" width="10" height="17" fill="#cfe9f7" opacity="0.8"/>`;
+    // Standing water at the foot of the wall, a sluice gate open to drain it.
+    body += `<rect x="0" y="49" width="72" height="7" fill="#4696d2" opacity="0.7"/>`;
+    body += `<rect x="46" y="46" width="7" height="10" fill="#5e646c"/><rect x="47.5" y="48" width="4" height="8" fill="#101820"/>`;
+    body += `<rect x="0" y="56" width="72" height="16" fill="#2f4a2e"/>`;
+    body += `<circle cx="49.5" cy="64" r="5" fill="#3fa36f"/><path d="M 46 60.5 L 53 67.5 M 53 60.5 L 46 67.5" stroke="#fff" stroke-width="1.2"/>`;
+    body += `<rect x="10" y="63" width="10" height="7" fill="#c9b89a"/><path d="M 8 63 L 15 58 L 22 63 Z" fill="#8c3b2e"/>`;
+    return svg(body);
+  }
+
   function hotIron() {
     let body = `<rect width="72" height="72" fill="#110d0c"/>`;
     // Anvil face, a bar glowing orange-to-white where it's being worked, and
@@ -224,5 +240,5 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass };
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright };
 })();
