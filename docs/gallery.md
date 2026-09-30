@@ -18,12 +18,13 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 |---|---|
 | `assets/ui.js` | `ArcadeUI`: `el()`, safe `store`, `shortDate`, stacking `toaster`, `trapFocus`, `saveFile`, `share` (share sheet / copy / prompt) |
 | `assets/wording.js` | `ArcadeWording`: tap or click (see below). Also run by the Node scripts through `scripts/wording.mjs` |
+| `assets/scores.js` | `ArcadeScores`: score specs, personal bests, handles, `leaderboards.json` ([scores.md](scores.md)) |
 | `assets/progress.js` | `ArcadeProgress`: every per-browser key, New/Updated badges, recent games, export/import/reset, telemetry opt-out |
 | `assets/download.js` | `ArcadeDownload`: standalone copy of a game (header comment + shim) |
 | `assets/cabinet.js` | `ArcadeCabinet.open(game)` / `close()`: toolbar, panels, ⋯ menu, toasts, loading/error states, share, download, rating, nudge |
 | `assets/gallery.js` | cards, search/sort/verb filter, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
-Script order in `index.html`: config, ui, wording, feedback, achievements, progress,
+Script order in `index.html`: config, ui, wording, feedback, achievements, scores, progress,
 telemetry, thumbs, download, cabinet, gallery.
 
 ## Tap or click
@@ -63,12 +64,15 @@ ideas).
 | `arcade.seenVersion.<id>` | last manifest version opened (New/Updated badge, what's-new callout). Missing but `seenIntro` set counts as the current version, so browsers from before this key see no badge. |
 | `arcade.rated.<id>.v<n>` | rated that version |
 | `arcade.nudged.<id>.v<n>` | the "Rate this game?" nudge was shown |
+| `arcade.best.<id>` | best score per board, `{ "e<epoch>:<board>": { score, at, version } }` ([scores.md](scores.md)) |
+| `arcade.handle` | public leaderboard name, if the player picked another one (kept by "Reset everything") |
+| `arcade.leaderboardOptOut` | `"1"` = stay off leaderboards (kept by "Reset everything") |
 | `arcade.recent` | up to 3 ids, newest first |
 | `arcade.clientId` | anonymous id (kept by "Reset everything"; "New anonymous id" replaces it) |
 | `arcade.telemetryOptOut` | `"1"` = send no play stats or gallery events |
 
 Export (`arcade-progress.json`): `{ format: "emergent-arcade-progress",
-version: 1, exported_at, achievements, seenVersion, seenIntro }`. Import
+version: 1, exported_at, achievements, seenVersion, seenIntro, bests }`. Import
 merges: it never removes anything, keeps the earliest unlock date and the
 highest seen version, and previews "X achievements across Y games (N new)"
 first.
@@ -102,6 +106,12 @@ logs a `share` row with `from: "gallery"`.
 - Loading: an overlay fades in after 0.35 s. The iframe's `load` fires even
   for errors, so a `HEAD` request decides the error state (with Retry); 15 s
   without a load shows "Still loading…" with Retry.
+- Records: the 🏆 panel is titled "Records" for games with a `score` (all
+  of them): best, board picker, top 10 from `leaderboards.json` with "you"
+  merged in, public name. Each scored `arcade:result` shows a best/new-best
+  toast, and the cabinet posts `arcade:best` to the game on load and after
+  a new best ([scores.md](scores.md)). Smoke-tested with a fixture
+  `leaderboards.json` served by `smoke-gallery.mjs`.
 - Toasts stack (max 3). Callouts are toasts with buttons: what's new (12 s)
   and the rate nudge (after the 3rd `arcade:result` in a cabinet visit, once
   per game version, not if already rated).

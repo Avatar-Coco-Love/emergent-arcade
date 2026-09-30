@@ -6,7 +6,8 @@
 - Static site, no build step. Public files: `index.html`, `assets/`, `games/`.
   Only those are published to GitHub Pages (see `.github/workflows/pages.yml`),
   plus per-game link-preview pages `play/<id>/` generated at deploy
-  (`docs/gallery.md`, "Link previews").
+  (`docs/gallery.md`, "Link previews") and `leaderboards.json`, rebuilt
+  hourly from telemetry (`docs/scores.md`).
 - Each game is one self-contained HTML file in `games/`, registered in
   `games/games.json`. The gallery embeds it in a sandboxed iframe; games must
   not depend on the gallery.
@@ -16,6 +17,10 @@
   full-screen "cabinet" with a toolbar and panels) and must handle
   `arcade:pause` / `arcade:resume` messages. Games with rounds post
   `arcade:result` (win/loss, time) when one ends (`docs/telemetry.md`).
+  Every game has a `score` in the manifest (personal bests + leaderboard,
+  `docs/scores.md`); bump `score.epoch` when a revision changes its meaning.
+  Target: 10+ minutes of play for a player who likes the game
+  (`docs/ROADMAP.md`, depth pass).
 - Manifest text is read on phones and PCs: write `{tap}`, `{finger}`,
   `{hold}`… instead of "tap"/"click", and PC keys in the optional
   `keyboard` line (`docs/adding-a-game.md`, "Tap or click").

@@ -74,7 +74,7 @@
 
   <footer class="site-footer">
     <a id="repoLink" target="_blank" rel="noopener">Source on GitHub</a>
-    <p class="muted" id="telemetryNote" hidden>To tune the games, the arcade records anonymous play stats: time played, wins and losses, and achievements. No names, no cookies. <button type="button" class="linkish" id="telemetryNoteBtn">Turn off for this browser</button></p>
+    <p class="muted" id="telemetryNote" hidden>To tune the games, the arcade records anonymous play stats: time played, wins and losses, scores, and achievements. No real names, no cookies: leaderboards show a made-up name like "Amber Otter". <button type="button" class="linkish" id="telemetryNoteBtn">Turn off for this browser</button></p>
   </footer>
 
   <!-- Progress and settings: everything the arcade remembers lives in this
@@ -120,7 +120,7 @@
         <div class="setting-row">
           <button type="button" class="secondary" id="resetAllBtn">Reset everything</button>
           <div id="resetAllConfirm" class="confirm" hidden>
-            <span>Erase achievements, intro and "what's new" memory, recently played and rating memory? Your play-stats choice is kept.</span>
+            <span>Erase achievements, best scores, intro and "what's new" memory, recently played and rating memory? Your play-stats choice is kept.</span>
             <button type="button" class="danger" id="resetAllYes">Yes, reset everything</button>
             <button type="button" class="secondary" data-cancel>Cancel</button>
           </div>
@@ -226,6 +226,22 @@
             </div>
 
             <div data-body="achievements">
+              <section id="records" class="records" hidden aria-labelledby="recordsHead">
+                <h3 id="recordsHead">Your best</h3>
+                <div class="board-pick" id="boardPickRow" hidden>
+                  <label for="boardPick">Board</label>
+                  <select id="boardPick"></select>
+                </div>
+                <p id="bestLine" class="best-line"></p>
+                <h3>Leaderboard</h3>
+                <ol id="lbList" class="lb-list"></ol>
+                <p id="lbNote" class="muted lb-note"></p>
+                <div class="lb-me">
+                  <label class="check"><input type="checkbox" id="lbListed"><span>Show my best on the leaderboard as <b id="lbHandle"></b></span></label>
+                  <button type="button" class="linkish" id="lbRename">Pick another name</button>
+                </div>
+                <h3>Achievements</h3>
+              </section>
               <p id="achSummary" class="muted"></p>
               <ul id="achList" class="ach-list"></ul>
               <div class="reset-row">
@@ -264,6 +280,7 @@
 <script src="assets/wording.js"></script>
 <script src="assets/feedback.js"></script>
 <script src="assets/achievements.js"></script>
+<script src="assets/scores.js"></script>
 <script src="assets/progress.js"></script>
 <script src="assets/telemetry.js"></script>
 <script src="assets/thumbs.js"></script>

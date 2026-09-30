@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Rebuilds leaderboards.json from new scores about once an hour
+  # (docs/scores.md). GitHub pauses schedules after 60 days with no commits.
+  schedule:
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
@@ -30,6 +34,14 @@ jobs:
           mkdir -p _site
           cp -r index.html assets games _site/
           touch _site/.nojekyll
+      - name: Build leaderboards
+        # Starts from the live file and reads only newer telemetry rows. With
+        # no FEEDBACK_READ_KEY secret (or an outage) it keeps the live file.
+        env:
+          FEEDBACK_READ_KEY: ${{ secrets.FEEDBACK_READ_KEY }}
+        run: |
+          site=$(sed -nE 's/.*siteUrl: *"([^"]*)".*/\1/p' assets/config.js)
+          node scripts/build-leaderboards.mjs --prev "${site}leaderboards.json" --out _site/leaderboards.json
       - name: Build share pages
         # play/<id>/ pages carry each game's link-preview card (Facebook
         # ignores everything after "#") and forward to #/play/<id>.

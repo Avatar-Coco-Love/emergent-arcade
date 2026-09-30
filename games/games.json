@@ -92,7 +92,16 @@
           "title": "Century",
           "description": "Reach 100 eruptions in one game."
         }
-      ]
+      ],
+      "score": {
+        "label": "Fastest 100 eruptions",
+        "better": "lower",
+        "format": "time",
+        "from": "time",
+        "wins": true,
+        "max": 3600,
+        "epoch": 1
+      }
     },
     {
       "id": "orbit-garden",
@@ -181,7 +190,16 @@
           "title": "Full Sky",
           "description": "Have 5 planets in the sky at once."
         }
-      ]
+      ],
+      "score": {
+        "label": "Fastest bloom",
+        "better": "lower",
+        "format": "time",
+        "from": "time",
+        "wins": true,
+        "max": 3600,
+        "epoch": 1
+      }
     },
     {
       "id": "murmuration",
@@ -265,7 +283,16 @@
           "title": "Last Light",
           "description": "Clear the last gate with under 5 seconds of daylight left."
         }
-      ]
+      ],
+      "score": {
+        "label": "Fastest flight",
+        "better": "lower",
+        "format": "time",
+        "from": "time",
+        "wins": true,
+        "max": 3600,
+        "epoch": 1
+      }
     },
     {
       "id": "ant-trails",
@@ -380,7 +407,15 @@
           "title": "Full Season",
           "description": "Win all six days in one run without a retry."
         }
-      ]
+      ],
+      "score": {
+        "label": "Days survived",
+        "better": "higher",
+        "from": "level",
+        "wins": true,
+        "max": 6,
+        "epoch": 1
+      }
     },
     {
       "id": "wildfire-line",
@@ -454,7 +489,16 @@
           "title": "Swift",
           "description": "Put the whole fire out in under 60 seconds."
         }
-      ]
+      ],
+      "score": {
+        "label": "Fastest burnout",
+        "better": "lower",
+        "format": "time",
+        "from": "time",
+        "wins": true,
+        "max": 3600,
+        "epoch": 1
+      }
     },
     {
       "id": "hourglass-delivery",
@@ -528,7 +572,14 @@
           "title": "Steady Hand",
           "description": "Deliver a glass filled to its line with at most 10 grains to spare."
         }
-      ]
+      ],
+      "score": {
+        "label": "Glasses filled",
+        "better": "higher",
+        "from": "stats.filled",
+        "max": 8,
+        "epoch": 1
+      }
     },
     {
       "id": "hot-iron",
@@ -602,7 +653,16 @@
           "title": "Burned Through",
           "description": "Overheat a segment until it burns away to nothing."
         }
-      ]
+      ],
+      "score": {
+        "label": "Fastest forging",
+        "better": "lower",
+        "format": "time",
+        "from": "time",
+        "wins": true,
+        "max": 3600,
+        "epoch": 1
+      }
     },
     {
       "id": "island-census",
@@ -666,7 +726,14 @@
           "date": "2026-09-29",
           "text": "First version."
         }
-      ]
+      ],
+      "score": {
+        "label": "Seasons survived",
+        "better": "higher",
+        "from": "stats.seasons",
+        "max": 8,
+        "epoch": 1
+      }
     },
     {
       "id": "loom",
@@ -735,7 +802,15 @@
           "date": "2026-09-29",
           "text": "First version."
         }
-      ]
+      ],
+      "score": {
+        "label": "Shapes held",
+        "better": "higher",
+        "from": "level",
+        "wins": true,
+        "max": 7,
+        "epoch": 1
+      }
     },
     {
       "id": "terrace-garden",
@@ -790,7 +865,15 @@
           "date": "2026-09-29",
           "text": "First version."
         }
-      ]
+      ],
+      "score": {
+        "label": "Gardens bloomed",
+        "better": "higher",
+        "from": "level",
+        "wins": true,
+        "max": 4,
+        "epoch": 1
+      }
     },
     {
       "id": "bubble-glass",
@@ -801,9 +884,9 @@
       "updated": "2026-09-30",
       "changes": [
         {
-          "version": 2,
-          "date": "2026-09-30",
-          "text": "Level 2 now shows where to melt its lids from the start and keeps that hint up until they're made. Hints work in tilt mode (a phone wobbling in the hand used to hide them), stay up at least 4 seconds, and messages stay longer. In tilt mode, messages turn to read upright."
+          "version": 1,
+          "date": "2026-09-29",
+          "text": "First version."
         }
       ],
       "blurb": "Turn a sealed box of sand to float its air bubble out through the vent. Sand falls, the bubble rises, and glass you melt from the sand holds it back.",
@@ -856,13 +939,23 @@
           "description": "Free the bubble in every box."
         }
       ],
-      "changes": [
-        {
-          "version": 1,
-          "date": "2026-09-29",
-          "text": "First version."
-        }
-      ]
+      "score": {
+        "label": "Fastest escape",
+        "better": "lower",
+        "format": "time",
+        "from": "time",
+        "wins": true,
+        "max": 3600,
+        "boards": "level_id",
+        "boardList": [
+          "first-turn",
+          "roof",
+          "the-plug",
+          "lid-and-plug",
+          "hourglass"
+        ],
+        "epoch": 1
+      }
     }
   ]
 }

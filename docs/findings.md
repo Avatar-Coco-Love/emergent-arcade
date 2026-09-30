@@ -336,4 +336,9 @@ mode reproduced it (13% first try, 0 hints); v2 gets it to 100%. Check:
   it from exactly the player who is moving without a plan.
 
 *Evidence: feedback + telemetry (1 player, 2 rounds) + bots
-(`docs/games/bubble-glass.md`). Provisional: v2 isn't playtested.*
+(`docs/games/bubble-glass.md`).*
+
+Replay of v2 on phones in tilt mode (2 players): level 2 won 2/2 first
+try (v1 0/2), with glass melted; all five levels 14/14. The first
+revision the arcade made from player data, confirmed by player data.
+*Evidence: telemetry, n = 2. Holding.*

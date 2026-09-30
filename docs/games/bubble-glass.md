@@ -181,6 +181,27 @@ super briefly then disappeared" (the level note, 5 s). v2 answers all
 three: the lid hint from the start, tilt-tolerant hints with a minimum
 time, longer messages that turn upright in tilt mode.
 
+## Replay 2026-09-30 (v2, phone, tilt mode)
+
+The pending phone replay of v2, from telemetry (2 players, 4 sessions,
+all touch and tilt): **14 rounds, 14 wins, every level won on the first
+try**, one run through all five boxes, Glassblower, Breakout and Cold
+Hands unlocked.
+
+| Level | v1 human | v2 human (first try) | Median win | Notes |
+|---|---|---|---|---|
+| first-turn | 3/3 | 3/3 | 11 s | 0.5 hints |
+| roof | **0/2**, 0 glass | **2/2** | 16 s | 2 shards, 28 glass cells, 3 hints: the lid hint was found and used |
+| the-plug | – | 2/2 | 9 s | shattered 1, no melt |
+| lid-and-plug | – | 1/1 | 23 s | the longest; 2 s buried |
+| hourglass | – | 1/1 | 16 s | no melt (the open idea below) |
+
+The v2 fixes worked: level 2 went from never won to won first time. The
+new problem is the one every game has (`docs/ROADMAP.md`, depth pass): a
+whole run takes about 75 s of play, and the longest player spent 7:55 in
+the game over all sessions. Levels 3–5 need less than the bots predicted
+(humans won faster than `hinted`), so the next boxes can be harder.
+
 ## Achievements
 
 | id | Needs |
@@ -192,6 +213,10 @@ time, longer messages that turn upright in tilt mode.
 | glassblower | Every level won in this browser (kept in `localStorage`). |
 
 ## Open ideas
+
+- **Depth pass (next):** more boxes, grouped in chapters, from the
+  Evolution list; a chapter score (total time) with no ceiling. Now the
+  score is the fastest escape per level (`docs/scores.md`).
 
 - **Level 1 "way too easy"** (playtest): it's a 4–9 s tutorial. Could
   add a second beat (for example a sand bank the bubble must be rocked
