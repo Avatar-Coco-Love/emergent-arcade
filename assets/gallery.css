@@ -492,6 +492,29 @@ textarea {
 .ach.got .icon { filter: none; opacity: 1; }
 .reset-row { margin-top: 20px; }
 
+/* Records: personal best and leaderboard (assets/scores.js) */
+.records h3:first-child { margin-top: 0; }
+.best-line { font-size: 1.05rem; margin: 0 0 4px; }
+.best-line b { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.board-pick { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
+.board-pick select {
+  height: var(--tap); font: inherit; color: var(--text);
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 0 10px;
+  min-width: 0; max-width: 100%;
+}
+.lb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.lb-list li {
+  display: grid; grid-template-columns: 2.4em 1fr auto; gap: 8px; align-items: center;
+  padding: 6px 10px; border-radius: 8px; background: var(--panel-2); font-size: 0.9rem;
+}
+.lb-list li .rank { color: var(--muted); font-variant-numeric: tabular-nums; }
+.lb-list li .val { font-weight: 600; font-variant-numeric: tabular-nums; }
+.lb-list li.me { outline: 2px solid var(--star); }
+.lb-list li.gap { background: none; padding: 0 10px; color: var(--muted); }
+.lb-note { font-size: 0.82rem; margin: 6px 0 0; }
+.lb-me { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 0.88rem; margin: 6px 0 4px; }
+.lb-me .check { min-height: 36px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .spinner { border-top-color: rgba(255, 255, 255, 0.15); }

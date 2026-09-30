@@ -12,6 +12,7 @@
   const telemetry = window.ArcadeTelemetry;
   const Progress = window.ArcadeProgress;
   const Ach = window.ArcadeAchievements;
+  const Scores = window.ArcadeScores;
   const Cabinet = window.ArcadeCabinet;
   const Wording = window.ArcadeWording;
 
@@ -123,13 +124,23 @@
     return total ? `🏆 ${Ach.count(game)}/${total}` : "";
   }
 
+  // "Best 87" on the card, for games with one board (docs/scores.md).
+  function bestText(game) {
+    const sp = Scores.spec(game);
+    const bests = Scores.bests(game);
+    if (!sp) return "";
+    const boards = Object.keys(bests);
+    if (bests.main) return `Best ${Scores.format(sp, bests.main.score)}`;
+    return boards.length ? `${boards.length} best${boards.length > 1 ? "s" : ""}` : "";
+  }
+
   function card(game, from, index) {
     const chips = game.mechanics.map((m) =>
       el("span", { className: "chip" }, [el("b", { textContent: m.name }), ` · ${Wording.verb(m.verb)}`])
     );
     const meta = el("div", { className: "card-meta" }, [
       el("span", { textContent: `v${game.version} · updated ${UI.shortDate(game.updated)}` }),
-      el("span", { textContent: trophies(game) }),
+      el("span", { textContent: [bestText(game), trophies(game)].filter(Boolean).join(" · ") }),
     ]);
     const link = el("a", { className: "game-card", href: `#/play/${game.id}` }, [
       thumb(game),
@@ -385,7 +396,7 @@
   });
   $("importYes").addEventListener("click", () => {
     if (!importData) return;
-    Progress.applyImport(importData);
+    Progress.applyImport(importData, games);
     hideConfirms();
     refreshAll();
     settingsStatus("Progress imported.", "ok");

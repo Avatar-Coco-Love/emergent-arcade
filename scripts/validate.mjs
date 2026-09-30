@@ -47,6 +47,7 @@ for (const [i, g] of games.entries()) {
   if (g.status !== undefined && !["active", "archived"].includes(g.status)) fail(`${where}: "status" must be "active" or "archived"`);
   checkChanges(where, g);
   checkWording(where, g);
+  checkScore(where, g);
 
   // Design rule: 2-3 core mechanics, each a distinct verb.
   const mechs = Array.isArray(g.mechanics) ? g.mechanics : [];
@@ -160,6 +161,27 @@ function checkAchievements(where, g, html) {
   }
   if (list.length && !html.includes("arcade:achievement")) fail(`${where}: games/${g.file} never posts "arcade:achievement" messages`);
   if (list.length && !html.includes(`'${g.id}'`) && !html.includes(`"${g.id}"`)) fail(`${where}: games/${g.file} must identify itself with its id "${g.id}"`);
+}
+
+// Platform rule: every game has a score, so players get a best to beat and a
+// leaderboard (docs/scores.md). Reading it is assets/scores.js's job; this
+// only checks the manifest entry is well formed.
+function checkScore(where, g) {
+  const s = g.score;
+  if (!s || typeof s !== "object") return fail(`${where}: needs a "score" entry (docs/scores.md)`);
+  if (typeof s.label !== "string" || !s.label.trim() || s.label.length > 40) fail(`${where}: score.label must be a short non-empty string`);
+  if (!["higher", "lower"].includes(s.better)) fail(`${where}: score.better must be "higher" or "lower"`);
+  if (s.format !== undefined && !["count", "time"].includes(s.format)) fail(`${where}: score.format must be "count" or "time"`);
+  if (s.from !== undefined && !/^(score|time|level|stats\.[a-z][a-z0-9_]{0,15})$/.test(s.from)) fail(`${where}: score.from must be score, time, level or stats.<key>`);
+  if (s.boards !== undefined && !["level", "level_id"].includes(s.boards)) fail(`${where}: score.boards must be "level" or "level_id"`);
+  if (!Number.isInteger(s.epoch) || s.epoch < 1) fail(`${where}: score.epoch must be an integer >= 1 (bump it when the score's meaning changes)`);
+  if (!(Number(s.max) > 0)) fail(`${where}: score.max must be a positive number (the leaderboard drops anything above it)`);
+  if (s.boardList !== undefined && (!Array.isArray(s.boardList) || s.boardList.some((b) => !/^[a-z0-9-]{1,24}$/.test(b)))) fail(`${where}: score.boardList must be board ids`);
+  if (s.from && s.from.startsWith("stats.") && typeof g.file === "string") {
+    const html = (() => { try { return readFileSync(join(gamesDir, g.file), "utf8"); } catch (_) { return ""; } })();
+    const k = s.from.slice(6);
+    if (html && !new RegExp(`\\b${k}\\b`).test(html)) fail(`${where}: score.from "${s.from}" but games/${g.file} never mentions "${k}"`);
+  }
 }
 
 // Design rule: one self-contained HTML file, primitives only, no external

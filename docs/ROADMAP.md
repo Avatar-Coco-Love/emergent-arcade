@@ -20,6 +20,14 @@ are back on, one per PR, still checked against `docs/findings.md` and
 balanced with a `novice` bot before they ship. Revisions from player data
 still come first when there is any.
 
+**Update 2026-09-30:** Phase 1's exit is met. Bubble Glass v2 was a
+revision driven by one player's rating and telemetry, and the replay on a
+phone confirmed it (level 2: 0% → 100%, all five boxes won, tilt mode).
+Playtesters' verdict on the arcade as a whole: **not enough oomph**. Games
+should hold a player for 10+ minutes, with a best score to beat and a
+leaderboard. Scores, bests and leaderboards now exist for every game
+(`docs/scores.md`); the depth pass below is the next phase.
+
 ## Principle: depth before volume
 
 Shipping a new game an hour is easy. Making any one of them great is hard.
@@ -42,6 +50,51 @@ favor revisions and playtesting over new games until real data flows.
   Pressure Grid's self-sustaining eruption storms.
 
 Exit: at least one revision driven by real player data.
+
+## Phase 1.5 (now): the depth pass, 10 minutes per game
+
+Target: **a player who likes a game finds 10+ minutes of new challenge in
+it**, and a score with no ceiling to chase afterwards. Baseline (telemetry,
+2026-09-30): no player has reached 10 minutes in any game. Longest per
+player: Terrace Garden 9:04, Ant Trails 8:39, Bubble Glass 7:55, the rest
+2–4 minutes.
+
+One game per PR, same loop as always (findings check, bots, notes file).
+Each revision:
+
+- **Keeps the 2–3 verbs.** Depth comes from what they face: new layouts,
+  threats, materials, carried-over state (findings: "One round shows
+  everything", "Carry-over makes the second verb pay more each round").
+- **Escalates**: a longer campaign (more levels or days), or a mode that
+  keeps going after the goal and gets harder until the player fails. Round
+  1 stays gentle; a lost stage is retried from its start.
+- **Posts its own `score`** with no ceiling (points, depth reached,
+  levels × time) and bumps `score.epoch`. Optionally shows the best from
+  `arcade:best` in its HUD.
+- **Proves the length** with bots: a hinted or novice bot needs 10+ minutes
+  to see all the content, or a skilled bot's median endless run is past 10
+  minutes but not forever. After merge, `fetch-telemetry.mjs` prints the
+  10-minute line per version.
+- Avoids a decay rate that turns the long mode into a tap-speed test
+  (findings: "A decay rate turns a puzzle into a speed test").
+
+| Game | Now | Depth direction (a proposal, not a spec) | Status |
+|---|---|---|---|
+| bubble-glass | 5 levels, ~1.5 min for a good player | More boxes from the Evolution list (sand types, second bubble, fixtures), grouped in chapters; score = total time over a chapter | |
+| ant-trails | 6-day run | Endless days after day 6 with rising twists; score = days survived | |
+| terrace-garden | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run | |
+| pressure-grid | 60 s challenge | Stages with rising targets on new grid shapes; score = eruptions over the run | |
+| orbit-garden | 1 garden, 40 seeds | Successive gardens, leftover seeds carry over; score = gardens bloomed | |
+| hot-iron | 1 blade | A run of commissions, harder profiles, fuel carried over; score = blades forged | |
+| loom | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held | |
+| murmuration | 5 gates, 1 night | Nights in a row with new gate layouts, the flock carried over | |
+| wildfire-line | 1 fire | Fire seasons with more houses and wind shifts; score = houses saved | |
+| hourglass-delivery | 8 glasses | Endless belt that speeds up by glasses filled, not by time; score = glasses filled | |
+| island-census | 8 seasons | Endless years with new events; score = seasons survived | |
+
+Order: the games players already stay longest in first (they're closest to
+10 minutes and show what works), then the rest by rating. Revisions from
+player feedback still jump the queue.
 
 ## Phase 2 (weeks): from gallery to catalog
 

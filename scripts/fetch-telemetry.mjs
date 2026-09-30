@@ -138,6 +138,11 @@ for (const [k, rows] of [...groups].sort()) {
 
   console.log(`\n${k}: ${players.size} player(s), ${sessions.length} session(s) (${pct(touch, sessions.length)} touch)`);
   console.log(`  play/session: median ${secs(median(sessions.map((r) => Number(r.seconds))))}, total ${secs(sessions.reduce((a, r) => a + Number(r.seconds), 0))}`);
+  // Roadmap target: a game worth 10+ minutes to a player who likes it.
+  const perPlayer = new Map();
+  for (const r of sessions) perPlayer.set(r.client_id, (perPlayer.get(r.client_id) || 0) + Number(r.seconds));
+  const tenMin = [...perPlayer.values()].filter((t) => t >= 600).length;
+  console.log(`  10-min target: ${pct(sessions.filter((r) => Number(r.seconds) >= 600).length, sessions.length)} of sessions, ${tenMin}/${perPlayer.size} player(s) over all sessions; longest player ${secs(Math.max(0, ...perPlayer.values()))}`);
   if (rounds.length) {
     console.log(`  rounds: ${rounds.length}, human win rate ${pct(wins.length, rounds.length)}`);
     console.log(`  round length: win median ${secs(median(wins.map((r) => Number(r.seconds))))}, loss median ${secs(median(rounds.filter((r) => r.outcome === "loss").map((r) => Number(r.seconds))))}`);

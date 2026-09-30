@@ -4,6 +4,9 @@
 //   arcade.seenVersion.<id>    the last manifest version this browser opened
 //   arcade.rated.<id>.v<n>     "1" after rating that version
 //   arcade.nudged.<id>.v<n>    "1" after the "Rate this game?" nudge
+//   arcade.best.<id>           { "e<epoch>:<board>": { score, at, version } } (assets/scores.js)
+//   arcade.handle              public leaderboard name, from assets/scores.js word lists (kept on reset)
+//   arcade.leaderboardOptOut   "1" = send scores without a name, off the leaderboard (kept on reset)
 //   arcade.recent              [ids], most recently opened first
 //   arcade.clientId            anonymous id for feedback/telemetry (kept on reset)
 //   arcade.telemetryOptOut     "1" = don't send play stats (kept on reset)
@@ -13,7 +16,7 @@ window.ArcadeProgress = (function () {
   const Ach = window.ArcadeAchievements;
   const FORMAT = "emergent-arcade-progress";
   const ID = /^[a-z0-9-]{1,64}$/;
-  const RESETTABLE = /^arcade\.(achievements|seenIntro|seenVersion|rated|nudged)\.|^arcade\.recent$/;
+  const RESETTABLE = /^arcade\.(achievements|best|seenIntro|seenVersion|rated|nudged)\.|^arcade\.recent$/;
 
   // 0 = never opened. Browsers that opened a game before versions were
   // remembered count as having seen the current one (no badge).
@@ -57,6 +60,7 @@ window.ArcadeProgress = (function () {
     const achievements = {};
     const seen = {};
     const intro = [];
+    const bests = {};
     for (const key of store.keys()) {
       let m;
       if ((m = /^arcade\.achievements\.(.+)$/.exec(key))) {
@@ -66,6 +70,9 @@ window.ArcadeProgress = (function () {
         seen[m[1]] = Number(store.get(key)) || 0;
       } else if ((m = /^arcade\.seenIntro\.(.+)$/.exec(key))) {
         intro.push(m[1]);
+      } else if ((m = /^arcade\.best\.(.+)$/.exec(key))) {
+        const all = window.ArcadeScores.load(m[1]);
+        if (Object.keys(all).length) bests[m[1]] = all;
       }
     }
     return {
@@ -75,6 +82,7 @@ window.ArcadeProgress = (function () {
       achievements,
       seenVersion: seen,
       seenIntro: intro.sort(),
+      bests,
     };
   }
 
@@ -86,7 +94,7 @@ window.ArcadeProgress = (function () {
     if (!raw || raw.format !== FORMAT || typeof raw.achievements !== "object") {
       throw new Error("That isn't an Emergent Arcade progress file.");
     }
-    const data = { achievements: {}, seenVersion: {}, seenIntro: [] };
+    const data = { achievements: {}, seenVersion: {}, seenIntro: [], bests: {} };
     let count = 0;
     let fresh = 0;
     for (const [gameId, got] of Object.entries(raw.achievements || {})) {
@@ -111,13 +119,16 @@ window.ArcadeProgress = (function () {
     for (const gameId of Array.isArray(raw.seenIntro) ? raw.seenIntro : []) {
       if (ID.test(gameId)) data.seenIntro.push(gameId);
     }
+    for (const [gameId, all] of Object.entries(raw.bests || {})) {
+      if (ID.test(gameId) && all && typeof all === "object") data.bests[gameId] = all;
+    }
     const gamesWith = Object.keys(data.achievements).length;
     return { data, achievements: count, games: gamesWith, fresh, exportedAt: raw.exported_at };
   }
 
   // Merges: nothing already in this browser is lost; the earliest unlock
   // date and the highest seen version win.
-  function applyImport(data) {
+  function applyImport(data, games) {
     for (const [gameId, got] of Object.entries(data.achievements)) {
       const mine = Ach.load(gameId);
       for (const [achId, when] of Object.entries(got)) {
@@ -130,6 +141,10 @@ window.ArcadeProgress = (function () {
       if (v > (Number(store.get(key)) || 0)) store.set(key, String(v));
     }
     for (const gameId of data.seenIntro) store.set(`arcade.seenIntro.${gameId}`, "1");
+    // Best scores merge too: the better one per board wins (assets/scores.js).
+    for (const [gameId, all] of Object.entries(data.bests || {})) {
+      window.ArcadeScores.merge(gameId, all, (games || []).find((g) => g.id === gameId));
+    }
   }
 
   function resetAchievements() {

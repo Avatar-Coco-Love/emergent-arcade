@@ -8,6 +8,7 @@ window.ArcadeCabinet = (function () {
   const telemetry = window.ArcadeTelemetry;
   const Progress = window.ArcadeProgress;
   const Ach = window.ArcadeAchievements;
+  const Scores = window.ArcadeScores;
 
   const cabinet = $("cabinet");
   const frame = $("gameFrame");
@@ -40,6 +41,7 @@ window.ArcadeCabinet = (function () {
   let loadToken = 0;
   let loadTimer = null;
   let loadFailed = false;
+  let recordsBoard = null; // board shown in the Records panel
 
   const toast = UI.toaster($("toasts"), 3);
   const clearToasts = () => $("toasts").replaceChildren();
@@ -71,6 +73,7 @@ window.ArcadeCabinet = (function () {
       resetFeedback();
       clearToasts();
       rounds = 0;
+      recordsBoard = null;
       telemetry.start(game);
     }
     document.body.classList.add("playing");
@@ -147,6 +150,7 @@ window.ArcadeCabinet = (function () {
     clearTimeout(loadTimer);
     // A game that loads while a panel is open (first-time intro) starts paused.
     if (openPanelName) tellGame("arcade:pause");
+    tellBest();
   });
 
   $("retryBtn").addEventListener("click", () => {
@@ -154,8 +158,17 @@ window.ArcadeCabinet = (function () {
   });
 
   // Games listen for these to freeze while a panel covers them.
-  function tellGame(type) {
-    if (frame.contentWindow) frame.contentWindow.postMessage({ type }, "*");
+  function tellGame(type, fields) {
+    if (frame.contentWindow) frame.contentWindow.postMessage(Object.assign({ type }, fields), "*");
+  }
+
+  // Games may show the player's best as a target (optional: docs/scores.md).
+  function tellBest() {
+    const sp = current && Scores.spec(current);
+    if (!sp) return;
+    const bests = {};
+    for (const [board, b] of Object.entries(Scores.bests(current))) bests[board] = b.score;
+    tellGame("arcade:best", { game: current.id, better: sp.better, bests });
   }
 
   // ---------- panels ----------
@@ -179,10 +192,11 @@ window.ArcadeCabinet = (function () {
       returnFocus = opener;
     }
     openPanelName = name;
-    $("panelTitle").textContent = PANEL_TITLES[name];
+    $("panelTitle").textContent = name === "achievements" && Scores.spec(current) ? "Records" : PANEL_TITLES[name];
     for (const body of panel.querySelectorAll("[data-body]")) body.hidden = body.dataset.body !== name;
     syncToolbar();
     if (name === "achievements") {
+      renderRecords();
       renderAchievements();
       hideResetConfirm();
     }
@@ -460,7 +474,9 @@ window.ArcadeCabinet = (function () {
     if (!current || evt.source !== frame.contentWindow) return;
     if (!data || data.game !== current.id) return;
     if (data.type === "arcade:result") {
-      telemetry.result(data);
+      const sc = Scores.record(current, data);
+      telemetry.result(sc ? Object.assign({}, data, scoreFields(sc)) : data);
+      if (sc) announceScore(sc);
       if (++rounds === ROUNDS_BEFORE_NUDGE) nudge();
     }
     if (data.type !== "arcade:achievement") return;
@@ -470,6 +486,135 @@ window.ArcadeCabinet = (function () {
     toast(`🏆 Achievement unlocked: ${a.title}`, { kind: "ach" });
     renderAchievements();
     progressChanged();
+  });
+
+  // ---------- records: best score and leaderboard ----------
+
+  // Sent with the telemetry round row; scripts/build-leaderboards.mjs reads them.
+  function scoreFields(sc) {
+    const out = { score: sc.value, board: sc.board, score_epoch: Scores.spec(current).epoch, lb: Scores.listed() ? 1 : 0 };
+    if (Scores.listed()) out.handle = Scores.handle();
+    return out;
+  }
+
+  function scoreText(sp, board, value) {
+    const where = Scores.boardName(board);
+    return `${where ? where + " · " : ""}${sp.label}: ${Scores.format(sp, value)}`;
+  }
+
+  function announceScore(sc) {
+    const game = current;
+    const sp = Scores.spec(game);
+    recordsBoard = sc.board;
+    if (sc.isBest) {
+      tellBest();
+      progressChanged();
+      if (openPanelName === "achievements") renderRecords();
+    }
+    Scores.leaderboards().then((data) => {
+      if (current !== game) return;
+      const entries = Scores.top(data, game, sc.board);
+      const place = Scores.rank(game, entries, sc.isBest ? sc.value : sc.prev);
+      const onBoard = data && Scores.listed() && telemetry.active() && place <= 10 ? ` · #${place} on the leaderboard` : "";
+      if (sc.isBest && sc.prev != null) {
+        toast(`🥇 New best! ${scoreText(sp, sc.board, sc.value)} (was ${Scores.format(sp, sc.prev)})${onBoard}`, { kind: "ach", ms: 5000 });
+      } else if (sc.isBest) {
+        toast(`${scoreText(sp, sc.board, sc.value)}. Your first best: beat it next time${onBoard}`, { ms: 4500 });
+      } else {
+        toast(`${scoreText(sp, sc.board, sc.value)} · your best ${Scores.format(sp, sc.prev)}`, { ms: 3500 });
+      }
+    });
+  }
+
+  function recordBoards(game) {
+    const sp = Scores.spec(game);
+    const mine = Object.keys(Scores.bests(game));
+    const boards = new Set(sp.boards ? [] : ["main"]);
+    for (const b of (game.score && game.score.boardList) || []) boards.add(b);
+    for (const b of mine) boards.add(b);
+    return [...boards];
+  }
+
+  function renderRecords() {
+    const game = current;
+    const sp = game && Scores.spec(game);
+    $("records").hidden = !sp;
+    if (!sp) return;
+    const boards = recordBoards(game);
+    if (!boards.includes(recordsBoard)) recordsBoard = boards[0] || null;
+    const pick = $("boardPick");
+    $("boardPickRow").hidden = boards.length < 2;
+    pick.replaceChildren(...boards.map((b) => el("option", { value: b, textContent: Scores.boardName(b) || "Main", selected: b === recordsBoard })));
+    const best = recordsBoard && Scores.bests(game)[recordsBoard];
+    $("bestLine").replaceChildren(
+      best
+        ? el("span", {}, [`${sp.label}: `, el("b", { textContent: Scores.format(sp, best.score) }), ` · ${UI.shortDate(best.at.slice(0, 10))}`])
+        : el("span", { className: "muted", textContent: sp.wins ? "No best yet: win a round to set one." : "No best yet: finish a round to set one." })
+    );
+    const listed = Scores.listed();
+    $("lbListed").checked = listed;
+    $("lbHandle").textContent = Scores.handle();
+    $("lbList").replaceChildren(el("li", { className: "gap", textContent: "Loading…" }));
+    Scores.leaderboards().then((data) => {
+      if (current !== game) return;
+      renderBoard(game, sp, data, best);
+    });
+  }
+
+  // Top 10 of the published board, with this browser's best merged in right
+  // away (the published file only catches up at the next hourly build).
+  function renderBoard(game, sp, data, best) {
+    const me = Scores.me();
+    const sending = Scores.listed() && telemetry.active();
+    let rows = Scores.top(data, game, recordsBoard).filter((e) => !(sending && e.p === me));
+    const published = Scores.top(data, game, recordsBoard).find((e) => e.p === me);
+    let mine = null;
+    if (sending && (best || published)) {
+      const s = best && (!published || Scores.beats(sp, best.score, published.s)) ? best.score : published.s;
+      mine = { h: Scores.handle(), s, me: true };
+    }
+    if (mine) rows.push(mine);
+    rows.sort((a, b) => (a.s === b.s ? 0 : Scores.beats(sp, a.s, b.s) ? -1 : 1));
+    const items = [];
+    let prev = null;
+    let place = 0;
+    rows.forEach((e, i) => {
+      if (e.s !== prev) place = i + 1;
+      prev = e.s;
+      e.place = place;
+    });
+    const shown = rows.slice(0, 10);
+    for (const e of shown) items.push(lbRow(sp, e));
+    if (mine && !shown.includes(mine)) {
+      items.push(el("li", { className: "gap", textContent: "…" }), lbRow(sp, mine));
+    }
+    if (!items.length) items.push(el("li", { className: "gap", textContent: data ? "No scores yet. Be the first." : "The leaderboard isn't available here." }));
+    $("lbList").replaceChildren(...items);
+    const when = data && data.updated_at ? new Date(data.updated_at) : null;
+    $("lbNote").textContent = !telemetry.active()
+      ? "Play stats are off (⚙ settings), so your scores stay in this browser."
+      : `Updates about once an hour${when ? `, last ${when.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}. Your own best shows here right away.`;
+  }
+
+  function lbRow(sp, e) {
+    return el("li", { className: e.me ? "me" : "" }, [
+      el("span", { className: "rank", textContent: `#${e.place}` }),
+      el("span", { textContent: e.me ? `${e.h} (you)` : e.h }),
+      el("span", { className: "val", textContent: Scores.format(sp, e.s) }),
+    ]);
+  }
+
+  $("boardPick").addEventListener("change", () => {
+    recordsBoard = $("boardPick").value;
+    renderRecords();
+  });
+  $("lbListed").addEventListener("change", () => {
+    Scores.setListed($("lbListed").checked);
+    renderRecords();
+  });
+  $("lbRename").addEventListener("click", () => {
+    Scores.newHandle();
+    renderRecords();
   });
 
   // ---------- rating ----------

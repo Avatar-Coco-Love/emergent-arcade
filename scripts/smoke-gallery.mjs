@@ -58,6 +58,13 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+  // The published site builds leaderboards.json at deploy; serve a fixture.
+  if (url.pathname === "/leaderboards.json") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ format: "emergent-arcade-leaderboards", version: 1, updated_at: "2026-09-30T12:00:00Z", through: null,
+      games: { "pressure-grid": { epoch: 1, boards: { main: [{ h: "Jade Owl", p: "x", s: 30, at: "2026-09-30", v: 7 }, { h: "Misty Wren", p: "y", s: 45, at: "2026-09-30", v: 7 }] } } } }));
+    return;
+  }
   const rel = normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)).replace(/^([/\\])+/, "");
   const file = join(root, rel);
   if (!file.startsWith(root) || !existsSync(file) || statSync(file).isDirectory()) {
@@ -340,6 +347,31 @@ for (const vp of VIEWPORTS) {
       await page.locator(".toast.callout button:has-text('Rate it')").click();
       assert((await page.locator("#panelTitle").textContent()) === "Rate this game", "didn't open rating");
       await page.keyboard.press("Escape");
+    });
+
+    await check("scores: best, toasts, records panel, leaderboard", async () => {
+      assert(first.id === "pressure-grid", `fixture is for pressure-grid, first is ${first.id}`);
+      const frame = page.frames().find((f) => f.url().includes(first.file));
+      const post = (outcome, time) => frame.evaluate(([id, o, t]) => parent.postMessage({ type: "arcade:result", game: id, outcome: o, time: t }, "*"), [first.id, outcome, time]);
+      await post("win", 50);
+      await page.waitForSelector(".toast:has-text('Your first best')", { timeout: 3000 });
+      await post("win", 40);
+      await page.waitForSelector(".toast:has-text('New best!'):has-text('was 50.0 s'):has-text('#2 on the leaderboard')", { timeout: 3000 });
+      await post("win", 60);
+      await page.waitForSelector(".toast:has-text('your best 40.0 s')", { timeout: 3000 });
+      const scored = rows.filter((r) => r.kind === "round" && r.score != null);
+      assert(scored.length === 3 && scored[1].score === 40 && scored[1].board === "main" && scored[1].score_epoch === 1 && /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(scored[1].handle), JSON.stringify(scored[1]));
+      await page.locator('.toolbar [data-panel="achievements"]').click();
+      assert((await page.locator("#panelTitle").textContent()) === "Records", "panel title");
+      assert((await page.locator("#bestLine").textContent()).includes("40.0 s"), "best line");
+      await page.waitForSelector("#lbList li.me");
+      const lb = await page.locator("#lbList li").allTextContents();
+      assert(lb.length === 3 && lb[0].includes("Jade Owl") && lb[1].includes("(you)") && lb[1].startsWith("#2"), lb.join(" | "));
+      await page.locator("#lbListed").uncheck();
+      assert(!(await page.locator("#lbList li.me").count()), "still listed after opting out");
+      await page.locator("#lbListed").check();
+      await page.keyboard.press("Escape");
+      return lb.join(" | ");
     });
 
     await check("comment-only feedback", async () => {

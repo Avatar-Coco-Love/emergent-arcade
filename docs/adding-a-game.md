@@ -128,6 +128,15 @@ published from a branch.
      A game with levels/days/stages also sends `level`, `run`, `attempt`,
      `reason` and a few `stats` numbers (see
      [telemetry.md](telemetry.md#games-with-levels-optional-fields)).
+   - Give it a **score** (required): a `score` entry in the manifest says
+     what the number is and where it is in `arcade:result` (`time`,
+     `level`, `stats.<key>`, or a `score` field the game posts itself).
+     The gallery then keeps personal bests, shows "New best!", and puts the
+     game on the hourly leaderboard. Prefer a score with no ceiling, so the
+     best player can always beat it. Details: [scores.md](scores.md).
+   - **Depth:** a player who likes the game should find 10+ minutes of new
+     challenge in it (levels that escalate, or a mode that keeps going after
+     the goal), not one round that shows everything. See `ROADMAP.md`.
 5. Optional: give the game its own gallery card art by adding an entry for
    its `id` to `assets/thumbs.js` (a function returning a 72×72 inline SVG
    drawn from primitives). Without one, the card shows a generated pixel
@@ -154,6 +163,9 @@ published from a branch.
    as a "what's new" callout, and cards show an "Updated" badge until opened.
 4. Update `docs/games/<id>.md` in the same PR (new constants, balance
    numbers, open ideas).
+   If the revision changes what the score means (longer rounds, new
+   scoring), bump `score.epoch`: bests from the old rules stop showing and
+   the leaderboard restarts ([scores.md](scores.md)).
 5. Open a PR; mention which feedback motivated the change.
 
 A revision that changes the core mechanics enough to be a different game

@@ -38,6 +38,8 @@ round ended.
 | `attempt` | 1 = first try at this level in the run, 2+ = retries | |
 | `reason` | why a round was lost (game-defined, e.g. `sun`) | |
 | `stats` | a few game-specific numbers, `k=v k=v` | |
+| `score`, `board`, `score_epoch` | the round's score, if it has one ([scores.md](scores.md)), in `extra` | |
+| `handle`, `lb` | public leaderboard name, and `lb: 0` if the player opted out of the leaderboard, in `extra` | |
 
 The last five columns are optional and only filled for games that send
 them (see below). Any other field a game adds to `arcade:result` is kept
@@ -119,6 +121,8 @@ node scripts/fetch-telemetry.mjs --format csv > telemetry.csv
 ```
 
 The summary shows players, sessions, touch share, play time per session,
+the **10-minute target** (share of sessions of 10+ minutes, players whose
+sessions add up to 10+ minutes, the longest player),
 **human win rate**, win/loss round lengths, and rounds to first win. For
 games that send `level`, it adds one line per level (tries, win rate
 overall and on the first try, win/loss time, losses by reason, median of
