@@ -4,6 +4,17 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/bubble-glass.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## v3 per-level balance table
+
+Per level first-try win % / median time, reader vs hinted (8 runs; full table,
+other bots, in history): 1: 100/5 s vs 100/19; 2: 100/7 vs 100/11; 3: 100/11 vs 63/34;
+4: 100/30 vs 50/21; 5: 100/9 vs 75/31; 6: 100/4 vs 75/30; 7: 100/7 vs 88/14;
+8: 100/4 vs 100/16; 9: 100/12 vs 100/34; 10: 100/9 vs 100/17; 11: 100/5 vs 88/29;
+12: 100/8 vs 100/17; 13: 100/5 vs 100/31; 14: 100/5 vs 100/47; 15: 63/10 vs 75/35;
+16: 100/5 vs 50/20; 17: 100/4 vs 100/14; 18: 100/7 vs 100/35; 19: 100/10 vs 63/46;
+20: 100/7 vs 75/14; 21: 100/29 vs 38/24.
+
+
 v2's playtest: https://claude.ai/artifact/Pe9SQ8QrH482T4iWv6jnUc
 
 ## Replay 2026-09-30 (v2, phone, tilt mode)

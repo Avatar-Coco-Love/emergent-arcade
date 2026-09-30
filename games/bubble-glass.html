@@ -32,17 +32,18 @@
   #field { flex: 1; min-height: 0; display: grid; place-items: center; }
   #stage { position: relative; }
   #board { display: block; width: 100%; height: 100%; touch-action: none; }
+  /* Above the play area, in its own band (two lines tall so the board doesn't jump). */
   #msg {
-    position: absolute;
-    top: 2%;
-    left: 2%;
-    right: 2%;
+    flex: none;
+    min-height: 2.6em;
     margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     font-size: 0.85rem;
     line-height: 1.3;
     color: #f4f6fb;
-    text-shadow: 0 1px 3px #000, 0 0 6px #000;
     pointer-events: none;
   }
   #msg.warn { color: #ffb0a0; }
@@ -109,10 +110,10 @@
 </style>
 </head>
 <body>
+  <p id="msg" role="status"></p>
   <div id="field">
     <div id="stage">
       <canvas id="board" aria-label="Bubble Glass. Turn the box to move the sand and the bubble, hold on sand to melt it into glass, tap glass to shatter it."></canvas>
-      <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -151,6 +152,7 @@
   const TAP_R = 3;                 // a tap finds glass this many cells away
   const STALL_T = 3;               // s of stillness before a hint shows (1.5 in level 1)
   const LOOK_T = 3.5;              // s the hint looks ahead for each possible turn
+  const LID_HINT_T = 15;           // s into a lid-first level before its melt hint shows
   const HINT_MIN = 4;              // s a hint stays up even if things start moving again
   const TILT_STILL = 6;            // deg a phone may wobble (tilt mode) and still count as held still
   const MSG_MS_PER_CHAR = 70;      // messages stay up 1.5 s plus this per character (at least ms)
@@ -202,7 +204,7 @@
   // never rename or reuse one. verbs: which of turn / melt / shatter work.
   // ang: the box's angle at the start (degrees, clockwise). heat: the melt budget. melt: map spots [x, y] the stuck hint may point
   // at for melting. note: shown when the level starts; hint: shown with a
-  // melt hint. lidFirst: the melt hint shows from the start, until every spot is glass. map: MAP rows of MAP characters (see MATERIALS, o = bubble).
+  // melt hint. lidFirst: the melt hint shows after LID_HINT_T s, until every spot is glass. map: MAP rows of MAP characters (see MATERIALS, o = bubble).
   // Chapters: the score is a chapter's total play time (docs/games/bubble-glass.md).
   // Ids are permanent (leaderboard boards). Each level has ch: its chapter.
   const CHAPTERS = [
@@ -857,6 +859,8 @@
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     stage.style.width = w + 'px';
     stage.style.height = h + 'px';
+    // Drop the message part-way into the free space above the board (not onto the board, not at the very top).
+    msgEl.style.transform = `translateY(${Math.round(Math.max(0, Math.min(56, (field.clientHeight - h) / 2 - 8) * 0.6))}px)`;
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
   }
@@ -1527,10 +1531,9 @@
     state = 'playing';
     endCard.hidden = true;
     ventAt = findVent(world);
-    // A lid-first level keeps its note and lid hint up until the lids are made.
     const head = i === chFirst(c) ? `Chapter ${c + 1}: ${CHAPTERS[c].name}. ` : '';
     const untimed = chRun ? '' : ` (The chapter clock starts at level ${chFirst(c) + 1}.)`;
-    say(`${head}${lv().name}. ${lv().note}${lidHint() ? ' ' + lv().hint : ''}${untimed}`, lidHint() ? 0 : 5000);
+    say(`${head}${lv().name}. ${lv().note}${untimed}`, 5000);
     hud();
   }
 
@@ -1666,7 +1669,7 @@
   // for the turn that brings the bubble closest to the vent; failing that, a
   // place to melt, a shard to shatter, or Restart.
   function watchStall(dt) {
-    // Lid-first levels point at the lids from the start, whatever is moving.
+    // Lid-first levels point at the lids once LID_HINT_T s have passed, whatever is moving.
     const lid = lidHint();
     if (lid) {
       if (!hint || !hint.lid || hint.x !== lid.x || hint.y !== lid.y) { hints++; nudge(lid); }
@@ -1746,7 +1749,7 @@
   // with no glass beside it, while there's heat for a lid.
   function lidHint() {
     const L = lv();
-    if (!L.lidFirst || !can('melt') || world.heat < 8 || state !== 'playing') return null;
+    if (!L.lidFirst || !can('melt') || world.heat < 8 || state !== 'playing' || elapsed < LID_HINT_T) return null;
     for (const [mx, my] of L.melt) {
       const x = mx * CH + CH / 2, y = my * CH + CH / 2;
       if (MELTS[materialAt(world, x, y)] && !glassNear(world, x, y, 4)) return { melt: true, lid: true, x, y };
@@ -1949,8 +1952,12 @@
         if (!s) return;
         x = s.cells[0] % N + 0.5; y = ((s.cells[0] / N) | 0) + 0.5;
       }
-      const [sx, sy] = toScreen(x, y);
-      ctx.beginPath(); ctx.arc(sx, sy, 10 + 8 * pulse, 0, Math.PI * 2); ctx.stroke();
+      // Sky blue with a dark rim: the gold used elsewhere blends into sand.
+      const [sx, sy] = toScreen(x, y), r = 10 + 8 * pulse;
+      ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(15, 20, 32, 0.85)';
+      ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = 3.5; ctx.strokeStyle = `rgba(96, 200, 255, ${0.7 + 0.3 * pulse})`;
+      ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.stroke();
     }
   }
 
@@ -2168,27 +2175,6 @@
     world.angT = world.ang + d;
   }
 
-  // Tilt mode: the message turns in quarter turns to read upright against
-  // real gravity, along whichever edge of the stage is on top (a little
-  // past 45° before it flips, so it doesn't flicker at the boundary).
-  let msgQ = 0, msgKey = '';
-  function placeMsg() {
-    if (motion.on) {
-      const up = -world.ang;
-      if (Math.abs(angDiff(up, msgQ * Math.PI / 2)) > 55 * RAD) msgQ = ((Math.round(up / (Math.PI / 2)) % 4) + 4) % 4;
-    } else msgQ = 0;
-    const sw = stage.clientWidth, sh = stage.clientHeight, key = `${msgQ} ${sw} ${sh}`;
-    if (key === msgKey) return;
-    msgKey = key;
-    msgEl.style.cssText = '';
-    if (!msgQ) return;
-    const side = msgQ % 2 === 1;
-    Object.assign(msgEl.style, {
-      left: '50%', top: '50%', right: 'auto', width: 0.96 * (side ? sh : sw) + 'px', transformOrigin: '0 0',
-      transform: `rotate(${msgQ * 90}deg) translate(-50%, ${-0.96 * (side ? sw : sh) / 2}px)`,
-    });
-  }
-
   document.getElementById('resetBtn').addEventListener('click', restart);
   nextBtn.addEventListener('click', next);
   document.getElementById('prevLv').addEventListener('click', () => { if (!paused && level > 0) leave('switch', level - 1); });
@@ -2209,7 +2195,6 @@
       acc -= STEP;
     }
     hud();
-    placeMsg();
     draw(now);
     requestAnimationFrame(frame);
   }

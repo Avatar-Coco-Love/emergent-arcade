@@ -35,10 +35,9 @@ Liquid-motion sand toy in a sealed box. Verbs: **turn** (drag, tilt opt-in, ← 
   `LOOK_T` ahead per eighth-turn (≤`LOOK_MS` per frame). Order: marked melt spots;
   best turn (chevrons); helpful shatter (ring); Restart. Stays `HINT_MIN`; tilt "still"
   = within `TILT_STILL`°.
-- Lid-first (`lidFirst`, level 2): melt hint from frame one until spots are glass,
-  poured away, or heat < 8.
-- Messages last 1.5 s + `MSG_MS_PER_CHAR`/char; in tilt `#msg` turns in quarter
-  turns (flips 55° past a quarter).
+- Lid-first (`lidFirst`, level 2): melt hint only after `LID_HINT_T` (15 s) into the level (v4),
+  until spots are glass, poured away, or heat < 8.
+- Messages last 1.5 s + `MSG_MS_PER_CHAR`/char; `#msg` is a 2-line band above the board, nudged down ~60% into the free space, never rotating with tilt (v4). Melt/shatter hint ring is sky blue with a dark rim (gold blended into sand).
 - Warnings once per level: shard touches bubble, heat out, shatter with no heat.
 - Confirm before burying (v3): first {tap} only warns when the glass holds sand back
   (lid-first marked spot, or shard walling a bubble in within 1.5 s); second breaks it (`warns`).
@@ -89,13 +88,8 @@ chapter's last win adds `score` and `board`.
 
 ## Balance (v3)
 
-Per level first-try win % / median time, reader vs hinted (8 runs; full table,
-other bots, in history): 1: 100/5 s vs 100/19; 2: 100/7 vs 100/11; 3: 100/11 vs 63/34;
-4: 100/30 vs 50/21; 5: 100/9 vs 75/31; 6: 100/4 vs 75/30; 7: 100/7 vs 88/14;
-8: 100/4 vs 100/16; 9: 100/12 vs 100/34; 10: 100/9 vs 100/17; 11: 100/5 vs 88/29;
-12: 100/8 vs 100/17; 13: 100/5 vs 100/31; 14: 100/5 vs 100/47; 15: 63/10 vs 75/35;
-16: 100/5 vs 50/20; 17: 100/4 vs 100/14; 18: 100/7 vs 100/35; 19: 100/10 vs 63/46;
-20: 100/7 vs 75/14; 21: 100/29 vs 38/24.
+Per-level v3 table (reader vs hinted, 8 runs): `docs/history/bubble-glass.md`. Reader wins
+~100% in 4-12 s; hinted is 38-100%, 11-47 s (level 21: 38%).
 
 10-minute check (`CAMPAIGN=1 ... 16 hinted,reader`): hinted 88% all won, **10:39**
 median (IQR 9:17–11:28; ch 2:14/2:39/5:09); reader 100%, 3:36. Melt matters on
@@ -130,3 +124,5 @@ big-bubble (merged bubble leaves, v3); clockwork (chapter finished on the clock,
 - A level select that shows which levels are won.
 
 History (older versions, balance tables, playtests): `docs/history/bubble-glass.md`
+
+Playtest (v4, private): https://claude.ai/artifact/KjMpw8w6HrZVR5VGRzr9oc
