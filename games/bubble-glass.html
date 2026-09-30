@@ -87,7 +87,8 @@
   }
   button:disabled { opacity: 0.35; cursor: default; }
   button:active:not(:disabled) { transform: scale(0.97); }
-  button[hidden], #heatWrap[hidden] { display: none; }
+  button[hidden], #heatWrap[hidden], #clockWrap[hidden] { display: none; }
+  #hudBest { font-size: 0.75rem; }
   .gauge {
     display: inline-block;
     width: 64px;
@@ -122,6 +123,7 @@
   </div>
   <div class="bar">
     <span class="pick"><button id="prevLv" aria-label="Previous level">◀</button><span>Level <b id="hudLevel"></b></span><button id="nextLv" aria-label="Next level">▶</button></span>
+    <span id="clockWrap" hidden title="Chapter clock">⏱ <b id="hudClock"></b> <span id="hudBest"></span></span>
     <span id="heatWrap">Heat <span class="gauge"><i id="heatFill"></i></span> <b id="hudHeat"></b></span>
     <button id="tiltBtn" hidden>Tilt: off</button>
     <button id="resetBtn">Restart</button>
@@ -166,15 +168,22 @@
   // or fixture is a new row plus a map character:
   //   falls: moves with gravity grain by grain (and trickles past the bubble)
   //   rigid: moves with gravity as one piece (a shard)
+  //   speed: how fast it falls, relative to sand (falls only); slides: it
+  //   slips diagonally off a pile (default true)
   //   stops: a wall for the bubble; resist: how much one cell of it slows
   //   the bubble (falls only); melts: hold turns it into glass; exit: the
-  //   bubble leaves through it. Colours are RGB.
+  //   bubble leaves through it; sieve: grains fall through it (one cell
+  //   thick), the bubble and glass don't. Colours are RGB.
+  // Append new rows: the balance bots know sand as 2 and the vent as 4.
   const MATERIALS = [
     { id: 'air', ch: '.', colour: [16, 27, 44] },
     { id: 'wall', ch: '#', stops: true, colour: [62, 72, 94] },
     { id: 'sand', ch: 's', falls: true, resist: 1, melts: true, colour: [224, 186, 112] },
     { id: 'glass', ch: 'g', rigid: true, stops: true, colour: [150, 222, 238] },
     { id: 'vent', ch: 'V', stops: true, exit: true, colour: [240, 196, 106] },
+    { id: 'wet', ch: 'w', falls: true, speed: 0.25, slides: false, resist: 2.5, colour: [132, 96, 62] },
+    { id: 'dust', ch: 'd', falls: true, speed: 2, resist: 0.3, melts: true, colour: [240, 232, 214] },
+    { id: 'grate', ch: '%', stops: true, sieve: true, colour: [88, 100, 128] },
   ];
   const MAT = {};
   MATERIALS.forEach((m, i) => { MAT[m.id] = i; });
@@ -182,6 +191,9 @@
   const FALLS = MATERIALS.map(m => !!m.falls), STOPS = MATERIALS.map(m => !!m.stops);
   const MELTS = MATERIALS.map(m => !!m.melts), EXIT = MATERIALS.map(m => !!m.exit);
   const RESIST = MATERIALS.map(m => m.resist || 0);
+  const SIEVE = MATERIALS.map(m => !!m.sieve), SLIDES = MATERIALS.map(m => m.slides !== false);
+  // Grains get 2 * SAND_V passes a second and move every EVERY-th one.
+  const EVERY = MATERIALS.map(m => m.falls ? Math.max(1, Math.round(2 / (m.speed || 1))) : 0);
   const BY_CH = {};
   MATERIALS.forEach((m, i) => { BY_CH[m.ch] = i; });
   BY_CH.o = AIR;                   // the bubble starts here (on liquid)
@@ -191,8 +203,15 @@
   // ang: the box's angle at the start (degrees, clockwise). heat: the melt budget. melt: map spots [x, y] the stuck hint may point
   // at for melting. note: shown when the level starts; hint: shown with a
   // melt hint. lidFirst: the melt hint shows from the start, until every spot is glass. map: MAP rows of MAP characters (see MATERIALS, o = bubble).
+  // Chapters: the score is a chapter's total play time (docs/games/bubble-glass.md).
+  // Ids are permanent (leaderboard boards). Each level has ch: its chapter.
+  const CHAPTERS = [
+    { id: 'sand', name: 'Sand' },
+    { id: 'wet-and-dry', name: 'Wet and dry' },
+    { id: 'two-bubbles', name: 'Two bubbles' },
+  ];
   const LEVELS = [
-    { id: 'first-turn', name: "First turn", verbs: 'turn', heat: 0,
+    { id: 'first-turn', ch: 0, name: "First turn", verbs: 'turn', heat: 0,
       note: "Turn the box: drag around it. The bubble rises, the sand falls.",
       map: [
         '########################',
@@ -213,14 +232,14 @@
         '#......................#',
         '#......................#',
         '#......................#',
-        '#......................V',
-        '#......................V',
-        '#ssssssssssssssssssssss#',
-        '#ssssssssssssssssssssss#',
-        '#ssssssssssssssssssssss#',
-        '########################',
+        '#......................#',
+        '#...................#ss#',
+        '#sssssssssssssssssss#ss#',
+        '#sssssssssssssssssss#ss#',
+        '#sssssssssssssssssss#ss#',
+        '#####################VV#',
       ] },
-    { id: 'roof', name: "Roof", verbs: 'turn melt', heat: 70, lidFirst: true,
+    { id: 'roof', ch: 0, name: "Roof", verbs: 'turn melt', heat: 70, lidFirst: true,
       note: "Melting is unlocked. Turning pours the sand beside the tube onto the bubble.",
       hint: "{Hold} on the glowing ring to melt a glass lid over the sand. One on each side, then turn.", melt: [[8,  10],  [15,  10]],
       map: [
@@ -249,7 +268,7 @@
         '#######sss#..#sss#######',
         '###########VV###########',
       ] },
-    { id: 'the-plug', name: "The plug", verbs: 'turn melt shatter', heat: 40,
+    { id: 'the-plug', ch: 0, name: "The plug", verbs: 'turn melt shatter', heat: 40,
       note: "Shattering is unlocked: {tap} glass to break it back into sand. Watch where that sand falls.",
       map: [
         '########################',
@@ -277,43 +296,43 @@
         '########################',
         '########################',
       ] },
-    { id: 'lid-and-plug', name: "Lid and plug", verbs: 'turn melt shatter', heat: 70,
-      note: "Two shafts of sand and a glass plug.",
-      hint: "{Hold} on the top of the sand to melt a lid over it.", melt: [[8,  5],  [15,  5]],
+    { id: 'lid-and-plug', ch: 0, name: "Lid and plug", verbs: 'turn melt shatter', heat: 70, lidFirst: true,
+      note: "Two shafts beside a long tube, and a glass plug further down.",
+      hint: "{Hold} on the glowing ring to melt a lid over each shaft before you turn.", melt: [[8, 10], [15, 10]],
       map: [
         '########################',
         '###########o.###########',
         '###########..###########',
         '###########..###########',
         '###########..###########',
-        '#######sss....sss#######',
-        '#######sss#..#sss#######',
-        '#######sss#..#sss#######',
-        '#######sss#..#sss#######',
-        '#######sss#..#sss#######',
-        '#######sss#..#sss#######',
-        '#######sss#..#sss#######',
-        '##########gggg##########',
-        '##########gggg##########',
-        '##########gggg##########',
         '###########..###########',
-        '##........#..#........##',
-        '##........#..#........##',
-        '##........#..#........##',
-        '##....................##',
-        '##....................##',
-        '##....................##',
-        '##....................##',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '######ssss....ssss######',
+        '######ssss#..#ssss######',
+        '######ssss#..#ssss######',
+        '######ssss#..#ssss######',
+        '######ssss#..#ssss######',
+        '######ssss#..#ssss######',
+        '##########gggg##########',
+        '##########gggg##########',
+        '###.......#..#.......###',
+        '###.......#..#.......###',
+        '###..................###',
+        '###..................###',
+        '###..................###',
         '####VV##################',
       ] },
-    { id: 'hourglass', name: "Hourglass", verbs: 'turn melt shatter', heat: 60,
+    { id: 'hourglass', ch: 0, name: "Hourglass", verbs: 'turn melt shatter', heat: 60,
       note: "A glass shelf holds up the sand. What happens when it breaks?",
       map: [
         '###########VV###########',
         '###########..###########',
         '###########..###########',
-        '####................####',
-        '####................####',
+        '####ssssssssssssssss####',
+        '####ssssssssssssssss####',
         '####ssssssssssssssss####',
         '####ssssssssssssssss####',
         '##gggggggggggggggggggg##',
@@ -333,6 +352,459 @@
         '##ssssssssssssssssssss##',
         '##ssssssssssssssssssss##',
         '########################',
+      ] },
+    { id: 'mud', ch: 1, name: "Mud", verbs: 'turn', heat: 0,
+      note: "Wet sand: dark, heavy and slow. A thin layer stops the bubble, and it won't melt. Let it settle before the bubble goes through.",
+      map: [
+        '########################',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#........###############',
+        '#......................#',
+        '#..................o...#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#...................#ww#',
+        '#wwwwwwwwwwwwwwwwwww#ww#',
+        '#wwwwwwwwwwwwwwwwwww#ww#',
+        '#...................#ww#',
+        '#####################VV#',
+      ] },
+    { id: 'dust-shafts', ch: 1, name: "Dust", verbs: 'turn melt shatter', heat: 70, lidFirst: true,
+      note: "Dust: pale, light and fast. The bubble slips through a heap of it, but it pours in a flash.",
+      hint: "{Hold} on the glowing ring to melt a lid over the dust before any turn.", melt: [[8, 10], [15, 10]],
+      map: [
+        '########################',
+        '###########o.###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '#######ddd....ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '###########VV###########',
+      ] },
+    { id: 'sieve', ch: 1, name: "Sieve", verbs: 'turn melt shatter', heat: 40,
+      note: "The grey grates are sieves: sand falls through them, the bubble and glass don't.",
+      map: [
+        '###########VV###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '#####.....%..%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '#####.....%ss%.....#####',
+        '###########ss###########',
+        '###########..###########',
+        '###########..###########',
+        '###########o.###########',
+        '###########..###########',
+        '########################',
+        '########################',
+      ] },
+    { id: 'landslide', ch: 1, name: "Landslide", verbs: 'turn melt shatter', heat: 40,
+      note: "Level 3's plug, under a room of wet sand. It moves slowly, but it moves.",
+      map: [
+        '########################',
+        'V.....................##',
+        'V.....................##',
+        '##....................##',
+        '##....................##',
+        '##....................##',
+        '##....................##',
+        '##........#..#........##',
+        '##wwwwwwww#..#wwwwwwww##',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '##########gggg##########',
+        '##########gggg##########',
+        '##########gggg##########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########o.###########',
+        '###########..###########',
+        '########################',
+        '########################',
+      ] },
+    { id: 'sump', ch: 1, name: "Sump", verbs: 'turn melt shatter', heat: 60,
+      note: "Two thin sumps behind the grates. Neither holds all the sand.",
+      hint: "{Hold} on the sand in a full sump to melt a lid that keeps it there.", melt: [[9, 10], [14, 10]],
+      map: [
+        '###########VV###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '#########.%..%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '#########.%ss%.#########',
+        '###########..###########',
+        '###########..###########',
+        '###########o.###########',
+        '###########..###########',
+        '########################',
+        '########################',
+        '########################',
+      ] },
+    { id: 'sand-timer', ch: 1, name: "Sand timer", verbs: 'turn melt shatter', heat: 60,
+      note: "The hourglass again, full of dust.",
+      map: [
+        '###########VV###########',
+        '###########..###########',
+        '###########..###########',
+        '####dddddddddddddddd####',
+        '####dddddddddddddddd####',
+        '####dddddddddddddddd####',
+        '####dddddddddddddddd####',
+        '##gggggggggggggggggggg##',
+        '####................####',
+        '####......#..#......####',
+        '####......#..#......####',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '##....................##',
+        '##....................##',
+        '##.........o..........##',
+        '##....................##',
+        '##....................##',
+        '##....................##',
+        '##dddddddddddddddddddd##',
+        '##dddddddddddddddddddd##',
+        '########################',
+      ] },
+    { id: 'quicksand', ch: 1, name: "Quicksand", verbs: 'turn melt shatter', heat: 70, lidFirst: true,
+      note: "Dust above, mud below the vent, and a grate beside it.",
+      hint: "{Hold} on the glowing ring to lid the dust first.", melt: [[8, 10], [15, 10]],
+      map: [
+        '########################',
+        '###########o.###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '#######ddd....ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '#######ddd#..#ddd#######',
+        '###########..###########',
+        '###########..###########',
+        '###########ww%....######',
+        '###########ww%....######',
+        '###########ww%....######',
+        '###########ww%....######',
+        '###########VV###########',
+      ] },
+    { id: 'twins', ch: 2, name: "Twins", verbs: 'turn melt shatter', heat: 40,
+      note: "Two bubbles, one vent. Both have to get out. Bubbles that touch join into one big bubble.",
+      map: [
+        '##########VVVV##########',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#######..........#######',
+        '#......................#',
+        '#..o................o..#',
+        '#......................#',
+        '#......................#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#ssssssssss##ssssssssss#',
+        '#ssssssssss##ssssssssss#',
+        '#ssssssssss##ssssssssss#',
+        '#ssssssssss##ssssssssss#',
+        '########################',
+      ] },
+    { id: 'mud-twins', ch: 2, name: "Mud twins", verbs: 'turn melt shatter', heat: 40,
+      note: "Twins, over beds of wet sand. Keep the mud off them.",
+      map: [
+        '##########VVVV##########',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#######..........#######',
+        '#......................#',
+        '#..o................o..#',
+        '#......................#',
+        '#......................#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#wwwwwwwwww##wwwwwwwwww#',
+        '#wwwwwwwwww##wwwwwwwwww#',
+        '#wwwwwwwwww##wwwwwwwwww#',
+        '#wwwwwwwwww##wwwwwwwwww#',
+        '########################',
+      ] },
+    { id: 'narrow-door', ch: 2, name: "Narrow door", verbs: 'turn melt shatter', heat: 40,
+      note: "Only one bubble fits the tube at a time, and a joined-up bubble doesn't fit at all.",
+      map: [
+        '###########VV###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#######..........#######',
+        '#......................#',
+        '#..o................o..#',
+        '#......................#',
+        '#......................#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#ssssssssss##ssssssssss#',
+        '#ssssssssss##ssssssssss#',
+        '#ssssssssss##ssssssssss#',
+        '#ssssssssss##ssssssssss#',
+        '########################',
+      ] },
+    { id: 'dust-door', ch: 2, name: "Dust door", verbs: 'turn melt shatter', heat: 40,
+      note: "The narrow door again, over beds of dust.",
+      map: [
+        '###########VV###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '#......................#',
+        '#......................#',
+        '#......................#',
+        '#######..........#######',
+        '#......................#',
+        '#..o................o..#',
+        '#......................#',
+        '#......................#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#..........##..........#',
+        '#dddddddddd##dddddddddd#',
+        '#dddddddddd##dddddddddd#',
+        '#dddddddddd##dddddddddd#',
+        '#dddddddddd##dddddddddd#',
+        '########################',
+      ] },
+    { id: 'shared-sand', ch: 2, name: "Shared sand", verbs: 'turn melt shatter', heat: 40,
+      note: "Two tubes, one grate between them. Sand that leaves one tube lands in the other.",
+      map: [
+        '##########VVVVV#########',
+        '########.........#######',
+        '########.........#######',
+        '##########..#..#########',
+        '##########..#..#########',
+        '##########..#..#########',
+        '##########..#..#########',
+        '#######..%ss%ss%..######',
+        '#######..%ss%ss%..######',
+        '#######..%ss%ss%..######',
+        '#######..%ss%ss%..######',
+        '#######..%ss%ss%..######',
+        '#######..%ss%ss%..######',
+        '#######..%ss%ss%..######',
+        '#######..%ss%ss%..######',
+        '##########..#..#########',
+        '##########..#..#########',
+        '##########..#..#########',
+        '##########o.#o.#########',
+        '##########..#..#########',
+        '########################',
+        '########################',
+        '########################',
+        '########################',
+      ] },
+    { id: 'upstairs', ch: 2, name: "Upstairs", verbs: 'turn melt shatter', heat: 40,
+      note: "One bubble above the plug, one below it.",
+      map: [
+        '########################',
+        'V.....................##',
+        'V.....................##',
+        '##....................##',
+        '##....................##',
+        '##....................##',
+        '##........#..#........##',
+        '##ssssssss#..#ssssssss##',
+        '###########..###########',
+        '###########..###########',
+        '###########o.###########',
+        '###########..###########',
+        '###########..###########',
+        '##########gggg##########',
+        '##########gggg##########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########o.###########',
+        '###########..###########',
+        '###########..###########',
+        '########################',
+        '########################',
+      ] },
+    { id: 'two-plugs', ch: 2, name: "Two plugs", verbs: 'turn melt shatter', heat: 40,
+      note: "Two bubbles, each under a glass plug, and one room of sand above them both.",
+      map: [
+        '###########VV###########',
+        '###########..###########',
+        '###########..###########',
+        '###..................###',
+        '###..................###',
+        '###..................###',
+        '###..................###',
+        '###....ssssssssss....###',
+        '###....ssssssssss....###',
+        '####..############..####',
+        '####..############..####',
+        '###gggg##########gggg###',
+        '###gggg##########gggg###',
+        '####..############..####',
+        '####..############..####',
+        '####..############..####',
+        '####..############..####',
+        '####..############..####',
+        '####..############..####',
+        '####o.############o.####',
+        '####..############..####',
+        '########################',
+        '########################',
+        '########################',
+      ] },
+    { id: 'convoy', ch: 2, name: "Convoy", verbs: 'turn melt shatter', heat: 70, lidFirst: true,
+      note: "Two bubbles in one tube, and the shafts from level 2.",
+      hint: "{Hold} on the glowing ring to melt a lid over each shaft: both bubbles have to get past.", melt: [[8, 10], [15, 10]],
+      map: [
+        '########################',
+        '###########o.###########',
+        '###########..###########',
+        '###########..###########',
+        '###########o.###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '#######sss....sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '#######sss#..#sss#######',
+        '###########VV###########',
+      ] },
+    { id: 'last-box', ch: 2, name: "Last box", verbs: 'turn melt shatter', heat: 70, lidFirst: true,
+      note: "Level 4, with two bubbles.",
+      hint: "{Hold} on the glowing ring to melt a lid over each shaft before you turn.", melt: [[8, 10], [15, 10]],
+      map: [
+        '########################',
+        '###########o.###########',
+        '###########..###########',
+        '###########..###########',
+        '###########o.###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '###########..###########',
+        '######ssss....ssss######',
+        '######ssss#..#ssss######',
+        '######ssss#..#ssss######',
+        '######ssss#..#ssss######',
+        '######ssss#..#ssss######',
+        '######ssss#..#ssss######',
+        '##########gggg##########',
+        '##########gggg##########',
+        '###.......#..#.......###',
+        '###.......#..#.......###',
+        '###..................###',
+        '###..................###',
+        '###..................###',
+        '####VV##################',
       ] },
   ];
 
@@ -362,11 +834,14 @@
     const r1 = v => Math.round(v * 10) / 10;
     const msg = { type: 'arcade:result', game: GAME_ID,
       outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
-      level: level + 1, level_id: lv().id, run: runId, attempt,
+      level: level + 1, level_id: lv().id, chapter: CHAPTERS[lv().ch].id, run: runId, attempt,
       stats: { turns: turns, deg: Math.round(world.deg), melted: world.melted, glass: world.glass,
         shattered: world.shattered, heat_left: Math.round(world.heat), stuck_s: r1(stuckS), hints: hints,
-        warns: warns, first_input: firstInput, tilt: tiltUsed ? 1 : 0, buried_s: r1(buriedS) } };
+        warns: warns, first_input: firstInput, tilt: tiltUsed ? 1 : 0, buried_s: r1(buriedS),
+        out: world.out, merged: world.merged, ch_t: r1(chRun ? chRun.t : chapterTime || 0) } };
     if (reason) msg.reason = reason;
+    // The score: a whole chapter's play time, posted with its last level.
+    if (chapterTime !== null) { msg.score = r1(chapterTime); msg.board = CHAPTERS[lv().ch].id; }
     window.parent.postMessage(msg, '*');
   }
 
@@ -393,6 +868,8 @@
   window.addEventListener('message', evt => {
     if (evt.data && evt.data.type === 'arcade:pause') { paused = true; keys.clear(); endPress(); }
     if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+    // The player's best chapter times, from the gallery (docs/scores.md).
+    if (evt.data && evt.data.type === 'arcade:best' && evt.data.bests && typeof evt.data.bests === 'object') bestBy = evt.data.bests;
   });
 
   // ---------- the world (pure simulation: no input, no drawing) ----------
@@ -419,15 +896,17 @@
 
   function parseLevel(L) {
     const w = { t: new Uint8Array(N * N), sid: new Int16Array(N * N), tone: new Uint8Array(N * N),
-      was: new Uint8Array(N * N), bub: new Uint8Array(N * N), mark: new Uint32Array(N * N), stamp: 0, flip: 0,
-      shards: [], nextId: 1, bx: 0, by: 0, ang: 0, angT: 0, deg: 0, heat: L.heat, melt: null,
-      sandAcc: 0, shardAcc: 0, won: false, flow: 1, moves: 0, moved: 0, bmoved: 0,
-      melted: 0, glass: 0, shattered: 0, shelter: 0, landed: 0 };
+      was: new Uint8Array(N * N), bub: new Uint8Array(N * N), mark: new Uint32Array(N * N), stamp: 0, pass: 0,
+      shards: [], nextId: 1, bubs: [], ang: 0, angT: 0, deg: 0, heat: L.heat, melt: null,
+      sandAcc: 0, shardAcc: 0, won: false, flow: 1, moves: 0, moved: 0, bmoved: 0, out: 0, merged: 0,
+      melted: 0, glass: 0, shattered: 0, shelter: 0, landed: 0, fast: false };
+    const starts = [];
     for (let my = 0; my < MAP; my++) for (let mx = 0; mx < MAP; mx++) {
       const ch = L.map[my][mx];
       const m = BY_CH[ch];
       if (m === undefined) throw new Error(`level ${L.id}: unknown map character ${ch}`);
-      if (ch === 'o') { w.bx = mx * CH + CH / 2; w.by = my * CH + CH / 2; }
+      if (ch === 'o') starts.push([mx * CH + CH / 2, my * CH + CH / 2]);
+      if (EVERY[m] === 1) w.fast = true;
       for (let dy = 0; dy < CH; dy++) for (let dx = 0; dx < CH; dx++) {
         const i = (my * CH + dy) * N + mx * CH + dx;
         w.t[i] = m;
@@ -453,12 +932,16 @@
       }
       w.shards.push(s);
     }
-    // Centre the bubble where it fits, nearest the map's o.
-    const fits = (x, y) => footprint(x, y).every(j => j >= 0 && !STOPS[w.t[j]]);
-    search: for (let r = 0; r <= 3; r += 0.5) for (let dy = -r; dy <= r; dy += 0.5) for (let dx = -r; dx <= r; dx += 0.5) {
-      if (Math.max(Math.abs(dx), Math.abs(dy)) === r && fits(w.bx + dx, w.by + dy)) { w.bx += dx; w.by += dy; break search; }
+    // Centre each bubble where it fits, nearest its o.
+    for (const [x0, y0] of starts) {
+      const b = { x: x0, y: y0, r: BR, flow: 1 };
+      const fits = (x, y) => footprint(x, y, b.r).every(j => j >= 0 && !STOPS[w.t[j]] && !w.bub[j]);
+      search: for (let r = 0; r <= 3; r += 0.5) for (let dy = -r; dy <= r; dy += 0.5) for (let dx = -r; dx <= r; dx += 0.5) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) === r && fits(x0 + dx, y0 + dy)) { b.x += dx; b.y += dy; break search; }
+      }
+      for (const j of footprint(b.x, b.y, b.r)) if (j >= 0) { w.bub[j] = 1; if (FALLS[w.t[j]]) w.t[j] = AIR; }
+      w.bubs.push(b);
     }
-    for (const j of footprint(w.bx, w.by)) if (j >= 0) { w.bub[j] = 1; if (FALLS[w.t[j]]) w.t[j] = AIR; }
     w.ang = w.angT = (L.ang || 0) * RAD;
     return w;
   }
@@ -466,16 +949,16 @@
   function cloneWorld(w) {
     return { ...w, t: w.t.slice(), sid: w.sid.slice(), tone: w.tone.slice(), was: w.was.slice(), bub: w.bub.slice(),
       mark: new Uint32Array(N * N), stamp: 0, shards: w.shards.map(s => ({ ...s, cells: s.cells.slice() })),
-      melt: w.melt && { ...w.melt } };
+      bubs: w.bubs.map(b => ({ ...b })), melt: w.melt && { ...w.melt } };
   }
 
-  // Cells the bubble covers when centred at (bx, by) (-1: outside the box).
-  function footprint(bx, by) {
+  // Cells a bubble of radius r covers when centred at (bx, by) (-1: outside the box).
+  function footprint(bx, by, r) {
     const out = [];
-    const x0 = Math.floor(bx - BR), x1 = Math.floor(bx + BR), y0 = Math.floor(by - BR), y1 = Math.floor(by + BR);
+    const x0 = Math.floor(bx - r), x1 = Math.floor(bx + r), y0 = Math.floor(by - r), y1 = Math.floor(by + r);
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const cx = x + 0.5 - bx, cy = y + 0.5 - by;
-      if (cx * cx + cy * cy > BR * BR) continue;
+      if (cx * cx + cy * cy > r * r) continue;
       out.push(x < 0 || y < 0 || x >= N || y >= N ? -1 : y * N + x);
     }
     return out;
@@ -495,33 +978,45 @@
   const free = (w, j) => w.t[j] === AIR && !w.bub[j];
   // Where a grain at (x, y) can go in direction k, or -1. A diagonal step
   // needs one of the two cells beside it open, so grains can't squeeze
-  // between two corners.
+  // between two corners. A grate (up to 3 cells thick) is skipped: the grain
+  // lands just past it, straight through.
   function grainTo(w, x, y, k) {
-    const nx = x + DX[k], ny = y + DY[k];
+    let nx = x + DX[k], ny = y + DY[k];
     if (nx < 0 || ny < 0 || nx >= N || ny >= N) return -1;
-    const j = ny * N + nx;
+    let j = ny * N + nx;
+    if (SIEVE[w.t[j]]) {
+      if (DX[k] && DY[k]) return -1;
+      for (let n = 0; SIEVE[w.t[j]]; n++) {
+        nx += DX[k]; ny += DY[k];
+        if (n > 2 || nx < 0 || ny < 0 || nx >= N || ny >= N) return -1;
+        j = ny * N + nx;
+      }
+      return free(w, j) ? j : -1;
+    }
     if (!free(w, j)) return -1;
     if (DX[k] && DY[k] && !free(w, y * N + nx) && !free(w, ny * N + x)) return -1;
     return j;
   }
 
   function sandPass(w, g) {
-    const order = ORDER[g.main][w.flip ^= 1];
+    const p = w.pass++;
+    const order = ORDER[g.main][(p >> 1) & 1];
     const t = w.t, stamp = ++w.stamp;
     const sh = w.shelter, down = g.main;
     for (let n = 0; n < order.length; n++) {
       const i = order[n];
-      if (!FALLS[t[i]] || w.mark[i] === stamp) continue;
+      const m = t[i];
+      if (!FALLS[m] || w.mark[i] === stamp || p % EVERY[m]) continue;
       const x = i % N, y = (i / N) | 0;
       const k = Math.random() < g.frac ? g.k1 : g.k0;
       let j = grainTo(w, x, y, k);
-      if (j < 0) {
+      if (j < 0 && SLIDES[m]) {
         const a = Math.random() < 0.5 ? 1 : 7;
         j = grainTo(w, x, y, (k + a) & 7);
         if (j < 0) j = grainTo(w, x, y, (k + 8 - a) & 7);
       }
       if (j < 0) continue;
-      t[j] = t[i]; w.tone[j] = w.tone[i]; t[i] = AIR;
+      t[j] = m; w.tone[j] = w.tone[i]; t[i] = AIR;
       w.mark[j] = stamp;
       w.moves++;
       // Landed on the shard sheltering the bubble (for Umbrella)?
@@ -558,17 +1053,17 @@
     }
   }
 
-  // Sand straight ahead of the bubble along (ux, uy), weighted by each
+  // Sand straight ahead of bubble b along (ux, uy), weighted by each
   // material's resist: the deepest of four lanes across its width. A thin
   // layer across its path only slows it, but a long run of sand along one
   // side (a film down a tube it fills) is as much a wall as a deep pile.
-  function sandAhead(w, ux, uy) {
-    const px = -uy, py = ux;
+  function sandAhead(w, b, ux, uy) {
+    const px = -uy, py = ux, o1 = b.r - 0.7;
     let most = 0;
-    for (const o of [-1.5, -0.5, 0.5, 1.5]) {
+    for (const o of [-o1, -o1 / 3, o1 / 3, o1]) {
       let dep = 0;
-      for (let s = BR + 0.6; dep < DEEP && s < BR + DEEP + 2; s += 1) {
-        const x = Math.floor(w.bx + ux * s + px * o), y = Math.floor(w.by + uy * s + py * o);
+      for (let s = b.r + 0.6; dep < DEEP && s < b.r + DEEP + 2; s += 1) {
+        const x = Math.floor(b.x + ux * s + px * o), y = Math.floor(b.y + uy * s + py * o);
         if (x < 0 || y < 0 || x >= N || y >= N) break;
         const m = w.t[y * N + x];
         if (!FALLS[m]) break;
@@ -584,18 +1079,20 @@
   }
   const flowFor = dep => dep <= 0 ? 1 : dep >= DEEP ? 0 : 1 / (1 + dep / TRICKLE_D);
 
-  // Try moving the bubble by (mx, my), slowed by the sand ahead along the
-  // move. Grains in the way swap to the cells
-  // it leaves behind (sand is never lost); anything that stops it blocks.
-  function tryBubble(w, mx, my, ux, uy) {
-    const old = footprint(w.bx, w.by);
-    let nx = w.bx + mx, ny = w.by + my;
-    let nf = footprint(nx, ny), shifted = [];
+  // Try moving bubble b by (mx, my), slowed by the sand ahead along the
+  // move. Grains in the way swap to the cells it leaves behind (sand is
+  // never lost); anything that stops it blocks, and so does another bubble
+  // (then w.touch is set, and they may merge).
+  function tryBubble(w, b, mx, my, ux, uy) {
+    const old = footprint(b.x, b.y, b.r), own = new Set(old);
+    let nx = b.x + mx, ny = b.y + my;
+    let nf = footprint(nx, ny, b.r), shifted = [];
     const scan = () => {
       shifted = [];
       for (const j of nf) {
         if (j < 0) return false;
-        if (w.bub[j] || w.t[j] === AIR) continue;
+        if (w.bub[j]) { if (own.has(j)) continue; w.touch = true; return false; }
+        if (w.t[j] === AIR) continue;
         if (FALLS[w.t[j]]) shifted.push(j); else return false;
       }
       return true;
@@ -605,15 +1102,15 @@
       // Slowed by the sand ahead: straight up (the column it has to let
       // past) or along this move, whichever is deeper.
       const len = Math.hypot(mx, my);
-      let dep = Math.max(sandAhead(w, ux, uy), sandAhead(w, mx / len, my / len));
+      let dep = Math.max(sandAhead(w, b, ux, uy), sandAhead(w, b, mx / len, my / len));
       // Sand slips past the bubble through the liquid around it. With no
       // liquid beside it (a tube it fills, or buried in sand) there's hardly
       // any way past, so sand counts TUBE_K times as deep.
-      const sx = -my / len * (BR + 1), sy = mx / len * (BR + 1);
-      if (!liquidAt(w, w.bx + sx, w.by + sy) && !liquidAt(w, w.bx - sx, w.by - sy)) dep *= TUBE_K;
+      const sx = -my / len * (b.r + 1), sy = mx / len * (b.r + 1);
+      if (!liquidAt(w, b.x + sx, b.y + sy) && !liquidAt(w, b.x - sx, b.y - sy)) dep *= TUBE_K;
       const f = flowFor(dep);
       if (f <= 0) return false;
-      if (f < 1) { nx = w.bx + mx * f; ny = w.by + my * f; nf = footprint(nx, ny); if (!scan()) return false; }
+      if (f < 1) { nx = b.x + mx * f; ny = b.y + my * f; nf = footprint(nx, ny, b.r); if (!scan()) return false; }
     }
     if (shifted.length) {
       const inNew = new Set(nf);
@@ -621,72 +1118,112 @@
       // A small move may not free a cell yet: then grains go to open
       // liquid just behind the bubble.
       if (back.length < shifted.length) {
-        const r = BR + 1.5;
-        for (let y = Math.floor(w.by - r); y <= w.by + r && back.length < shifted.length; y++) for (let x = Math.floor(w.bx - r); x <= w.bx + r; x++) {
+        const r = b.r + 1.5;
+        for (let y = Math.floor(b.y - r); y <= b.y + r && back.length < shifted.length; y++) for (let x = Math.floor(b.x - r); x <= b.x + r; x++) {
           if (x < 0 || y < 0 || x >= N || y >= N) continue;
-          const i = y * N + x, cx = x + 0.5 - w.bx, cy = y + 0.5 - w.by;
+          const i = y * N + x, cx = x + 0.5 - b.x, cy = y + 0.5 - b.y;
           if (w.t[i] !== AIR || w.bub[i] || inNew.has(i) || cx * ux + cy * uy > -0.5 || cx * cx + cy * cy > r * r) continue;
           back.push(i);
           if (back.length >= shifted.length) break;
         }
         if (back.length < shifted.length) return false;
       }
-      back.sort((a, b) => ((a % N) * ux + ((a / N) | 0) * uy) - ((b % N) * ux + ((b / N) | 0) * uy));
-      shifted.forEach((j, n) => { const b = back[n]; w.t[b] = w.t[j]; w.tone[b] = w.tone[j]; w.t[j] = AIR; });
+      back.sort((a, c) => ((a % N) * ux + ((a / N) | 0) * uy) - ((c % N) * ux + ((c / N) | 0) * uy));
+      shifted.forEach((j, n) => { const q = back[n]; w.t[q] = w.t[j]; w.tone[q] = w.tone[j]; w.t[j] = AIR; });
     }
     for (const i of old) if (i >= 0) w.bub[i] = 0;
     for (const j of nf) w.bub[j] = 1;
-    w.bmoved += Math.hypot(nx - w.bx, ny - w.by);
-    w.bx = nx; w.by = ny;
+    w.bmoved += Math.hypot(nx - b.x, ny - b.y);
+    b.x = nx; b.y = ny;
     return true;
   }
 
-  // The bubble rises against gravity; blocked, it slips 45° either way or
-  // slides along whatever it's pressed against.
-  function bubbleStep(w, g, dt) {
-    const ux = -g.gx, uy = -g.gy, d = BUBBLE_V * dt;
-    w.flow = flowFor(sandAhead(w, ux, uy));
+  // A bubble rises against gravity (a bigger one faster); blocked, it slips
+  // 45° either way or slides along whatever it's pressed against.
+  function bubbleStep(w, b, g, dt) {
+    const ux = -g.gx, uy = -g.gy, d = BUBBLE_V * Math.sqrt(b.r / BR) * dt;
+    b.flow = flowFor(sandAhead(w, b, ux, uy));
     const c = Math.SQRT1_2;
     const r1 = [(ux - uy) * c, (uy + ux) * c], r2 = [(ux + uy) * c, (uy - ux) * c];
     const first = Math.random() < 0.5;
     const cands = [[ux, uy, 1], first ? [...r1, 0.7] : [...r2, 0.7], first ? [...r2, 0.7] : [...r1, 0.7], [ux, 0, 1], [0, uy, 1]];
     for (const [cx, cy, s] of cands) {
       if (Math.abs(cx) + Math.abs(cy) < 0.08) continue;
-      if (tryBubble(w, cx * d * s, cy * d * s, ux, uy)) return;
+      if (tryBubble(w, b, cx * d * s, cy * d * s, ux, uy)) return;
     }
     // Sliding along a flat wall, a pixel circle catches on the cells: back
     // off a little from the wall while sliding.
     for (const [cx, cy] of [[ux, 0], [0, uy]]) {
       if (Math.abs(cx) + Math.abs(cy) < 0.08) continue;
       const bx = cx ? 0 : -ux * 0.35, by = cy ? 0 : -uy * 0.35;
-      if (tryBubble(w, cx * d + bx, cy * d + by, ux, uy)) return;
+      if (tryBubble(w, b, cx * d + bx, cy * d + by, ux, uy)) return;
     }
   }
 
-  // The shard (if any) roofing the bubble: one of its cells touches the
+  // Two bubbles pressed together become one with both their areas, where it
+  // fits (sand under it is pushed to the nearest liquid). Where it doesn't
+  // fit (a tube too narrow for the big one), they stay apart.
+  function mergeBubbles(w, a, b) {
+    const A = a.r * a.r, B = b.r * b.r, r = Math.sqrt(A + B);
+    const x0 = (a.x * A + b.x * B) / (A + B), y0 = (a.y * A + b.y * B) / (A + B);
+    const mine = new Set([...footprint(a.x, a.y, a.r), ...footprint(b.x, b.y, b.r)]);
+    const fits = (x, y) => footprint(x, y, r).every(j => j >= 0 && !STOPS[w.t[j]] && (!w.bub[j] || mine.has(j)));
+    let at = null;
+    search: for (let q = 0; q <= 2; q += 0.5) for (let dy = -q; dy <= q; dy += 0.5) for (let dx = -q; dx <= q; dx += 0.5) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) === q && fits(x0 + dx, y0 + dy)) { at = [x0 + dx, y0 + dy]; break search; }
+    }
+    if (!at) return false;
+    for (const i of mine) if (i >= 0) w.bub[i] = 0;
+    const nf = footprint(at[0], at[1], r), inNew = new Set(nf);
+    for (const j of nf) w.bub[j] = 1;
+    // Grains under the new bubble go to the nearest free liquid.
+    for (const j of nf) {
+      if (!FALLS[w.t[j]]) continue;
+      const x = j % N, y = (j / N) | 0;
+      let to = -1;
+      for (let q = 1; q < N && to < 0; q++) for (let yy = y - q; yy <= y + q && to < 0; yy++) for (let xx = x - q; xx <= x + q; xx++) {
+        if (xx < 0 || yy < 0 || xx >= N || yy >= N || Math.max(Math.abs(xx - x), Math.abs(yy - y)) !== q) continue;
+        const i = yy * N + xx;
+        if (w.t[i] === AIR && !w.bub[i] && !inNew.has(i)) { to = i; break; }
+      }
+      if (to >= 0) { w.t[to] = w.t[j]; w.tone[to] = w.tone[j]; }
+      w.t[j] = AIR;
+    }
+    a.x = at[0]; a.y = at[1]; a.r = r;
+    w.bubs = w.bubs.filter(q => q !== b);
+    w.merged++;
+    return true;
+  }
+
+  // The shard (if any) roofing a bubble: one of its cells touches the
   // bubble's upper side.
   function shelterOf(w, g) {
-    const ux = -g.gx, uy = -g.gy, r = BR + 1.4;
-    for (let y = Math.floor(w.by - r); y <= w.by + r; y++) for (let x = Math.floor(w.bx - r); x <= w.bx + r; x++) {
-      if (x < 0 || y < 0 || x >= N || y >= N) continue;
-      const i = y * N + x;
-      if (!w.sid[i]) continue;
-      const cx = x + 0.5 - w.bx, cy = y + 0.5 - w.by;
-      if (cx * cx + cy * cy <= r * r && cx * ux + cy * uy > 0.8) return w.sid[i];
+    const ux = -g.gx, uy = -g.gy;
+    for (const b of w.bubs) {
+      const r = b.r + 1.4;
+      for (let y = Math.floor(b.y - r); y <= b.y + r; y++) for (let x = Math.floor(b.x - r); x <= b.x + r; x++) {
+        if (x < 0 || y < 0 || x >= N || y >= N) continue;
+        const i = y * N + x;
+        if (!w.sid[i]) continue;
+        const cx = x + 0.5 - b.x, cy = y + 0.5 - b.y;
+        if (cx * cx + cy * cy <= r * r && cx * ux + cy * uy > 0.8) return w.sid[i];
+      }
     }
     return 0;
   }
 
   function touchesBubble(w, s) {
-    const r = BR + 1.6;
-    return s.cells.some(i => { const cx = i % N + 0.5 - w.bx, cy = ((i / N) | 0) + 0.5 - w.by; return cx * cx + cy * cy <= r * r; });
+    return w.bubs.some(b => {
+      const r = b.r + 1.6;
+      return s.cells.some(i => { const cx = i % N + 0.5 - b.x, cy = ((i / N) | 0) + 0.5 - b.y; return cx * cx + cy * cy <= r * r; });
+    });
   }
 
-  function atVent(w) {
-    const r = BR + 1.2;
-    for (let y = Math.floor(w.by - r); y <= w.by + r; y++) for (let x = Math.floor(w.bx - r); x <= w.bx + r; x++) {
+  function atVent(w, b) {
+    const r = b.r + 1.2;
+    for (let y = Math.floor(b.y - r); y <= b.y + r; y++) for (let x = Math.floor(b.x - r); x <= b.x + r; x++) {
       if (x < 0 || y < 0 || x >= N || y >= N || !EXIT[w.t[y * N + x]]) continue;
-      const cx = x + 0.5 - w.bx, cy = y + 0.5 - w.by;
+      const cx = x + 0.5 - b.x, cy = y + 0.5 - b.y;
       if (cx * cx + cy * cy <= r * r) return true;
     }
     return false;
@@ -725,16 +1262,42 @@
     const g = gravity(w);
     w.moves = 0; w.moved = 0; w.bmoved = 0;
     w.shelter = shelterOf(w, g);
-    w.sandAcc += SAND_V * dt;
-    while (w.sandAcc >= 1) { sandPass(w, g); w.sandAcc -= 1; }
+    // Two passes per sand pass, for dust; a box without dust skips the odd ones.
+    w.sandAcc += 2 * SAND_V * dt;
+    while (w.sandAcc >= 1) { if (w.fast || !(w.pass & 1)) sandPass(w, g); else w.pass++; w.sandAcc -= 1; }
     w.shardAcc += SHARD_V * dt;
     while (w.shardAcc >= 1) { shardPass(w, g); w.shardAcc -= 1; }
-    bubbleStep(w, g, dt);
+    // Bubbles move highest first, so a lower one doesn't catch on it.
+    const ux = -g.gx, uy = -g.gy;
+    w.touch = false;
+    const list = w.bubs.length > 1 ? [...w.bubs].sort((p, q) => (q.x * ux + q.y * uy) - (p.x * ux + p.y * uy)) : w.bubs;
+    for (const b of list) bubbleStep(w, b, g, dt);
+    if (w.touch) {
+      // A merge that didn't fit isn't tried again until one of them moves.
+      pairs: for (const p of w.bubs) for (const q of w.bubs) {
+        if (p === q || Math.hypot(p.x - q.x, p.y - q.y) >= p.r + q.r + 1) continue;
+        const key = [p.x, p.y, q.x, q.y].map(v => Math.round(v * 2)).join();
+        if (key === w.mergeFail) continue;
+        if (mergeBubbles(w, p, q)) break pairs;
+        w.mergeFail = key;
+      }
+    }
+    w.flow = 1;
+    for (const b of w.bubs) w.flow = Math.min(w.flow, b.flow);
     if (w.melt) {
       w.melt.acc += MELT_RATE * dt;
       while (w.melt.acc >= 1) { w.melt.acc -= 1; if (!growShard(w)) { w.melt.acc = 0; break; } }
     }
-    if (atVent(w)) w.won = true;
+    // A bubble at the vent leaves the box; the level is won when none is left.
+    for (const b of w.bubs) {
+      if (!atVent(w, b)) continue;
+      for (const j of footprint(b.x, b.y, b.r)) if (j >= 0) w.bub[j] = 0;
+      w.bubs = w.bubs.filter(q => q !== b);
+      w.out++;
+      w.outAt = [b.x, b.y, b.r];
+      break;
+    }
+    if (!w.bubs.length) w.won = true;
   }
 
   // ---------- actions (the input handlers and the balance bots call these) ----------
@@ -789,18 +1352,25 @@
   }
 
   // ---------- looking ahead (the stuck hint and the balance bots) ----------
-  // How far the bubble is from the vent: a shortest path over the points
-  // where it fits (cell corners with nothing that stops it within BR),
-  // costing extra through sand. Infinity if no path.
-  const FOOT0 = [];
-  for (let y = -3; y < 3; y++) for (let x = -3; x < 3; x++) {
-    const cx = x + 0.5, cy = y + 0.5;
-    if (cx * cx + cy * cy <= BR * BR) FOOT0.push([x, y]);
+  // How far a bubble of radius r is from the vent: a shortest path over the
+  // points where it fits (cell corners with nothing that stops it within
+  // r), costing extra through sand. Infinity if no path.
+  const FOOTS = {};
+  function footAt(r) {
+    const key = r.toFixed(2);
+    if (FOOTS[key]) return FOOTS[key];
+    const out = [], R = Math.ceil(r);
+    for (let y = -R; y < R; y++) for (let x = -R; x < R; x++) {
+      const cx = x + 0.5, cy = y + 0.5;
+      if (cx * cx + cy * cy <= r * r) out.push([x, y]);
+    }
+    return (FOOTS[key] = out);
   }
   const M1 = N + 1;
   const hk = new Float64Array(8 * M1 * M1), hp = new Int32Array(8 * M1 * M1);
   const cost = new Float32Array(M1 * M1);
-  function ventDistance(w) {
+  function ventDistance(w, r = BR) {
+    const FOOT0 = footAt(r);
     const dist = new Float32Array(M1 * M1).fill(Infinity);
     let n = 0;
     const push = (d, p) => {
@@ -834,7 +1404,7 @@
       if (ok) cost[py * M1 + px] = 1 + 2 * sand / FOOT0.length;
     }
     // Start from every point where the bubble would touch a vent cell.
-    const rv = BR + 1.2;
+    const rv = r + 1.2;
     for (let i = 0; i < N * N; i++) {
       if (!EXIT[w.t[i]]) continue;
       const vx = i % N + 0.5, vy = ((i / N) | 0) + 0.5;
@@ -859,22 +1429,33 @@
     }
     return dist;
   }
-  function bubbleScore(w, dist) {
+  // Lower is better: the bubbles' distances, plus BUB_LEFT for each bubble
+  // after the first still in the box (so letting one out always counts).
+  const BUB_LEFT = 40;
+  function bubbleScore(w) {
     if (w.won) return -100;
-    const d = (dist || ventDistance(w))[Math.round(w.by) * M1 + Math.round(w.bx)];
-    return d === Infinity ? 999 : d + (w.flow <= 0 ? 8 : 0);
+    const dists = {};
+    let sc = BUB_LEFT * (w.bubs.length - 1);
+    for (const b of w.bubs) {
+      const key = b.r.toFixed(2), dist = dists[key] || (dists[key] = ventDistance(w, b.r));
+      const d = dist[Math.round(b.y) * M1 + Math.round(b.x)];
+      sc += d === Infinity ? 999 : d + (b.flow <= 0 ? 8 : 0);
+    }
+    return sc;
   }
   // Simulate a copy of the world for t seconds with the box turning to a.
-  // These are generators that yield every LOOK_CHUNK steps, so the game can
-  // spread a search over frames; finish() runs one to the end (the bots).
-  const LOOK_CHUNK = 30;
+  // These are generators that yield after LOOK_MS of work (checked every 5
+  // steps), so the game can spread a search over frames; finish() runs one
+  // to the end (the bots).
+  const LOOK_MS = 4;
+  let lookFrom = 0;
   function* lookaheadG(w, a, t) {
     const c = cloneWorld(w);
     c.angT = a;
     meltStop(c);
     for (let k = 0; k < Math.round(t / STEP) && !c.won; k++) {
       simStep(c, STEP);
-      if (k % LOOK_CHUNK === LOOK_CHUNK - 1) yield;
+      if (k % 5 === 4 && performance.now() - lookFrom > LOOK_MS) { yield; lookFrom = performance.now(); }
     }
     return c;
   }
@@ -903,6 +1484,12 @@
   let elapsed, turns, firstInput, stuckS, buriedS, hints, warns, tiltUsed;
   let stall = 0, stallAng = 0, hintAt = 0, hintStale = false, hint = null, hintJob = null, ready = null, lastShatter = null, warned = new Set();
   let reached = 0, beaten = new Set();
+  // The chapter clock: play time over a chapter's levels, in order, from its
+  // first level (restarts included). { ch, t, next }, or null (untimed:
+  // the chapter wasn't started from its first level, or a level was skipped).
+  let chRun = null, chapterTime = null, bestBy = {};
+  const chFirst = c => LEVELS.findIndex(L => L.ch === c);
+  const chLast = c => LEVELS.length - 1 - [...LEVELS].reverse().findIndex(L => L.ch === c);
   const attempts = {};
   const endCard = document.getElementById('endCard');
   const nextBtn = document.getElementById('nextBtn');
@@ -911,17 +1498,22 @@
   const STORE = 'bubble-glass.progress';
   try {
     const p = JSON.parse(localStorage.getItem(STORE) || '{}');
-    reached = Math.min(LEVELS.length - 1, Math.max(0, p.reached | 0));
+    // reachedId since v3 (positions can move when levels are added); reached is the v1-v2 position.
+    const at = LEVELS.findIndex(L => L.id === p.reachedId);
+    reached = at >= 0 ? at : Math.min(LEVELS.length - 1, Math.max(0, p.reached | 0));
     beaten = new Set(Array.isArray(p.beaten) ? p.beaten : []);
   } catch (e) { /* no storage: start at level 1 */ }
   function save() {
-    try { localStorage.setItem(STORE, JSON.stringify({ reached, beaten: [...beaten] })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(STORE, JSON.stringify({ reached, reachedId: LEVELS[reached].id, beaten: [...beaten] })); } catch (e) { /* ignore */ }
   }
 
   function lv() { return LEVELS[level]; }
   function can(verb) { return lv().verbs.includes(verb); }
 
   function startLevel(i) {
+    const c = LEVELS[i].ch;
+    if (!(chRun && chRun.ch === c && chRun.next === i)) chRun = i === chFirst(c) ? { ch: c, t: 0, next: i } : null;
+    chapterTime = null;
     level = i;
     attempts[level] = (attempts[level] || 0) + 1;
     attempt = attempts[level];
@@ -929,19 +1521,34 @@
     if (motion.on) { world.ang = world.angT = motion.angle; }
     elapsed = 0; turns = 0; firstInput = 0; stuckS = 0; buriedS = 0; hints = 0; warns = 0; tiltUsed = motion.on;
     stall = 0; hint = null; hintJob = null; ready = null; lastShatter = null; warned = new Set(); nudge(null);
-    pops = [];
+    pops = []; outSeen = 0; confirmed = new Set();
     endPress();
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
     ventAt = findVent(world);
     // A lid-first level keeps its note and lid hint up until the lids are made.
-    say(`${lv().name}. ${lv().note}${lidHint() ? ' ' + lv().hint : ''}`, lidHint() ? 0 : 5000);
+    const head = i === chFirst(c) ? `Chapter ${c + 1}: ${CHAPTERS[c].name}. ` : '';
+    const untimed = chRun ? '' : ` (The chapter clock starts at level ${chFirst(c) + 1}.)`;
+    say(`${head}${lv().name}. ${lv().note}${lidHint() ? ' ' + lv().hint : ''}${untimed}`, lidHint() ? 0 : 5000);
     hud();
+  }
+
+  // m:ss.s, or s.s under a minute (like the gallery).
+  function clock(t) {
+    if (t < 60) return `${t.toFixed(1)} s`;
+    const m = Math.floor(t / 60);
+    return `${m}:${(t - 60 * m).toFixed(1).padStart(4, '0')}`;
   }
 
   function hud() {
     document.getElementById('hudLevel').textContent = `${level + 1}/${LEVELS.length}`;
+    document.getElementById('clockWrap').hidden = !chRun;
+    if (chRun) {
+      document.getElementById('hudClock').textContent = clock(chRun.t);
+      const best = bestBy[CHAPTERS[chRun.ch].id];
+      document.getElementById('hudBest').textContent = typeof best === 'number' ? `best ${clock(best)}` : '';
+    }
     document.getElementById('prevLv').disabled = level <= 0;
     document.getElementById('nextLv').disabled = level >= reached;
     const hw = document.getElementById('heatWrap');
@@ -953,6 +1560,10 @@
   function win() {
     state = 'won';
     endPress();
+    const c = lv().ch;
+    if (chRun && chRun.next === level) {
+      if (level === chLast(c)) { chapterTime = chRun.t; chRun = null; } else chRun.next = level + 1;
+    }
     report('won');
     const last = level === LEVELS.length - 1;
     beaten.add(lv().id);
@@ -962,15 +1573,23 @@
     if (level >= 2 && world.deg < LIGHT_DEG) unlock('light-touch');
     if (lastShatter !== null && elapsed - lastShatter <= BREAKOUT_T) unlock('breakout');
     if (LEVELS.every(L => beaten.has(L.id))) unlock('glassblower');
+    if (chapterTime !== null) unlock('clockwork');
     msgEl.textContent = '';
     nudge(null);
-    document.getElementById('endTitle').textContent = last ? 'Every bubble is free!' : 'Bubble free!';
+    document.getElementById('endTitle').textContent = last ? 'Every bubble is free!'
+      : chapterTime !== null ? `Chapter ${c + 1} done!` : world.out > 1 ? 'Bubbles free!' : 'Bubble free!';
     const bits = [`${turns} turn${turns === 1 ? '' : 's'}, ${Math.round(world.deg)}° in all`];
     if (can('melt')) bits.push(`${world.melted} shard${world.melted === 1 ? '' : 's'} melted, ${Math.floor(world.heat)} heat left`);
-    document.getElementById('endDetail').textContent = bits.join('; ') + '.';
+    let text = bits.join('; ') + '.';
+    if (chapterTime !== null) {
+      const best = bestBy[CHAPTERS[c].id];
+      text = `${CHAPTERS[c].name} in ${clock(chapterTime)}` + (typeof best === 'number'
+        ? chapterTime < best ? ` (new best, was ${clock(best)}).` : ` (best ${clock(best)}).` : '.') + ' ' + text;
+    }
+    document.getElementById('endDetail').textContent = text;
     const n = roundEarned.size;
     document.getElementById('endAch').textContent = n ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned` : '';
-    nextBtn.textContent = last ? 'Play again from level 1' : 'Next level';
+    nextBtn.textContent = last ? 'Play again from level 1' : LEVELS[level + 1].ch !== c ? `Chapter ${c + 2}` : 'Next level';
     nextBtn.disabled = true;
     endCard.hidden = false;
     setTimeout(() => { nextBtn.disabled = false; }, END_INPUT_LOCK_MS);
@@ -1019,6 +1638,7 @@
   // ---------- the game's step ----------
   function step(dt) {
     elapsed += dt;
+    if (chRun) chRun.t += dt;
     simStep(world, dt);
     if (world.flow <= 0) buriedS += dt;
     if (world.shelter && world.landed >= UMBRELLA_N) unlock('umbrella');
@@ -1031,7 +1651,14 @@
       }
     }
     if (world.heat < 1 && lv().heat && world.melted) warn('heat', 'Out of heat: no more glass this level.');
-    if (world.won) { pops = [{ x: world.bx, y: world.by, t: 0 }]; win(); return; }
+    if (world.out > outSeen) {
+      outSeen = world.out;
+      const [x, y, r] = world.outAt;
+      pops.push({ x, y, r, t: 0 });
+      if (r > BR * 1.2) unlock('big-bubble');
+      if (!world.won) say(world.bubs.length === 1 ? 'One bubble out. One to go.' : `One out. ${world.bubs.length} to go.`, 2500);
+    }
+    if (world.won) { win(); return; }
     watchStall(dt);
   }
 
@@ -1046,6 +1673,9 @@
       if (!msgEl.textContent) say(lv().hint, 0);
       return;
     }
+    // A shatter or melt hint that has been done clears at once.
+    if (hint && (hint.shatter && !world.shards.some(q => q.id === hint.shatter) ||
+      hint.melt && !hint.lid && !MELTS[materialAt(world, hint.x, hint.y)])) nudge(null);
     if (hint && hint.lid) {
       nudge(null);
       if (msgEl.textContent.endsWith(words(lv().hint))) { clearTimeout(msgTimer); msgEl.textContent = ''; }
@@ -1070,7 +1700,7 @@
     if (hint) return;
     // Start looking halfway through the wait, a few steps per frame.
     if (stall >= limit / 2 && !hintJob && !ready) hintJob = findHintG(cloneWorld(world));
-    if (hintJob) { const r = hintJob.next(); if (r.done) { ready = r.value; hintJob = null; } }
+    if (hintJob) { lookFrom = performance.now(); const r = hintJob.next(); if (r.done) { ready = r.value; hintJob = null; } }
     if (stall < limit || !ready) return;
     const h = ready;
     ready = null;
@@ -1140,7 +1770,7 @@
   off.width = off.height = N;
   const offCtx = off.getContext('2d');
   const img = offCtx.createImageData(N, N);
-  let pops = [];
+  let pops = [], outSeen = 0, confirmed = new Set();
   function drawAngle() { return motion.on ? 0 : world.ang; }
   // Box cell coordinates -> game units, and back.
   function toScreen(bx, by) {
@@ -1164,7 +1794,8 @@
         const v = (w.tone[i] - 128) / 128 * 10;
         if (w.sid[i] === heldId) { r = 255; g = 150 + 60 * glow; b = 70; }
         else { r += v; g += v; b += v; }
-      } else if (m === AIR) { const v = ((i * 2654435761) >>> 28) - 8; b += v * 0.4; }
+      } else if (SIEVE[m]) { if ((i + ((i / N) | 0)) & 1) { r *= 0.55; g *= 0.55; b *= 0.55; } }
+      else if (m === AIR) { const v = ((i * 2654435761) >>> 28) - 8; b += v * 0.4; }
       d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
     }
     offCtx.putImageData(img, 0, 0);
@@ -1201,7 +1832,7 @@
     ctx.restore();
     drawShardEdges();
     drawVent(now);
-    drawBubble(now);
+    drawBubbles(now);
     drawPress(now);
     drawHint(now);
     if (motion.on) drawGravity();
@@ -1210,7 +1841,7 @@
       const [x, y] = toScreen(p.x, p.y);
       ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0, 1 - p.t)})`;
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(x, y, BR * CELL + 40 * p.t, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, p.r * CELL + 40 * p.t, 0, Math.PI * 2); ctx.stroke();
     }
   }
 
@@ -1261,11 +1892,11 @@
 
   // The bubble: white, amber while sand trickles past it, red and dashed
   // when the sand ahead is deep enough to be a wall.
-  function drawBubble(now) {
-    const w = world;
-    const [x, y] = toScreen(w.bx, w.by);
-    const r = (BR + 0.4) * CELL;
-    const blocked = w.flow <= 0, slow = w.flow < 1;
+  function drawBubbles(now) { for (const b of world.bubs) drawBubble(b, now); }
+  function drawBubble(b, now) {
+    const [x, y] = toScreen(b.x, b.y);
+    const r = (b.r + 0.4) * CELL;
+    const blocked = b.flow <= 0, slow = b.flow < 1;
     ctx.fillStyle = 'rgba(220, 240, 255, 0.25)';
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     ctx.lineWidth = 2;
@@ -1371,6 +2002,7 @@
         if (meltStart(world, fx, fy)) { press.mode = 'melt'; touched(2); return; }
       }
       if (MELTS[m] && !can('melt')) say('Melting unlocks in level 2. Drag to turn the box.');
+      if (m === MAT.wet) say('Wet sand won\'t melt. Only dry sand does.');
       press.mode = 'idle';
       touched(4);
     }, HOLD_DELAY_MS);
@@ -1411,6 +2043,18 @@
     if (near && !can('shatter')) { say('Shattering unlocks in level 3.'); touched(4); return; }
     if (near) {
       const hit = world.shards.find(s => s.id === near);
+      // Glass holding sand back (a lid, or sand that would bury a bubble):
+      // the first tap only warns, the second breaks it.
+      if (!confirmed.has(hit.id)) {
+        const why = isLid(hit) ? 'That lid holds the sand back.' : buries(fx, fy) ? 'Its sand would bury the bubble.' : '';
+        if (why) {
+          confirmed.add(hit.id);
+          warns++;
+          say(`${why} ${TAP} it again to break it.`, 3000, true);
+          touched(4);
+          return;
+        }
+      }
       const onBubble = touchesBubble(world, hit);
       shatterAt(world, fx, fy);
       touched(3);
@@ -1422,6 +2066,19 @@
     if (MELTS[materialAt(world, fx, fy)] && can('melt')) say(`${HOLD} on sand to melt it.`);
   }
   // The same moves for the balance bots (cell units, radians).
+  // Would shattering the glass at (fx, fy) wall a bubble in within 1.5 s?
+  function buries(fx, fy) {
+    if (world.flow <= 0) return false;
+    const c = cloneWorld(world);
+    meltStop(c);
+    if (!shatterAt(c, fx, fy)) return false;
+    for (let k = 0; k < 90 && !c.won; k++) simStep(c, STEP);
+    return !c.won && c.flow <= 0;
+  }
+  function isLid(s) {
+    if (!lv().lidFirst) return false;
+    return lv().melt.some(([mx, my]) => s.cells.some(i => Math.abs(i % N + 0.5 - (mx * CH + CH / 2)) <= 4 && Math.abs(((i / N) | 0) + 0.5 - (my * CH + CH / 2)) <= 4));
+  }
   function botTurn(a) { turns++; touched(1); world.angT = a; }
   function botMelt(fx, fy) { if (!can('melt') || !meltStart(world, fx, fy)) return false; touched(2); return true; }
   function botRelease() { meltStop(world); }

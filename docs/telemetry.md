@@ -73,6 +73,7 @@ common columns is in `extra`. One row per action:
 | `settings` | a settings action | `setting`: `export`, `import`, `reset_achievements`, `reset_all`, `reset_game_achievements` (with `game_id`), `stats_on` |
 | `nudge` | the "Rate this game?" callout was answered | `game_id`, `game_version`, `result` (`rate`, `dismiss`) |
 | `about_arcade` | the "About the arcade" dialog opened | |
+| `handle` | a public name picked, or the leaderboard toggled, in the Records panel | `handle` (when listed), `lb` (1 or 0); `scripts/build-leaderboards.mjs` reads it ([scores.md](scores.md)) |
 
 `node scripts/fetch-telemetry.mjs` reads them too and prints a short
 `gallery:` section (opens by source and list position, shares by method,

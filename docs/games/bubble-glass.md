@@ -1,11 +1,13 @@
 # Bubble Glass: design notes
 
-Current: **v2** (playtest: https://claude.ai/artifact/Pe9SQ8QrH482T4iWv6jnUc). Mechanics: **turn** (drag
+Current: **v3**, the depth pass (playtest: https://claude.ai/artifact/BXC2MQc3e4rf6x2wPUxZVR). v2's playtest:
+https://claude.ai/artifact/Pe9SQ8QrH482T4iWv6jnUc. Mechanics: **turn** (drag
 around the box, phone tilt opt-in, ← → keys), **melt** ({hold} on sand) and
 **shatter** ({tap} glass), sharing the **grid** inside a sealed box (liquid,
-wall, sand, glass, vent). Five hand-made levels, no clock, no loss: a level
-ends with the bubble at the vent, or a Restart. 5 achievements (in
-`games/games.json`).
+wall, sand, wet sand, dust, glass, grate, vent). 21 hand-made levels in
+three chapters, no clock on a level, no loss: a level ends with every bubble
+out through the vent, or a Restart. The score is a chapter's total time.
+7 achievements (in `games/games.json`).
 
 Design from the maintainer (2026-09-29): a liquid-motion sand toy. The box
 turns through 360° and gravity turns with it; sand falls, the bubble rises.
@@ -14,15 +16,48 @@ into sand where it is. Level 1 teaches turning only, melt unlocks in level
 2, shatter in level 3. A stuck hint after 3 s, an instant warning for
 anything irreversible. Built to grow (see Evolution).
 
+## v3: chapters and the chapter clock
+
+| Chapter | id (leaderboard board) | Levels | New |
+|---|---|---|---|
+| 1 | `sand` | 1–5 | the three verbs (v2's levels; 1, 4, 5 reworked) |
+| 2 | `wet-and-dry` | 6–12 | wet sand, dust, grates |
+| 3 | `two-bubbles` | 13–21 | a second bubble; bubbles that touch merge |
+
+- **Score** (`score.epoch` 2): a chapter's play time, from starting its
+  first level to winning its last, in order, restarts included (a lost try
+  is retried from its start, and its time counts). Posted as `score` with
+  `board: <chapter id>` in the last level's `arcade:result`; no other
+  result carries a score. Skipping a level with the picker, or starting
+  mid-chapter (a returning player resumes at the level they reached),
+  leaves the chapter untimed until its first level is started again; the
+  level note says where the clock starts. The HUD shows the clock (⏱) and
+  the best from `arcade:best`; the chapter's end card shows both.
+- **Progress** is kept by level id now (`reachedId`); v2's `reached`
+  position still loads (chapter 1 kept its positions).
+
 ## How it works
 
 - **Grid:** `N` = 48 × 48 cells. Levels are 24 × 24 ASCII maps, each
   character a 2 × 2 block of cells.
 - **Materials are a table** (`MATERIALS`): `falls` (moves grain by grain),
+  `speed` (relative to sand), `slides` (slips diagonally off a pile),
   `rigid` (moves as one shard), `stops` (a wall for the bubble), `resist`
-  (how much one cell slows the bubble), `melts`, `exit` (the vent), colour.
-  The simulation reads only these flags, so a new sand or fixture is a new
-  row plus a map character.
+  (how much one cell slows the bubble), `melts`, `exit` (the vent), `sieve`
+  (grains fall through it), colour. The simulation reads only these flags,
+  so a new sand or fixture is a new row plus a map character. Append rows
+  (the bots know sand as 2 and the vent as 4).
+
+  | Material | Map | falls / speed | resist | melts | Other |
+  |---|---|---|---|---|---|
+  | sand | `s` | 1 (45 cells/s) | 1 | yes | |
+  | wet sand | `w` | 0.25 | 2.5 | no | doesn't slide: sits on a bubble instead of trickling off |
+  | dust | `d` | 2 | 0.3 | yes | |
+  | grate | `%` | – | – | – | a wall for the bubble and glass; grains pass straight through (up to 3 cells thick, not diagonally) |
+
+- **Grain passes:** `2 × SAND_V` a second; a grain moves every
+  `EVERY = round(2 / speed)`-th pass (sand every 2nd, dust every one, wet
+  every 8th). A box without dust skips the odd passes.
 - **Gravity:** the box has one angle; gravity in the box frame is
   (sin a, cos a). Grains move along the two nearest of 8 directions, mixed
   by the angle, so a small turn makes a slope creep instead of nothing
@@ -32,6 +67,15 @@ anything irreversible. Built to grow (see Evolution).
 - **Shards** fall as one piece along the nearest of 8 directions (on a
   diagonal they slide along a wall). They keep their shape in the box, so
   they tumble on screen as it turns. A shard being melted is held still.
+- **Bubbles** (`w.bubs`, each `{ x, y, r, flow }`, one `o` each on the
+  map): moved highest first. Two pressed together (centres closer than
+  r1 + r2 + 1) **merge** into one with both areas (r = √(r1² + r2²), 3.1
+  for two), centred between them where it fits; sand under it goes to the
+  nearest liquid. Where the big one doesn't fit (a 4-cell tube) they stay
+  apart. A bigger bubble rises √(r / BR) faster, and needs a 6-cell gap. A
+  bubble at the vent leaves; the level is won when none is left. The path
+  search runs per radius, and the look-ahead score sums the bubbles'
+  distances plus `BUB_LEFT` (40) per extra bubble still in the box.
 - **Bubble:** a disc of radius `BR` = 2.2 cells at a sub-cell position. It
   just fills a 4-cell (2-character) gap; a 2-cell slit stops it and lets
   sand through. It moves against gravity at `BUBBLE_V`, trying straight up,
@@ -66,8 +110,9 @@ anything irreversible. Built to grow (see Evolution).
   vent (sand costs extra, `ventDistance`). Order: a melt level's marked
   spots while they're still unmelted sand; else the best turn (chevrons
   running round the ring); else a shard whose shattering helps (pulsing
-  ring); else Restart (pulsing button). The search is a generator, 30
-  simulation steps per frame, so it never stalls a frame. A hint stays up
+  ring); else Restart (pulsing button). The search is a generator that works
+  at most `LOOK_MS` (4 ms) per frame (v3; v2 ran 30 steps a frame), so it
+  never stalls a frame. A hint stays up
   at least `HINT_MIN` s, then clears once anything has moved (a turn hint
   also clears when the box reaches its angle). In tilt mode "still" means
   the phone within `TILT_STILL`° of where the stall began and the bubble
@@ -83,6 +128,13 @@ anything irreversible. Built to grow (see Evolution).
 - **Warnings** (once per level each): a shard being melted touches the
   bubble (glass is a wall; in level 2 it can't be broken yet), the heat
   runs out, a shatter with no heat left.
+- **Confirm before burying** (v3): the first {tap} on glass that holds
+  sand back only warns, and the second breaks it: a lid at a lid-first
+  level's marked spot ("That lid holds the sand back"), or any shard whose
+  shattering walls a bubble in within 1.5 s, checked on a copy of the box
+  ("Its sand would bury the bubble"). Counts in `warns`. With it the
+  hinted bot's first-try wins on the-plug went 75% → 100%, two-plugs any
+  win 75% → 88%.
 
 ## Key constants (`games/bubble-glass.html`, top of the script)
 
@@ -94,7 +146,8 @@ anything irreversible. Built to grow (see Evolution).
 | HOLD_DELAY_MS / DRAG_PX | 170 ms / 12 px | MELT_RATE / SHARD_MAX | 20 cells/s / 40 cells |
 | STALL_T / LOOK_T | 3 s / 3.5 s | TAP_R | 3 cells |
 | UMBRELLA_N / BREAKOUT_T / LIGHT_DEG | 30 grains / 4 s / 270° | HINT_MIN / TILT_STILL | 4 s / 6° |
-| MSG_MS_PER_CHAR | 70 ms | | |
+| MSG_MS_PER_CHAR | 70 ms | LOOK_MS (v3) | 4 ms of hint search per frame |
+| BUB_LEFT (v3) | 40 (score per extra bubble left) | merged bubble | r = √2 · BR ≈ 3.1 |
 
 Performance: a step is ~0.03 ms settled; a look-ahead of 3.5 s ~13 ms and
 the path search ~4 ms, spread over frames. At 390 × 700 with 4× CPU
@@ -107,11 +160,36 @@ or reuse one. Maps and data are the `LEVELS` array.
 
 | # | id | Verbs | Heat | Teaches |
 |---|---|---|---|---|
-| 1 | first-turn | turn | – | The bubble sits under a shelf; turning ↺ slides it out and round to the vent, through a thin layer of sand (a delay, not a wall). |
+| 1 | first-turn | turn | – | The bubble sits under a shelf; turning slides it out. v3: the vent is at the bottom of a pocket full of sand, which has to pour out before the bubble can get in (a second beat). |
 | 2 | roof | + melt | 70 | Lid-first. Two sand shafts open into the bubble's tube. Any turn that moves the bubble toward the vent pours one of them onto it. Melt a lid on top of each, then flip. |
 | 3 | the-plug | + shatter | 40 | A jammed glass plug blocks the only tube. Shattering it drops its sand onto the bubble: flip first, shatter, come back upright by way of 90° so the room's sand stays clear of the chimney. |
-| 4 | lid-and-plug | all | 70 | Level 2's shafts over level 3's plug, with a room below whose chimney keeps the plug's sand off the tube. |
-| 5 | hourglass | all | 60 | A glass shelf holds a bed of sand over the waist; shattering it floods the waist unless the box is turned first. |
+| 4 | lid-and-plug | all | 70 | v3, lid-first: roof's shafts (4 wide) over a long tube, then a plug and a small room. The shafts pour into the tube on the way down. |
+| 5 | hourglass | all | 60 | v3: twice the sand on the shelf, more than the basins beside the waist hold. Melting the jam in the waist into one shard and turning it out is the fast way. |
+| 6 | mud | turn | – | Wet sand intro: level 1's shape, with a pocket of wet sand over the vent right beside the bubble. Flip at once and the slow wet sand lands on the bubble; let it settle first. |
+| 7 | dust-shafts | all | 70 | Roof with dust: it pours in a flash, so rocking past it (roof's no-melt route) mostly fails. Lid-first. |
+| 8 | sieve | all | 40 | Grate intro: a tube full of sand with grate walls; tilt and the sand leaves through them. |
+| 9 | landslide | all | 40 | The-plug with a room of wet sand: slow, so coming back upright by way of 90° has time, but a thin layer stops the bubble. |
+| 10 | sump | all | 60 | The grate tube with 2-cell sumps: neither holds all the sand. A lid keeps one full while the other fills. |
+| 11 | sand-timer | all | 60 | Hourglass (v3) with dust on the shelf: it floods faster, but the bubble slips through it. |
+| 12 | quicksand | all | 70 | Lid-first dust shafts over a tube whose last stretch is wet sand, with a grate to a sump beside it: lid, then hold a tilt while the mud drains, then flip. |
+| 13 | twins | all | 40 | Two bubbles under two shelves, a wide vent: tilt one way, then the other. Merging is harmless here. |
+| 14 | mud-twins | all | 40 | Twins over beds of wet sand: a bubble that ends up under the mud is pinned. |
+| 15 | narrow-door | all | 40 | Twins with a 4-cell tube to the vent: a merged bubble can't get in. Free one bubble at a time. |
+| 16 | dust-door | all | 40 | Narrow door over beds of dust. |
+| 17 | shared-sand | all | 40 | Two tubes with grates between them and two small sumps: the sand that leaves one tube goes into the other. |
+| 18 | upstairs | all | 40 | The-plug with a second bubble above the plug. |
+| 19 | two-plugs | all | 40 | Two bubbles, each under a plug, one room of sand above both. |
+| 20 | convoy | all | 70 | Roof with two bubbles in the tube, lid-first. |
+| 21 | last-box | all | 70 | Level 4 (v3) with two bubbles: lid-first, then the plug; they usually merge in the room and leave as one. |
+
+Also retired before shipping: `dust-bowl` (two-plugs under a room of
+dust): hinted won it 25% in 3 tries, and it repeated two-plugs; and
+`twin-glass` (the hourglass with two bubbles): they merge in the open
+bulb and the big one can't enter the waist, so even the reader won 0%.
+Retired before shipping: `dry-lid` (roof's shafts of wet sand under a dry
+top layer, lid the dry layer). Wet sand only drains when the box is held at
+an angle, so a quick flip beat it in 5 s whatever the shafts' position: a
+slow material is no threat to a fast turn (see Findings).
 
 ## Telemetry
 
@@ -121,51 +199,77 @@ One `arcade:result` per level ended: `outcome` (win, or loss with
 `turns`, `deg` (degrees turned), `melted` (shards), `glass` (cells),
 `shattered`, `heat_left`, `stuck_s` (s past the stall limit), `hints`,
 `warns`, `first_input` (1 turn, 2 melt, 3 shatter, 4 a press that did
-nothing), `tilt` (0/1), `buried_s` (s walled in by sand).
+nothing), `tilt` (0/1), `buried_s` (s walled in by sand); v3 adds `out`
+(bubbles out), `merged`, `ch_t` (the chapter clock so far, 0 if untimed),
+the extra field `chapter` (chapter id), and on a chapter's last win
+`score` (chapter time) and `board` (chapter id).
 
 ## Balance
 
 `node scripts/balance-bubble-glass.mjs 8 [bots] [levels]` (8 seeded runs per
-bot and level, each level on its own, up to 3 tries of 150 s). Cells:
-first-try win % / median first-try win time.
+bot and level, each level on its own, up to 3 tries of 150 s). `SEED=n`
+starts at another seed (to trace a failing run with `TRACE=1`).
 
-| Bot | first-turn | roof | the-plug | lid-and-plug | hourglass |
+### The 10-minute check (v3)
+
+`CAMPAIGN=1 node scripts/balance-bubble-glass.mjs 16 hinted,reader`: every
+level in order, each tried until won (up to 6 tries), total play time
+including restarts.
+
+| Bot | All 21 won | Total, median (IQR) | Ch 1 | Ch 2 | Ch 3 |
 |---|---|---|---|---|---|
-| reader (all verbs, look-ahead) | 100% / 4 s | 92% / 7 s | 100% / 12 s | 100% / 17 s | 100% / 7 s |
-| slow-hands (2 s think, 0.7 s react) | 100% / 5 s | 100% / 9 s | 100% / 19 s | 100% / 24 s | 100% / 7 s |
-| keys (120°/s) | 100% / 4 s | 100% / 7 s | 100% / 13 s | 100% / 26 s | 100% / 8 s |
-| hinted (novice + obeys hints) | 100% / 9 s | 100% / 11 s | 88% / 28 s | 88% / 56 s | 100% / 24 s |
-| tilt-hinted (hinted, tilt mode, ±3° wobble) | 100% / 9 s | 100% / 11 s | 88% / 26 s | 75% / 43 s | 100% / 24 s |
-| novice (spins 6 s, melts at the bubble, taps glass) | 100% / 9 s | 0% | 100% / 76 s | 88% / 73 s | 100% / 110 s |
-| rotate-only (explores when stuck) | 100% / 4 s | 100% / 40 s | 0% | 0% | 0% (no-shatter is 0%) |
-| no-melt | 100% / 4 s | 100% / 42 s | 100% / 11 s | 100% / 19 s | 100% / 5 s |
-| no-shatter | 100% / 4 s | 100% / 7 s | 0% | 0% | 0% |
-| habit ("turn so the vent is up") | 100% / 3 s | 0% | 0% | 0% | 0% |
-| spinner (full speed, always) | 0% | 0% | 0% | 0% | 0% |
-| idle | 0% | 0% | 0% | 0% | 0% |
+| hinted (16 runs) | 88% | **10:39** (9:17–11:28) | 2:14 | 2:39 | 5:09 |
+| reader (16 runs) | 100% | 3:36 (3:12–6:22) | 0:59 | 0:51 | 1:49 |
+| slow-hands (12 runs, 19 levels) | 100% | 4:37 | 1:25 | 0:58 | 2:17 |
+| novice (8 runs, 14 levels) | 0% | 67:48 | never wins roof or two-plugs without hints | | |
+
+v2's five levels took hinted 2:44 and the reader 0:48. Humans won v2's
+levels 3–5 faster than hinted, so the human total may be shorter: that's
+the telemetry question.
+
+### Per level (v3, 8 runs): first-try win % / median first-try win time
+
+| # | Level | reader | lid-reader | hinted | no-melt | rotate-only |
+|---|---|---|---|---|---|---|
+| 1 | first-turn | 100 / 5 s | | 100 / 19 s | 100 / 5 s | 100 / 5 s |
+| 2 | roof | 100 / 7 s | | 100 / 11 s | 100 / 37 s | 100 / 37 s |
+| 3 | the-plug | 100 / 11 s | | 63 / 34 s (any 100) | 100 / 10 s | 0 |
+| 4 | lid-and-plug | 100 / 30 s | 100 / 12 s | 50 / 21 s (any 88) | 100 / 48 s | 0 |
+| 5 | hourglass | 100 / 9 s | | 75 / 31 s | 100 / 44 s | 0 |
+| 6 | mud | 100 / 4 s | | 75 / 30 s | 100 / 4 s | 100 / 4 s |
+| 7 | dust-shafts | 100 / 7 s | 100 / 10 s | 88 / 14 s | 63 / 38 s | 50 / 41 s |
+| 8 | sieve | 100 / 4 s | | 100 / 16 s | 100 / 4 s | 100 / 4 s |
+| 9 | landslide | 100 / 12 s | | 100 / 34 s | 100 / 11 s | 0 |
+| 10 | sump | 100 / 9 s | | 100 / 17 s | 100 / 9 s | 100 / 9 s |
+| 11 | sand-timer | 100 / 5 s | | 88 / 29 s | 100 / 5 s | 0 |
+| 12 | quicksand | 100 / 8 s | 100 / 11 s | 100 / 17 s | 100 / 14 s | 100 / 14 s |
+| 13 | twins | 100 / 5 s | | 100 / 31 s | 100 / 5 s | 100 / 5 s |
+| 14 | mud-twins | 100 / 5 s | | 100 / 47 s | 100 / 5 s | 100 / 5 s |
+| 15 | narrow-door | 63 / 10 s | | 75 / 35 s | 75 / 27 s | 100 / 21 s |
+| 16 | dust-door | 100 / 5 s | | 50 / 20 s (any 75) | 100 / 5 s | 100 / 5 s |
+| 17 | shared-sand | 100 / 4 s | | 100 / 14 s | 100 / 4 s | 100 / 4 s |
+| 18 | upstairs | 100 / 7 s | | 100 / 35 s | 100 / 7 s | 0 |
+| 19 | two-plugs | 100 / 10 s | | 63 / 46 s | 100 / 10 s | 0 |
+| 20 | convoy | 100 / 7 s | 100 / 10 s | 75 / 14 s | 50 / 88 s | 50 / 99 s |
+| 21 | last-box | 100 / 29 s | | 38 / 24 s (any 75) | 88 / 32 s | not run |
 
 Reading it:
-- **Onboarding:** level 1 takes a novice 9 s; hinted and novice win it
-  first time. The level-1 hint comes after 1.5 s.
-- **Shatter is required** wherever there's a plug: rotate-only and
-  no-shatter win 0% on levels 3–5.
-- **Melt makes level 2 about 6× faster but isn't required** (the
-  maintainer's call, see `docs/findings.md`, "When two things always move
-  apart"): the melt reader wins in 7 s, turning alone by rocking in ~40 s,
-  `habit` 0%. Melt is optional on levels 4 and 5 (no-melt is about as fast
-  as the reader there): an open revision target.
-- **Level 2 (v2):** the lid hint is up from the first frame, so the
-  hint-follower lids first: 100% / 11 s (v1 63% / 25 s, where 6 s of
-  spinning poured the shafts before any hint). The novice that ignores
-  hints still never wins it (it melts next to the bubble, walling it in).
-- **Tilt mode (v2):** `tilt-hinted` on v1 won level 2 13% first try with
-  0 hints shown (the playtest below); v2 100%. Levels 3–5 in tilt match the
-  touch hinted bot within noise (8 runs). Before/after:
-  `SRC=<old copy> node scripts/balance-bubble-glass.mjs 8 tilt-hinted`.
-- **Achievements:** Cold Hands is common from level 3 on (the no-melt route
-  exists), Light Touch comes from hourglass, Breakout 13% and Umbrella
-  13–88% (no-shatter bot on hourglass) show up in play without aiming for
-  them. Glassblower needs the whole set.
+- **Melt matters** where lids are the point: roof, lid-and-plug (lid-reader
+  12 s vs no-melt 48 s), hourglass (9 vs 44 s), dust-shafts and convoy
+  (no-melt 50–63% first try). Elsewhere in chapters 2–3 melt is optional;
+  those boxes are about turning order, grates and two bubbles.
+- **Shatter is required** wherever there's a plug (rotate-only 0%).
+- **Skilled play is short** (reader 3:36 for everything); the length comes
+  from boxes a newcomer needs hints and retries for. The chapter clock is
+  the reason to replay.
+- `habit` ("turn so the vent is up") wins narrow-door: tilting toward one
+  bubble first is the intended move.
+- `lid-reader` is the reader that first melts the lids a lid-first level
+  rings (a player who reads the note); `hinted` now {taps} glass only when
+  stuck (see the bot notes in the script).
+
+v2's full table (12 bots × 5 levels) is in git history
+(`git show 17b131f:docs/games/bubble-glass.md`).
 
 ## Playtest 2026-09-30 (v1, one player, phone, tilt mode)
 
@@ -210,24 +314,30 @@ the game over all sessions. Levels 3–5 need less than the bots predicted
 | breakout | A win within 4 s of shattering a shard that touched the bubble. |
 | cold-hands | A win from level 3 on with no glass melted. |
 | light-touch | A win from level 3 on, turning less than 270°. |
-| glassblower | Every level won in this browser (kept in `localStorage`). |
+| glassblower | Every level won in this browser (kept in `localStorage`). v3: all 21. |
+| big-bubble | A merged bubble leaves through the vent (v3). |
+| clockwork | A chapter finished on the chapter clock (v3). |
 
 ## Open ideas
 
-- **Depth pass (next):** more boxes, grouped in chapters, from the
-  Evolution list; a chapter score (total time) with no ceiling. Now the
-  score is the fastest escape per level (`docs/scores.md`).
-
-- **Level 1 "way too easy"** (playtest): it's a 4–9 s tutorial. Could
-  add a second beat (for example a sand bank the bubble must be rocked
-  past) without adding a verb.
-- **Level 5 doesn't need melt, or even a turn first:** `no-melt` shatters
-  the shelf at once, tilts 45° and wins in 5 s. The side basins beside
-  the waist hold all the shelf's sand. Fix by giving it more sand than
-  the basins hold, or a longer, tighter waist the bubble has to be in
-  while the sand comes down (a lid's job).
-- **Level 4:** melt saves 2 s (reader 17 s, no-melt 19 s). The shafts
-  only threaten the bubble upright, and the whole route runs flipped.
+- **v3 playtest (next):** does anyone play a whole chapter? The 10-minute
+  line per version comes from `fetch-telemetry.mjs`; chapter scores from
+  the leaderboard. Humans were faster than `hinted` in v2, so the real
+  total may be shorter than the bot's.
+- **Chapter 1 fixes in v3** (were open): level 1 got a second beat (the
+  sand pocket over the vent: novice 9 s → 44 s, reader still 5 s); level 4
+  now rewards lids (lid-reader 12 s vs no-melt 32 s, was 17 vs 19); level 5
+  now rewards melt (reader 13 s vs no-melt 37 s, was 7 vs 5).
+- A wet-sand level that needs a lid (see "Retired" under Levels): hold the
+  box at an angle for long, e.g. a diagonal corridor.
+- Merging as a tool (a level that needs the big bubble): notches a small
+  bubble rises into and the big one slides past.
+- The HUD bar wraps to two lines on a 390 px phone while the chapter
+  clock shows.
+- Several chapter 2–3 boxes are 4–5 s for the reader (sieve, sand-timer,
+  dust-door, shared-sand, twins): fine as steps for a newcomer, but the
+  next pass could make the skilled route longer. Sand-timer lost level
+  5's melt value (dust is light: no-melt 5 s).
 - Level 2 in tilt mode, a real phone: check the lid ring is easy to
   {hold} on while the other hand holds the phone steady.
 - Real tumbling: shards rotating relative to the box (now they only
@@ -239,16 +349,16 @@ the game over all sessions. Levels 3–5 need less than the bots predicted
 Candidate expansions, each with the finding it must respect. All are
 materials, fixtures or level rules: the verbs stay three.
 
-- **A second bubble that merges with the first** (bigger rises faster and
+- *(v3)* **A second bubble that merges with the first** (bigger rises faster and
   fits fewer gaps). *"One global verb against many local states"*: a turn
   moves both bubbles, so look for levels where the move that helps one
   traps the other.
-- **Sand types:** wet sand that holds its shape (low `falls` rate, high
+- *(v3: wet sand and dust)* **Sand types:** wet sand that holds its shape (low `falls` rate, high
   `resist`), fine dust that trickles fast (low `resist`). New rows in
   `MATERIALS`. *"A player can know the verbs and miss the moment"*: each
   sand's threshold (how deep is a wall) must show on the bubble outline, not
   only in text.
-- **Fixtures:** one-way valves, a heat vent that melts sand passing over it,
+- *(v3: the grate)* **Fixtures:** one-way valves, a heat vent that melts sand passing over it,
   fixed glass pins to pivot shards on. *"Passive systems that create more
   than they cost play themselves"*: a heat vent must not make free glass
   faster than sand arrives.

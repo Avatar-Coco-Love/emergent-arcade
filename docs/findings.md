@@ -342,3 +342,26 @@ Replay of v2 on phones in tilt mode (2 players): level 2 won 2/2 first
 try (v1 0/2), with glass melted; all five levels 14/14. The first
 revision the arcade made from player data, confirmed by player data.
 *Evidence: telemetry, n = 2. Holding.*
+
+## A slow hazard is no threat to a fast move
+
+Bubble Glass v3 draft: wet sand (a quarter of sand's speed, heavy, no
+diagonal slip) in roof's shafts, lidded with a dry top layer. The lid was
+meant to be needed, but a bot that never melts flipped the box in 1 s and
+won in 5 s, wherever the shafts sat: the wet sand only drains while the
+box is held at an angle, and a quick turn passes through those angles
+before it moves. The same slowness made the wet-sand intro work the other
+way: with the pocket right beside the bubble, a flip lands the bubble under
+it (novice 50% first try), and turning away to let it settle is the lesson.
+Also from the same pass: a hazard only matters on the stretch the player
+must cross after it triggers. Level 4's plug below the shafts could be
+shattered at once for free (its sand fell away from the bubble), and
+shafts pour only into the tube between their mouths and where their sand
+lands, so a short tube above them made the lids pointless. Check:
+- For a slow hazard, time how long the player is exposed to it, not
+  whether it can reach them. A quick verb beats a slow threat; use slow
+  things as obstacles to wait out, not as clocks.
+- For each hazard, ask what happens if it is triggered first. If that's
+  free, the hazard is decoration.
+
+*Evidence: bots (`docs/games/bubble-glass.md`). Provisional.*

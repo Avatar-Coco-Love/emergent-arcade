@@ -80,7 +80,7 @@ Each revision:
 
 | Game | Now | Depth direction (a proposal, not a spec) | Status |
 |---|---|---|---|
-| bubble-glass | 5 levels, ~1.5 min for a good player | More boxes from the Evolution list (sand types, second bubble, fixtures), grouped in chapters; score = total time over a chapter | |
+| bubble-glass | 5 levels, ~1.5 min for a good player | More boxes from the Evolution list (sand types, second bubble, fixtures), grouped in chapters; score = total time over a chapter | v3: 14 boxes in 3 chapters, chapter time score (PR pending playtest) |
 | ant-trails | 6-day run | Endless days after day 6 with rising twists; score = days survived | |
 | terrace-garden | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run | |
 | pressure-grid | 60 s challenge | Stages with rising targets on new grid shapes; score = eruptions over the run | |

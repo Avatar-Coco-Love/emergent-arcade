@@ -608,12 +608,19 @@ window.ArcadeCabinet = (function () {
     recordsBoard = $("boardPick").value;
     renderRecords();
   });
+  // A name change or opt-out reaches the leaderboard at the next hourly
+  // build, without another round (scripts/build-leaderboards.mjs reads it).
+  function sendHandle() {
+    telemetry.event("handle", Scores.listed() ? { handle: Scores.handle(), lb: 1 } : { lb: 0 });
+  }
   $("lbListed").addEventListener("change", () => {
     Scores.setListed($("lbListed").checked);
+    sendHandle();
     renderRecords();
   });
   $("lbRename").addEventListener("click", () => {
     Scores.newHandle();
+    sendHandle();
     renderRecords();
   });
 
