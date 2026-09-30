@@ -23,14 +23,26 @@
       "mcp__github__pull_request_read",
       "mcp__github__list_pull_requests",
       "mcp__github__create_pull_request",
-      "mcp__github__update_pull_request"
+      "mcp__github__update_pull_request",
+      "Bash(git checkout -B ccr-* origin/main)",
+      "Bash(git push -u origin ccr-*)",
+      "Bash(node scripts/smoke-gallery.mjs*)",
+      "Bash(node scripts/fetch-telemetry.mjs*)",
+      "Bash(node scripts/outline.mjs*)",
+      "Bash(node scripts/games.mjs*)",
+      "mcp__github__list_issues",
+      "mcp__github__search_issues",
+      "mcp__github__issue_read"
     ]
   },
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh" }
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh"
+          }
         ]
       }
     ]
