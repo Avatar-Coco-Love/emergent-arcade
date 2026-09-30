@@ -60,20 +60,23 @@ yourself is cheaper.
   cleanup): Sonnet is enough.
 - Subagents that search or run scripts and summarize: Sonnet or Haiku.
 
-## Scaling plan (not built yet)
+## Scaling plan
 
-What will break first as the game count grows, and the intended fix:
+What will break first as the game count grows, and the intended fix
+(item 2 is built, the rest are not yet):
 
 1. **`games/games.json`** (~4 KB per game, loaded by the gallery on every
    visit; ~1 MB at 250 games). Split into a small index the gallery loads
    (id, title, blurb, accent, version, updated, status) and per-game detail
    loaded when a cabinet opens; `changes` keep only the last few entries in
    the index. Needs `index.html`/`assets/` changes and the smoke test.
-2. **Triage** (built: `node scripts/triage.mjs [--top N]`, needs `FEEDBACK_READ_KEY`;
-   rules in `need()`): a `scripts/triage.mjs` that joins telemetry, feedback and
-   the manifest into one line per game (sessions, human win rate vs bots,
-   new feedback since `updated`, days since update) and sorts by need, so
-   choosing what to revise never means reading every game's data.
+2. **Triage** (built): `node scripts/triage.mjs [--top N]` (needs
+   `FEEDBACK_READ_KEY`) joins telemetry, feedback and the manifest into one
+   line per game (sessions, human win rate, new feedback since `updated`,
+   days since update) and sorts by need (rules in `need()`), so choosing
+   what to revise never means reading every game's data. Bot win rates are
+   not in it (the balance scripts print text): compare with
+   `scripts/balance-<id>.mjs`.
 3. **Findings**: when `docs/findings.md` passes ~12 KB, split by theme
    (`docs/findings/<theme>.md`) and keep `findings.md` as the index.
 4. **Branches**: turn on GitHub's "Automatically delete head branches" so

@@ -131,7 +131,7 @@ const rows = games
     const s = stats(g);
     return { s, ...need(s) };
   })
-  .sort((a, b) => b.score - a.score || b.s.days - a.s.days);
+  .sort((a, b) => b.score - a.score || (a.s.median ?? Infinity) - (b.s.median ?? Infinity) || b.s.days - a.s.days);
 
 const pad = (x, n) => String(x).padEnd(n);
 const num = (x, suffix = "") => (x === null ? "-" : `${x}${suffix}`);
