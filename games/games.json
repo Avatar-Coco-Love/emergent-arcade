@@ -791,6 +791,71 @@
           "text": "First version."
         }
       ]
+    },
+    {
+      "id": "bubble-glass",
+      "title": "Bubble Glass",
+      "file": "bubble-glass.html",
+      "version": 1,
+      "added": "2026-09-29",
+      "updated": "2026-09-29",
+      "blurb": "Turn a sealed box of sand to float its air bubble out through the vent. Sand falls, the bubble rises, and glass you melt from the sand holds it back.",
+      "goal": "Free the bubble through the gold vent in each of five boxes. There's no clock and no way to lose: if a box gets hopelessly stuck, restart it.",
+      "howToPlay": "Drag around the box to turn it (on a phone you can also switch Tilt on and turn the phone itself). Gravity turns with it: sand always falls and the bubble always rises, so one turn moves both, in opposite directions. Sand trickles past the bubble in open water, slower the deeper it is, but in a narrow tube the bubble fills, sand stops it: its outline turns red. From level 2, {hold} on sand to melt it into glass. The glass grows toward your {finger} while you {hold}, costs heat, and is solid: it falls as one piece and blocks sand and the bubble, so it can make a lid, a roof or a plug. From level 3, {tap} glass to shatter it back into sand where it is. That's free, but the sand falls wherever gravity says. If nothing moves for a few seconds, a hint shows a turn, a place to melt, glass to shatter, or Restart.",
+      "keyboard": "← → or A / D to turn the box",
+      "mechanics": [
+        {
+          "name": "turn",
+          "verb": "drag",
+          "description": "Drag around the box to turn it, all 360°. Sand falls and the bubble rises with the new gravity."
+        },
+        {
+          "name": "melt",
+          "verb": "hold",
+          "description": "{Hold} on sand to fuse it into a glass shard that grows while held, up to a size limit, for 1 heat per grain. Glass is solid to sand and to the bubble."
+        },
+        {
+          "name": "shatter",
+          "verb": "tap",
+          "description": "{Tap} glass to break it back into loose sand where it is. Free, but the sand then falls with gravity, often onto the bubble."
+        }
+      ],
+      "sharedState": "The grid of sand, glass and liquid inside the box. Turning moves the sand and the shards (and the bubble the other way), melting turns sand into glass, shattering turns glass back into sand, and the bubble's path reads all of it: sand slows it, deep sand or glass stops it.",
+      "accent": "#f0c46a",
+      "achievements": [
+        {
+          "id": "umbrella",
+          "title": "Umbrella",
+          "description": "Keep 30 grains of falling sand off the bubble with a shard of glass over it."
+        },
+        {
+          "id": "breakout",
+          "title": "Breakout",
+          "description": "Shatter the glass the bubble is pressed against, then get it out within 4 seconds."
+        },
+        {
+          "id": "cold-hands",
+          "title": "Cold Hands",
+          "description": "Free a bubble from level 3 on without melting any glass."
+        },
+        {
+          "id": "light-touch",
+          "title": "Light Touch",
+          "description": "Free a bubble from level 3 on, turning the box less than 270° in all."
+        },
+        {
+          "id": "glassblower",
+          "title": "Glassblower",
+          "description": "Free the bubble in every box."
+        }
+      ],
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-09-29",
+          "text": "First version."
+        }
+      ]
     }
   ]
 }
