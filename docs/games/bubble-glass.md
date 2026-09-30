@@ -1,6 +1,6 @@
 # Bubble Glass: design notes
 
-Current: **v1** (playtest: https://claude.ai/artifact/Pe9SQ8QrH482T4iWv6jnUc). Mechanics: **turn** (drag
+Current: **v2** (playtest: https://claude.ai/artifact/Pe9SQ8QrH482T4iWv6jnUc). Mechanics: **turn** (drag
 around the box, phone tilt opt-in, ← → keys), **melt** ({hold} on sand) and
 **shatter** ({tap} glass), sharing the **grid** inside a sealed box (liquid,
 wall, sand, glass, vent). Five hand-made levels, no clock, no loss: a level
@@ -67,7 +67,19 @@ anything irreversible. Built to grow (see Evolution).
   spots while they're still unmelted sand; else the best turn (chevrons
   running round the ring); else a shard whose shattering helps (pulsing
   ring); else Restart (pulsing button). The search is a generator, 30
-  simulation steps per frame, so it never stalls a frame.
+  simulation steps per frame, so it never stalls a frame. A hint stays up
+  at least `HINT_MIN` s, then clears once anything has moved (a turn hint
+  also clears when the box reaches its angle). In tilt mode "still" means
+  the phone within `TILT_STILL`° of where the stall began and the bubble
+  not moving (settling sand and hand wobble don't count).
+- **Lid-first levels** (`lidFirst`, level 2): the melt hint (ring on the
+  next marked spot, level note plus `hint` text) shows from the first
+  frame and stays, whatever moves, until every spot is glass, poured away,
+  or the heat is under 8.
+- **Messages** stay up 1.5 s plus `MSG_MS_PER_CHAR` ms per character (at
+  least the time asked). In tilt mode `#msg` turns in quarter turns to read
+  upright against real gravity, along the stage edge that is on top
+  (flips 55° past a quarter, not 45°, so it doesn't flicker).
 - **Warnings** (once per level each): a shard being melted touches the
   bubble (glass is a wall; in level 2 it can't be broken yet), the heat
   runs out, a shatter with no heat left.
@@ -81,7 +93,8 @@ anything irreversible. Built to grow (see Evolution).
 | TRICKLE_D / DEEP / TUBE_K | 3 / 10 / 4 | ROT_MAX / KEY_RATE | 180 / 120 °/s |
 | HOLD_DELAY_MS / DRAG_PX | 170 ms / 12 px | MELT_RATE / SHARD_MAX | 20 cells/s / 40 cells |
 | STALL_T / LOOK_T | 3 s / 3.5 s | TAP_R | 3 cells |
-| UMBRELLA_N / BREAKOUT_T / LIGHT_DEG | 30 grains / 4 s / 270° | | |
+| UMBRELLA_N / BREAKOUT_T / LIGHT_DEG | 30 grains / 4 s / 270° | HINT_MIN / TILT_STILL | 4 s / 6° |
+| MSG_MS_PER_CHAR | 70 ms | | |
 
 Performance: a step is ~0.03 ms settled; a look-ahead of 3.5 s ~13 ms and
 the path search ~4 ms, spread over frames. At 390 × 700 with 4× CPU
@@ -95,7 +108,7 @@ or reuse one. Maps and data are the `LEVELS` array.
 | # | id | Verbs | Heat | Teaches |
 |---|---|---|---|---|
 | 1 | first-turn | turn | – | The bubble sits under a shelf; turning ↺ slides it out and round to the vent, through a thin layer of sand (a delay, not a wall). |
-| 2 | roof | + melt | 70 | Two sand shafts open into the bubble's tube. Any turn that moves the bubble toward the vent pours one of them onto it. Melt a lid on top of each, then flip. |
+| 2 | roof | + melt | 70 | Lid-first. Two sand shafts open into the bubble's tube. Any turn that moves the bubble toward the vent pours one of them onto it. Melt a lid on top of each, then flip. |
 | 3 | the-plug | + shatter | 40 | A jammed glass plug blocks the only tube. Shattering it drops its sand onto the bubble: flip first, shatter, come back upright by way of 90° so the room's sand stays clear of the chimney. |
 | 4 | lid-and-plug | all | 70 | Level 2's shafts over level 3's plug, with a room below whose chimney keeps the plug's sand off the tube. |
 | 5 | hourglass | all | 60 | A glass shelf holds a bed of sand over the waist; shattering it floods the waist unless the box is turned first. |
@@ -121,8 +134,9 @@ first-try win % / median first-try win time.
 | reader (all verbs, look-ahead) | 100% / 4 s | 92% / 7 s | 100% / 12 s | 100% / 17 s | 100% / 7 s |
 | slow-hands (2 s think, 0.7 s react) | 100% / 5 s | 100% / 9 s | 100% / 19 s | 100% / 24 s | 100% / 7 s |
 | keys (120°/s) | 100% / 4 s | 100% / 7 s | 100% / 13 s | 100% / 26 s | 100% / 8 s |
-| hinted (novice + obeys hints) | 100% / 9 s | 63% / 25 s | 88% / 28 s | 88% / 68 s | 100% / 24 s |
-| novice (spins 6 s, melts at the bubble, taps glass) | 100% / 9 s | 0% | 100% / 76 s | 88% / 77 s | 88% / 41 s |
+| hinted (novice + obeys hints) | 100% / 9 s | 100% / 11 s | 88% / 28 s | 88% / 56 s | 100% / 24 s |
+| tilt-hinted (hinted, tilt mode, ±3° wobble) | 100% / 9 s | 100% / 11 s | 88% / 26 s | 75% / 43 s | 100% / 24 s |
+| novice (spins 6 s, melts at the bubble, taps glass) | 100% / 9 s | 0% | 100% / 76 s | 88% / 73 s | 100% / 110 s |
 | rotate-only (explores when stuck) | 100% / 4 s | 100% / 40 s | 0% | 0% | 0% (no-shatter is 0%) |
 | no-melt | 100% / 4 s | 100% / 42 s | 100% / 11 s | 100% / 19 s | 100% / 5 s |
 | no-shatter | 100% / 4 s | 100% / 7 s | 0% | 0% | 0% |
@@ -140,14 +154,32 @@ Reading it:
   apart"): the melt reader wins in 7 s, turning alone by rocking in ~40 s,
   `habit` 0%. Melt is optional on levels 4 and 5 (no-melt is about as fast
   as the reader there): an open revision target.
-- **Level 2 is the hardest first try** for the hint-follower (63%): the
-  novice's first 6 s of spinning pours the shafts before any hint shows,
-  and it then needs a lid that can only form on sand. The novice without
-  hints never wins it (it melts next to the bubble, walling it in).
+- **Level 2 (v2):** the lid hint is up from the first frame, so the
+  hint-follower lids first: 100% / 11 s (v1 63% / 25 s, where 6 s of
+  spinning poured the shafts before any hint). The novice that ignores
+  hints still never wins it (it melts next to the bubble, walling it in).
+- **Tilt mode (v2):** `tilt-hinted` on v1 won level 2 13% first try with
+  0 hints shown (the playtest below); v2 100%. Levels 3–5 in tilt match the
+  touch hinted bot within noise (8 runs). Before/after:
+  `SRC=<old copy> node scripts/balance-bubble-glass.mjs 8 tilt-hinted`.
 - **Achievements:** Cold Hands is common from level 3 on (the no-melt route
   exists), Light Touch comes from hourglass, Breakout 13% and Umbrella
   13–88% (no-shatter bot on hourglass) show up in play without aiming for
   them. Glassblower needs the whole set.
+
+## Playtest 2026-09-30 (v1, one player, phone, tilt mode)
+
+Rated 1 star: "First level was way too easy … could not make it past the
+second level no matter how hard I tried. No amount of tilt could get the
+bubble that far through sand. It's too tight a fit and I see no clear
+solution." Telemetry, 3 runs: level 1 won in 6–23 s (1 hint each); level
+2 restarted twice (79 s and 50 s), **0 glass melted, 70 heat left**, 4,000–
+5,400° turned, 0 and 1 hints, 11 s buried. The player never found melt,
+and the hint that points at it waited for a stillness a phone in the
+hand never gives. They also remembered a level-2 message that "appeared
+super briefly then disappeared" (the level note, 5 s). v2 answers all
+three: the lid hint from the start, tilt-tolerant hints with a minimum
+time, longer messages that turn upright in tilt mode.
 
 ## Achievements
 
@@ -161,12 +193,20 @@ Reading it:
 
 ## Open ideas
 
+- **Level 1 "way too easy"** (playtest): it's a 4–9 s tutorial. Could
+  add a second beat (for example a sand bank the bubble must be rocked
+  past) without adding a verb.
+- **Level 5 doesn't need melt, or even a turn first:** `no-melt` shatters
+  the shelf at once, tilts 45° and wins in 5 s. The side basins beside
+  the waist hold all the shelf's sand. Fix by giving it more sand than
+  the basins hold, or a longer, tighter waist the bubble has to be in
+  while the sand comes down (a lid's job).
+- **Level 4:** melt saves 2 s (reader 17 s, no-melt 19 s). The shafts
+  only threaten the bubble upright, and the whole route runs flipped.
+- Level 2 in tilt mode, a real phone: check the lid ring is easy to
+  {hold} on while the other hand holds the phone steady.
 - Real tumbling: shards rotating relative to the box (now they only
   translate).
-- Levels 4 and 5 don't reward melt (no-melt is as fast): give them sand
-  that only a lid can hold while the plug's sand is dealt with.
-- Level 2 with a spinning novice: show the lid hint before the first
-  flip, or start with the shafts' tops already glowing.
 - A level select that shows which levels are won.
 
 ## Evolution

@@ -24,7 +24,8 @@ try { ({ chromium } = await import('playwright')); } catch {
   ({ chromium } = await import(pathToFileURL(path.join(root, 'playwright/index.mjs'))));
 }
 
-const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/bubble-glass.html');
+// SRC=path plays another copy of the game (e.g. the previous version, for a before/after).
+const SRC = process.env.SRC || path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/bubble-glass.html');
 
 // Every bot decides every `gap` s and acts `react` s after it looks.
 //   reader: knows every verb. Tries each turn (eighths of a turn either
@@ -44,7 +45,10 @@ const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/bu
 //     random 45–180°; {taps} any glass it sees (half the time).
 //   hinted: the novice, but does what the stuck hint says whenever one is
 //     showing (turn the way it points, hold on the spot it rings, {tap} the
-//     glass it rings, Restart).
+//     glass it rings, Restart). A lid hint (on screen from the start) it
+//     follows before spinning.
+//   tilt-hinted: the hinted novice in tilt mode, the phone wobbling ±3° in
+//     the hand all the time (the playtester's setup on 2026-09-30).
 //   spinner: turns the box at full speed, all the time.
 //   slow-hands: the reader thinking every 2 s and reacting in 0.7 s.
 //   keys: the reader turning at the arrow keys' rate.
@@ -58,6 +62,7 @@ const BOTS = {
   habit: { ...HUMAN, policy: 'habit' },
   novice: { ...HUMAN, policy: 'novice', gap: 0.6, spin: 6 },
   hinted: { ...HUMAN, policy: 'novice', gap: 0.6, spin: 6, hint: true },
+  'tilt-hinted': { ...HUMAN, policy: 'novice', gap: 0.6, spin: 6, hint: true, wobble: 3 },
   spinner: { ...HUMAN, policy: 'spinner' },
   'slow-hands': { ...HUMAN, policy: 'reader', gap: 2, react: 0.7 },
   keys: { ...HUMAN, policy: 'reader', keys: true },
@@ -87,6 +92,7 @@ try { localStorage.clear(); } catch (e) {}
     get level() { return level; }, get hint() { return hint; }, get hints() { return hints; },
     get turns() { return turns; }, get warns() { return warns; },
     LEVELS, N, CH, STEP, RAD, KEY_RATE, SHARD_MAX, MELT_RATE, earned: unlocked,
+    setTilt: v => { motion.on = v; },
     startLevel, step, leave, tapAt, botTurn, botMelt, botRelease,
     lookahead, bestTurn, cloneWorld, ventDistance, bubbleScore, shatterAt, meltStart, meltMove, meltStop, simStep,
   };
@@ -125,12 +131,14 @@ function playInPage({ seed, bot, lv }) {
         w.angT = Math.abs(d) <= m ? goal : w.ang + Math.sign(d) * m;
         if (Math.abs(d) <= m) goal = null;
       }
+      if (bot.wobble) { const e = D.elapsed; W().angT = aim + bot.wobble * RAD * (0.6 * Math.sin(e * 2.1 + seed) + 0.4 * Math.sin(e * 5.3)); }
       if (melting) D.world.melt && D.meltMove(W(), melting.fx, melting.fy);
       D.step(DT);
     }
   };
   let melting = null;
-  const turn = a => { if (bot.keys) { goal = a; D.botTurn(W().ang); } else D.botTurn(a); };
+  let aim = 0;
+  const turn = a => { aim = a; if (bot.keys) { goal = a; D.botTurn(W().ang); } else D.botTurn(a); };
   // Hold on (x, y), the finger drifting by (dx, dy) cells per s, for t s.
   const melt = (x, y, dx, dy, t) => {
     if (!D.botMelt(x, y)) return false;
@@ -215,7 +223,7 @@ function playInPage({ seed, bot, lv }) {
   function noviceMove() {
     const w = W();
     const h = D.hint;
-    if (bot.hint && h && D.elapsed > bot.spin) {
+    if (bot.hint && h && (D.elapsed > bot.spin || h.lid)) {
       if (h.turn) { turn(h.a); log('hint turn'); return; }
       if (h.restart) { log('hint restart'); D.leave('restart', D.level); return 'restart'; }
       if (h.shatter) { D.tapAt(h.x, h.y); log('hint shatter'); return; }
@@ -255,6 +263,8 @@ function playInPage({ seed, bot, lv }) {
   const tries = [];
   for (let t = 0; t < 3; t++) {
     D.startLevel(lv);
+    if (bot.wobble) D.setTilt(true);
+    aim = W().ang;
     still = 0; lastPos = [W().bx, W().by];
     let out = null;
     while (D.state === 'playing' && D.elapsed < TIME) {

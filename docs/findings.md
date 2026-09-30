@@ -314,3 +314,26 @@ faster, not required" for melt levels. Check:
 
 *Evidence: bots (`docs/games/bubble-glass.md`). Provisional: not
 playtested.*
+
+## A hint that waits for stillness never shows in tilt mode
+
+Bubble Glass v1, level 2: one player, tilt mode, 2 attempts (79 s, 50 s),
+both restarted, rated 1 star ("no amount of tilt could get the bubble
+through sand… no clear solution"). The rows: 0 glass melted, all 70 heat
+left, 4,000–5,400° turned, 0 and 1 hints. The level needs a melt the
+player never found, and the hint that points at it waited for 3 s of
+stillness: a box turned by a phone in the hand wobbles more than the
+0.6° the check allowed, so the timer never filled, and the one hint that
+did show vanished on the next wobble. A hinted bot wobbling ±3° in tilt
+mode reproduced it (13% first try, 0 hints); v2 gets it to 100%. Check:
+- A "nothing is happening" detector must tolerate the input's own noise
+  (sensor jitter, settling particles). Test it with a bot that adds that
+  noise, not only with a bot that holds perfectly still.
+- A hint needed before the first move (here, lids before the first flip)
+  must be on screen from the start and stay until it's done. A stuck hint
+  comes after the mistake.
+- Give a hint a minimum time on screen. Clearing it on any movement hides
+  it from exactly the player who is moving without a plan.
+
+*Evidence: feedback + telemetry (1 player, 2 rounds) + bots
+(`docs/games/bubble-glass.md`). Provisional: v2 isn't playtested.*
