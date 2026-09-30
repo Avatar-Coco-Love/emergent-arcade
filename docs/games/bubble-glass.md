@@ -112,7 +112,42 @@ nothing), `tilt` (0/1), `buried_s` (s walled in by sand).
 
 ## Balance
 
-BALANCE_TABLE
+`node scripts/balance-bubble-glass.mjs 8 [bots] [levels]` (8 seeded runs per
+bot and level, each level on its own, up to 3 tries of 150 s). Cells:
+first-try win % / median first-try win time.
+
+| Bot | first-turn | roof | the-plug | lid-and-plug | hourglass |
+|---|---|---|---|---|---|
+| reader (all verbs, look-ahead) | 100% / 4 s | 92% / 7 s | 100% / 12 s | 100% / 17 s | 100% / 7 s |
+| slow-hands (2 s think, 0.7 s react) | 100% / 5 s | 100% / 9 s | 100% / 19 s | 100% / 24 s | 100% / 7 s |
+| keys (120°/s) | 100% / 4 s | 100% / 7 s | 100% / 13 s | 100% / 26 s | 100% / 8 s |
+| hinted (novice + obeys hints) | 100% / 9 s | 63% / 25 s | 88% / 28 s | 88% / 68 s | 100% / 24 s |
+| novice (spins 6 s, melts at the bubble, taps glass) | 100% / 9 s | 0% | 100% / 76 s | 88% / 77 s | 88% / 41 s |
+| rotate-only (explores when stuck) | 100% / 4 s | 100% / 40 s | 0% | 0% | 0% (no-shatter is 0%) |
+| no-melt | 100% / 4 s | 100% / 42 s | 100% / 11 s | 100% / 19 s | 100% / 5 s |
+| no-shatter | 100% / 4 s | 100% / 7 s | 0% | 0% | 0% |
+| habit ("turn so the vent is up") | 100% / 3 s | 0% | 0% | 0% | 0% |
+| spinner (full speed, always) | 0% | 0% | 0% | 0% | 0% |
+| idle | 0% | 0% | 0% | 0% | 0% |
+
+Reading it:
+- **Onboarding:** level 1 takes a novice 9 s; hinted and novice win it
+  first time. The level-1 hint comes after 1.5 s.
+- **Shatter is required** wherever there's a plug: rotate-only and
+  no-shatter win 0% on levels 3–5.
+- **Melt makes level 2 about 6× faster but isn't required** (the
+  maintainer's call, see `docs/findings.md`, "When two things always move
+  apart"): the melt reader wins in 7 s, turning alone by rocking in ~40 s,
+  `habit` 0%. Melt is optional on levels 4 and 5 (no-melt is about as fast
+  as the reader there): an open revision target.
+- **Level 2 is the hardest first try** for the hint-follower (63%): the
+  novice's first 6 s of spinning pours the shafts before any hint shows,
+  and it then needs a lid that can only form on sand. The novice without
+  hints never wins it (it melts next to the bubble, walling it in).
+- **Achievements:** Cold Hands is common from level 3 on (the no-melt route
+  exists), Light Touch comes from hourglass, Breakout 13% and Umbrella
+  13–88% (no-shatter bot on hourglass) show up in play without aiming for
+  them. Glassblower needs the whole set.
 
 ## Achievements
 
@@ -128,8 +163,10 @@ BALANCE_TABLE
 
 - Real tumbling: shards rotating relative to the box (now they only
   translate).
-- Level 5 doesn't need melt; a finale where lids and a plug interact
-  more would be better.
+- Levels 4 and 5 don't reward melt (no-melt is as fast): give them sand
+  that only a lid can hold while the plug's sand is dealt with.
+- Level 2 with a spinning novice: show the lid hint before the first
+  flip, or start with the shafts' tops already glowing.
 - A level select that shows which levels are won.
 
 ## Evolution
