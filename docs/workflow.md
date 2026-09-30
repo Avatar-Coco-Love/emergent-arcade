@@ -69,7 +69,8 @@ What will break first as the game count grows, and the intended fix:
    (id, title, blurb, accent, version, updated, status) and per-game detail
    loaded when a cabinet opens; `changes` keep only the last few entries in
    the index. Needs `index.html`/`assets/` changes and the smoke test.
-2. **Triage**: a `scripts/triage.mjs` that joins telemetry, feedback and
+2. **Triage** (built: `node scripts/triage.mjs [--top N]`, needs `FEEDBACK_READ_KEY`;
+   rules in `need()`): a `scripts/triage.mjs` that joins telemetry, feedback and
    the manifest into one line per game (sessions, human win rate vs bots,
    new feedback since `updated`, days since update) and sorts by need, so
    choosing what to revise never means reading every game's data.
