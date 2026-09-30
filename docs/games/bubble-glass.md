@@ -1,6 +1,6 @@
 # Bubble Glass: design notes
 
-Current: **v1** (playtest: PLAYTEST_LINK). Mechanics: **turn** (drag
+Current: **v1** (playtest: https://claude.ai/artifact/Pe9SQ8QrH482T4iWv6jnUc). Mechanics: **turn** (drag
 around the box, phone tilt opt-in, ← → keys), **melt** ({hold} on sand) and
 **shatter** ({tap} glass), sharing the **grid** inside a sealed box (liquid,
 wall, sand, glass, vent). Five hand-made levels, no clock, no loss: a level
