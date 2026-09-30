@@ -149,6 +149,9 @@
   const TAP_R = 3;                 // a tap finds glass this many cells away
   const STALL_T = 3;               // s of stillness before a hint shows (1.5 in level 1)
   const LOOK_T = 3.5;              // s the hint looks ahead for each possible turn
+  const HINT_MIN = 4;              // s a hint stays up even if things start moving again
+  const TILT_STILL = 6;            // deg a phone may wobble (tilt mode) and still count as held still
+  const MSG_MS_PER_CHAR = 70;      // messages stay up 1.5 s plus this per character (at least ms)
   const UMBRELLA_N = 30;           // grains that land on a shard sheltering the bubble, for Umbrella
   const BREAKOUT_T = 4;            // s from shattering a shard on the bubble to the vent, for Breakout
   const LIGHT_DEG = 270;           // Light Touch: a level turned less than this (from level 3)
@@ -187,7 +190,7 @@
   // never rename or reuse one. verbs: which of turn / melt / shatter work.
   // ang: the box's angle at the start (degrees, clockwise). heat: the melt budget. melt: map spots [x, y] the stuck hint may point
   // at for melting. note: shown when the level starts; hint: shown with a
-  // melt hint. map: MAP rows of MAP characters (see MATERIALS, o = bubble).
+  // melt hint. lidFirst: the melt hint shows from the start, until every spot is glass. map: MAP rows of MAP characters (see MATERIALS, o = bubble).
   const LEVELS = [
     { id: 'first-turn', name: "First turn", verbs: 'turn', heat: 0,
       note: "Turn the box: drag around it. The bubble rises, the sand falls.",
@@ -217,9 +220,9 @@
         '#ssssssssssssssssssssss#',
         '########################',
       ] },
-    { id: 'roof', name: "Roof", verbs: 'turn melt', heat: 70,
-      note: "Melting is unlocked: {hold} on sand to fuse it into glass. The sand beside the tube will pour onto the bubble.",
-      hint: "{Hold} on the top of the sand to melt a lid over it, then turn.", melt: [[8,  10],  [15,  10]],
+    { id: 'roof', name: "Roof", verbs: 'turn melt', heat: 70, lidFirst: true,
+      note: "Melting is unlocked. Turning pours the sand beside the tube onto the bubble.",
+      hint: "{Hold} on the glowing ring to melt a glass lid over the sand. One on each side, then turn.", melt: [[8,  10],  [15,  10]],
       map: [
         '########################',
         '###########o.###########',
@@ -898,7 +901,7 @@
   // ---------- game state ----------
   let world, level, runId, attempt, state, msgTimer;
   let elapsed, turns, firstInput, stuckS, buriedS, hints, warns, tiltUsed;
-  let stall = 0, hint = null, hintJob = null, ready = null, lastShatter = null, warned = new Set();
+  let stall = 0, stallAng = 0, hintAt = 0, hintStale = false, hint = null, hintJob = null, ready = null, lastShatter = null, warned = new Set();
   let reached = 0, beaten = new Set();
   const attempts = {};
   const endCard = document.getElementById('endCard');
@@ -932,7 +935,8 @@
     state = 'playing';
     endCard.hidden = true;
     ventAt = findVent(world);
-    say(`${lv().name}. ${lv().note}`, 5000);
+    // A lid-first level keeps its note and lid hint up until the lids are made.
+    say(`${lv().name}. ${lv().note}${lidHint() ? ' ' + lv().hint : ''}`, lidHint() ? 0 : 5000);
     hud();
   }
 
@@ -993,11 +997,13 @@
       return w[0] === w[0].toUpperCase() ? v : v.toLowerCase();
     });
   }
-  function say(text, ms, warn) {
-    msgEl.textContent = words(text);
+  // ms 0: the message stays until something else replaces it.
+  function say(text, ms = 2500, warn) {
+    const t = words(text);
+    msgEl.textContent = t;
     msgEl.className = warn ? 'warn' : '';
     clearTimeout(msgTimer);
-    msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms || 2500);
+    if (ms) msgTimer = setTimeout(() => { msgEl.textContent = ''; }, Math.max(ms, 1500 + MSG_MS_PER_CHAR * t.length));
   }
   // A warning for something that can't be undone, once per level each.
   function warn(key, text) {
@@ -1033,8 +1039,31 @@
   // for the turn that brings the bubble closest to the vent; failing that, a
   // place to melt, a shard to shatter, or Restart.
   function watchStall(dt) {
-    const still = world.moves < 3 && world.moved === 0 && world.bmoved < 0.02 && Math.abs(world.angT - world.ang) < 0.01 && !world.melt && !press;
-    if (!still) { stall = 0; hintJob = null; ready = null; if (hint) nudge(null); return; }
+    // Lid-first levels point at the lids from the start, whatever is moving.
+    const lid = lidHint();
+    if (lid) {
+      if (!hint || !hint.lid || hint.x !== lid.x || hint.y !== lid.y) { hints++; nudge(lid); }
+      if (!msgEl.textContent) say(lv().hint, 0);
+      return;
+    }
+    if (hint && hint.lid) {
+      nudge(null);
+      if (msgEl.textContent.endsWith(words(lv().hint))) { clearTimeout(msgTimer); msgEl.textContent = ''; }
+    }
+    // In tilt mode a phone in the hand never holds perfectly still, and
+    // settling sand keeps creeping: there, still means the phone within
+    // TILT_STILL of where it was and the bubble not moving.
+    const turning = motion.on ? Math.abs(angDiff(world.angT, stallAng)) > TILT_STILL * RAD : Math.abs(world.angT - world.ang) >= 0.01;
+    const settled = world.bmoved < 0.02 && (motion.on || (world.moves < 3 && world.moved === 0));
+    const still = settled && !turning && !world.melt && !press;
+    if (!still) {
+      stall = 0; hintJob = null; ready = null; stallAng = world.angT;
+      if (hint) hintStale = true;
+      if (hint && (elapsed - hintAt >= HINT_MIN || (hint.turn && Math.abs(angDiff(world.ang, hint.a)) < 10 * RAD))) nudge(null);
+      return;
+    }
+    // Something moved since the hint showed: once it has been up HINT_MIN, look again.
+    if (hint && hintStale && elapsed - hintAt >= HINT_MIN) nudge(null);
     stall += dt;
     const limit = level === 0 ? STALL_T / 2 : STALL_T;
     if (stall >= limit) stuckS += dt;
@@ -1046,6 +1075,7 @@
     const h = ready;
     ready = null;
     hints++;
+    hintAt = elapsed;
     nudge(h);
     if (h.turn) say(`${h.turn > 0 ? 'Turn it clockwise ↻' : 'Turn it counterclockwise ↺'} (${motion.on ? 'tip your phone' : touchScreen ? 'drag around the box' : 'drag around the box, or ← →'}).`, 4000);
     else if (h.melt) say(lv().hint || `${HOLD} on the sand here to melt it into glass.`, 5000);
@@ -1081,6 +1111,18 @@
     return { restart: true };
   }
   const findHint = w => finish(findHintG(w));
+  const angDiff = (a, b) => { const d = a - b; return d - Math.round(d / (2 * Math.PI)) * 2 * Math.PI; };
+  // A lid-first level's melt hint: its next marked spot that's still sand
+  // with no glass beside it, while there's heat for a lid.
+  function lidHint() {
+    const L = lv();
+    if (!L.lidFirst || !can('melt') || world.heat < 8 || state !== 'playing') return null;
+    for (const [mx, my] of L.melt) {
+      const x = mx * CH + CH / 2, y = my * CH + CH / 2;
+      if (MELTS[materialAt(world, x, y)] && !glassNear(world, x, y, 4)) return { melt: true, lid: true, x, y };
+    }
+    return null;
+  }
   function glassNear(w, x, y, r) {
     for (let j = Math.floor(y - r); j <= y + r; j++) for (let i = Math.floor(x - r); i <= x + r; i++) {
       if (i >= 0 && j >= 0 && i < N && j < N && w.t[j * N + i] === GLASS) return true;
@@ -1089,6 +1131,7 @@
   }
   function nudge(h) {
     hint = h;
+    hintStale = false;
     document.getElementById('resetBtn').classList.toggle('nudge', !!(h && h.restart));
   }
 
@@ -1468,6 +1511,27 @@
     world.angT = world.ang + d;
   }
 
+  // Tilt mode: the message turns in quarter turns to read upright against
+  // real gravity, along whichever edge of the stage is on top (a little
+  // past 45° before it flips, so it doesn't flicker at the boundary).
+  let msgQ = 0, msgKey = '';
+  function placeMsg() {
+    if (motion.on) {
+      const up = -world.ang;
+      if (Math.abs(angDiff(up, msgQ * Math.PI / 2)) > 55 * RAD) msgQ = ((Math.round(up / (Math.PI / 2)) % 4) + 4) % 4;
+    } else msgQ = 0;
+    const sw = stage.clientWidth, sh = stage.clientHeight, key = `${msgQ} ${sw} ${sh}`;
+    if (key === msgKey) return;
+    msgKey = key;
+    msgEl.style.cssText = '';
+    if (!msgQ) return;
+    const side = msgQ % 2 === 1;
+    Object.assign(msgEl.style, {
+      left: '50%', top: '50%', right: 'auto', width: 0.96 * (side ? sh : sw) + 'px', transformOrigin: '0 0',
+      transform: `rotate(${msgQ * 90}deg) translate(-50%, ${-0.96 * (side ? sw : sh) / 2}px)`,
+    });
+  }
+
   document.getElementById('resetBtn').addEventListener('click', restart);
   nextBtn.addEventListener('click', next);
   document.getElementById('prevLv').addEventListener('click', () => { if (!paused && level > 0) leave('switch', level - 1); });
@@ -1488,6 +1552,7 @@
       acc -= STEP;
     }
     hud();
+    placeMsg();
     draw(now);
     requestAnimationFrame(frame);
   }
