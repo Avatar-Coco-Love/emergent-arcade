@@ -2,7 +2,7 @@
 // Checks the game manifest and every game file against the platform rules in
 // docs/PROJECT_BRIEF.md. Runs in CI on every PR and before every deploy.
 // Usage: node scripts/validate.mjs
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { selfContainedProblems } from "./self-contained.mjs";
@@ -12,6 +12,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const gamesDir = join(root, "games");
 const errors = [];
 const fail = (msg) => errors.push(msg);
+const warnings = [];
+// Notes every session reads before touching a game stay short (CLAUDE.md,
+// "Keeping context small"); older material goes to docs/history/<id>.md.
+const NOTES_MAX = 8 * 1024;
 
 let manifest;
 try {
@@ -69,6 +73,11 @@ for (const [i, g] of games.entries()) {
     continue;
   }
   // Link preview image for the game's share page (scripts/make-og-images.mjs).
+  // Workflow rule: every game has design notes and a balance harness.
+  const notes = join(root, "docs", "games", `${g.id}.md`);
+  if (!existsSync(notes)) fail(`${where}: docs/games/${g.id}.md (design notes) is missing`);
+  else if (statSync(notes).size > NOTES_MAX) warnings.push(`docs/games/${g.id}.md is ${(statSync(notes).size / 1024).toFixed(1)} KB (keep it under 8): move older material to docs/history/${g.id}.md`);
+  if (!existsSync(join(root, "scripts", `balance-${g.id}.mjs`))) fail(`${where}: scripts/balance-${g.id}.mjs is missing (copy the closest one, see CLAUDE.md)`);
   if (!existsSync(join(root, "assets", "og", `${g.id}.png`))) fail(`${where}: assets/og/${g.id}.png is missing (run node scripts/make-og-images.mjs ${g.id})`);
   const html = readFileSync(path, "utf8");
   checkSelfContained(g.file, html);
@@ -190,9 +199,10 @@ function checkSelfContained(file, html) {
   for (const problem of selfContainedProblems(html)) fail(`games/${file}: ${problem}`);
 }
 
+for (const w of warnings) console.warn(`warning: ${w}`);
 if (errors.length) {
   console.error(`Validation failed (${errors.length}):`);
   for (const e of errors) console.error(`  - ${e}`);
   process.exit(1);
 }
-console.log(`OK: ${games.length} game(s) valid: ${games.map((g) => `${g.id}@v${g.version}`).join(", ")}`);
+console.log(`OK: ${games.length} game(s) valid (node scripts/games.mjs lists them)`);

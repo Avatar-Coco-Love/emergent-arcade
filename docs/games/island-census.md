@@ -1,30 +1,14 @@
 # Island Census: design notes
 
-Current: **v1** (playtest: https://claude.ai/artifact/Tk9dtgZU1XGUsaB1vwFuGW). Mechanics: **release** (tap) and
-**fence** (drag), sharing **rabbits, foxes and grass per meadow** on a
-7-meadow island. Turn-based: 2 moves per season, then Next season plays it
-out. Win: get through 8 seasons (two years). A season that ends with either
-total outside its census band is a strike; 3 strikes, or either species at
-0, loses. 6 achievements (in `games/games.json`).
-
-Built against `docs/findings.md`:
-
-- **Passive systems must lose something.** Rabbits die of age (`RDIE`) and
-  starve without grass; foxes die every season (`FDIE`) and only replace
-  themselves by eating. Nothing passive creates animals from nothing.
-- **A verb only shares state if success needs to read it.** Release reads
-  where foxes and grass are (rabbits dropped next to foxes feed them; on
-  bare grass they starve). Fences read the fox arrows (which meadow the
-  foxes head for next) and fox numbers (a sealed refuge starves foxes).
-  One-verb bots win about half as often as the two-verb reader (below).
-- **A decay rate turns a puzzle into a speed test.** No clock: the
-  simulation only runs when the player presses Next season, so think time
-  is free. `time` in telemetry is still unpaused seconds, for comparison.
-- **One round shows everything.** Every round is a new island (meadow
-  positions, sizes, paths, fox den) and one of 4 second-year events,
-  announced a season ahead.
-- **Bots model skilled play, not the first minute.** A `novice` bot
-  (random moves, never takes a fence down) is in the harness from v1.
+**v1** (2026-09-29) · playtest: https://claude.ai/artifact/Tk9dtgZU1XGUsaB1vwFuGW ·
+balance: `node scripts/balance-island-census.mjs 300`
+Mechanics: **release** (tap) and **fence** (drag), sharing **rabbits, foxes
+and grass per meadow** on a 7-meadow island. Turn-based: 2 moves per season,
+then Next season plays it out (no clock). Win: get through 8 seasons (two
+years). A season that ends with either total outside its census band is a
+strike; 3 strikes, or either species at 0, loses. 6 achievements (in
+`games/games.json`). Every round is a new island and one of 4 second-year
+events, announced a season ahead.
 
 ## How a season works
 
@@ -71,6 +55,7 @@ green band). Meadow centres fall in an ellipse centred (200, 342), radii 122×18
 Paths: shortest non-crossing links under `PATH_MAX`, max 4 per meadow,
 then the shortest link that joins any separate groups.
 
+
 ## Balance (v1, `node scripts/balance-island-census.mjs 300`)
 
 | Bot | Win | Lost (all 3 strikes unless noted) | Strikes per run: few rabbits / few foxes / many rabbits | Moves |
@@ -92,15 +77,7 @@ then the shortest link that joins any separate groups.
   20%, Long Winter 74 / 71%, Light Touch 54 / 54% (idle 25%), Comeback 27 /
   22%, Safe Haven 98 / 0%. Safe Haven needs a deliberately fenced-in
   meadow, which only the refuge strategy produces.
-- Tuning path: first draft (BREED 1.6, HUNT 6) had rabbits ×3.5 in one
-  spring; every bot lost in 3 seasons. HUNT 12–14 made foxes eat the island
-  by autumn (idle 0–5%, reader 6–8%, fences can't hold). HUNT 9 on the wider
-  island: idle 13 / reader 92 / novice 45%. The tighter layout has more paths
-  per meadow, so foxes spread faster; HUNT 8.5 brought it back.
-- **More rabbits make it harder.** START_R 75 (vs 60, wider draft island,
-  HUNT 9): idle 13 → 8%, reader 92 → 81%, novice 45 → 30%. Extra rabbits feed a bigger fox boom, which then eats more
-  than the extra (the "paradox of enrichment" from ecology). Releasing
-  rabbits at the wrong moment works the same way.
+- Tuning path (HUNT, BREED, START_R experiments, paradox of enrichment): history.
 
 ## Telemetry
 
@@ -133,6 +110,4 @@ One `arcade:result` per round, `reason` for a loss (`census` = 3 strikes,
 - Candidate third verb if the round feels thin: none planned; the brief
   allows 3, but the refuge tension may be enough.
 
-## History
-
-- v1: first version.
+History (older versions, balance tables, playtests): `docs/history/island-census.md`

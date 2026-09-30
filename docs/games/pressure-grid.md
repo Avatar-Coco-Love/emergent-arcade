@@ -1,6 +1,8 @@
 # Pressure Grid: design notes
 
-Current: **v7** (playtest: https://claude.ai/artifact/6XdvHNUwNZx9LdbutZBSuL). The arcade's first game and its structural reference
+**v7** (2026-09-29) · playtest: https://claude.ai/artifact/6XdvHNUwNZx9LdbutZBSuL ·
+balance: `node scripts/balance-pressure-grid.mjs 100`
+The arcade's first game and its structural reference
 (`docs/adding-a-game.md`). Mechanics: **pump** (tap a cell: +pressure) and
 **siphon** (drag from a cell toward a neighbour: move 60% of it, 15% lost),
 sharing **pressure per cell**. A passive system bleeds pressure into
@@ -77,51 +79,12 @@ eruptions in one tick or one siphon), `pressure` (total left on the board).
 `time` is the round clock (paused ticks don't count). New round mid-round
 posts nothing.
 
-## Balance (v6 sandbox, superseded: 120 s sessions, no round)
-
-Bots act `rate` times per second. "Storm" = the first tick with 100+
-eruptions (the board flashing white). "Settles" = no eruptions within 20 s
-of the bot stopping.
-
-| Bot | what it does | storm | settles | eruptions / 120 s (v5) |
-|---|---|---|---|---|
-| spam3 | pump the centre, 3/s | – | 100% | 411 (780k) |
-| spread3 | pump random cells, 3/s | – | 100% | 240 (350k) |
-| spread6 | pump random cells, 6/s | – | 100% | 753 (590k) |
-| sweep3 | pump the lowest cell, 3/s | @85 s | 100% | 100 (1.8k) |
-| sweep6 | pump the lowest cell, 6/s | @44 s | 100% | 400 (4.9k) |
-| strike3 | pump two neighbours, siphon one into the other | – | 100% | 150 (1.1M) |
-
-The sweep bots' "storm" is one whole-board wave (every cell tips at once),
-which then burns out. Sweep of `ERUPT_BLAST` (30 runs, settles / spread6
-storms): 40 → 3–7% / 100%; 30 → 100% / 100%; 25 → 100% / 37%; 24 → 100% /
-0%; 20 → 100% / 0% but Chain Reaction gone for spam3 and Century gone for
-strike3. 24 is the highest value that is strictly lossy (4 × 24 < 100).
-
-Median seconds to each achievement (share of runs, within 120 s):
-
-| Bot | First Pop | Chain Reaction | Siphon Strike | Plumber | Full Pressure | Century |
-|---|---|---|---|---|---|---|
-| spam3 | 3 s | 25 s | – | – | 86 s | 56 s |
-| spread3 | 68 s | 74 s | – | – | 47 s | 92 s |
-| sweep3 | 85 s | 85 s | – | – | 28 s | 85 s |
-| strike3 | 4 s | – | 4 s | 39 s | 105 s | 99 s |
-
-Century is now earned (45–99 s) rather than free with the first storm.
-
-Real-page check (Playwright clicks, 3 taps/s on random cells, v6): no
-eruptions for 60 s, 68 by 80 s, then none in 20 s idle. (v5: 84k by 80 s,
-never settled.)
-
 ## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
 
-v6: sandbox, 1 session of 64 s, **all 6 achievements unlocked in that
-session** (bots take 28–105 s per achievement, and no bot earns all six;
-Siphon Strike and Plumber come only from strike3). The achievements may be
-too easy for a human who uses both verbs. No rounds, so no win rate.
-
-Overnight (2026-09-28, a second player): 1 session of 13 s play (21 s
-open), First Eruption only, then left. One short visit: no conclusion.
+v6 sandbox, 1 session of 64 s: **all 6 achievements unlocked** (no bot
+earns all six), so they may be too easy for a human using both verbs. A
+second player: 13 s of play, First Eruption only, then left. No v7 round
+data yet, so no human win rate.
 
 ## Open ideas / known limits
 
@@ -139,12 +102,4 @@ open), First Eruption only, then left. One short visit: no conclusion.
   bot table first: a human at ~3 taps/s is right at the limit.
 - Not yet hand-played on a phone.
 
-## History
-
-- v1: first game (pump and siphon, bleed, eruptions). v2: per-game
-  achievements, fits its frame. v3: cabinet support. v4: cleanup pass.
-  v5: sharp rendering at screen resolution. Versions 2–5 were platform
-  changes with little or no gameplay change. v6: `ERUPT_BLAST` 40 → 24 so
-  storms burn out.
-- v7: a 60 s round (100 eruptions to win) with `arcade:result`, reason
-  and stats; free play after the round; Reset renamed New round.
+History (older versions, balance tables, playtests): `docs/history/pressure-grid.md`
