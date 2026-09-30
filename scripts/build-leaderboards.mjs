@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Builds the public leaderboards.json from telemetry round rows that carry a
 // score (the gallery adds score, board, score_epoch, handle, lb: see
-// docs/scores.md). Runs at every deploy and hourly (pages.yml schedule).
+// docs/scores.md), plus the gallery's "handle" events (a name picked or the
+// leaderboard toggled in the Records panel), so renames show without another
+// round. Runs at every deploy and hourly (pages.yml schedule).
 //
 // Incremental: it starts from the live leaderboards.json (--prev) and reads
 // only rows received since that file's `through`, so each run stays small
@@ -67,9 +69,18 @@ async function getJson(url) {
   throw new Error(last);
 }
 
+// Round rows from the telemetry tab, plus the gallery's "handle" events (a
+// name picked or the leaderboard toggled in the Records panel) from the
+// events tab, so a rename shows without playing another round.
 async function fetchRows(since) {
   const input = opt("input", "");
   if (input) return JSON.parse(readFileSync(input, "utf8"));
+  const rounds = await fetchTab(since, "telemetry", "round");
+  const events = await fetchTab(since, "events", "gallery");
+  return rounds.concat(events.filter((r) => r.action === "handle"));
+}
+
+async function fetchTab(since, tab, kind) {
   const key = (process.env.FEEDBACK_READ_KEY || "").trim(); // a pasted secret may end in a newline
   let endpoint = process.env.FEEDBACK_ENDPOINT;
   if (!endpoint) {
@@ -82,8 +93,8 @@ async function fetchRows(since) {
   for (let page = 0; page < 200; page++) {
     const url = new URL(endpoint);
     url.searchParams.set("key", key);
-    url.searchParams.set("tab", "telemetry");
-    url.searchParams.set("kind", "round");
+    url.searchParams.set("tab", tab);
+    url.searchParams.set("kind", kind);
     url.searchParams.set("limit", "2000");
     if (since) url.searchParams.set("since", since);
     if (after) url.searchParams.set("after", after);
@@ -113,14 +124,21 @@ function merge(prevGames, rows) {
   let used = 0;
   const time = (r) => Date.parse(r.received_at || r.submitted_at || "") || 0;
   for (const r of [...rows].sort((a, b) => time(a) - time(b))) {
+    if (typeof r.client_id !== "string" || !r.client_id) continue;
     const st = state[r.game_id];
-    if (!st || typeof r.client_id !== "string" || !r.client_id) continue;
+    if (!st && r.kind !== "gallery") continue;
     const p = scores.hash(`player:${r.client_id}`);
-    if (r.score == null || r.score === "") continue;
-    const lb = Number(r.lb) === 0 ? 0 : 1;
     const known = latest.get(p);
-    const handle = scores.isHandle(r.handle) ? r.handle : known ? known.handle : scores.defaultHandle(r.client_id);
-    latest.set(p, { handle, lb });
+    const who = () => ({
+      handle: scores.isHandle(r.handle) ? r.handle : known ? known.handle : scores.defaultHandle(r.client_id),
+      lb: Number(r.lb) === 0 ? 0 : 1,
+    });
+    if (r.kind === "gallery") {
+      if (r.action === "handle") latest.set(p, who());
+      continue;
+    }
+    if (r.score == null || r.score === "") continue;
+    latest.set(p, who());
     const s = Number(r.score);
     const board = String(r.board || "main");
     const list = st.game.score.boardList;
@@ -174,7 +192,7 @@ if (error) {
   const newest = rows.reduce((m, r) => Math.max(m, Date.parse(r.received_at || "") || 0), 0);
   const through = newest ? new Date(newest).toISOString() : prev && !full ? prev.through : null;
   data = { format: FORMAT, version: 1, updated_at: new Date().toISOString(), through, games: merged };
-  console.log(`leaderboards: ${rows.length} round rows read${since ? ` since ${since}` : ""}, ${used} with a score`);
+  console.log(`leaderboards: ${rows.length} rows read${since ? ` since ${since}` : ""}, ${used} with a score`);
 }
 
 for (const [id, g] of Object.entries(data.games)) {

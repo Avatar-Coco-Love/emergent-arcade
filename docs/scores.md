@@ -64,7 +64,7 @@ its own `score`, and bumps `epoch`.
 | island-census | Seasons survived (`stats.seasons`) | 8 |
 | loom | Shapes held (level, wins) | 7 |
 | terrace-garden | Gardens bloomed (level, wins) | 4 |
-| bubble-glass | Fastest escape, per level (time, wins) | none |
+| bubble-glass | Chapter time (own `score`, per chapter, v3 / epoch 2) | none |
 
 ## Showing the best inside a game (optional)
 
@@ -141,7 +141,13 @@ How it stays cheap as the arcade grows:
 - **Never wiped by an outage.** If the read fails or the secret is missing,
   the live file is republished unchanged.
 - **Opt-outs and renames.** A player's newest row decides: `lb: 0` removes
-  them from every board, a new handle renames every entry.
+  them from every board, a new handle renames every entry. Picking a name
+  or toggling the leaderboard in the Records panel sends a `handle` gallery
+  event (`kind = gallery`, `action = handle`, with `handle` and `lb`), which
+  the builder reads from the `events` tab, so a rename shows at the next
+  hourly build without playing another round. (Someone who opted out and
+  back in reappears with their next scored round: their old entries were
+  dropped.)
 - `--full` rebuilds from every row (after changing the rules).
 
 Offline: `node scripts/build-leaderboards.mjs --input rows.json --out
@@ -179,5 +185,6 @@ per game in the builder (e.g. a time score must equal the row's `seconds`).
 - Weekly boards next to all-time ones (a fresh chance for new players):
   the builder already has dates; add a `week` board per game.
 - A gallery-wide "Records" view: your bests across every game.
-- Games showing `arcade:best` in their HUD (each game's depth-pass PR).
+- Games showing `arcade:best` in their HUD (each game's depth-pass PR;
+  Bubble Glass v3 does).
 - Daily seeded challenges share one board per day (`board: "d2026-10-01"`).

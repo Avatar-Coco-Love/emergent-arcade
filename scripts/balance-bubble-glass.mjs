@@ -5,6 +5,9 @@
 //   Levels are 1-based positions, or ids (roof,the-plug). Each level is
 //   played on its own (up to 3 tries, 150 s each), so one level can be
 //   tuned without the others. TRACE=1 prints the first run's moves.
+//   SEED=n starts the seeds at n (default 1000), to trace a later run.
+//   CAMPAIGN=1 plays the chosen levels in order instead, each until won (up to
+//   6 tries), and prints the total play time: the "10 minutes" check.
 //
 // Builds a debug copy of games/bubble-glass.html (state on window, seeded
 // Math.random, no animation loop), then plays seeded runs in headless
@@ -35,6 +38,8 @@ const SRC = process.env.SRC || path.join(path.dirname(fileURLToPath(import.meta.
 //     melts: tries blobs and bars of glass on the sand near the bubble's
 //     path to the vent, each followed by its best turn. If nothing helps,
 //     it tries a random big turn. Restarts after 150 s.
+//   lid-reader: the reader, but it first melts the lids a lid-first level
+//     rings from the start (a player who reads the level note).
 //   rotate-only: the reader that only turns.
 //   no-melt / no-shatter: the reader without that verb.
 //   habit: the rule a player takes from level 1, "turn so the vent is
@@ -46,7 +51,9 @@ const SRC = process.env.SRC || path.join(path.dirname(fileURLToPath(import.meta.
 //   hinted: the novice, but does what the stuck hint says whenever one is
 //     showing (turn the way it points, hold on the spot it rings, {tap} the
 //     glass it rings, Restart). A lid hint (on screen from the start) it
-//     follows before spinning.
+//     follows before spinning. Unlike the novice, it {taps} glass only when
+//     the bubble has been stuck a while (v3: it used to smash the lids it
+//     had just been shown how to melt).
 //   tilt-hinted: the hinted novice in tilt mode, the phone wobbling ±3° in
 //     the hand all the time (the playtester's setup on 2026-09-30).
 //   spinner: turns the box at full speed, all the time.
@@ -56,6 +63,7 @@ const SRC = process.env.SRC || path.join(path.dirname(fileURLToPath(import.meta.
 const HUMAN = { gap: 0.8, react: 0.3, verbs: 'turn melt shatter' };
 const BOTS = {
   reader: { ...HUMAN, policy: 'reader' },
+  'lid-reader': { ...HUMAN, policy: 'reader', lids: true },
   'rotate-only': { ...HUMAN, policy: 'reader', verbs: 'turn' },
   'no-melt': { ...HUMAN, policy: 'reader', verbs: 'turn shatter' },
   'no-shatter': { ...HUMAN, policy: 'reader', verbs: 'turn melt' },
@@ -91,7 +99,7 @@ try { localStorage.clear(); } catch (e) {}
     get world() { return world; }, get state() { return state; }, get elapsed() { return elapsed; },
     get level() { return level; }, get hint() { return hint; }, get hints() { return hints; },
     get turns() { return turns; }, get warns() { return warns; },
-    LEVELS, N, CH, STEP, RAD, KEY_RATE, SHARD_MAX, MELT_RATE, earned: unlocked,
+    LEVELS, N, CH, STEP, RAD, KEY_RATE, SHARD_MAX, MELT_RATE, MELTS, earned: unlocked,
     setTilt: v => { motion.on = v; },
     startLevel, step, leave, tapAt, botTurn, botMelt, botRelease,
     lookahead, bestTurn, cloneWorld, ventDistance, bubbleScore, shatterAt, meltStart, meltMove, meltStop, simStep,
@@ -104,7 +112,7 @@ try { localStorage.clear(); } catch (e) {}
 }
 
 // Runs inside the page: one level, up to 3 tries.
-function playInPage({ seed, bot, lv }) {
+function playInPage({ seed, bot, lv: one, lvs, maxTries = 3 }) {
   const D = window.__dbg;
   window.__seed(seed);
   D.earned.clear();
@@ -117,10 +125,14 @@ function playInPage({ seed, bot, lv }) {
     trace.push(`  ${D.elapsed.toFixed(1)}s ang ${Math.round(D.world.ang / D.RAD)} ${s}`);
     if (bot.trace > 1) { // TRACE=2: the box every decision, one character per 2x2 cells
       const w = D.world;
-      for (let y = 0; y < N; y += 2) { let r = '    '; for (let x = 0; x < N; x += 2) { const i = y * N + x; r += w.bub[i] || w.bub[i + 1] || w.bub[i + N] || w.bub[i + N + 1] ? 'O' : '.#sgV'[w.t[i]] || '?'; } trace.push(r); }
+      for (let y = 0; y < N; y += 2) { let r = '    '; for (let x = 0; x < N; x += 2) { const i = y * N + x; r += w.bub[i] || w.bub[i + 1] || w.bub[i + N] || w.bub[i + N + 1] ? 'O' : '.#sgVwd%'[w.t[i]] || '?'; } trace.push(r); }
     }
   };
   const W = () => D.world;
+  // The bubble the bot watches (levels with two: the first one listed).
+  // (SRC= an older single-bubble copy: bx, by.)
+  const bubsOf = w => w.bubs || [{ x: w.bx, y: w.by, r: 2.2 }];
+  const B = w => bubsOf(w)[0] || { x: 0, y: 0, r: 2.2 };
   const may = v => bot.verbs.includes(v) && D.LEVELS[D.level].verbs.includes(v);
   // Keys bots can't set a far target: the box turns at KEY_RATE toward it.
   let goal = null;
@@ -154,8 +166,13 @@ function playInPage({ seed, bot, lv }) {
 
   // The bubble's path to the vent (corner points), for melt candidates.
   function pathPoints(w) {
-    const dist = D.ventDistance(w), M1 = N + 1, pts = [];
-    let px = Math.round(w.bx), py = Math.round(w.by);
+    const pts = [];
+    for (const b of bubsOf(w)) pathOf(w, b, pts);
+    return pts;
+  }
+  function pathOf(w, b, pts) {
+    const dist = D.ventDistance(w, b.r), M1 = N + 1;
+    let px = Math.round(b.x), py = Math.round(b.y);
     for (let n = 0; n < 200; n++) {
       pts.push([px, py]);
       let best = null, bd = dist[py * M1 + px];
@@ -174,9 +191,9 @@ function playInPage({ seed, bot, lv }) {
       const x = px + dx, y = py + dy;
       if (x < 0 || y < 0 || x >= N || y >= N) continue;
       const key = (x >> 1) * 100 + (y >> 1);
-      if (seen.has(key) || w.t[y * N + x] !== 2) continue;
+      if (seen.has(key) || !D.MELTS[w.t[y * N + x]]) continue;
       seen.add(key);
-      spots.push([x + 0.5, y + 0.5, Math.hypot(x - w.bx, y - w.by)]);
+      spots.push([x + 0.5, y + 0.5, Math.min(...bubsOf(w).map(b => Math.hypot(x - b.x, y - b.y)))]);
     }
     spots.sort((a, b) => a[2] - b[2]);
     const g = [Math.sin(w.ang), Math.cos(w.ang)];
@@ -200,6 +217,8 @@ function playInPage({ seed, bot, lv }) {
 
   function readerMove() {
     const w = W();
+    const h = D.hint;
+    if (bot.lids && h && h.lid) { melt(h.x, h.y, 0, 0, 2); log('lid'); return; }
     const { best, wait } = D.bestTurn(w, LOOK);
     if (best.k && best.score < wait - 1) { turn(best.a); log(`turn ${best.k} → ${best.score.toFixed(0)} (wait ${wait.toFixed(0)})`); return; }
     if (wait < -50) return; // about to win
@@ -219,6 +238,7 @@ function playInPage({ seed, bot, lv }) {
     if (still > 2) { const k = [-4, -2, 2, 4][Math.floor(rand() * 4)]; turn(w.ang + k * 45 * RAD); log(`explore ${k}`); }
   }
 
+  const pos = w => [B(w).x, B(w).y, bubsOf(w).length];
   let lastPos = null, still = 0, dir = rand() < 0.5 ? -1 : 1;
   function noviceMove() {
     const w = W();
@@ -230,7 +250,7 @@ function playInPage({ seed, bot, lv }) {
       if (h.melt) { melt(h.x, h.y, 0, 0, 2); log('hint melt'); return; }
     }
     if (D.elapsed < bot.spin) { turn(w.ang + dir * Math.PI / 2); return; }
-    if (may('shatter') && w.shards.length && rand() < 0.5) {
+    if (may('shatter') && w.shards.length && (!bot.hint || still >= 1.5) && rand() < 0.5) {
       const s = w.shards[Math.floor(rand() * w.shards.length)];
       D.tapAt(s.cells[0] % N + 0.5, ((s.cells[0] / N) | 0) + 0.5); log('tap glass'); return;
     }
@@ -238,10 +258,10 @@ function playInPage({ seed, bot, lv }) {
     if (may('melt') && w.heat >= 1 && rand() < 0.5) {
       // The sand touching the bubble, on its upper side if any.
       let best = null, bd = Infinity;
-      const ux = -Math.sin(w.ang), uy = -Math.cos(w.ang);
-      for (let y = Math.floor(w.by - 4); y <= w.by + 4; y++) for (let x = Math.floor(w.bx - 4); x <= w.bx + 4; x++) {
-        if (x < 0 || y < 0 || x >= N || y >= N || w.t[y * N + x] !== 2) continue;
-        const d = Math.hypot(x + 0.5 - w.bx, y + 0.5 - w.by) - 0.8 * ((x + 0.5 - w.bx) * ux + (y + 0.5 - w.by) * uy);
+      const ux = -Math.sin(w.ang), uy = -Math.cos(w.ang), b = B(w);
+      for (let y = Math.floor(b.y - 4); y <= b.y + 4; y++) for (let x = Math.floor(b.x - 4); x <= b.x + 4; x++) {
+        if (x < 0 || y < 0 || x >= N || y >= N || !D.MELTS[w.t[y * N + x]]) continue;
+        const d = Math.hypot(x + 0.5 - b.x, y + 0.5 - b.y) - 0.8 * ((x + 0.5 - b.x) * ux + (y + 0.5 - b.y) * uy);
         if (d < bd) { bd = d; best = [x + 0.5, y + 0.5]; }
       }
       if (best) { melt(best[0], best[1], 0, 0, 1.5); log('melt at bubble'); return; }
@@ -254,18 +274,21 @@ function playInPage({ seed, bot, lv }) {
     const w = W();
     let vx = 0, vy = 0, n = 0;
     for (let i = 0; i < N * N; i++) if (w.t[i] === 4) { vx += i % N + 0.5; vy += ((i / N) | 0) + 0.5; n++; }
-    const ux = vx / n - w.bx, uy = vy / n - w.by;
+    const ux = vx / n - B(w).x, uy = vy / n - B(w).y;
     let a = Math.atan2(-ux, -uy);
     a = w.ang + ((a - w.ang + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
     turn(a);
   }
 
+  const levels = [];
+  for (const lv of lvs || [one]) {
   const tries = [];
-  for (let t = 0; t < 3; t++) {
+  levels.push(tries);
+  for (let t = 0; t < maxTries; t++) {
     D.startLevel(lv);
     if (bot.wobble) D.setTilt(true);
     aim = W().ang;
-    still = 0; lastPos = [W().bx, W().by];
+    still = 0; lastPos = pos(W());
     let out = null;
     while (D.state === 'playing' && D.elapsed < TIME) {
       const w = W();
@@ -279,9 +302,10 @@ function playInPage({ seed, bot, lv }) {
       const t0 = D.elapsed;
       advance(bot.gap * (0.7 + 0.6 * rand()));
       const w2 = W();
-      const moved = Math.hypot(w2.bx - lastPos[0], w2.by - lastPos[1]);
+      const p2 = pos(w2);
+      const moved = p2[2] !== lastPos[2] ? 9 : Math.hypot(p2[0] - lastPos[0], p2[1] - lastPos[1]);
       still = moved < 0.5 ? still + (D.elapsed - t0) : 0;
-      lastPos = [w2.bx, w2.by];
+      lastPos = p2;
     }
     const w = W();
     const won = D.state === 'won';
@@ -289,17 +313,18 @@ function playInPage({ seed, bot, lv }) {
       deg: w.deg, heat: w.heat, hints: D.hints, turns: D.turns });
     if (won) break;
   }
-  return { tries, earned: [...D.earned], trace };
+  }
+  return { tries: levels[0], levels, earned: [...D.earned], trace };
 }
 
-async function run(bot, lv, runs, file, browser, workers = 4) {
+async function run(bot, lv, runs, file, browser, workers = 4, lvs = null, maxTries = 3) {
   const results = [];
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(workers, runs) }, async () => {
     const page = await browser.newPage();
     page.on('pageerror', e => console.error('page error:', e.message));
     await page.goto(pathToFileURL(file).href);
-    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: 1000 + i, bot, lv }); }
+    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: (+process.env.SEED || 1000) + i, bot, lv, lvs, maxTries }); }
     await page.close();
   }));
   return results;
@@ -322,6 +347,25 @@ function report(name, lvName, rs) {
   if (rs[0].trace.length) console.log(rs[0].trace.join('\n'));
 }
 
+// Campaign: every level in order, each tried until won (at most 6 tries of
+// 150 s), like a player going through the whole game. One line per bot:
+// how many runs won everything, the total play time (restarts included), and
+// the time per chapter.
+function reportCampaign(name, rs, chs) {
+  const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
+  const q = (a, f) => { const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(f * s.length))]; };
+  const mmss = t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
+  const spent = tries => tries.reduce((a, t) => a + t.t, 0);
+  const totals = rs.map(r => r.levels.reduce((a, tries) => a + spent(tries), 0));
+  const all = rs.filter(r => r.levels.every(tries => tries.some(t => t.won))).length;
+  const per = [...new Set(chs)].map(c => `ch${c + 1} ${mmss(med(rs.map(r => r.levels.reduce((a, tries, i) => a + (chs[i] === c ? spent(tries) : 0), 0))))}`);
+  const fails = {};
+  rs.forEach(r => r.levels.forEach((tries, i) => { if (!tries.some(t => t.won)) fails[i + 1] = (fails[i + 1] || 0) + 1; }));
+  const f = Object.entries(fails).map(([k, v]) => `L${k}×${v}`).join(' ');
+  console.log(`${name.padEnd(11)} campaign all won ${Math.round(100 * all / rs.length)}% | total ${mmss(med(totals))}` +
+    ` (${mmss(q(totals, 0.25))}–${mmss(q(totals, 0.75))}) | ${per.join(' ')}${f ? ` | never won: ${f}` : ''}`);
+}
+
 const runs = +process.argv[2] || 20;
 const names = (process.argv[3] || Object.keys(BOTS).join(',')).split(',');
 const overrides = {};
@@ -331,12 +375,17 @@ const browser = await chromium.launch();
 const probe = await browser.newPage();
 await probe.goto(pathToFileURL(file).href);
 const ids = await probe.evaluate(() => window.__dbg.LEVELS.map(L => L.id));
+const chs = await probe.evaluate(() => window.__dbg.LEVELS.map(L => L.ch));
 await probe.close();
 const want = (process.argv[4] && process.argv[4] !== 'all' ? process.argv[4].split(',') : ids)
   .map(v => /^\d+$/.test(v) ? +v - 1 : ids.indexOf(v));
 for (const lv of want) if (lv < 0 || lv >= ids.length) throw new Error(`unknown level; levels: ${ids.join(', ')}`);
 for (const n of names) {
   if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
+  if (process.env.CAMPAIGN) {
+    reportCampaign(n, await run({ ...BOTS[n], trace: 0 }, 0, runs, file, browser, 4, want, 6), want.map(i => chs[i]));
+    continue;
+  }
   for (const lv of want) report(n, ids[lv], await run({ ...BOTS[n], trace: +process.env.TRACE || 0 }, lv, runs, file, browser));
 }
 await browser.close();
