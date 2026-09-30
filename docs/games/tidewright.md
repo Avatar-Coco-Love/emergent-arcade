@@ -1,6 +1,6 @@
 # Tidewright: design notes
 
-**v1** (2026-09-30) · playtest: PLAYTEST_LINK (private, republished each push) ·
+**v1** (2026-09-30) · playtest: https://claude.ai/artifact/6y3SvqHNfdbqdzaVQeVuwk (private, republished each push) ·
 balance: `node scripts/balance-tidewright.mjs 200`
 Verbs: **shore up** (flick) and **sluice** (tap), sharing **wall height `H`
 and standing water `W` per column** (32 columns). Endless: seasons of 6
