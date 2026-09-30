@@ -146,7 +146,8 @@ anything irreversible. Built to grow (see Evolution).
 | HOLD_DELAY_MS / DRAG_PX | 170 ms / 12 px | MELT_RATE / SHARD_MAX | 20 cells/s / 40 cells |
 | STALL_T / LOOK_T | 3 s / 3.5 s | TAP_R | 3 cells |
 | UMBRELLA_N / BREAKOUT_T / LIGHT_DEG | 30 grains / 4 s / 270° | HINT_MIN / TILT_STILL | 4 s / 6° |
-| MSG_MS_PER_CHAR | 70 ms | | |
+| MSG_MS_PER_CHAR | 70 ms | LOOK_MS (v3) | 4 ms of hint search per frame |
+| BUB_LEFT (v3) | 40 (score per extra bubble left) | merged bubble | r = √2 · BR ≈ 3.1 |
 
 Performance: a step is ~0.03 ms settled; a look-ahead of 3.5 s ~13 ms and
 the path search ~4 ms, spread over frames. At 390 × 700 with 4× CPU
@@ -206,46 +207,69 @@ the extra field `chapter` (chapter id), and on a chapter's last win
 ## Balance
 
 `node scripts/balance-bubble-glass.mjs 8 [bots] [levels]` (8 seeded runs per
-bot and level, each level on its own, up to 3 tries of 150 s). Cells:
-first-try win % / median first-try win time.
+bot and level, each level on its own, up to 3 tries of 150 s). `SEED=n`
+starts at another seed (to trace a failing run with `TRACE=1`).
 
-| Bot | first-turn | roof | the-plug | lid-and-plug | hourglass |
+### The 10-minute check (v3)
+
+`CAMPAIGN=1 node scripts/balance-bubble-glass.mjs 16 hinted,reader`: every
+level in order, each tried until won (up to 6 tries), total play time
+including restarts.
+
+| Bot | All 21 won | Total, median (IQR) | Ch 1 | Ch 2 | Ch 3 |
 |---|---|---|---|---|---|
-| reader (all verbs, look-ahead) | 100% / 4 s | 92% / 7 s | 100% / 12 s | 100% / 17 s | 100% / 7 s |
-| slow-hands (2 s think, 0.7 s react) | 100% / 5 s | 100% / 9 s | 100% / 19 s | 100% / 24 s | 100% / 7 s |
-| keys (120°/s) | 100% / 4 s | 100% / 7 s | 100% / 13 s | 100% / 26 s | 100% / 8 s |
-| hinted (novice + obeys hints) | 100% / 9 s | 100% / 11 s | 88% / 28 s | 88% / 56 s | 100% / 24 s |
-| tilt-hinted (hinted, tilt mode, ±3° wobble) | 100% / 9 s | 100% / 11 s | 88% / 26 s | 75% / 43 s | 100% / 24 s |
-| novice (spins 6 s, melts at the bubble, taps glass) | 100% / 9 s | 0% | 100% / 76 s | 88% / 73 s | 100% / 110 s |
-| rotate-only (explores when stuck) | 100% / 4 s | 100% / 40 s | 0% | 0% | 0% (no-shatter is 0%) |
-| no-melt | 100% / 4 s | 100% / 42 s | 100% / 11 s | 100% / 19 s | 100% / 5 s |
-| no-shatter | 100% / 4 s | 100% / 7 s | 0% | 0% | 0% |
-| habit ("turn so the vent is up") | 100% / 3 s | 0% | 0% | 0% | 0% |
-| spinner (full speed, always) | 0% | 0% | 0% | 0% | 0% |
-| idle | 0% | 0% | 0% | 0% | 0% |
+| hinted (16 runs) | 88% | **10:39** (9:17–11:28) | 2:14 | 2:39 | 5:09 |
+| reader (16 runs) | 100% | 3:36 (3:12–6:22) | 0:59 | 0:51 | 1:49 |
+| slow-hands (12 runs, 19 levels) | 100% | 4:37 | 1:25 | 0:58 | 2:17 |
+| novice (8 runs, 14 levels) | 0% | 67:48 | never wins roof or two-plugs without hints | | |
+
+v2's five levels took hinted 2:44 and the reader 0:48. Humans won v2's
+levels 3–5 faster than hinted, so the human total may be shorter: that's
+the telemetry question.
+
+### Per level (v3, 8 runs): first-try win % / median first-try win time
+
+| # | Level | reader | lid-reader | hinted | no-melt | rotate-only |
+|---|---|---|---|---|---|---|
+| 1 | first-turn | 100 / 5 s | | 100 / 19 s | 100 / 5 s | 100 / 5 s |
+| 2 | roof | 100 / 7 s | | 100 / 11 s | 100 / 37 s | 100 / 37 s |
+| 3 | the-plug | 100 / 11 s | | 63 / 34 s (any 100) | 100 / 10 s | 0 |
+| 4 | lid-and-plug | 100 / 30 s | 100 / 12 s | 50 / 21 s (any 88) | 100 / 48 s | 0 |
+| 5 | hourglass | 100 / 9 s | | 75 / 31 s | 100 / 44 s | 0 |
+| 6 | mud | 100 / 4 s | | 75 / 30 s | 100 / 4 s | 100 / 4 s |
+| 7 | dust-shafts | 100 / 7 s | 100 / 10 s | 88 / 14 s | 63 / 38 s | 50 / 41 s |
+| 8 | sieve | 100 / 4 s | | 100 / 16 s | 100 / 4 s | 100 / 4 s |
+| 9 | landslide | 100 / 12 s | | 100 / 34 s | 100 / 11 s | 0 |
+| 10 | sump | 100 / 9 s | | 100 / 17 s | 100 / 9 s | 100 / 9 s |
+| 11 | sand-timer | 100 / 5 s | | 88 / 29 s | 100 / 5 s | 0 |
+| 12 | quicksand | 100 / 8 s | 100 / 11 s | 100 / 17 s | 100 / 14 s | 100 / 14 s |
+| 13 | twins | 100 / 5 s | | 100 / 31 s | 100 / 5 s | 100 / 5 s |
+| 14 | mud-twins | 100 / 5 s | | 100 / 47 s | 100 / 5 s | 100 / 5 s |
+| 15 | narrow-door | 63 / 10 s | | 75 / 35 s | 75 / 27 s | 100 / 21 s |
+| 16 | dust-door | 100 / 5 s | | 50 / 20 s (any 75) | 100 / 5 s | 100 / 5 s |
+| 17 | shared-sand | 100 / 4 s | | 100 / 14 s | 100 / 4 s | 100 / 4 s |
+| 18 | upstairs | 100 / 7 s | | 100 / 35 s | 100 / 7 s | 0 |
+| 19 | two-plugs | 100 / 10 s | | 63 / 46 s | 100 / 10 s | 0 |
+| 20 | convoy | 100 / 7 s | 100 / 10 s | 75 / 14 s | 50 / 88 s | 50 / 99 s |
+| 21 | last-box | 100 / 29 s | | 38 / 24 s (any 75) | 88 / 32 s | not run |
 
 Reading it:
-- **Onboarding:** level 1 takes a novice 9 s; hinted and novice win it
-  first time. The level-1 hint comes after 1.5 s.
-- **Shatter is required** wherever there's a plug: rotate-only and
-  no-shatter win 0% on levels 3–5.
-- **Melt makes level 2 about 6× faster but isn't required** (the
-  maintainer's call, see `docs/findings.md`, "When two things always move
-  apart"): the melt reader wins in 7 s, turning alone by rocking in ~40 s,
-  `habit` 0%. Melt is optional on levels 4 and 5 (no-melt is about as fast
-  as the reader there): an open revision target.
-- **Level 2 (v2):** the lid hint is up from the first frame, so the
-  hint-follower lids first: 100% / 11 s (v1 63% / 25 s, where 6 s of
-  spinning poured the shafts before any hint). The novice that ignores
-  hints still never wins it (it melts next to the bubble, walling it in).
-- **Tilt mode (v2):** `tilt-hinted` on v1 won level 2 13% first try with
-  0 hints shown (the playtest below); v2 100%. Levels 3–5 in tilt match the
-  touch hinted bot within noise (8 runs). Before/after:
-  `SRC=<old copy> node scripts/balance-bubble-glass.mjs 8 tilt-hinted`.
-- **Achievements:** Cold Hands is common from level 3 on (the no-melt route
-  exists), Light Touch comes from hourglass, Breakout 13% and Umbrella
-  13–88% (no-shatter bot on hourglass) show up in play without aiming for
-  them. Glassblower needs the whole set.
+- **Melt matters** where lids are the point: roof, lid-and-plug (lid-reader
+  12 s vs no-melt 48 s), hourglass (9 vs 44 s), dust-shafts and convoy
+  (no-melt 50–63% first try). Elsewhere in chapters 2–3 melt is optional;
+  those boxes are about turning order, grates and two bubbles.
+- **Shatter is required** wherever there's a plug (rotate-only 0%).
+- **Skilled play is short** (reader 3:36 for everything); the length comes
+  from boxes a newcomer needs hints and retries for. The chapter clock is
+  the reason to replay.
+- `habit` ("turn so the vent is up") wins narrow-door: tilting toward one
+  bubble first is the intended move.
+- `lid-reader` is the reader that first melts the lids a lid-first level
+  rings (a player who reads the note); `hinted` now {taps} glass only when
+  stuck (see the bot notes in the script).
+
+v2's full table (12 bots × 5 levels) is in git history
+(`git show 17b131f:docs/games/bubble-glass.md`).
 
 ## Playtest 2026-09-30 (v1, one player, phone, tilt mode)
 
@@ -310,6 +334,10 @@ the game over all sessions. Levels 3–5 need less than the bots predicted
   bubble rises into and the big one slides past.
 - The HUD bar wraps to two lines on a 390 px phone while the chapter
   clock shows.
+- Several chapter 2–3 boxes are 4–5 s for the reader (sieve, sand-timer,
+  dust-door, shared-sand, twins): fine as steps for a newcomer, but the
+  next pass could make the skilled route longer. Sand-timer lost level
+  5's melt value (dust is light: no-melt 5 s).
 - Level 2 in tilt mode, a real phone: check the lid ring is easy to
   {hold} on while the other hand holds the phone steady.
 - Real tumbling: shards rotating relative to the box (now they only
