@@ -1,14 +1,14 @@
 # Orbit Garden: design notes
 
-Current: **v6**. Mechanics: **place** (tap the sky: a planet) and **fling**
+**v6** (2026-09-28) · playtest: https://claude.ai/artifact/LgWCoWvU5hTLxUqGUDbWms ·
+balance: `node scripts/balance-orbit-garden.mjs 200`
+Mechanics: **place** (tap the sky: a planet) and **fling**
 (drag up from anywhere: a seed from the launcher), sharing **planet mass**.
 Place creates mass, landed seeds add it, mass sets gravity, and every fling
 withers every planet by `WITHER_PER_FLING`. Win: 3 planets blooming
 (mass ≥ `BLOOM_MASS`) at the same time. Lose: all 40 seeds used and none in
 flight. 6 achievements (in `games/games.json`); Frugal = win with 15+ seeds
 left.
-
-Playtest (private artifact, v6): https://claude.ai/artifact/LgWCoWvU5hTLxUqGUDbWms
 
 ## Key constants (`games/orbit-garden.html`, top of the script)
 
@@ -36,7 +36,7 @@ Launcher at (200, 566). No planets below y = 500 or within 8 px of another
 planet. Status line and Reset sit below the canvas. The end card has an
 input lock of `END_INPUT_LOCK_MS` = 1 s.
 
-## Balance (v6, `node scripts/balance-orbit-garden.mjs 200`, ±3–4 pts)
+## Balance (v6, ±3–4 pts)
 
 Bots place 3 planets at the start (triangle: (110,320), (290,320),
 (200,170)), then fling one seed every `gap` s. Aim is one of three kinds,
@@ -46,21 +46,21 @@ player can see); `preview` sees only the in-game dotted preview and extends
 it in a straight line (the closest model of a human); `straight` drags
 straight at the target at full power.
 
-| Bot | aim | feed | gap | v5 win | **v6 win** | seeds used (wins) | time (wins) |
-|---|---|---|---|---|---|---|---|
-| perfect | search, σ 0 | lightest first | 1.5 s | 100% | 100% | 21 | 31 s |
-| even2 | search, σ 2° | lightest first | 1.5 s | 96% | 64% | 30 | 45 s |
-| even5 | search, σ 5° | lightest first | 1.5 s | 81% | 54% | 36 | 54 s |
-| serial2 | search, σ 2° | one at a time | 1.5 s | 93% | 89% | 31 | 45 s |
-| slow2 | search, σ 2° | lightest first | 3 s | 8% | 57% | 34 | 100 s |
-| fast2 | search, σ 2° | lightest first | 0.5 s | | 96% | 29 | 14 s |
-| naive | straight, σ 2° | lightest first | 1.5 s | 100% | **1%** | 39 | 58 s |
-| naive5 | straight, σ 5° | lightest first | 1.5 s | 14% | 0% | | |
-| preview2 | preview, σ 2° | lightest first | 1.5 s | | **100%** | 20 | 30 s |
-| preview5 | preview, σ 5° | lightest first | 1.5 s | | **66%** | 30 | 45 s |
-| pslow2 | preview, σ 2° | lightest first | 3 s | | 100% | 19 | 55 s |
-| pfast2 | preview, σ 2° | lightest first | 0.5 s | | 66% | 33 | 16 s |
-| close2 | search, σ 2°, tight cluster | lightest first | 1.5 s | 99% | 87% | 27 | 40 s |
+| Bot | aim | feed | gap | **v6 win** | seeds used (wins) | time (wins) |
+|---|---|---|---|---|---|---|
+| perfect | search, σ 0 | lightest first | 1.5 s | 100% | 21 | 31 s |
+| even2 | search, σ 2° | lightest first | 1.5 s | 64% | 30 | 45 s |
+| even5 | search, σ 5° | lightest first | 1.5 s | 54% | 36 | 54 s |
+| serial2 | search, σ 2° | one at a time | 1.5 s | 89% | 31 | 45 s |
+| slow2 | search, σ 2° | lightest first | 3 s | 57% | 34 | 100 s |
+| fast2 | search, σ 2° | lightest first | 0.5 s | 96% | 29 | 14 s |
+| naive | straight, σ 2° | lightest first | 1.5 s | **1%** | 39 | 58 s |
+| naive5 | straight, σ 5° | lightest first | 1.5 s | 0% | | |
+| preview2 | preview, σ 2° | lightest first | 1.5 s | **100%** | 20 | 30 s |
+| preview5 | preview, σ 5° | lightest first | 1.5 s | **66%** | 30 | 45 s |
+| pslow2 | preview, σ 2° | lightest first | 3 s | 100% | 19 | 55 s |
+| pfast2 | preview, σ 2° | lightest first | 0.5 s | 66% | 33 | 16 s |
+| close2 | search, σ 2°, tight cluster | lightest first | 1.5 s | 87% | 27 | 40 s |
 
 Readings:
 - Straight aim is dead (100% → 1%): you have to read the curve.
@@ -106,16 +106,4 @@ No v6 data yet.
   steal seeds" pressure is still mild.
 - Not yet hand-played on a phone.
 
-## History
-
-- v1: first version (with per-game achievements). v2: cabinet support, win
-  screen and aiming fixes. v3: cleanup pass (small bugs). v4: sharp
-  rendering at screen resolution.
-- v5: no gameplay change. Posts `arcade:result` when a round ends, and adds
-  the `elapsed` round clock for it.
-- v6 (difficulty): both v5 players won on a first try. Seeds are slower
-  (FLING_POWER 2.6 → 1.8) and gravity is stronger (G 400k → 900k), so
-  straight shots miss. Wither is per fling (0.11 per planet) instead of per
-  second (0.06/s), so speed no longer beats it. The aim preview length is
-  longer (PREVIEW_STEPS 40 → 70, ≈ 1.2 s) for more guidance on the curve.
-  Updated howToPlay text.
+History (older versions, balance tables, playtests): `docs/history/orbit-garden.md`

@@ -1,10 +1,14 @@
 # Murmuration: design notes
 
-Current: **v3** (PR #10). Mechanics: **lure** (hold) and **startle** (tap),
-sharing **fear per bird**. Win: 15+ birds through each of 5 gates, in order,
-within `GATE_WINDOW` s of each other, before night (`DUSK`). Lose: night falls,
-or the flock drops below 15. 7 achievements (in `games/games.json`); Swift =
-finish with `SPARE` s of light left.
+**v4** (2026-09-27) · playtest: none · balance: `node scripts/balance-murmuration.mjs 300`
+**Lure** (hold) and **startle** (tap), sharing **fear per bird**. v4 = v3 gameplay
+(PR #10) plus `arcade:result` telemetry.
+
+## How it works
+
+Win: 15+ birds through each of 5 gates, in order, within `GATE_WINDOW` s of each
+other, before night (`DUSK`). Lose: night falls, or the flock drops below 15.
+7 achievements (in `games/games.json`); Swift = finish with `SPARE` s of light left.
 
 ## Key constants (`games/murmuration.html`, top of the script)
 
@@ -26,10 +30,10 @@ Grep `const [A-Z_]* = ` for the rest (flocking, edges, input timing).
 | 1 | 95, 400 | 60° |
 | 2 | 300, 280 | 60° |
 | 3 | 120, 170 | 0° |
-| 4 | 230, 440 | 0° (v3; was 90, 390 at 90°, hugging the left edge) |
+| 4 | 230, 440 | 0° |
 | 5 | 290, 110 | 30° |
 
-## Balance (v3, `node scripts/balance-murmuration.mjs`, 300 seeds, ±3 pts)
+## Balance (v3 gameplay, 300 seeds, ±3 pts)
 
 | Bot | win @50 s | @60 s | @70 s |
 |---|---|---|---|
@@ -38,13 +42,8 @@ Grep `const [A-Z_]* = ` for the rest (flocking, edges, input timing).
 | rear100 (naive rear taps) | – | 84% | 88% |
 | smart90 (smart startle, ~4 taps) | 81% | 89% | 94% |
 
-Startle edge over best lure-only: +10 pts at 60 s, +15 at 50 s (v2: +7 / +11).
-Median s/gate, lure80 vs smart90: 3.9/3.6, 4.7/4.5, 6.0/6.1, 7.1/6.2, 6.8/6.5.
-Almost every loss at 60 s is nightfall (scattered: 6/300 lure80, 1/300 smart90).
-
-Gate 4 spots tried (win @50 s, lure80 vs smart90): (200,420) flat 70/80;
-(200,400) 90° 65/72–79; (180,380) 60° 68/77; (160,430) 20° 66/80;
-(230,440) flat 66/81 (chosen).
+Compare humans with `node scripts/fetch-telemetry.mjs --game murmuration`
+(`docs/telemetry.md`).
 
 ## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
 
@@ -66,10 +65,4 @@ dusk for the first round, or check what share of gates the tester reached
   should try letting mildly scared birds still follow the lure.
 - Not yet hand-played on a phone (only rendered headlessly at 390×760).
 
-## History
-
-- v1 (PR #8): first version. v2 (PR #9): dusk timer, organic flocking,
-  startle rebalance. v3 (PR #10): gate 4 into open sky, dusk 70 → 60 s.
-- v4: no gameplay change. Posts `arcade:result` when a round ends, for play
-  telemetry. Bot numbers above still apply; compare humans with
-  `node scripts/fetch-telemetry.mjs --game murmuration` (see `docs/telemetry.md`).
+History (older versions, balance tables, playtests): `docs/history/murmuration.md`

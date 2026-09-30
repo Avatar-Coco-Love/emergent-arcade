@@ -147,8 +147,8 @@ published from a branch.
 6. Run `node scripts/validate.mjs` and play it locally
    (`python3 -m http.server`, then open http://localhost:8000).
 7. Write `docs/games/<id>.md`: key constants, layout, balance numbers and
-   open ideas (see `docs/games/murmuration.md`). Sessions read this file,
-   not PR bodies, so keep it current and short.
+   open ideas (see `docs/games/murmuration.md`, and "Notes files" below).
+   Sessions read this file, not PR bodies, so keep it current and short.
 8. Open a PR and fill in the template checklist.
 
 ## Revising a game from feedback
@@ -162,7 +162,9 @@ published from a branch.
    Add a `changes` entry for the new version: returning players see it once
    as a "what's new" callout, and cards show an "Updated" badge until opened.
 4. Update `docs/games/<id>.md` in the same PR (new constants, balance
-   numbers, open ideas).
+   numbers, open ideas). Move what the revision made old (the previous
+   balance table, the playtest that prompted it, why you changed it) to the
+   top of `docs/history/<id>.md` rather than deleting it.
    If the revision changes what the score means (longer rounds, new
    scoring), bump `score.epoch`: bests from the old rules stop showing and
    the leaderboard restarts ([scores.md](scores.md)).
@@ -170,3 +172,28 @@ published from a branch.
 
 A revision that changes the core mechanics enough to be a different game
 should be a new `id` instead.
+
+## Notes files
+
+Each game has two: `docs/games/<id>.md` holds the **current** design and is
+read by every session that touches the game; `docs/history/<id>.md` keeps
+everything older and is read only when a question needs it. Nothing is
+deleted, it moves down a layer.
+
+`docs/games/<id>.md`, under 8 KB (`validate.mjs` warns above that), in this
+order: a status line (`**vN** (date) · playtest: <link> · balance: <cmd>`)
+and a one-line pitch; How it works; Key constants; Layout; Balance (current
+version only); Telemetry fields; Player data (latest summary only); Open
+ideas / known limits; and a last line pointing to the history file.
+
+`docs/history/<id>.md`: superseded balance tables, older playtest and
+player-data logs, why each past revision was made. Newest first.
+
+## Sections
+
+Game files are long; sessions read them by range, using
+`node scripts/outline.mjs <id>` (sections, constants, data blocks and
+functions with line numbers). Help it by marking the main parts of the
+script with a section comment, `// § name` (for example `// § constants`,
+`// § levels`, `// § simulation`, `// § bots`, `// § drawing`,
+`// § input`), and by keeping tunable constants together at the top.

@@ -24,6 +24,6 @@ Design rules (see `docs/PROJECT_BRIEF.md`):
 - [ ] `howToPlay` and `goal` written in `games/games.json`
 - [ ] Manifest text says `{tap}`, `{finger}`, `{hold}`… (never "tap"/"click" outright); PC keys, if any, in `keyboard`
 - [ ] `games/games.json` updated (`version` bumped and `updated` set for a revision)
-- [ ] `docs/games/<id>.md` updated (constants, balance, open ideas)
+- [ ] `docs/games/<id>.md` updated (constants, balance, open ideas; under 8 KB, superseded parts moved to `docs/history/<id>.md`)
 - [ ] `node scripts/validate.mjs` passes
 - [ ] Played it on a phone-sized viewport
