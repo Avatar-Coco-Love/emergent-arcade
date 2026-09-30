@@ -47,10 +47,30 @@ async function readPrev(src) {
   }
 }
 
+// Apps Script sometimes answers a cold or busy request with an HTML error
+// page instead of JSON. Try 3 times, then fail with what the page said.
+async function getJson(url) {
+  let last = "";
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(90000) });
+      const text = await res.text();
+      if (text.trimStart().startsWith("{")) return JSON.parse(text);
+      const title = (/<title>([^<]*)<\/title>/i.exec(text) || [])[1] || text.replace(/\s+/g, " ").slice(0, 120);
+      last = `HTTP ${res.status}, not JSON: ${title.trim()}`;
+    } catch (err) {
+      last = err.message;
+    }
+    console.warn(`leaderboards: attempt ${attempt} failed (${last})`);
+    if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 10000));
+  }
+  throw new Error(last);
+}
+
 async function fetchRows(since) {
   const input = opt("input", "");
   if (input) return JSON.parse(readFileSync(input, "utf8"));
-  const key = process.env.FEEDBACK_READ_KEY;
+  const key = (process.env.FEEDBACK_READ_KEY || "").trim(); // a pasted secret may end in a newline
   let endpoint = process.env.FEEDBACK_ENDPOINT;
   if (!endpoint) {
     const cfg = readFileSync(join(root, "assets/config.js"), "utf8");
@@ -67,8 +87,7 @@ async function fetchRows(since) {
     url.searchParams.set("limit", "2000");
     if (since) url.searchParams.set("since", since);
     if (after) url.searchParams.set("after", after);
-    const res = await fetch(url, { redirect: "follow" });
-    const data = JSON.parse(await res.text());
+    const data = await getJson(url);
     if (!data.ok) throw new Error(`endpoint: ${data.error}`);
     rows.push(...data.rows);
     if (data.next == null) return rows;

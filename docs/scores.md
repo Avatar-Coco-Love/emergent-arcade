@@ -156,6 +156,12 @@ line per board.
 2. That's it. Without the secret the deploy still works; the leaderboard
    just stays empty ("No scores yet") while personal bests work.
 
+Troubleshooting: the "Build leaderboards" step's log says why a run kept
+the old file. `endpoint: unauthorized` means the secret isn't the
+`READ_KEY` (not the deployment id). `not JSON: <page title>` means Apps
+Script answered with an error page; the builder tries 3 times, and the
+next hourly run tries again.
+
 GitHub stops scheduled workflows after 60 days without a commit; any push,
 or "Enable workflow" on the Actions tab, restarts it.
 
