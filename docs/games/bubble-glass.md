@@ -35,10 +35,9 @@ Liquid-motion sand toy in a sealed box. Verbs: **turn** (drag, tilt opt-in, ← 
   `LOOK_T` ahead per eighth-turn (≤`LOOK_MS` per frame). Order: marked melt spots;
   best turn (chevrons); helpful shatter (ring); Restart. Stays `HINT_MIN`; tilt "still"
   = within `TILT_STILL`°.
-- Lid-first (`lidFirst`, level 2): melt hint from frame one until spots are glass,
-  poured away, or heat < 8.
-- Messages last 1.5 s + `MSG_MS_PER_CHAR`/char; in tilt `#msg` turns in quarter
-  turns (flips 55° past a quarter).
+- Lid-first (`lidFirst`, level 2): melt hint only after `LID_HINT_T` (15 s) into the level (v4),
+  until spots are glass, poured away, or heat < 8.
+- Messages last 1.5 s + `MSG_MS_PER_CHAR`/char; `#msg` stays fixed at the top of the screen, never rotating with tilt (v4).
 - Warnings once per level: shard touches bubble, heat out, shatter with no heat.
 - Confirm before burying (v3): first {tap} only warns when the glass holds sand back
   (lid-first marked spot, or shard walling a bubble in within 1.5 s); second breaks it (`warns`).
