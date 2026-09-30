@@ -859,6 +859,8 @@
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     stage.style.width = w + 'px';
     stage.style.height = h + 'px';
+    // Drop the message part-way into the free space above the board (not onto the board, not at the very top).
+    msgEl.style.transform = `translateY(${Math.round(Math.max(0, Math.min(56, (field.clientHeight - h) / 2 - 8) * 0.6))}px)`;
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
   }
@@ -1950,11 +1952,11 @@
         if (!s) return;
         x = s.cells[0] % N + 0.5; y = ((s.cells[0] / N) | 0) + 0.5;
       }
-      // Hot pink with a dark rim: the gold used elsewhere blends into sand.
+      // Sky blue with a dark rim: the gold used elsewhere blends into sand.
       const [sx, sy] = toScreen(x, y), r = 10 + 8 * pulse;
       ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(15, 20, 32, 0.85)';
       ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.stroke();
-      ctx.lineWidth = 3.5; ctx.strokeStyle = `rgba(255, 70, 160, ${0.7 + 0.3 * pulse})`;
+      ctx.lineWidth = 3.5; ctx.strokeStyle = `rgba(96, 200, 255, ${0.7 + 0.3 * pulse})`;
       ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.stroke();
     }
   }

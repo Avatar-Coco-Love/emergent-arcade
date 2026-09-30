@@ -37,7 +37,7 @@ Liquid-motion sand toy in a sealed box. Verbs: **turn** (drag, tilt opt-in, ← 
   = within `TILT_STILL`°.
 - Lid-first (`lidFirst`, level 2): melt hint only after `LID_HINT_T` (15 s) into the level (v4),
   until spots are glass, poured away, or heat < 8.
-- Messages last 1.5 s + `MSG_MS_PER_CHAR`/char; `#msg` is a 2-line band above the board, never rotating with tilt (v4). Melt/shatter hint ring is hot pink with a dark rim (gold blended into sand).
+- Messages last 1.5 s + `MSG_MS_PER_CHAR`/char; `#msg` is a 2-line band above the board, nudged down ~60% into the free space, never rotating with tilt (v4). Melt/shatter hint ring is sky blue with a dark rim (gold blended into sand).
 - Warnings once per level: shard touches bubble, heat out, shatter with no heat.
 - Confirm before burying (v3): first {tap} only warns when the glass holds sand back
   (lid-first marked spot, or shard walling a bubble in within 1.5 s); second breaks it (`warns`).
