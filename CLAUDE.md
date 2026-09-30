@@ -41,9 +41,23 @@
 
 ## Keeping context small
 
+Layers and the scaling plan: `docs/workflow.md`. Nothing is deleted; older
+material moves to a file sessions don't read by default.
+
 - A game's current design (constants, layout, balance numbers, open ideas)
-  is in `docs/games/<id>.md`. Read that, not old PR bodies or git history.
-- Game files are big: grep for what you need, then read just that range.
+  is in `docs/games/<id>.md` (under 8 KB). Read that, not old PR bodies or
+  git history. Older balance tables, playtests and rationale:
+  `docs/history/<id>.md`, grep only when a question needs it. When a
+  revision makes something old, move it there (top of the file).
+- Game files are big: `node scripts/outline.mjs <id>` maps them with line
+  numbers; read just the range you need. Mark new sections `// § name`.
+- Never read `games/games.json` whole: `node scripts/games.mjs` (one line
+  per game) or `node scripts/games.mjs <id>` (one entry).
+- Findings: `docs/findings.md` is the checklist; full stories are in
+  `docs/findings-log.md` (grep the heading).
+- Use a subagent when the reading far exceeds the answer: broad searches
+  (`Explore`), balance sweeps, bulk edits over many files. Ask for one line
+  per item back.
 - Balance with `scripts/balance-<id>.mjs` (every game has one: headless
   seeded bots, one line per bot). For a new game, copy the closest one and
   adapt `buildDebug()` and the bots; don't build a harness from scratch.
@@ -59,10 +73,11 @@
   If it lists commits stranded on another `claude/*` branch, tell the user.
 - Never push to a branch whose PR is already merged or closed.
 - Finish in this order: validate, update `docs/games/<id>.md` (constants,
-  balance tables, open ideas), push, open the PR, then publish the game file
+  balance tables, open ideas; superseded parts to `docs/history/<id>.md`), push, open the PR, then publish the game file
   as a private playtest Artifact (the user can't play a PR before merging)
   and put the link in the PR body and the notes file. Republish the same
   link after each push. Keep the PR body short:
   what changed, key numbers, the checklist; link the notes file for detail.
 - End the conversation with a handoff of at most 5 lines: PR link, what
-  changed, what's open, suggested next step.
+  changed, what's open, suggested next step. The next round (playtest
+  feedback, the next game) starts a fresh conversation from that handoff.
