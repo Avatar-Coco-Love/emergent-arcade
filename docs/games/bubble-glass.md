@@ -1,6 +1,6 @@
 # Bubble Glass: design notes
 
-Current: **v3**, the depth pass (playtest: PLAYTEST_LINK). v2's playtest:
+Current: **v3**, the depth pass (playtest: https://claude.ai/artifact/BXC2MQc3e4rf6x2wPUxZVR). v2's playtest:
 https://claude.ai/artifact/Pe9SQ8QrH482T4iWv6jnUc. Mechanics: **turn** (drag
 around the box, phone tilt opt-in, ← → keys), **melt** ({hold} on sand) and
 **shatter** ({tap} glass), sharing the **grid** inside a sealed box (liquid,
