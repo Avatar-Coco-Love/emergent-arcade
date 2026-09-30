@@ -42,6 +42,15 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   and ask what happens if each hazard is triggered first. *A slow hazard is
   no threat to a fast move.* Bubble Glass. bots.
 
+- A strength verb is only read if full strength can't win: test a
+  max-only bot *with* full planning, make every overshoot lose the extra
+  (no useful rebound), and set the maximum above what any route can
+  absorb. *A full-strength bot finds the detour that spends the extra
+  speed.* Rail Yard. bots.
+- A route verb (switch) is only needed where the other verb can't reach
+  the goal by following links (couplings, trailing moves): start routes
+  set wrong and prove it with a bot that never uses it. *A route verb is
+  only needed where the other verb can't follow a chain.* Rail Yard. bots.
 - A two-way verb (a valve, a door) forgives its own misuse: what it let in
   it lets back out. Check that misusing it costs more than using it well
   saves, from round 1, and test "must read the value" with a bot that runs

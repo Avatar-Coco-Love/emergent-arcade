@@ -240,5 +240,20 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright };
+  function railYard() {
+    let body = `<rect width="72" height="72" fill="#131922"/>`;
+    // Subway-diagram yard: main line, a departure track up-left, a gravel siding.
+    body += `<rect x="44" y="47" width="20" height="8" rx="2" fill="#3a3128"/>`;
+    body += `<path d="M 6 38 L 66 38" stroke="#7fb4ff" stroke-width="2.4" fill="none"/>`;
+    body += `<path d="M 8 20 L 26 20 L 34 38" stroke="#ffd166" stroke-width="2.4" fill="none" stroke-linejoin="round"/>`;
+    body += `<path d="M 36 38 L 44 51 L 64 51" stroke="#c8a27a" stroke-width="2.4" fill="none" stroke-linejoin="round"/>`;
+    body += `<rect x="5" y="15" width="3" height="10" fill="#e0655a"/><rect x="64" y="46" width="3" height="10" fill="#e0655a"/>`;
+    // A coupled pair at the buffer, one car rolling in.
+    body += `<rect x="10" y="16.5" width="7" height="7" rx="1.5" fill="#43c6ac"/><rect x="18.5" y="16.5" width="7" height="7" rx="1.5" fill="#f4a259"/>`;
+    body += `<rect x="46" y="34.5" width="7" height="7" rx="1.5" fill="#e56bd1"/>`;
+    body += `<path d="M 42 38 L 36 38" stroke="#ffffff" stroke-width="1.6"/><path d="M 36 35.5 L 33.5 38 L 36 40.5 Z" fill="#ffffff"/>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard };
 })();

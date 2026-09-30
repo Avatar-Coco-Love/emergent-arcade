@@ -396,3 +396,46 @@ Check:
 
 *Evidence: bots (`docs/games/tidewright.md`, tuning table in
 `docs/history/tidewright.md`). Provisional.*
+
+## A full-strength bot finds the detour that spends the extra speed
+
+Rail Sorting Yard v1 draft (2026-09-30): a flick's strength sets a car's
+speed, track friction drains it, and cars couple only when they meet at
+impact 2-4. To prove the speed must be read, a breadth-first bot that may
+only flick at full strength (but plans everything else) tried every yard.
+With a top speed of 9 it won most of them, level 1 included: a hard hit
+bounced back with the leftover speed (impact − 4), and that rebound
+coupled with the next car. With rebounds fixed at speed 1 (too slow to
+couple) it still won most yards in par + 1 to par + 4, by parking cars one
+length off a buffer and then routing them through a gravel siding or a
+long loop of the yard until full strength arrived at exactly 2-4. At top
+speed 12 it still found such detours (7 flicks where par was 3). At top
+speed 15, above what any route in a compact yard can absorb (longest path
+cost 10), it lost every level, while normal par stayed 1-8.
+Check:
+- For a strength verb, test a bot that uses only the maximum with full
+  planning, not only one that plays greedily: detours are what it finds.
+- Make every overshoot lose the extra (no rebound that carries it into
+  the next target), and make the maximum exceed what any route can soak
+  up, so it can't be spent on the way.
+
+*Evidence: bots (`docs/games/rail-yard.md`, history in
+`docs/history/rail-yard.md`). Provisional.*
+
+## A route verb is only needed where the other verb can't follow a chain
+
+Rail Sorting Yard v1 draft (2026-09-30): switches (drag) route a rolling
+car; flicks move it. A bot that never touched a switch still won yards
+where a car started on the departure track: it coupled to that car and
+pushed or pulled whole trains through the switch, because a coupled train
+follows its own cars rather than the lever, and a car rolling in from a
+switch's back end goes through either way. Starting the departure track
+empty and the levers set against the needed route made the flick-only bot
+fail 9 of 10 levels (it wins only level 1, which has no switch).
+Check:
+- For a verb that sets routes, look for ways the other verb reaches the
+  goal by following links (couplings, chains, trailing moves).
+- Start routes set wrong where the second verb should be needed, and
+  prove it with a bot that never uses it.
+
+*Evidence: bots. Provisional.*

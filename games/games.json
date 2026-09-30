@@ -1037,6 +1037,110 @@
           "text": "First version."
         }
       ]
+    },
+    {
+      "id": "rail-yard",
+      "title": "Rail Sorting Yard",
+      "file": "rail-yard.html",
+      "version": 1,
+      "added": "2026-09-30",
+      "updated": "2026-09-30",
+      "blurb": "A turn-based shunting puzzle: set switches and flick cars down the tracks to build the outbound train in order. Cars couple only at the right speed, and gravel, full sidings and one-way gates get in the way.",
+      "goal": "Build the outbound train on the gold departure track, in the order shown at the top (buffer end first), in ten yards over two chapters. Nothing moves until you flick and there is no clock. Each yard has a par, the fewest flicks that can do it: your score is 100 points per yard at par, 10 fewer per extra move, summed over the run.",
+      "howToPlay": "Drag a car along its track and let go to flick it: the farther you drag, the faster it rolls (speed 1 to 15, shown while you aim). Every car length of plain track costs 1 speed; gravel (brown, double ticks) costs 2. A rolling car that meets another at impact 2 to 4 couples to it; slower only touches, faster bounces back. A flick moves the car and everything coupled in front of it, and lets go of the cars behind. A switch sends a car rolling in from its point end down one track or the other: drag its lever toward a track, or {tap} it. Switch changes are free; only flicks count as moves. Sidings hold as many cars as their label says. Chapter 2 adds tank cars, whose round couplers repel the square ones on box cars and hoppers (the flat car’s double coupler takes both), blue one-way gates, and amber 1× gates that drop for good once the cars that used them clear the gateway. Undo is unlimited, but the undone flick still counts; a hint shows the next move for +2 moves; Restart is always there.",
+      "keyboard": "Tab picks a car · 1–9, + − speed · arrows flick · A–D switches · Z undo · H hint · X restart",
+      "mechanics": [
+        {
+          "name": "switch",
+          "verb": "drag",
+          "description": "Drag a switch lever toward a track to route cars that roll in from its point end. Free: switch changes never count as moves."
+        },
+        {
+          "name": "flick",
+          "verb": "flick",
+          "description": "Drag a car along its track and let go: the drag length sets its speed (1 to 15). Speed drains 1 per car length (2 on gravel), and cars couple only when they meet at impact 2 to 4."
+        }
+      ],
+      "sharedState": "Each rolling car’s speed. The flick sets it; the route the switches pick decides how fast it drains (plain track 1 per car length, gravel 2); what is left when it meets a car or buffer decides the outcome: couple (2 to 4), touch (0 to 1) or bounce back (5 and up).",
+      "accent": "#ffd166",
+      "achievements": [
+        {
+          "id": "first-departure",
+          "title": "First Departure",
+          "description": "Clear level 1."
+        },
+        {
+          "id": "switchman",
+          "title": "Switchman",
+          "description": "Clear every level of chapter 1."
+        },
+        {
+          "id": "stationmaster",
+          "title": "Stationmaster",
+          "description": "Clear every level of chapter 2."
+        },
+        {
+          "id": "on-the-dot",
+          "title": "On the Dot",
+          "description": "Clear a level in par moves or fewer."
+        },
+        {
+          "id": "perfectionist",
+          "title": "Perfectionist",
+          "description": "Hit par on every level of a chapter (its chapter badge)."
+        },
+        {
+          "id": "unassisted",
+          "title": "Unassisted",
+          "description": "Clear every level of a chapter without a hint."
+        },
+        {
+          "id": "gentle-touch",
+          "title": "Gentle Touch",
+          "description": "Couple 10 cars in a row without a single bounce-back."
+        },
+        {
+          "id": "overshoot",
+          "title": "Overshoot",
+          "description": "Secret: find out what a full-strength flick does up close."
+        },
+        {
+          "id": "gravel-road",
+          "title": "Gravel Road",
+          "description": "Stop a car on gravel right against another car, too gently to couple."
+        },
+        {
+          "id": "last-gate",
+          "title": "Last Gate",
+          "description": "Clear a level with every 1× gate spent."
+        },
+        {
+          "id": "full-house",
+          "title": "Full House",
+          "description": "Fill a siding exactly to its capacity and still clear the level."
+        },
+        {
+          "id": "clean-sweep",
+          "title": "Clean Sweep",
+          "description": "Clear every level without using Undo."
+        }
+      ],
+      "score": {
+        "label": "Yard points",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": true,
+        "max": 1500,
+        "epoch": 1
+      },
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-09-30",
+          "text": "First version: ten yards in two chapters."
+        }
+      ]
     }
   ]
 }
