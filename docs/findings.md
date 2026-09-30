@@ -42,6 +42,12 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   and ask what happens if each hazard is triggered first. *A slow hazard is
   no threat to a fast move.* Bubble Glass. bots.
 
+- A two-way verb (a valve, a door) forgives its own misuse: what it let in
+  it lets back out. Check that misusing it costs more than using it well
+  saves, from round 1, and test "must read the value" with a bot that runs
+  the verb on a timer; give every hazard that blocks the verb a window to
+  use it. *A two-way verb forgives its own misuse.* Tidewright. bots.
+
 ## Time pressure and input
 
 - A decay rate (or a bleed that undoes actions) turns a puzzle into a speed
