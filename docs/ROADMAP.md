@@ -104,7 +104,9 @@ At 15–30 games, a flat scroll stops working.
 - A **mechanic map**: which verb pairs and shared-state kinds exist
   (`games.json` already records verbs). Untried combinations become the
   source of new proposals ("pairs *hold* with *draw* over a heat field,
-  which nothing else does"). Consider having `validate.mjs` print it.
+  which nothing else does"). Built: `node scripts/mechanic-map.mjs` (verb counts,
+  pair grid, untried pairs; `--verbs a,b` adds candidate verbs). Shared-state
+  kinds are not in the manifest, so not mapped yet.
 - Revisions outnumber new games. Candidates already on file: Murmuration's
   startle vs. lure, Ant Trails winning 16% of the time when idle.
 - A shared balance harness, once copying bot scripts costs more than
