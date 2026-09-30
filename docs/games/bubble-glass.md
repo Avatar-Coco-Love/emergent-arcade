@@ -4,7 +4,7 @@ Current: **v3**, the depth pass (playtest: PLAYTEST_LINK). v2's playtest:
 https://claude.ai/artifact/Pe9SQ8QrH482T4iWv6jnUc. Mechanics: **turn** (drag
 around the box, phone tilt opt-in, ← → keys), **melt** ({hold} on sand) and
 **shatter** ({tap} glass), sharing the **grid** inside a sealed box (liquid,
-wall, sand, wet sand, dust, glass, grate, vent). 20 hand-made levels in
+wall, sand, wet sand, dust, glass, grate, vent). 21 hand-made levels in
 three chapters, no clock on a level, no loss: a level ends with every bubble
 out through the vent, or a Restart. The score is a chapter's total time.
 7 achievements (in `games/games.json`).
@@ -22,7 +22,7 @@ anything irreversible. Built to grow (see Evolution).
 |---|---|---|---|
 | 1 | `sand` | 1–5 | the three verbs (v2's levels; 1, 4, 5 reworked) |
 | 2 | `wet-and-dry` | 6–12 | wet sand, dust, grates |
-| 3 | `two-bubbles` | 13–20 | a second bubble; bubbles that touch merge |
+| 3 | `two-bubbles` | 13–21 | a second bubble; bubbles that touch merge |
 
 - **Score** (`score.epoch` 2): a chapter's play time, from starting its
   first level to winning its last, in order, restarts included (a lost try
@@ -172,13 +172,14 @@ or reuse one. Maps and data are the `LEVELS` array.
 | 11 | sand-timer | all | 60 | Hourglass (v3) with dust on the shelf: it floods faster, but the bubble slips through it. |
 | 12 | quicksand | all | 70 | Lid-first dust shafts over a tube whose last stretch is wet sand, with a grate to a sump beside it: lid, then hold a tilt while the mud drains, then flip. |
 | 13 | twins | all | 40 | Two bubbles under two shelves, a wide vent: tilt one way, then the other. Merging is harmless here. |
-| 14 | narrow-door | all | 40 | Twins with a 4-cell tube to the vent: a merged bubble can't get in. Free one bubble at a time. |
-| 15 | dust-door | all | 40 | Narrow door over beds of dust. |
-| 16 | shared-sand | all | 40 | Two tubes with grates between them and two small sumps: the sand that leaves one tube goes into the other. |
-| 17 | upstairs | all | 40 | The-plug with a second bubble above the plug. |
-| 18 | two-plugs | all | 40 | Two bubbles, each under a plug, one room of sand above both. |
-| 19 | convoy | all | 70 | Roof with two bubbles in the tube, lid-first. |
-| 20 | last-box | all | 70 | Level 4 (v3) with two bubbles: lid-first, then the plug; they usually merge in the room and leave as one. |
+| 14 | mud-twins | all | 40 | Twins over beds of wet sand: a bubble that ends up under the mud is pinned. |
+| 15 | narrow-door | all | 40 | Twins with a 4-cell tube to the vent: a merged bubble can't get in. Free one bubble at a time. |
+| 16 | dust-door | all | 40 | Narrow door over beds of dust. |
+| 17 | shared-sand | all | 40 | Two tubes with grates between them and two small sumps: the sand that leaves one tube goes into the other. |
+| 18 | upstairs | all | 40 | The-plug with a second bubble above the plug. |
+| 19 | two-plugs | all | 40 | Two bubbles, each under a plug, one room of sand above both. |
+| 20 | convoy | all | 70 | Roof with two bubbles in the tube, lid-first. |
+| 21 | last-box | all | 70 | Level 4 (v3) with two bubbles: lid-first, then the plug; they usually merge in the room and leave as one. |
 
 Also retired before shipping: `dust-bowl` (two-plugs under a room of
 dust): hinted won it 25% in 3 tries, and it repeated two-plugs; and
@@ -289,7 +290,7 @@ the game over all sessions. Levels 3–5 need less than the bots predicted
 | breakout | A win within 4 s of shattering a shard that touched the bubble. |
 | cold-hands | A win from level 3 on with no glass melted. |
 | light-touch | A win from level 3 on, turning less than 270°. |
-| glassblower | Every level won in this browser (kept in `localStorage`). v3: all 20. |
+| glassblower | Every level won in this browser (kept in `localStorage`). v3: all 21. |
 | big-bubble | A merged bubble leaves through the vent (v3). |
 | clockwork | A chapter finished on the chapter clock (v3). |
 

@@ -886,7 +886,7 @@
         {
           "version": 3,
           "date": "2026-09-30",
-          "text": "Twenty boxes in three chapters: Sand, Wet and dry (wet sand, dust, grates) and Two bubbles (touching bubbles join). The score is your time over a whole chapter, played in order. Levels 1, 4 and 5 reworked: 4 and 5 now reward melting."
+          "text": "21 boxes in three chapters: Sand, Wet and dry (wet sand, dust, grates) and Two bubbles (touching bubbles join). The score is your time over a whole chapter, played in order. Levels 1, 4 and 5 reworked: 4 and 5 now reward melting."
         },
         {
           "version": 1,
@@ -895,7 +895,7 @@
         }
       ],
       "blurb": "Turn a sealed box of sand to float its air bubbles out through the vent. Sand falls, bubbles rise, and glass you melt from the sand holds it back. Three chapters, timed.",
-      "goal": "Free the bubbles through the gold vent in twenty boxes, over three chapters. There's no clock on a box and no way to lose: if one gets hopelessly stuck, restart it. Your score is the time a whole chapter takes, played in order from its first box, restarts included.",
+      "goal": "Free the bubbles through the gold vent in twenty-one boxes, over three chapters. There's no clock on a box and no way to lose: if one gets hopelessly stuck, restart it. Your score is the time a whole chapter takes, played in order from its first box, restarts included.",
       "howToPlay": "Drag around the box to turn it (on a phone you can also switch Tilt on and turn the phone itself). Gravity turns with it: sand always falls and the bubble always rises, so one turn moves both, in opposite directions. Sand trickles past the bubble in open water, slower the deeper it is, but in a narrow tube the bubble fills, sand stops it: its outline turns red. From level 2, {hold} on sand to melt it into glass. The glass grows toward your {finger} while you {hold}, costs heat, and is solid: it falls as one piece and blocks sand and the bubble, so it can make a lid, a roof or a plug. From level 3, {tap} glass to shatter it back into sand where it is. That's free, but the sand falls wherever gravity says. If that sand would bury a bubble, or the glass is a lid, the first {tap} only warns: {tap} again to break it. Some levels point at where to melt from the start. Chapter 2 brings dark wet sand (heavy: a thin layer stops the bubble, it falls slowly and won't melt), pale dust (light and fast) and grey grates that sand falls through but the bubble can't. Chapter 3 has two bubbles: both must get out, and bubbles that touch join into one that is too big for narrow tubes. If nothing moves for a few seconds, a hint shows a turn, a place to melt, glass to shatter, or Restart.",
       "keyboard": "← → or A / D to turn the box",
       "mechanics": [
