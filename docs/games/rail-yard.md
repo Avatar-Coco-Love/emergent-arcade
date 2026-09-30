@@ -1,6 +1,6 @@
 # Rail Sorting Yard: design notes
 
-**v1** (2026-09-30) · playtest: PLAYTEST_LINK (private, republished each push) ·
+**v1** (2026-09-30) · playtest: https://claude.ai/artifact/QKEiYegRLePYqd8EhaecPH (private, republished each push) ·
 balance: `node scripts/balance-rail-yard.mjs [runs=20] [bots] [level ids]`
 Turn-based shunting puzzle. Verbs: **switch** (drag a lever, or {tap}) and
 **flick** (drag a car along its track; drag length = speed). Shared state: a
