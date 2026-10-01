@@ -1,6 +1,6 @@
 # Pressure Grid: design notes
 
-**v8** (2026-10-01) · playtest: PLAYTEST_LINK ·
+**v8** (2026-10-01) · playtest: https://claude.ai/artifact/WKBg1jZwLxZLnZ97Ben1sf ·
 balance: `node scripts/balance-pressure-grid.mjs` (`--count`, `--line`, `--level N`)
 The arcade's first game, rebuilt as a turn-based level puzzle (plan and
 later increments: `docs/games/pressure-grid-plan.md`). v7's 60 s round was
