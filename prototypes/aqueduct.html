@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Aqueduct prototype</title>
+<style>
+html,body{margin:0;height:100%;background:#0b1320;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{display:block;width:100vw;height:100vh;height:100dvh}
+#hud{position:fixed;left:8px;top:6px;font:12px/1.4 system-ui,sans-serif;color:#8fa8c8;pointer-events:none;white-space:pre}
+#msg{position:fixed;left:0;right:0;bottom:14px;text-align:center;font:600 15px system-ui,sans-serif;color:#ffd86b;pointer-events:none}
+#tilt{position:fixed;right:8px;top:6px;font:12px system-ui,sans-serif;padding:6px 10px;border-radius:6px;border:1px solid #38577f;background:#142238;color:#cfe0f5;display:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+<div id="msg"></div>
+<button id="tilt">Enable tilt</button>
+<script>
+// Aqueduct prototype: one vessel, one channel, one bead, ~600 particles, 360° turn.
+// Not a game yet (docs/games/aqueduct.md, "First step: the prototype").
+(function () {
+'use strict';
+
+// § constants
+const N = 600;            // water particles
+const SPACING = 6;        // initial lattice spacing, px (vessel units)
+const H = 13;             // interaction radius
+const PR = 2.6;           // particle radius vs walls and bead
+const G = 800;            // gravity, px/s²
+const SUB = 2;            // substeps per 1/60 s frame
+const KP = 2.5, KN = 1.5;  // double-density stiffness (far, near)
+const NEG = 0.25;         // share of negative pressure kept (surface tension)
+const VISC = 0.05;        // pair viscosity
+const MAXPUSH = 1.4;      // px, per pair per substep
+const BEAD_R = 10, BEAD_M = 7;   // bead radius; mass in particle masses (water displaced ≈ 14)
+const EXIT = { x: 135, y: 130, r: 16 }, EXIT_T = 0.5;
+const KEY_W0 = 50, KEY_W1 = 420, KEY_RAMP = 1.1;   // deg/s for ← → (hold = faster = flick)
+const TARGET_RATE = 360;  // deg/s, bots and tilt-follow
+const DEAD = 3;           // deg, tilt dead zone
+// Free space (vessel frame, y down): rounded boxes {cx, cy, hw, hh, r}.
+const SHAPES = [
+  { cx: -100, cy: 45, hw: 75, hh: 105, r: 16 },   // chamber A (water starts here)
+  { cx: 100, cy: 45, hw: 75, hh: 105, r: 16 },    // chamber B (exit pocket on its floor)
+  { cx: 0, cy: -40, hw: 62, hh: 14, r: 10 },      // the channel (a bridge over a sill)
+];
+const CEN = { x: 0, y: 45 };   // rotation centre
+const R2D = 180 / Math.PI;
+
+// § rng
+let seedState = 1;
+function rnd() { seedState |= 0; seedState = seedState + 0x6D2B79F5 | 0; let t = Math.imul(seedState ^ seedState >>> 15, 1 | seedState);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+
+// § sdf
+function sdf(x, y) {
+  let m = 1e9;
+  for (let i = 0; i < SHAPES.length; i++) {
+    const s = SHAPES[i];
+    const qx = Math.abs(x - s.cx) - (s.hw - s.r), qy = Math.abs(y - s.cy) - (s.hh - s.r);
+    const ox = qx > 0 ? qx : 0, oy = qy > 0 ? qy : 0;
+    const d = Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(qx, qy), 0) - s.r;
+    if (d < m) m = d;
+  }
+  return m;
+}
+const nrm = { x: 0, y: 0 };
+function normal(x, y) {
+  const e = 0.5;
+  let gx = sdf(x + e, y) - sdf(x - e, y), gy = sdf(x, y + e) - sdf(x, y - e);
+  const l = Math.hypot(gx, gy) || 1; nrm.x = gx / l; nrm.y = gy / l;
+}
+
+// § state
+const PX = new Float32Array(N), PY = new Float32Array(N), VX = new Float32Array(N), VY = new Float32Array(N);
+const OX = new Float32Array(N), OY = new Float32Array(N);
+const bead = { x: 0, y: 0, vx: 0, vy: 0, ox: 0, oy: 0 };
+let angle = 0, omega = 0, target = 0, mode = 'free';   // degrees; mode: 'free' (keys/dial/tilt) or 'target' (bots)
+let elapsed = 0, exitT = 0, state = 'playing', keyDir = 0, keyHold = 0, rho0 = 1;
+const gv = { x: 0, y: 1 };
+
+// § grid
+const GC = 40, GO = -200, GCELLS = GC * GC;
+const cellStart = new Int32Array(GCELLS + 1), cellIdx = new Int32Array(N), cellOf = new Int32Array(N);
+const MAXP = N * 16;
+const pI = new Int32Array(MAXP), pJ = new Int32Array(MAXP);
+const pQ = new Float32Array(MAXP), pNX = new Float32Array(MAXP), pNY = new Float32Array(MAXP);
+const rho = new Float32Array(N), rhoN = new Float32Array(N);
+let npairs = 0;
+function cellXY(v) { let c = Math.floor((v - GO) / H); return c < 0 ? 0 : c >= GC ? GC - 1 : c; }
+function buildGrid() {
+  cellStart.fill(0);
+  for (let i = 0; i < N; i++) { const c = cellXY(PY[i]) * GC + cellXY(PX[i]); cellOf[i] = c; cellStart[c + 1]++; }
+  for (let c = 0; c < GCELLS; c++) cellStart[c + 1] += cellStart[c];
+  const fill = gridFill; fill.set(cellStart.subarray(0, GCELLS));
+  for (let i = 0; i < N; i++) cellIdx[fill[cellOf[i]]++] = i;
+}
+const gridFill = new Int32Array(GCELLS);
+
+// § fluid
+function pairs() {
+  buildGrid();
+  rho.fill(0); rhoN.fill(0); npairs = 0;
+  const H2 = H * H;
+  for (let i = 0; i < N; i++) {
+    const cx = cellXY(PX[i]), cy = cellXY(PY[i]);
+    const x0 = cx > 0 ? cx - 1 : 0, x1 = cx < GC - 1 ? cx + 1 : cx, y0 = cy > 0 ? cy - 1 : 0, y1 = cy < GC - 1 ? cy + 1 : cy;
+    for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
+      const c = yy * GC + xx;
+      for (let k = cellStart[c]; k < cellStart[c + 1]; k++) {
+        const j = cellIdx[k]; if (j <= i) continue;
+        const dx = PX[j] - PX[i], dy = PY[j] - PY[i], d2 = dx * dx + dy * dy;
+        if (d2 >= H2 || npairs >= MAXP) continue;
+        const d = Math.sqrt(d2) || 1e-4, q = 1 - d / H;
+        rho[i] += q * q; rho[j] += q * q; rhoN[i] += q * q * q; rhoN[j] += q * q * q;
+        pI[npairs] = i; pJ[npairs] = j; pQ[npairs] = q; pNX[npairs] = dx / d; pNY[npairs] = dy / d; npairs++;
+      }
+    }
+  }
+}
+function relax(dt) {
+  for (let p = 0; p < npairs; p++) {
+    const i = pI[p], j = pJ[p], q = pQ[p], nx = pNX[p], ny = pNY[p];
+    let Pi = KP * (rho[i] - rho0), Pj = KP * (rho[j] - rho0);
+    if (Pi < 0) Pi *= NEG; if (Pj < 0) Pj *= NEG;
+    let m = 0.5 * (Pi + Pj) * q + 0.5 * KN * (rhoN[i] + rhoN[j]) * q * q;
+    if (m > MAXPUSH) m = MAXPUSH; else if (m < -MAXPUSH) m = -MAXPUSH;
+    PX[i] -= nx * m * 0.5; PY[i] -= ny * m * 0.5; PX[j] += nx * m * 0.5; PY[j] += ny * m * 0.5;
+  }
+}
+function viscosity() {   // uses the previous substep's pair list (one substep stale, free)
+  for (let p = 0; p < npairs; p++) {
+    const i = pI[p], j = pJ[p], nx = pNX[p], ny = pNY[p];
+    const u = (VX[i] - VX[j]) * nx + (VY[i] - VY[j]) * ny;
+    if (u > 0) { const I = 0.5 * pQ[p] * VISC * u * 8; VX[i] -= I * nx; VY[i] -= I * ny; VX[j] += I * nx; VY[j] += I * ny; }
+  }
+}
+
+// § step
+function substep(dt) {
+  const gx = gv.x * G, gy = gv.y * G;
+  for (let i = 0; i < N; i++) { VX[i] += gx * dt; VY[i] += gy * dt; }
+  viscosity();
+  bead.vx += gx * dt; bead.vy += gy * dt;
+  for (let i = 0; i < N; i++) { OX[i] = PX[i]; OY[i] = PY[i]; PX[i] += VX[i] * dt; PY[i] += VY[i] * dt; }
+  bead.ox = bead.x; bead.oy = bead.y; bead.x += bead.vx * dt; bead.y += bead.vy * dt;
+  pairs(); relax(dt);
+  // bead <-> particles (two-way; the bead is mass BEAD_M, so lighter than the water it displaces: it floats)
+  const wb = 1 / BEAD_M, minD = BEAD_R + PR;
+  for (let i = 0; i < N; i++) {
+    const dx = PX[i] - bead.x, dy = PY[i] - bead.y, d2 = dx * dx + dy * dy;
+    if (d2 >= minD * minD) continue;
+    const d = Math.sqrt(d2) || 1e-4, c = minD - d, nx = dx / d, ny = dy / d, s = 1 / (1 + wb);
+    PX[i] += nx * c * s; PY[i] += ny * c * s; bead.x -= nx * c * (1 - s); bead.y -= ny * c * (1 - s);
+  }
+  let d = sdf(bead.x, bead.y);
+  if (d > -BEAD_R) { normal(bead.x, bead.y); bead.x -= nrm.x * (d + BEAD_R); bead.y -= nrm.y * (d + BEAD_R); }
+  for (let i = 0; i < N; i++) {
+    d = sdf(PX[i], PY[i]);
+    if (d > -PR) { normal(PX[i], PY[i]); PX[i] -= nrm.x * (d + PR); PY[i] -= nrm.y * (d + PR); }
+    VX[i] = (PX[i] - OX[i]) / dt; VY[i] = (PY[i] - OY[i]) / dt;
+    const sp = VX[i] * VX[i] + VY[i] * VY[i]; if (sp > 1.2e6) { const k = 1100 / Math.sqrt(sp); VX[i] *= k; VY[i] *= k; }
+  }
+  bead.vx = (bead.x - bead.ox) / dt * 0.9995; bead.vy = (bead.y - bead.oy) / dt * 0.9995;
+}
+function turn(dt) {
+  if (mode === 'target') {
+    const d = target - angle, m = TARGET_RATE * dt;
+    angle += Math.abs(d) <= m ? d : Math.sign(d) * m;
+  } else if (keyDir) {
+    keyHold += dt;
+    omega = keyDir * (KEY_W0 + (KEY_W1 - KEY_W0) * Math.min(1, keyHold / KEY_RAMP));
+    angle += omega * dt;
+  } else { keyHold = 0; omega = 0; }
+  const a = angle / R2D; gv.x = Math.sin(a); gv.y = Math.cos(a);
+}
+function step(dt) {        // one 1/60 s frame
+  if (state !== 'playing') return;
+  turn(dt);
+  for (let s = 0; s < SUB; s++) substep(dt / SUB);
+  elapsed += dt;
+  if (Math.hypot(bead.x - EXIT.x, bead.y - EXIT.y) < EXIT.r) { exitT += dt; if (exitT >= EXIT_T) state = 'won'; } else exitT = 0;
+}
+
+// § init
+function reset(seed) {
+  seedState = seed | 0 || 1;
+  const a = SHAPES[0], x0 = a.cx - a.hw + a.r * 0.3 + PR, x1 = a.cx + a.hw - a.r * 0.3 - PR, y1 = a.cy + a.hh - PR;
+  const cols = Math.floor((x1 - x0) / SPACING) + 1;
+  for (let i = 0; i < N; i++) {
+    const c = i % cols, r = (i / cols) | 0;
+    PX[i] = x0 + c * SPACING + (r & 1 ? SPACING / 2 : 0) + (rnd() - 0.5) * 0.4;
+    PY[i] = y1 - r * SPACING * 0.866 + (rnd() - 0.5) * 0.4; VX[i] = VY[i] = 0;
+  }
+  bead.x = a.cx + (rnd() - 0.5) * 2; bead.y = -10; bead.vx = bead.vy = 0;
+  angle = 0; target = 0; omega = 0; keyDir = 0; keyHold = 0; mode = 'free'; elapsed = 0; exitT = 0; state = 'playing';
+  gv.x = 0; gv.y = 1;
+  pairs();
+  // rest density of a hex lattice at SPACING (interior particle)
+  rho0 = 0;
+  for (let a = -3; a <= 3; a++) for (let b = -4; b <= 4; b++) {
+    const x = (a + (b & 1 ? 0.5 : 0)) * SPACING, y = b * SPACING * 0.866, d = Math.hypot(x, y);
+    if (d > 0 && d < H) rho0 += (1 - d / H) ** 2;
+  }
+  for (let k = 0; k < 150; k++) step(1 / 60);   // settle 2.5 s
+  elapsed = 0; exitT = 0; state = 'playing'; angle = 0; target = 0;
+}
+function snap() { return { np: npairs, pI: pI.slice(0, npairs), pJ: pJ.slice(0, npairs), pQ: pQ.slice(0, npairs), pNX: pNX.slice(0, npairs), pNY: pNY.slice(0, npairs), PX: PX.slice(), PY: PY.slice(), VX: VX.slice(), VY: VY.slice(), b: { ...bead }, angle, target, mode, omega, elapsed, exitT, state, keyDir, keyHold }; }
+function restore(s) { npairs = s.np; pI.set(s.pI); pJ.set(s.pJ); pQ.set(s.pQ); pNX.set(s.pNX); pNY.set(s.pNY); PX.set(s.PX); PY.set(s.PY); VX.set(s.VX); VY.set(s.VY); Object.assign(bead, s.b);
+  angle = s.angle; target = s.target; mode = s.mode; omega = s.omega; elapsed = s.elapsed; exitT = s.exitT; state = s.state; keyDir = s.keyDir; keyHold = s.keyHold;
+  const a = angle / R2D; gv.x = Math.sin(a); gv.y = Math.cos(a); }
+
+// § render
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const hud = document.getElementById('hud'), msg = document.getElementById('msg');
+let W = 0, Hh = 0, dpr = 1, scale = 1;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 1.25);   // water is soft-edged; raster cost scales with dpr²
+  W = cv.clientWidth; Hh = cv.clientHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr);
+  scale = Math.min(W, Hh) / 420;
+}
+function shapePath(s, pad) {
+  const x = s.cx - s.hw - pad, y = s.cy - s.hh - pad, w = 2 * (s.hw + pad), h = 2 * (s.hh + pad), r = s.r + pad;
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function draw() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
+  ctx.save(); ctx.translate(W / 2, Hh / 2); ctx.scale(scale, scale); ctx.rotate(angle / R2D); ctx.translate(-CEN.x, -CEN.y);
+  ctx.fillStyle = '#35547d'; ctx.beginPath(); for (const s of SHAPES) shapePath(s, 5); ctx.fill();
+  ctx.fillStyle = '#0e1a2c'; ctx.beginPath(); for (const s of SHAPES) shapePath(s, 0); ctx.fill();
+  ctx.fillStyle = 'rgba(255,216,107,.18)'; ctx.strokeStyle = '#ffd86b'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(EXIT.x, EXIT.y, EXIT.r, 0, 6.2832); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(70,160,255,.9)'; ctx.beginPath();
+  for (let i = 0; i < N; i++) { ctx.moveTo(PX[i] + 4.2, PY[i]); ctx.arc(PX[i], PY[i], 4.2, 0, 6.2832); }
+  ctx.fill();
+  ctx.fillStyle = '#ffe9a8'; ctx.shadowColor = '#ffc940'; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(bead.x, bead.y, BEAD_R, 0, 6.2832); ctx.fill();
+  ctx.restore();
+}
+
+// § input
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') { keyDir = -1; mode = 'free'; e.preventDefault(); }
+  else if (e.key === 'ArrowRight') { keyDir = 1; mode = 'free'; e.preventDefault(); }
+  else if (e.key === 'r') reset(1);
+});
+addEventListener('keyup', e => { if ((e.key === 'ArrowLeft' && keyDir < 0) || (e.key === 'ArrowRight' && keyDir > 0)) keyDir = 0; });
+let drag = null;   // grab-and-turn dial (mouse / touch fallback)
+cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect();
+  drag = { a0: Math.atan2(e.clientY - r.top - Hh / 2, e.clientX - r.left - W / 2), t0: angle, id: e.pointerId }; mode = 'free'; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => { if (!drag || drag.id !== e.pointerId) return; const r = cv.getBoundingClientRect();
+  let d = Math.atan2(e.clientY - r.top - Hh / 2, e.clientX - r.left - W / 2) - drag.a0; d = Math.atan2(Math.sin(d), Math.cos(d));
+  const prev = drag.last === undefined ? 0 : drag.last; let dd = d - prev; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); drag.last = d;
+  drag.t0 += dd * R2D; angle = drag.t0; });
+cv.addEventListener('pointerup', () => { drag = null; });
+// Phone tilt: gravity vector in screen space (not Euler angles). Android sign convention; iOS is the opposite.
+const tiltBtn = document.getElementById('tilt');
+let tiltOn = false, tiltZero = null;
+function onMotion(e) {
+  const g = e.accelerationIncludingGravity; if (!g || g.x == null) return;
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent), s = ios ? -1 : 1;
+  const gx = -g.x * s, gy = g.y * s;
+  if (Math.hypot(gx, gy) < 3) return;                       // phone flat: no screen-space gravity
+  let a = Math.atan2(gx, gy) * R2D;                         // 0 = upright
+  if (tiltZero === null) tiltZero = a;
+  a -= tiltZero; while (a - angle > 180) a -= 360; while (a - angle < -180) a += 360;
+  if (Math.abs(a - angle) > DEAD) { mode = 'free'; angle = a; }
+}
+if (typeof DeviceMotionEvent !== 'undefined' && 'ontouchstart' in window) {
+  tiltBtn.style.display = 'block';
+  tiltBtn.onclick = async () => {
+    try { if (DeviceMotionEvent.requestPermission && await DeviceMotionEvent.requestPermission() !== 'granted') return; } catch (_) { return; }
+    tiltOn = true; tiltBtn.style.display = 'none'; addEventListener('devicemotion', onMotion);
+  };
+}
+addEventListener('message', e => { if (e.data && e.data.type === 'arcade:pause') paused = true; if (e.data && e.data.type === 'arcade:resume') paused = false; });
+
+// § loop
+let paused = false, last = 0, acc = 0, fpsEMA = 60, simEMA = 0;
+function frame(t) {
+  requestAnimationFrame(frame);
+  const dtms = last ? t - last : 16.7; last = t;
+  if (dtms > 0) fpsEMA += (1000 / dtms - fpsEMA) * 0.05;
+  if (paused) return;
+  acc = Math.min(acc + dtms / 1000, 2 / 60);   // never more than 2 catch-up steps
+  const t0 = performance.now();
+  while (acc >= 1 / 60) { step(1 / 60); acc -= 1 / 60; }
+  simEMA += (performance.now() - t0 - simEMA) * 0.05;
+  draw();
+  hud.textContent = `Aqueduct prototype  ·  ← → or drag to turn  ·  R restart\n${fpsEMA.toFixed(0)} fps · sim ${simEMA.toFixed(1)} ms · ${(((angle % 360) + 360) % 360).toFixed(0)}°`;
+  msg.textContent = state === 'won' ? 'Through the exit! (R to restart)' : '';
+}
+window.__dbg = { N, step, snap, restore, reset, sdf, SHAPES, EXIT, BEAD_R, PR, TARGET_RATE, H,
+  get px() { return PX; }, get py() { return PY; }, get vx() { return VX; }, get vy() { return VY; },
+  bead, get angle() { return angle; }, get state() { return state; }, get elapsed() { return elapsed; },
+  setTarget(a) { mode = 'target'; target = a; }, setAngle(a) { mode = 'free'; angle = a; },
+  setKey(d) { mode = 'free'; keyDir = d; }, get rho0() { return rho0; }, drawNow: draw };
+addEventListener('resize', resize); resize();
+if (!/[?&]nostart/.test(location.search)) { reset(1); requestAnimationFrame(frame); }
+else window.__start = s => { reset(s || 1); };
+})();
+</script>
+</body>
+</html>

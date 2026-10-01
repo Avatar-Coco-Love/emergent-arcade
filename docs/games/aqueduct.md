@@ -1,6 +1,6 @@
 # Aqueduct: design note (proposal, not built)
 
-Status: **idea**, 2026-10-01. Nothing in `games/` yet. Id when built:
+Status: **prototype built** (`prototypes/aqueduct.html`, not in `games/`, not registered), 2026-10-01; see "Prototype results" at the end. Id when built:
 `aqueduct` (permanent feedback key). Check `docs/findings.md` and
 `docs/ROADMAP.md` before starting: the roadmap favors depth and revisions,
 so build only after a one-screen prototype (below) feels good.
@@ -149,3 +149,39 @@ stopcock, then levels 0–2 as one PR.
 
 Oil over water (two liquids); float valves; clockwork gates; salt layers;
 fish tank (stranded-fish lose state); water wheels driving inner gates.
+
+## Prototype results (2026-10-01)
+
+Files: `prototypes/aqueduct.html` (one vessel: chambers A and B joined by a
+bridge channel over a sill; exit pocket on B's floor; one bead; ~600 particles;
+no vials, no stopcock), `scripts/balance-aqueduct.mjs`. Not in `games/`
+because `validate.mjs` requires every file there to be registered.
+
+Sim: Clavet double-density relaxation, 2 substeps of 1/120 s, one neighbor
+search per substep, SDF walls (3 rounded boxes), gravity rotated into the
+vessel frame (the vessel is drawn rotated, no inertial forces). The bead is a
+two-way body of mass 7 (the water it displaces is ~14), so it floats from
+pressure alone, no buoyancy code. Constants are at the top of the file.
+Input: `← →` ramped turn (50 to 420 deg/s), grab-and-turn drag dial,
+phone gravity in screen space (Android sign convention; iOS flipped; **not
+tested on a device**).
+
+Measured (headless Chromium, 390x740, sloshing through the real rAF loop):
+- Sim 0.9 ms/frame, draw 0.3 ms at 1x CPU; 4.3 + 2.3 ms at 4x throttle.
+- Frames: 1x 60 fps; 4x CPU ~54-58 fps (p95 33 ms); 6x ~34 fps. Canvas dpr is
+  capped at 1.25 (raster cost dominated at dpr 2: 21-50 fps at 4x).
+  Software raster here, not a phone: re-measure on a real device.
+- Water: 0 particles outside walls in all runs; at rest rms speed ~1 px/s;
+  stream through the channel looks like water. Bead floats at the surface and
+  is held at the sill by the draining stream, so sloshing matters.
+
+Bots (45 s limit, seeded):
+- idle 0%, sweeper 0%, novice (random angles) 50% of 10, keys 20% of 10,
+  planner 8/8 (beam search on 30-deg turns, replayed open-loop: 4 moves, ~330
+  deg turned, median win 3.6 s).
+- The vessel is too easy as a puzzle (random play wins half the time). Fine
+  for a prototype; the vials and a higher sill are what make it a level.
+
+Not verified: how the bead and water *feel* in a hand (that is the gate (b);
+needs a human playtest). Snapshots must include the pair list (the viscosity
+pass reuses the previous substep's pairs) or planner replays diverge.
