@@ -11,6 +11,15 @@ first and follow its "Adding levels" recipe. Get par from
 scripts/balance-pressure-grid.mjs (--map while designing, --level N
 to check); keep maps walled (open 7x7 boards make the search slow);
 if a level's par search takes over 2 minutes, stop and report.
+Also fix two things the maintainer noticed in v8:
+- The green ✓ drawn in a burst ring's top-right corner overlaps the ring
+  and reads as a stray line. Probably remove it (the green ring already
+  says "burst").
+- The cabinet's toasts (achievement, new best; .toasts in
+  assets/gallery.css, top of the game area) cover the message strip
+  with the stars and the level hint. Fix it on the game side (e.g. move
+  or pad the strip) or in the gallery (toasts elsewhere); a gallery
+  change affects every game, so run smoke-gallery.mjs if you do that.
 Same finish as before: validate, update the notes, one PR, playtest
 Artifact, short handoff.
 ```
