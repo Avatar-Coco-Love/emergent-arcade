@@ -91,7 +91,8 @@ same-origin, so `localStorage` inside a game throws.
   several boards), the top 10 with your row highlighted, and your public
   name. Your own best is merged in at once; the published file catches up
   within the hour.
-- Cards show "Best 40.2 s" (or "3 bests" for games with boards).
+- Cards show "Your best 40.2 s" (or "3 bests" for games with
+  boards): your own best on this browser, not the leaderboard's.
 - Export/import carries bests (the better one per board wins on import);
   "Reset everything" erases them.
 
@@ -189,8 +190,9 @@ sees a different rule and recounts every session row:
 ```
 
 - **Card** (`assets/gallery.js`): "18 plays · 5 on v9" in the card footer
-  ("18 plays" when every play is on the current version). Hidden under 5
-  plays (`PLAYS_SHOWN`), since "2 plays" reads as "nobody plays this".
+  ("18 plays" when every play is on the current version), shown from the
+  first play (it used to wait for 5; small counts are honest, and new games
+  start there).
   Filled in place once the file loads, so focus and scroll don't move.
 - **About panel** (`assets/cabinet.js`, "Plays by version"): every version,
   newest first, with a bar. Versions from before counting began (no plays,
