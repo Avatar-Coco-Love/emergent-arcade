@@ -55,7 +55,8 @@
   button.lv .st { display: block; font-size: 0.7rem; color: var(--star); letter-spacing: 1px; min-height: 0.85rem; }
   button.lv.on { border-color: var(--accent); }
   button.primary { border-color: var(--accent); color: #fff; background: #3a1d10; }
-  /* Messages get their own strip, never over the board (two lines tall so the board doesn't jump). */
+  /* Messages get their own strip, never over the board (two lines tall so the board doesn't jump).
+     It sits under the board: the cabinet's toasts (achievements, new best) cover the top of the game. */
   #msg {
     flex: none;
     min-height: 2.6em;
@@ -80,10 +81,10 @@
 </head>
 <body>
   <div class="bar" id="levels"></div>
-  <div id="msg"></div>
   <div id="boardWrap">
     <canvas id="board" aria-label="Pressure Grid board. Tap a cell to pump, drag to a neighbour to siphon."></canvas>
   </div>
+  <div id="msg"></div>
   <div class="stat" id="stat"></div>
   <div class="bar">
     <button id="undoBtn">Undo</button>
@@ -107,8 +108,12 @@
   const SIPHON_LOSS = 1;  // a siphon pours all of a cell into a neighbour, minus this
   const MAX_WAVES = 60;   // guard; chains always end (every eruption loses pressure)
 
-  // Map letters: . open, o target, # wall, s sealed, S sealed target.
+  // Map letters: . open, o target, # wall, s sealed, S sealed target,
+  // ^ > v < valve, * vent, l leaky, L leaky target.
   // Sealed cells can't be pumped and take no blasts: only a siphon fills them.
+  // Valves are sealed pipe cells: pours in and out only go the arrow's way.
+  // Vents start at 8; at 10 one empties its open neighbours instead of blasting.
+  // Leaky cells lose 2 after every move.
   // Ids are permanent (telemetry). par is the solver's minimum (balance script).
   const LEVELS = [
     { id: 'first-pop', name: 'First pop', par: 3,
@@ -126,16 +131,37 @@
     { id: 'pipes', name: 'Pipes', par: 16,
       hint: 'Two seals, three rings. You can pour out of a ring too: the order matters.',
       map: ['#######', '#.oSo.#', '###.###', '##.o.##', '###S###', '###.###', '#######'] },
+    { id: 'drip', name: 'Drip', par: 8,
+      hint: 'A cell with a drop is leaky: it loses 2 after every move. Prime the others first, then fill it in one go.',
+      map: ['.....', '.....', '.oLo.', '.....', '.....'] },
+    { id: 'vent', name: 'Vent', par: 4,
+      hint: 'Vents (purple) start at 8. One that bursts empties its neighbours. Pour it out first: that pressure is yours.',
+      map: ['######', '#.*o.#', '#.o*.#', '######'] },
+    { id: 'valves', name: 'Valves', par: 7,
+      hint: 'Arrows are valves: pours go through them only the arrow\'s way. A valve can\'t be pumped.',
+      map: ['#######', '#*<S<*#', '##.o.##', '#######'] },
+    { id: 'relief', name: 'Relief', par: 10,
+      hint: 'A burst beside a full vent sets it off, and it empties its neighbours. Use the vent before it goes.',
+      map: ['#######', '##.#.##', '#.So*S#', '##....#', '#######'] },
+    { id: 'flow', name: 'Flow', par: 10,
+      hint: 'Everything at once. A leaky ring needs 10 in a single move: what can pour that much?',
+      map: ['#######', '#*>S..#', '##.o*.#', '##l.L.#', '#######'] },
   ];
 
   const OPEN = 0, SEALED = 1, WALL = 2;
+  const DIRS = '^>v<';   // valve arrows: up, right, down, left
+  const LEAKY_DRIP = 2;  // a leaky cell loses this after every move (instead of the leak)
   function parseLevel(def) {
     const h = def.map.length, w = def.map[0].length;
     const kind = new Int8Array(w * h), target = new Uint8Array(w * h);
+    const valve = new Int8Array(w * h).fill(-1), vent = new Uint8Array(w * h), leaky = new Uint8Array(w * h);
     def.map.forEach((row, y) => [...row].forEach((ch, x) => {
       const i = y * w + x;
-      kind[i] = ch === '#' ? WALL : (ch === 's' || ch === 'S') ? SEALED : OPEN;
-      target[i] = ch === 'o' || ch === 'S' ? 1 : 0;
+      valve[i] = DIRS.indexOf(ch);
+      kind[i] = ch === '#' ? WALL : (ch === 's' || ch === 'S' || valve[i] >= 0) ? SEALED : OPEN;
+      target[i] = ch === 'o' || ch === 'S' || ch === 'L' ? 1 : 0;
+      vent[i] = ch === '*' ? 1 : 0;
+      leaky[i] = ch === 'l' || ch === 'L' ? 1 : 0;
     }));
     const nbrs = [];
     for (let i = 0; i < w * h; i++) {
@@ -148,23 +174,35 @@
     }
     const targets = [];
     for (let i = 0; i < w * h; i++) if (target[i]) targets.push(i);
-    return { def, w, h, n: w * h, kind, target, nbrs, targets };
+    return { def, w, h, n: w * h, kind, target, valve, vent, leaky, nbrs, targets };
   }
 
   // A state: p = pressure per cell, hit = targets that have erupted.
-  function startState(L) { return { p: new Int8Array(L.n), hit: new Uint8Array(L.n) }; }
+  // Vents start full (SAFE_MAX): one more blast and they vent.
+  function startState(L) {
+    const p = new Int8Array(L.n);
+    for (let i = 0; i < L.n; i++) if (L.vent[i]) p[i] = SAFE_MAX;
+    return { p, hit: new Uint8Array(L.n) };
+  }
   function solved(L, st) { return L.targets.every(i => st.hit[i]); }
 
   function canPump(L, st, i) { return L.kind[i] === OPEN; }
-  function canSiphon(L, st, i, j) {
-    return L.kind[i] !== WALL && L.kind[j] !== WALL && st.p[i] > SIPHON_LOSS && L.nbrs[i].includes(j);
+  // A pour that touches a valve must go the arrow's way (into it from behind, out of its front).
+  function pourDir(L, i, j) { return j === i - L.w ? 0 : j === i + 1 ? 1 : j === i + L.w ? 2 : 3; }
+  function pourOk(L, i, j) {
+    if (L.kind[i] === WALL || L.kind[j] === WALL || !L.nbrs[i].includes(j)) return false;
+    const d = pourDir(L, i, j);
+    return (L.valve[i] < 0 || L.valve[i] === d) && (L.valve[j] < 0 || L.valve[j] === d);
   }
+  function canSiphon(L, st, i, j) { return st.p[i] > SIPHON_LOSS && pourOk(L, i, j); }
 
   // Plays one move: { pump: i } or { from: i, to: j }. Returns the new state
   // and what happened, for the animation: frames (pressure after the move,
-  // after each wave), waves (cells that erupted together) and leaks. Returns
-  // null for an illegal move. Between moves every cell holds at most
-  // SAFE_MAX, so only cells this move touched can erupt or leak.
+  // after each wave), waves (cells that erupted together; a vent in a wave
+  // empties its open neighbours instead of blasting them), leaks (cells that
+  // lost 1) and drips (leaky cells that lost pressure). Returns null for an
+  // illegal move. Between moves every cell holds at most SAFE_MAX, so only
+  // cells this move touched can erupt or leak; leaky cells drip every move.
   function play(L, st, move) {
     const p = Int8Array.from(st.p), hit = Uint8Array.from(st.hit);
     let cand;
@@ -184,13 +222,15 @@
       if (!wave.length) break;
       for (const i of wave) { p[i] = 0; if (L.target[i]) hit[i] = 1; }
       cand = [];
-      for (const i of wave) for (const j of L.nbrs[i]) if (L.kind[j] === OPEN) { p[j] += BLAST; cand.push(j); touched.add(j); }
+      for (const i of wave) if (!L.vent[i]) for (const j of L.nbrs[i]) if (L.kind[j] === OPEN) { p[j] += BLAST; cand.push(j); touched.add(j); }
+      for (const i of wave) if (L.vent[i]) for (const j of L.nbrs[i]) if (L.kind[j] === OPEN) p[j] = 0;
       waves.push(wave);
       frames.push(Int8Array.from(p));
     }
-    const leaks = [];
-    for (const i of touched) if (p[i] > SAFE_MAX && p[i] < THRESHOLD) { p[i]--; leaks.push(i); }
-    return { st: { p, hit }, frames, waves, leaks };
+    const leaks = [], drips = [];
+    for (const i of touched) if (!L.leaky[i] && p[i] > SAFE_MAX && p[i] < THRESHOLD) { p[i]--; leaks.push(i); }
+    for (let i = 0; i < L.n; i++) if (L.leaky[i] && p[i] > 0) { p[i] = Math.max(0, p[i] - LEAKY_DRIP); drips.push(i); }
+    return { st: { p, hit }, frames, waves, leaks, drips };
   }
 
   // 3 stars at par, 2 within par + 3, 1 for any solve.
@@ -271,7 +311,7 @@
     if (!r) return;
     history.push(snapshot());
     st = r.st; moves++;
-    const burst = r.waves.reduce((a, w) => a + w.length, 0);
+    const burst = r.waves.reduce((a, w) => a + w.filter(i => !L.vent[i]).length, 0);
     if (move.from !== undefined) {
       siphons++;
       if (siphons >= 15) unlock('plumber');
@@ -280,8 +320,8 @@
     maxChain = Math.max(maxChain, burst);
     if (burst) unlock('first-eruption');
     if (burst >= 3) unlock('chain-reaction');
-    if (r.waves.some(w => w.some(i => L.kind[i] === SEALED))) unlock('unsealed');
-    if (r.waves.length || r.leaks.length) anim = { frames: r.frames, waves: r.waves, leaks: r.leaks, t: 0 };
+    if (r.waves.some(w => w.some(i => L.kind[i] === SEALED && L.valve[i] < 0))) unlock('unsealed');
+    if (r.waves.length || r.leaks.length || r.drips.length) anim = { frames: r.frames, waves: r.waves, leaks: r.leaks, drips: r.drips, t: 0 };
     if (solved(L, st)) {
       done = true;
       const s = stars(LEVELS[cur].par, moves);
@@ -393,7 +433,22 @@
       }
       ctx.fillStyle = flashSet.has(i) ? '#ffffff' : fillFor(p[i]);
       ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4);
-      if (L.kind[i] === SEALED) {
+      if (L.valve[i] >= 0) {
+        // a valve: pipe walls along the arrow, and the arrow
+        const d = L.valve[i], horiz = d === 1 || d === 3;
+        ctx.fillStyle = '#8fb3d9';
+        if (horiz) { ctx.fillRect(x + 2, y + 10, CELL - 4, 5); ctx.fillRect(x + 2, y + CELL - 15, CELL - 4, 5); }
+        else { ctx.fillRect(x + 10, y + 2, 5, CELL - 4); ctx.fillRect(x + CELL - 15, y + 2, 5, CELL - 4); }
+        // a bold chevron in the front half, pointing the way pours go
+        const ang = [-Math.PI / 2, 0, Math.PI / 2, Math.PI][d], cxv = x + CELL / 2, cyv = y + CELL / 2;
+        const ux = Math.cos(ang), uy = Math.sin(ang);
+        ctx.strokeStyle = '#8fb3d9'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cxv + ux * 19 - uy * 15, cyv + uy * 19 + ux * 15);
+        ctx.lineTo(cxv + ux * 32, cyv + uy * 32);
+        ctx.lineTo(cxv + ux * 19 + uy * 15, cyv + uy * 19 - ux * 15);
+        ctx.stroke(); ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+      } else if (L.kind[i] === SEALED) {
         // a steel frame: pours only
         ctx.strokeStyle = '#8fb3d9'; ctx.lineWidth = 6;
         ctx.strokeRect(x + 7, y + 7, CELL - 14, CELL - 14);
@@ -401,13 +456,22 @@
         ctx.fillStyle = '#8fb3d9'; ctx.fillRect(x + 11, y + 19, 14, 10);
         ctx.beginPath(); ctx.arc(x + 18, y + 19, 4.5, Math.PI, 0); ctx.lineWidth = 3; ctx.stroke();
       }
+      if (L.vent[i]) {
+        // a vent: grille bars top and bottom
+        ctx.fillStyle = '#c86bff';
+        for (let k = 0; k < 3; k++) { ctx.fillRect(x + 16 + k * 18, y + 9, 12, 5); ctx.fillRect(x + 16 + k * 18, y + CELL - 14, 12, 5); }
+        ctx.strokeStyle = '#c86bff'; ctx.lineWidth = 3; ctx.strokeRect(x + 5, y + 5, CELL - 10, CELL - 10);
+      }
+      if (L.leaky[i]) {
+        // leaky: a drop in the bottom-left corner
+        const dx = x + 12, dy = y + CELL - 16;
+        ctx.fillStyle = '#9ad7ff';
+        ctx.beginPath(); ctx.moveTo(dx, dy - 9); ctx.quadraticCurveTo(dx + 7, dy, dx + 6, dy + 4);
+        ctx.arc(dx, dy + 4, 6, 0, Math.PI); ctx.quadraticCurveTo(dx - 7, dy, dx, dy - 9); ctx.fill();
+      }
       if (L.target[i]) {
         ctx.beginPath(); ctx.arc(x + CELL / 2, y + CELL / 2, CELL * 0.36, 0, Math.PI * 2);
         ctx.strokeStyle = st.hit[i] && !anim ? '#7be08a' : '#ff7a3d'; ctx.lineWidth = 5; ctx.stroke();
-      }
-      if (st.hit[i] && !anim && L.target[i]) {
-        ctx.fillStyle = '#7be08a'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-        ctx.fillText('✓', x + CELL - 8, y + 6);
       }
       if (!flashSet.has(i)) {
         const v = p[i];
@@ -421,6 +485,12 @@
     if (anim && wave === waves) {
       ctx.fillStyle = '#9ad7ff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
       for (const i of anim.leaks) ctx.fillText('−1 leak', (i % L.w) * CELL + CELL - 4, ((i / L.w) | 0) * CELL + CELL - 4);
+      for (const i of anim.drips) ctx.fillText('drip', (i % L.w) * CELL + CELL - 4, ((i / L.w) | 0) * CELL + CELL - 4);
+    }
+    // a vent that went off: its name over it while the wave shows
+    if (anim && flash) {
+      ctx.fillStyle = '#c86bff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      for (const i of flash) if (L.vent[i]) ctx.fillText('vented!', (i % L.w) * CELL + CELL / 2, ((i / L.w) | 0) * CELL + 6);
     }
     if (anim && waves > 1 && wave > 0) {
       ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, 170, 34);
@@ -557,7 +627,7 @@
       if (!done) playMs += dt;
       if (anim) {
         anim.t += dt;
-        if (anim.t >= anim.frames.length * WAVE_MS + (anim.leaks.length ? 300 : 0)) anim = null;
+        if (anim.t >= anim.frames.length * WAVE_MS + (anim.leaks.length || anim.drips.length ? 300 : 0)) anim = null;
         draw();
       }
     }

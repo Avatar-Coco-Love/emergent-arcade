@@ -63,6 +63,11 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   threshold from natural states (8 + 2 = 10). Measure it with a habit bot
   against the solver's par. *Additive amounts make the order free.*
   Pressure Grid. bots.
+- A hazard that is also a resource puts order into an additive puzzle:
+  used first it pays, reached first by the passive system it costs.
+  Check that both the pump-only and the habit bot lose moves to it.
+  *A hazard that is also a resource makes order matter.* Pressure Grid.
+  bots.
 
 ## Time pressure and input
 

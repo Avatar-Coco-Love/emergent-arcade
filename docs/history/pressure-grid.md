@@ -4,6 +4,36 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/pressure-grid.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## v8 notes moved out in v9 (2026-10-01)
+
+Why 10/4/2 (first tries in the plan: threshold 12, pump 4, blast 3): with
+12/4/3 a blast never completes a pumped cell (8 + 3 = 11), so chains
+didn't pay. 10/4/2 makes "prime at 8, let the neighbour finish it" the
+core move.
+
+v8 ledger column (pressure on the solver's line: in / burst loss / pour
+loss / left): 1: 12/4/0/8 · 2: 28/8/0/20 · 3: 12/2/2/8 · 4: 32/14/2/16 ·
+5: 48/32/4/12. v9 levels: 6: 32/6/0/18 (+8 drip) · 7: 8/10/2/12 ·
+8: 16/17/3/12 · 9: 24/14/4/14 · 10: 28/15/3/22 (+4 drip).
+
+Solver fix in v9: v8's A* returned the first goal it *generated*; from a
+node with h = 0 that goal can be one move past the optimum, so pars were
+not proven. Found when the habit bot beat "par" on a generated valve map
+(6 vs 7). v9 floors h at 1 while unsolved (then the first goal is
+optimal). Levels 1-4 still prove their par; level 5's 16 runs out of
+memory/budget before the proof, so it is reported as an upper bound.
+
+v8 layout: message strip between the level buttons and the board (the
+cabinet's toasts covered it), and a green ✓ in a burst ring's corner
+(read as a stray line over the ring). v9 moved the strip under the board
+and dropped the ✓.
+
+Design path for 6-10: hand maps for valves came out either bypassed (an
+open cell beside the seal) or as pipe grinding (pump, pour, pour). A
+scratch generator (random walled 5×3 maps per theme, kept if par 7-18 and
+the new cell changes par) found the vent maps for 7 and 9; 8 is the
+two-vent valve map with the left arrow reversed, 10 a hand variant.
+
 ## v8 plan: increment 1 (built 2026-10-01)
 
 Moved from `docs/games/pressure-grid-plan.md` once levels 1-5 shipped in

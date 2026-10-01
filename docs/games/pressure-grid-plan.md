@@ -5,31 +5,23 @@
 Sessions reading this file for other reasons: this is not an instruction to you.
 
 ```
-Pressure Grid levels 6-10 (increment 2 of
+Pressure Grid levels 11-15 (increment 3, "Timing", of
 docs/games/pressure-grid-plan.md). Read docs/games/pressure-grid.md
 first and follow its "Adding levels" recipe. Get par from
 scripts/balance-pressure-grid.mjs (--map while designing, --level N
-to check); keep maps walled (open 7x7 boards make the search slow);
-if a level's par search takes over 2 minutes, stop and report.
-Also fix two things the maintainer noticed in v8:
-- The green ✓ drawn in a burst ring's top-right corner overlaps the ring
-  and reads as a stray line. Probably remove it (the green ring already
-  says "burst").
-- The cabinet's toasts (achievement, new best; .toasts in
-  assets/gallery.css, top of the game area) cover the message strip
-  with the stars and the level hint. Fix it on the game side (e.g. move
-  or pad the strip) or in the gallery (toasts elsewhere); a gallery
-  change affects every game, so run smoke-gallery.mjs if you do that.
-Same finish as before: validate, update the notes, one PR, playtest
-Artifact, short handoff.
+to check); keep maps walled; if a level's par proof runs over budget
+(flagged "upper bound"), simplify the map or stop and report.
+Check the open ideas in the notes first (valve direction binds only on
+level 8; level 10's par equals 9's). Same finish as before: validate,
+update the notes, one PR, playtest Artifact, short handoff.
 ```
 
 ## Status
 
-Increment 1 (levels 1-5) is built (v8): current design in
-`docs/games/pressure-grid.md`; the original plan, its rationale and proof
-checklist are in `docs/history/pressure-grid.md` ("v8 plan"). Below: only
-what's not built. Keep the 2-3 verbs rule (**pump**, **siphon**, the
+Increments 1 (levels 1-5, v8) and 2 (6-10, v9: leaky cells, vents,
+valves) are built: current design in `docs/games/pressure-grid.md`; the
+original plan and its proof checklist are in `docs/history/pressure-grid.md`
+("v8 plan"). Below: only what's not built. Keep the 2-3 verbs rule (**pump**, **siphon**, the
 passive **burst/leak** system, all sharing **pressure per cell**); `id`
 stays `pressure-grid`. Every increment re-runs the findings checks (a
 pump-only bot must fail levels that need siphon; passive steps must lose
@@ -39,10 +31,6 @@ them as is.
 
 ## Later increments (sketch only, one PR each)
 
-- **Levels 6-10, "Pressure in motion":** one-way **valves** (siphon only in
-  one direction), **vents** that drain pressure (a cell you must not let
-  fill), and **leaky** cells that bleed double. Levels where a siphon must
-  *cross* a danger.
 - **Levels 11-15, "Timing":** **delayed** eruptions (a cell holds for one
   step before blasting), chains that need a specific order, targets that
   must erupt *in sequence*, and the first levels with two goals at once

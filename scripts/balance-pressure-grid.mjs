@@ -10,7 +10,8 @@
 // sequences first, so the two can't drift apart.
 //
 // Default: one line per level (≤ 120 chars):
-//   par      the true minimum number of moves (A*, admissible bound below),
+//   par      the minimum number of moves (A*, admissible bound below; "upper
+//            bound" when the proof runs over half the budget),
 //            and whether it matches `par` in LEVELS ("ok"/"MISMATCH")
 //   pump     the minimum with pumps only ("none" = siphon is required)
 //   habit    the rule a player takes from level 1: burst the targets one at a
@@ -29,14 +30,16 @@
 // --map    evaluates an ad-hoc map (letters as in LEVELS, rows separated by
 //          commas) without editing any file; --par N checks it against N
 // --budget a level's searches stop after S seconds (default 120) and print
-//          "over budget" instead of hanging
+//          "over budget" instead of hanging. The par proof gets half of it;
+//          past that, a faster search gives par as an upper bound (flagged).
 //
 // Search moves only touch cells within `zone` steps (default 1) of a target
 // that hasn't burst yet: pressure from further away has to be carried in at a
-// loss. `--zone 2` gives the same par on levels 1-4 (slower).
+// loss. A step out of a valve costs nothing (pipes carry pressure to their
+// end). `--zone 2` gives the same par on levels 1-4 (slower).
 //
-// As a module: import { solve, levelDefs, parseMap, sim } from this file.
-// solve(def) returns { L, par, line, text, expanded, ms, overBudget } (line =
+// As a module: import { solve, habit, levelDefs, parseMap, sim } from this file.
+// solve(def) returns { L, par, line, text, expanded, ms, overBudget, proven } (line =
 // [[i, j], ...], j < 0 = pump i, else pour i -> j); importing runs nothing.
 import fs from 'fs';
 import path from 'path';
@@ -59,9 +62,9 @@ const html = fs.readFileSync(SRC, 'utf8');
 const block = html.match(/\/\/ § sim[\s\S]*?\/\/ § end sim/);
 if (!block) throw new Error('no "// § sim" … "// § end sim" block in games/pressure-grid.html');
 const S = new Function(block[0] + `
-  return { LEVELS, parseLevel, startState, solved, play, stars, OPEN, SEALED, WALL,
-    C: { THRESHOLD, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS } };`)();
-const { THRESHOLD: T, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS } = S.C;
+  return { LEVELS, parseLevel, startState, solved, play, pourOk, stars, OPEN, SEALED, WALL,
+    C: { THRESHOLD, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS, LEAKY_DRIP } };`)();
+const { THRESHOLD: T, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS, LEAKY_DRIP } = S.C;
 export const sim = S;
 export const levelDefs = S.LEVELS;
 
@@ -69,14 +72,15 @@ export const levelDefs = S.LEVELS;
 export function parseMap(rows, par = null) {
   const map = rows.split(',').map(r => r.trim()).filter(Boolean);
   if (!map.length || map.some(r => r.length !== map[0].length)) throw new Error('--map: rows must be non-empty and the same width');
-  if (/[^.o#sS]/.test(map.join(''))) throw new Error('--map: letters are . o # s S');
-  if (!/[oS]/.test(map.join(''))) throw new Error('--map: needs at least one target (o or S)');
+  if (/[^.o#sS^>v<*lL]/.test(map.join(''))) throw new Error('--map: letters are . o # s S ^ > v < * l L');
+  if (!/[oSL]/.test(map.join(''))) throw new Error('--map: needs at least one target (o, S or L)');
   return { id: 'map', name: 'map', par: par === null ? null : +par, hint: '', map };
 }
 
 // § fast engine: a state is a Uint8Array, cell = pressure + 32 if it's a burst target.
 function makeFast(L) {
   const openNb = L.nbrs.map(a => a.filter(j => L.kind[j] === S.OPEN));
+  const leakyCells = []; for (let i = 0; i < L.n; i++) if (L.leaky[i]) leakyCells.push(i);
   const cand = new Int32Array(4096), wave = new Int32Array(4096), touched = new Int32Array(4096), mark = new Uint8Array(L.n);
   // Returns { q, burst, targets, leaks, lost }; j < 0 = pump i, else pour i -> j.
   function play(s, i, j) {
@@ -92,25 +96,28 @@ function makeFast(L) {
       if (!nw) break;
       for (let k = 0; k < nw; k++) {
         const c = wave[k]; burst++;
-        lost += (q[c] & 31) - BLAST * openNb[c].length;
+        lost += (q[c] & 31) - (L.vent[c] ? 0 : BLAST * openNb[c].length);
         if (L.target[c]) { targets++; q[c] = 32; } else q[c] &= 32;
       }
       nc = 0;
-      for (let k = 0; k < nw; k++) for (const o of openNb[wave[k]]) { q[o] += BLAST; cand[nc++] = o; touched[nt++] = o; }
+      for (let k = 0; k < nw; k++) if (!L.vent[wave[k]]) for (const o of openNb[wave[k]]) { q[o] += BLAST; cand[nc++] = o; touched[nt++] = o; }
+      for (let k = 0; k < nw; k++) if (L.vent[wave[k]]) for (const o of openNb[wave[k]]) { lost += q[o] & 31; q[o] &= 32; }
     }
-    for (let k = 0; k < nt; k++) { const c = touched[k]; if (mark[c]) continue; mark[c] = 1; const v = q[c] & 31; if (v > SAFE_MAX && v < T) { q[c]--; leaks++; lost++; } }
+    for (let k = 0; k < nt; k++) { const c = touched[k]; if (mark[c]) continue; mark[c] = 1; const v = q[c] & 31; if (!L.leaky[c] && v > SAFE_MAX && v < T) { q[c]--; leaks++; lost++; } }
     for (let k = 0; k < nt; k++) mark[touched[k]] = 0;
+    for (const c of leakyCells) { const d = Math.min(LEAKY_DRIP, q[c] & 31); if (d) { q[c] -= d; leaks += d; lost += d; } }
     return { q, burst, targets, leaks, lost };
   }
   const solved = q => L.targets.every(t => q[t] & 32);
-  return { play, solved };
+  const st0 = S.startState(L), start = () => Uint8Array.from(st0.p);
+  return { play, solved, start };
 }
 
 function checkEngine(L, F) {
   let s = 7;
   const rnd = k => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return (s >>> 8) % k; };
   for (let run = 0; run < 300; run++) {
-    let st = S.startState(L), q = new Uint8Array(L.n);
+    let st = S.startState(L), q = F.start();
     for (let step = 0; step < 40; step++) {
       const i = rnd(L.n), nb = L.nbrs[i];
       const j = rnd(3) || !nb.length ? -1 : nb[rnd(nb.length)];
@@ -130,7 +137,9 @@ const key = q => Buffer.from(q.buffer, q.byteOffset, q.length).toString('latin1'
 // T - BLAST × (open neighbours); every pour destroys SIPHON_LOSS, and a sealed
 // target needs ceil(deficit / (SAFE_MAX - SIPHON_LOSS)) pours of its own
 // (between moves no cell holds more than SAFE_MAX).
-function bound(L) {
+// sound = false drops the "at least 1" floor: faster, but the first goal found
+// can be one move past the optimum (an upper bound only).
+function bound(L, sound = true) {
   const destroy = L.targets.map(t => Math.max(0, T - BLAST * L.nbrs[t].filter(j => L.kind[j] === S.OPEN).length));
   return q => {
     let H = 0, D = 0, K = 0, open = false;
@@ -142,15 +151,24 @@ function bound(L) {
       if (L.kind[t] === S.SEALED) K += Math.ceil((T - (q[t] & 31)) / (SAFE_MAX - SIPHON_LOSS));
     });
     if (!open) return 0;
-    return K + Math.max(0, Math.ceil((D + K * SIPHON_LOSS - H) / PUMP_ADD));
+    // at least 1 while unsolved: then a goal is never generated from an h = 0 node one move past the optimum
+    const h = K + Math.max(0, Math.ceil((D + K * SIPHON_LOSS - H) / PUMP_ADD));
+    return sound ? Math.max(1, h) : h;
   };
 }
 
+// A step out of a valve costs nothing: a pipe's feeder counts as next to its end.
 function zones(L, radius = RADIUS) {
   return L.targets.map(t => {
-    let ring = [t]; const z = new Set(ring);
-    for (let r = 0; r < radius; r++) { const nx = []; for (const i of ring) for (const j of L.nbrs[i]) if (!z.has(j)) { z.add(j); nx.push(j); } ring = nx; }
-    return [...z];
+    const dist = new Map([[t, 0]]), queue = [t];
+    while (queue.length) {
+      const i = queue.shift(), d = dist.get(i);
+      for (const j of L.nbrs[i]) {
+        const nd = d + (L.valve[i] >= 0 ? 0 : 1);
+        if (nd <= radius && !(dist.get(j) <= nd)) { dist.set(j, nd); if (L.valve[i] >= 0) queue.unshift(j); else queue.push(j); }
+      }
+    }
+    return [...dist.keys()];
   });
 }
 function moves(L, Z, q, siphon) {
@@ -159,30 +177,37 @@ function moves(L, Z, q, siphon) {
   for (let i = 0; i < L.n; i++) {
     if (!z[i] || L.kind[i] === S.WALL) continue;
     if (L.kind[i] === S.OPEN) out.push([i, -1]);
-    if (siphon && (q[i] & 31) > SIPHON_LOSS) for (const j of L.nbrs[i]) if (z[j]) out.push([i, j]);
+    if (siphon && (q[i] & 31) > SIPHON_LOSS) for (const j of L.nbrs[i]) if (z[j] && S.pourOk(L, i, j)) out.push([i, j]);
   }
   return out;
 }
 
 // A* from q; returns the shortest line of moves, or null.
 // Stops (overBudget) at the deadline (a Date.now() value).
-function astar(L, F, h, Z, start, siphon = true, deadline = Infinity, maxExpanded = 5e6) {
+// eager: return the first goal generated (with an unsound h: an upper bound, fast).
+function astar(L, F, h, Z, start, siphon = true, deadline = Infinity, maxExpanded = 5e6, eager = false) {
   const best = new Map([[key(start), 0]]), buckets = [];
   (buckets[h(start)] ||= []).push([start, 0, null]);
   let expanded = 0;
   for (let f = 0; f < buckets.length; f++) {
     const b = buckets[f];
     while (b && b.length) {
-      const [q, g, line] = b.pop();
+      const [q, g, line, goal] = b.pop();
+      if (goal) {
+        const out = []; for (let x = line; x; x = x.prev) out.unshift([x.i, x.j]);
+        return { line: out, expanded };
+      }
       if (best.get(key(q)) < g) continue;
       if (++expanded > maxExpanded) return { line: null, expanded };
       if ((expanded & 1023) === 0 && Date.now() > deadline) return { line: null, expanded, overBudget: true };
       for (const [i, j] of moves(L, Z, q, siphon)) {
         const r = F.play(q, i, j).q;
         const nl = { i, j, prev: line };
+        // a goal is returned when its bucket comes up, not when generated:
+        // a cheaper one may still come from this bucket
         if (F.solved(r)) {
-          const out = []; for (let x = nl; x; x = x.prev) out.unshift([x.i, x.j]);
-          return { line: out, expanded };
+          if (eager) { const out = []; for (let x = nl; x; x = x.prev) out.unshift([x.i, x.j]); return { line: out, expanded }; }
+          (buckets[g + 1] ||= []).push([r, g + 1, nl, true]); continue;
         }
         const k = key(r), old = best.get(k);
         if (old !== undefined && old <= g + 1) continue;
@@ -209,7 +234,7 @@ function countSolutions(L, F, h, Z, par) {
     memo.set(k, c);
     return c;
   }
-  const start = new Uint8Array(L.n);
+  const start = F.start();
   let total = 0, firsts = 0;
   for (const [i, j] of moves(L, Z, start, true)) {
     const r = F.play(start, i, j).q;
@@ -220,12 +245,12 @@ function countSolutions(L, F, h, Z, par) {
 }
 
 // § bots
-function habit(L, deadline = Infinity) {
-  let q = new Uint8Array(L.n), total = 0;
+export function habit(L, deadline = Infinity) {
+  let q = makeFast(L).start(), total = 0;
   for (const t of L.targets) {
     if (q[t] & 32) continue;
     const sub = { ...L, targets: [t] };
-    const Fs = makeFast(sub), r = astar(sub, Fs, bound(sub), zones(sub), q);
+    const Fs = makeFast(sub), r = astar(sub, Fs, bound(sub), zones(sub), q, true, deadline);
     if (!r.line) return null;
     for (const [i, j] of r.line) q = Fs.play(q, i, j).q;
     total += r.line.length;
@@ -236,14 +261,14 @@ function habit(L, deadline = Infinity) {
 function novice(L, F, Z, mode, seed) {
   let s = seed;
   const rnd = k => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return (s >>> 8) % k; };
-  let q = new Uint8Array(L.n);
+  let q = F.start();
   for (let n = 1; n <= 40; n++) {
     let mv = null;
     if (mode === 'greedy') {
       const open = L.targets.filter(t => !(q[t] & 32) && L.kind[t] === S.OPEN).sort((a, b) => (q[b] & 31) - (q[a] & 31));
       if (open.length) mv = [open[0], -1];
     }
-    if (!mv) { const ms = moves(L, Z, q, true); mv = ms[rnd(ms.length)]; }
+    if (!mv) { const ms = moves(L, Z, q, true); if (!ms.length) return null; mv = ms[rnd(ms.length)]; }
     q = F.play(q, mv[0], mv[1]).q;
     if (F.solved(q)) return n;
   }
@@ -251,7 +276,7 @@ function novice(L, F, Z, mode, seed) {
 }
 
 function ledger(L, F, line) {
-  let q = new Uint8Array(L.n), pumped = 0, lostBurst = 0, lostPour = 0, leaks = 0, bursts = 0;
+  let q = F.start(), pumped = 0, lostBurst = 0, lostPour = 0, leaks = 0, bursts = 0;
   for (const [i, j] of line) {
     const r = F.play(q, i, j);
     if (j < 0) pumped += PUMP_ADD; else lostPour += SIPHON_LOSS;
@@ -271,10 +296,12 @@ export function solve(def, { budget = BUDGET_MS, zone = RADIUS } = {}) {
   const Z = zones(L, zone);
   checkEngine(L, F);
   const t0 = Date.now();
-  const r = astar(L, F, h, Z, new Uint8Array(L.n), true, t0 + budget);
+  // A proof gets half the budget; past that, the fast search gives an upper bound (proven: false).
+  let r = astar(L, F, h, Z, F.start(), true, t0 + budget / 2), proven = true;
+  if (r.overBudget) { r = astar(L, F, bound(L, false), Z, F.start(), true, t0 + budget, 5e6, true); proven = false; }
   const line = r.line || null;
   return { L, F, h, Z, par: line ? line.length : null, line, text: line ? line.map(m => fmt(L, m)).join(' ') : '',
-    expanded: r.expanded, ms: Date.now() - t0, overBudget: !!r.overBudget };
+    expanded: r.expanded, ms: Date.now() - t0, overBudget: !!r.overBudget, proven };
 }
 
 // § cli
@@ -284,10 +311,10 @@ function report(def, label) {
   const { L, F, h, Z, par } = sol;
   const name = `${label} ${def.id.padEnd(9)}`;
   if (sol.overBudget) { console.log(`${name} par over budget (${BUDGET_MS / 1000} s, ${sol.expanded} expanded)`); return false; }
-  const parNote = def.par == null ? '' : par === def.par ? ' ok' : ` MISMATCH (says ${def.par})`;
+  const parNote = (def.par == null ? '' : par === def.par ? ' ok' : ` MISMATCH (says ${def.par})`) + (sol.proven ? '' : ' (upper bound: proof over budget)');
   const needsSiphon = L.targets.some(t => L.kind[t] === S.SEALED);
   let pump = 'none';
-  if (!needsSiphon) { const r = astar(L, F, h, Z, new Uint8Array(L.n), false, deadline); pump = r.overBudget ? 'over budget' : r.line?.length ?? 'none'; }
+  if (!needsSiphon) { const r = astar(L, F, h, Z, F.start(), false, deadline); pump = r.overBudget ? 'over budget' : r.line?.length ?? 'none'; }
   const hb = habit(L, deadline);
   const line = `${name} par ${par ?? 'none'}${parNote} | pump ${pump} | habit ${hb ?? '-'} | ${sol.ms} ms`;
   console.log(line.length > 120 ? line.slice(0, 117) + '...' : line);
