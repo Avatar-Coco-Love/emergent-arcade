@@ -1,40 +1,59 @@
 // Solver and bots for Pressure Grid's levels (v8+). One line per level.
 //
-// Usage: node scripts/balance-pressure-grid.mjs [--count] [--level N] [--zone R] [--runs N]
+// Usage: node scripts/balance-pressure-grid.mjs [--level N] [--full] [--count]
+//          [--line] [--zone R] [--runs N] [--budget S]
+//        node scripts/balance-pressure-grid.mjs --map "row,row,..." [--par N] [--full]
 //
 // Runs the game's own rules: the block between "// § sim" and "// § end sim"
 // in games/pressure-grid.html (no browser needed). A fast copy of play() is
 // used for search; it is checked against the game's play() on random move
 // sequences first, so the two can't drift apart.
 //
-// Per level:
+// Default: one line per level (≤ 120 chars):
 //   par      the true minimum number of moves (A*, admissible bound below),
-//            and whether it matches `par` in LEVELS
-//   seqs     with --count: optimal move sequences, and how many distinct first
-//            moves start one (slow on level 5)
+//            and whether it matches `par` in LEVELS ("ok"/"MISMATCH")
 //   pump     the minimum with pumps only ("none" = siphon is required)
 //   habit    the rule a player takes from level 1: burst the targets one at a
 //            time in reading order, each by its shortest sequence
+//   ms       time of the par search
+// --full adds a second line per level:
 //   greedy   novice: pump the fullest target not yet burst (a random move
 //            near a target when none can be pumped); solved % within 40 moves
 //   random   novice: random moves near targets; solved % within 40 moves
 //   ledger   pressure on the solver's line: pumped in, and lost to bursts,
 //            pours and leaks (every passive step must lose something)
+//   line     the solver's solution (+c3 = pump c3, c3>d3 = pour c3 into d3;
+//            columns a.., rows 1.. from the top). --line prints only this.
+// --count  optimal move sequences, and how many distinct first moves start
+//          one (slow on level 5)
+// --map    evaluates an ad-hoc map (letters as in LEVELS, rows separated by
+//          commas) without editing any file; --par N checks it against N
+// --budget a level's searches stop after S seconds (default 120) and print
+//          "over budget" instead of hanging
 //
 // Search moves only touch cells within `zone` steps (default 1) of a target
 // that hasn't burst yet: pressure from further away has to be carried in at a
 // loss. `--zone 2` gives the same par on levels 1-4 (slower).
+//
+// As a module: import { solve, levelDefs, parseMap, sim } from this file.
+// solve(def) returns { L, par, line, text, expanded, ms, overBudget } (line =
+// [[i, j], ...], j < 0 = pump i, else pour i -> j); importing runs nothing.
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/pressure-grid.html');
-const args = process.argv.slice(2);
+const MAIN = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+const args = MAIN ? process.argv.slice(2) : [];
 const opt = (name, d) => { const i = args.indexOf(name); return i < 0 ? d : args[i + 1]; };
 const COUNT = args.includes('--count');
+const FULL = args.includes('--full');
 const ONLY = opt('--level', null);
+const MAP = opt('--map', null);
+const MAP_PAR = opt('--par', null);
 const RADIUS = +opt('--zone', 1);
 const RUNS = +opt('--runs', 200);
+const BUDGET_MS = 1000 * +opt('--budget', 120);
 
 const html = fs.readFileSync(SRC, 'utf8');
 const block = html.match(/\/\/ § sim[\s\S]*?\/\/ § end sim/);
@@ -43,6 +62,17 @@ const S = new Function(block[0] + `
   return { LEVELS, parseLevel, startState, solved, play, stars, OPEN, SEALED, WALL,
     C: { THRESHOLD, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS } };`)();
 const { THRESHOLD: T, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS } = S.C;
+export const sim = S;
+export const levelDefs = S.LEVELS;
+
+// "row,row,..." -> a level def (rows must be the same width).
+export function parseMap(rows, par = null) {
+  const map = rows.split(',').map(r => r.trim()).filter(Boolean);
+  if (!map.length || map.some(r => r.length !== map[0].length)) throw new Error('--map: rows must be non-empty and the same width');
+  if (/[^.o#sS]/.test(map.join(''))) throw new Error('--map: letters are . o # s S');
+  if (!/[oS]/.test(map.join(''))) throw new Error('--map: needs at least one target (o or S)');
+  return { id: 'map', name: 'map', par: par === null ? null : +par, hint: '', map };
+}
 
 // § fast engine: a state is a Uint8Array, cell = pressure + 32 if it's a burst target.
 function makeFast(L) {
@@ -116,10 +146,10 @@ function bound(L) {
   };
 }
 
-function zones(L) {
+function zones(L, radius = RADIUS) {
   return L.targets.map(t => {
     let ring = [t]; const z = new Set(ring);
-    for (let r = 0; r < RADIUS; r++) { const nx = []; for (const i of ring) for (const j of L.nbrs[i]) if (!z.has(j)) { z.add(j); nx.push(j); } ring = nx; }
+    for (let r = 0; r < radius; r++) { const nx = []; for (const i of ring) for (const j of L.nbrs[i]) if (!z.has(j)) { z.add(j); nx.push(j); } ring = nx; }
     return [...z];
   });
 }
@@ -135,7 +165,8 @@ function moves(L, Z, q, siphon) {
 }
 
 // A* from q; returns the shortest line of moves, or null.
-function astar(L, F, h, Z, start, siphon = true, maxExpanded = 5e6) {
+// Stops (overBudget) at the deadline (a Date.now() value).
+function astar(L, F, h, Z, start, siphon = true, deadline = Infinity, maxExpanded = 5e6) {
   const best = new Map([[key(start), 0]]), buckets = [];
   (buckets[h(start)] ||= []).push([start, 0, null]);
   let expanded = 0;
@@ -145,6 +176,7 @@ function astar(L, F, h, Z, start, siphon = true, maxExpanded = 5e6) {
       const [q, g, line] = b.pop();
       if (best.get(key(q)) < g) continue;
       if (++expanded > maxExpanded) return { line: null, expanded };
+      if ((expanded & 1023) === 0 && Date.now() > deadline) return { line: null, expanded, overBudget: true };
       for (const [i, j] of moves(L, Z, q, siphon)) {
         const r = F.play(q, i, j).q;
         const nl = { i, j, prev: line };
@@ -188,7 +220,7 @@ function countSolutions(L, F, h, Z, par) {
 }
 
 // § bots
-function habit(L) {
+function habit(L, deadline = Infinity) {
   let q = new Uint8Array(L.n), total = 0;
   for (const t of L.targets) {
     if (q[t] & 32) continue;
@@ -233,26 +265,53 @@ function ledger(L, F, line) {
 const cellName = (L, k) => `${String.fromCharCode(97 + k % L.w)}${(k / L.w | 0) + 1}`;
 const fmt = (L, [i, j]) => j < 0 ? `+${cellName(L, i)}` : `${cellName(L, i)}>${cellName(L, j)}`;
 
-if (4 * BLAST >= T) console.log(`WARNING: 4 × BLAST (${4 * BLAST}) >= THRESHOLD (${T}): interior bursts don't lose pressure`);
-S.LEVELS.forEach((def, idx) => {
-  if (ONLY !== null && +ONLY !== idx + 1) return;
-  const L = S.parseLevel(def), F = makeFast(L), h = bound(L), Z = zones(L);
+// § api: par and the solution line for a level def (from LEVELS or parseMap).
+export function solve(def, { budget = BUDGET_MS, zone = RADIUS } = {}) {
+  const L = S.parseLevel(def), F = makeFast(L), h = bound(L);
+  const Z = zones(L, zone);
   checkEngine(L, F);
   const t0 = Date.now();
-  const sol = astar(L, F, h, Z, new Uint8Array(L.n));
-  const par = sol.line ? sol.line.length : null;
-  const ms = Date.now() - t0;
-  const parNote = par === def.par ? 'ok' : `MISMATCH (LEVELS says ${def.par})`;
-  const seqs = COUNT && par ? (() => { const c = countSolutions(L, F, h, Z, par); return ` | seqs ${c.total}, ${c.firsts} first moves`; })() : '';
+  const r = astar(L, F, h, Z, new Uint8Array(L.n), true, t0 + budget);
+  const line = r.line || null;
+  return { L, F, h, Z, par: line ? line.length : null, line, text: line ? line.map(m => fmt(L, m)).join(' ') : '',
+    expanded: r.expanded, ms: Date.now() - t0, overBudget: !!r.overBudget };
+}
+
+// § cli
+function report(def, label) {
+  const t0 = Date.now(), deadline = t0 + BUDGET_MS;
+  const sol = solve(def);
+  const { L, F, h, Z, par } = sol;
+  const name = `${label} ${def.id.padEnd(9)}`;
+  if (sol.overBudget) { console.log(`${name} par over budget (${BUDGET_MS / 1000} s, ${sol.expanded} expanded)`); return false; }
+  const parNote = def.par == null ? '' : par === def.par ? ' ok' : ` MISMATCH (says ${def.par})`;
   const needsSiphon = L.targets.some(t => L.kind[t] === S.SEALED);
-  const pump = needsSiphon ? 'none (sealed target)' : (astar(L, F, h, Z, new Uint8Array(L.n), false).line?.length ?? 'none');
-  const hb = habit(L);
-  const nov = mode => {
-    const ns = []; for (let r = 0; r < RUNS; r++) { const n = novice(L, F, Z, mode, 1000 + r); if (n) ns.push(n); }
-    ns.sort((a, b) => a - b);
-    return `${Math.round(100 * ns.length / RUNS)}%` + (ns.length ? ` med ${ns[ns.length >> 1]}` : '');
-  };
-  console.log(`L${idx + 1} ${def.id.padEnd(9)} par ${par} ${parNote} (${sol.expanded} expanded, ${ms} ms)${seqs} | pump ${pump} | habit ${hb ?? '-'}` +
-    ` | greedy ${nov('greedy')} | random ${nov('random')} | ${par ? ledger(L, F, sol.line) : ''}` +
-    (args.includes('--line') && par ? ` | ${sol.line.map(m => fmt(L, m)).join(' ')}` : ''));
-});
+  let pump = 'none';
+  if (!needsSiphon) { const r = astar(L, F, h, Z, new Uint8Array(L.n), false, deadline); pump = r.overBudget ? 'over budget' : r.line?.length ?? 'none'; }
+  const hb = habit(L, deadline);
+  const line = `${name} par ${par ?? 'none'}${parNote} | pump ${pump} | habit ${hb ?? '-'} | ${sol.ms} ms`;
+  console.log(line.length > 120 ? line.slice(0, 117) + '...' : line);
+  if (args.includes('--line') && !FULL && par) console.log(`   line ${sol.text}`);
+  if (COUNT && par) { const c = countSolutions(L, F, h, Z, par); console.log(`   seqs ${c.total}, ${c.firsts} first moves`); }
+  if (FULL) {
+    const nov = mode => {
+      const ns = []; for (let r = 0; r < RUNS; r++) { const n = novice(L, F, Z, mode, 1000 + r); if (n) ns.push(n); }
+      ns.sort((a, b) => a - b);
+      return `${Math.round(100 * ns.length / RUNS)}%` + (ns.length ? ` med ${ns[ns.length >> 1]}` : '');
+    };
+    console.log(`   greedy ${nov('greedy')} | random ${nov('random')} | ${sol.expanded} expanded` + (par ? ` | ${ledger(L, F, sol.line)}` : ''));
+    if (par) console.log(`   line ${sol.text}`);
+  }
+  return par !== null && (def.par == null || par === def.par);
+}
+
+if (MAIN) {
+  if (4 * BLAST >= T) console.log(`WARNING: 4 × BLAST (${4 * BLAST}) >= THRESHOLD (${T}): interior bursts don't lose pressure`);
+  let ok = true;
+  if (MAP) {
+    let def; try { def = parseMap(MAP, MAP_PAR); } catch (e) { console.log(e.message); process.exit(1); }
+    ok = report(def, 'map');
+  }
+  else S.LEVELS.forEach((def, idx) => { if (ONLY === null || +ONLY === idx + 1) ok = report(def, `L${idx + 1}`) && ok; });
+  if (!ok) process.exitCode = 1;
+}

@@ -64,6 +64,11 @@ material moves to a file sessions don't read by default.
 - Design findings so far: `docs/findings.md`. Check it before proposing or
   revising a game, and add to it when a revision teaches something.
 - Print one line per bot/test case; never per-run logs or full page dumps.
+- Long searches: run them in the background with a time limit
+  (`timeout 300 node … > log &`, save `$!`); stop a job by its saved PID,
+  never `pkill -f` with a pattern that also matches your own command.
+- Run `smoke-gallery.mjs` once at the end, not after every edit. Look at
+  screenshots only when a check fails.
 - Diffs: `--stat` first. GitHub tools: `minimal_output`, small pages.
 
 ## Session workflow (one PR per conversation)

@@ -1,7 +1,8 @@
 # Pressure Grid: design notes
 
 **v8** (2026-10-01) · playtest: https://claude.ai/artifact/WKBg1jZwLxZLnZ97Ben1sf ·
-balance: `node scripts/balance-pressure-grid.mjs` (`--count`, `--line`, `--level N`)
+balance: `node scripts/balance-pressure-grid.mjs` (`--level N`, `--map`, `--full`, `--count`) ·
+browser: `node scripts/playthrough-pressure-grid.mjs` (`--level N`)
 The arcade's first game, rebuilt as a turn-based level puzzle (plan and
 later increments: `docs/games/pressure-grid-plan.md`). v7's 60 s round was
 a tap-speed test and is retired (history: `docs/history/pressure-grid.md`).
@@ -44,10 +45,7 @@ the core move.
 | 4 | wall | 6×6, wall column, ring left; ring + sealed ring right | 10 | walls; prime the ring beside the seal |
 | 5 | pipes | 7×7 mostly walls: o S o row, a feeder, o, S, feeder | 16 | pour out of a ring into a seal, then refill it |
 
-Plan said "par about 14" for level 5; the solver's minimum for this map
-is 16 (kept: it's what the map needs).
-
-## Balance (`node scripts/balance-pressure-grid.mjs --count`)
+## Balance (`balance-pressure-grid.mjs --full --count`)
 
 | Level | par | optimal lines (first moves) | pump-only | habit | greedy novice (≤40) | random (≤40) | ledger: in / burst loss / pour loss / left |
 |---|---|---|---|---|---|---|---|
@@ -58,9 +56,8 @@ is 16 (kept: it's what the map needs).
 | 5 pipes | 16 | 5.5 × 10⁹ (5) | none | 18 | 9%, med 36 | 0% | 48 / 32 / 4 / 12 |
 
 Greedy novice = pump the fullest unburst ring, else a random move near a
-ring. Its level 4 solves take ~22 moves (1 star), not a clean fail as the
-plan hoped; level 5 it mostly fails. "Optimal lines" counts orderings, so
-it's large; the distinct first moves show there's more than one plan.
+ring. "Optimal lines" counts orderings; distinct first moves show there's
+more than one plan.
 
 - **Siphon is required** on levels 3-5 (sealed rings): the pump-only
   search finds no solution (findings: "A verb only shares state if
@@ -70,16 +67,33 @@ it's large; the distinct first moves show there's more than one plan.
 - **Novices** clear 1-2 almost always, rarely clear 5 within 40 moves.
 - **Passive system loses**: every burst destroys ≥ 2 (the ledger column:
   pressure in vs lost to bursts, pours, leaks on the solver's line).
-- Browser (Playwright, 390×844 and 844×390): solver lines played by
-  pointer reach "Solved … ★★★" on all five; no scrolling; pause blocks
-  input; results and achievements post as below.
+- Browser (`playthrough-pressure-grid.mjs`, 390×844 and 844×390):
+  solver lines played by pointer reach ★★★ on all five; no scrolling;
+  pause blocks input; `arcade:result` posts.
 
 Solver: A* over moves with an admissible bound (pumps are the only
 source; each unburst ring must destroy ≥ 10 − 2 × open neighbours; each
 pour into a seal destroys 1, and a seal needs ⌈deficit / 7⌉ pours). Moves
 limited to cells within 1 step of an unburst ring; `--zone 2` gives the
 same par on 1-4. A fast copy of `play()` is checked against the game's on
-random sequences each run. Level 5 takes ~40 s.
+random sequences each run. Level 5 takes ~25 s; `--budget S` (default
+120) stops a search and prints "over budget". Importable: `solve(def)`
+returns par and the line (`playthrough-pressure-grid.mjs` uses it).
+
+## Adding levels (one increment = 5 levels)
+
+1. Design each map with `--map "row,row,..."` (letters as in `LEVELS`;
+   keep it walled, open 7×7 boards search slowly); `--full` shows the line.
+2. Paste it into `LEVELS` (`// § sim` block) with `par` = the solver's;
+   add new mechanics in that block too, so the solver runs them as is.
+3. `node scripts/balance-pressure-grid.mjs` (all `ok`), then
+   `node scripts/playthrough-pressure-grid.mjs` (exit 0).
+4. Update the Levels and Balance tables and the notes here (old tables
+   to `docs/history/pressure-grid.md`); bump `version`/`updated`, score
+   max in this file. `smoke-gallery.mjs` only if `index.html`/`assets/`
+   changed.
+5. Last: in `docs/games/pressure-grid-plan.md`, replace "Next session
+   prompt" with the prompt for the following increment.
 
 ## Score, progress, telemetry
 
