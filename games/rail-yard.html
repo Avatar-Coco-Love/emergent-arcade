@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rail Sorting Yard</title>
+<style>
+  :root {
+    --bg: #0f1318;
+    --panel: #1b222c;
+    --line: #34404f;
+    --text: #eef2f6;
+    --muted: #93a1b1;
+    --accent: #ffd166;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the yard scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .top {
+    flex: none; display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; font-size: 0.85rem; color: var(--muted); min-height: 34px;
+  }
+  .top b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #lvName { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #want { flex: none; height: 30px; }
+  #hudRight { flex: 1 1 0; text-align: right; white-space: nowrap; }
+  #hudRight small { display: block; font-size: 0.72rem; }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #yard { display: block; width: 100%; height: 100%; touch-action: none; border-radius: 10px; }
+  #msg {
+    position: absolute; top: 6px; left: 12px; right: 12px; margin: 0;
+    text-align: center; font-size: 0.85rem; line-height: 1.3; color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95); pointer-events: none;
+  }
+  #msg.warn { color: #ffb4a2; font-weight: 600; }
+  #card {
+    position: fixed; left: 50%; top: 50%; z-index: 5; transform: translate(-50%, -50%);
+    width: min(92%, 340px); max-height: 96%; overflow: auto; padding: 16px 14px; border-radius: 12px;
+    background: rgba(24, 31, 40, 0.97); border: 1px solid var(--line); text-align: center;
+  }
+  #card[hidden] { display: none; }
+  #card h2 { margin: 0 0 4px; font-size: 1.2rem; color: var(--accent); }
+  #card h3 { margin: 10px 0 4px; font-size: 0.8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  #card p { margin: 0 0 6px; color: #d4dce5; font-size: 0.88rem; line-height: 1.35; }
+  #card .goals { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); margin: 6px 0; }
+  #card .goals span.got { color: #9be7a4; }
+  #card button { margin-top: 8px; width: 100%; font-weight: 600; }
+  #card button:disabled { opacity: 0.4; }
+  #card .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+  #card .grid button { margin: 0; padding: 6px 4px; font-weight: 500; font-size: 0.8rem; line-height: 1.25; }
+  #card .grid button small { display: block; color: var(--muted); font-size: 0.72rem; }
+  #card .grid button.cur { border-color: var(--accent); }
+  .bar {
+    flex: none; display: flex; align-items: center; justify-content: center;
+    gap: 8px; flex-wrap: wrap;
+  }
+  button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 12px; font-size: 0.9rem; cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .bar button { min-width: 64px; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <span id="lvName"></span>
+    <canvas id="want" aria-label="The train to build, buffer end first"></canvas>
+    <span id="hudRight"></span>
+  </div>
+  <div id="field">
+    <div id="stage">
+      <canvas id="yard" aria-label="Rail yard. Drag a switch lever to set its route; flick a car along the track to send it rolling."></canvas>
+      <p id="msg" role="status"></p>
+      <div id="card" hidden></div>
+    </div>
+  </div>
+  <div class="bar">
+    <button id="undoBtn">Undo</button>
+    <button id="hintBtn">Hint</button>
+    <button id="restartBtn">Restart</button>
+    <button id="levelsBtn">Levels</button>
+  </div>
+
+<script>
+(function() {
+  'use strict';
+  // § constants
+  const GAME_ID = 'rail-yard';
+  const PAR_PTS = 100;      // points for a level cleared in par moves
+  const OVER_PTS = 10;      // ... minus this per move over par
+  const MIN_PTS = 10;       // ... but never below this
+  const HINT_COST = 2;      // a hint adds this many moves
+  const GENTLE_N = 10;      // couplings in a row with no bounce, for Gentle Touch
+  const STEP_MIN = 12, STEP_MAX = 22; // drag length (px) per speed step
+  const FLICK_DEAD = 8;     // px of movement before a press on a car aims
+  const END_LOCK_MS = 900;  // the level card ignores input this long
+  const HINT_MS = 12;       // hint search time per frame
+  const PREPLAN_MS = 4;     // background planning per frame from each level's start
+  const HINT_MAX = 400000;  // hint search cap (states)
+  const ROLL_S = 0.05, ROLL_K = 0.5; // seconds per car length: ROLL_S + ROLL_K / (speed + 2)
+  const TRACK_COL = { M: '#7fb4ff', D: '#ffd166', G: '#c8a27a', S: '#7ee0c3', L: '#c8a6ff', R: '#ff9fb2' };
+  const CAR_COL = ['', '#f4a259', '#43c6ac', '#e56bd1', '#dfe6ee'];
+  const CAR_NAME = ['', 'box car', 'hopper', 'tank car', 'flat car'];
+
+  // § engine (pure: no DOM; scripts/balance-rail-yard.mjs runs this block in Node)
+  const S_MAX = 15;         // strongest flick
+  const C_MIN = 2;          // slowest impact that couples
+  const C_MAX = 4;          // fastest impact that couples; faster bounces back
+  const F_RAIL = 1;         // speed lost per car length on plain track
+  const F_GRAVEL = 2;       // ... on gravel
+  const BOUNCE_V = 1;       // a bounced cut rolls back at this speed (too slow to couple)
+  // Car types: box, hopper (square couplers), tank (round), flat (both).
+  // Square couples square, round couples round, the flat takes either;
+  // square against round repels (bounces back at any coupling speed).
+  const TYPES = ['', 'B', 'H', 'T', 'F'];
+  const COUPLER = ['', 'sq', 'sq', 'rd', 'any'];
+  const compatible = (a, b) => COUPLER[a] === 'any' || COUPLER[b] === 'any' || COUPLER[a] === COUPLER[b];
+  const SPEEDS = Array.from({ length: S_MAX }, (_, i) => i + 1);
+
+  // A level's tracks are polylines on a grid; each grid step is one cell (one
+  // car length). A track's `from`/`to` attaches its first/last cell next to a
+  // cell of another track, which becomes a switch. Loose ends are buffer stops.
+  function buildYard(def) {
+    const cells = [], tracks = {};
+    for (const [tid, t] of Object.entries(def.tracks)) {
+      const ids = [];
+      let [x, y] = t.pts[0];
+      const push = () => { ids.push(cells.length); cells.push({ x, y, f: F_RAIL, t: tid, i: ids.length - 1 }); };
+      push();
+      for (let k = 1; k < t.pts.length; k++) {
+        const [tx, ty] = t.pts[k];
+        while (x !== tx || y !== ty) { x += Math.sign(tx - x); y += Math.sign(ty - y); push(); }
+      }
+      for (const [a, b] of t.gravel || []) for (let i = a; i <= b; i++) cells[ids[i]].f = F_GRAVEL;
+      tracks[tid] = { id: tid, ids, siding: !!t.siding, depart: tid === def.goal.t };
+    }
+    const n = cells.length, adj = cells.map(() => []);
+    const connect = (a, b) => { adj[a].push(b); adj[b].push(a); };
+    const cellOf = (tid, i) => { const ids = tracks[tid].ids; return ids[i < 0 ? ids.length + i : i]; };
+    for (const [tid, t] of Object.entries(def.tracks)) {
+      const ids = tracks[tid].ids;
+      for (let i = 1; i < ids.length; i++) connect(ids[i - 1], ids[i]);
+      if (t.from) connect(cellOf(t.from[0], t.from[1]), ids[0]);
+      if (t.to) connect(cellOf(t.to[0], t.to[1]), ids[ids.length - 1]);
+    }
+    // Sides: S[c] = [[...], [...]]. A switch has its stem alone on side 0 and
+    // both legs on side 1 (leg 0 = its own track, the "straight" route).
+    const S = [], sw = [];
+    for (let c = 0; c < n; c++) {
+      const N = adj[c];
+      if (N.length > 3) throw new Error(`cell ${c} has ${N.length} neighbours`);
+      if (N.length < 3) { S.push([N.slice(0, 1), N.slice(1, 2)]); continue; }
+      const v = N.map(m => [cells[m].x - cells[c].x, cells[m].y - cells[c].y]);
+      let stem = 0, best = Infinity;
+      for (let k = 0; k < 3; k++) {
+        const o = [0, 1, 2].filter(j => j !== k);
+        const d = v[k][0] * (v[o[0]][0] + v[o[1]][0]) + v[k][1] * (v[o[0]][1] + v[o[1]][1]);
+        if (d < best) { best = d; stem = k; }
+      }
+      const legs = N.filter((_, k) => k !== stem).sort((a, b) => (cells[b].t === cells[c].t) - (cells[a].t === cells[c].t));
+      S.push([[N[stem]], legs]);
+      sw.push(c);
+    }
+    const swIndex = new Map(sw.map((c, k) => [c, k]));
+    const sideOf = (c, m) => (S[c][0][0] === m ? 0 : 1);
+    // bit[c][m]: the coupling bit for neighbour m in cell c's byte.
+    const bit = cells.map((_, c) => { const o = {}; adj[c].forEach((m, k) => { o[m] = 8 << k; }); return o; });
+    // Gates sit on the edge between two neighbouring cells, passable only from
+    // `from` to `to`; a `once` gate drops (spent) after one cut has used it.
+    const gates = (def.gates || []).map(g => {
+      const a = cellOf(g.from[0], g.from[1]), b = cellOf(g.to[0], g.to[1]);
+      if (!adj[a].includes(b)) throw new Error('gate between cells that are not neighbours');
+      return { from: a, to: b, once: !!g.once };
+    });
+    const gateAt = new Map();
+    gates.forEach((g, k) => { gateAt.set(g.from * 4096 + g.to, k); gateAt.set(g.to * 4096 + g.from, k); });
+    const goal = { ids: tracks[def.goal.t].ids, seq: def.goal.seq.split('').map(ch => TYPES.indexOf(ch)) };
+    if (S[goal.ids[0]][0].length && S[goal.ids[0]][1].length) throw new Error('goal track must start at a buffer stop');
+    return { def, cells, tracks, adj, S, sw, swIndex, sideOf, bit, gates, gateAt, goal, cellOf, n };
+  }
+
+  // State: one byte per cell, type (0-4) | coupling bits << 3 (one bit per
+  // neighbour, in adj order), then one byte per gate (0 open, 1 used during
+  // this flick, 2 spent).
+  const typ = (s, c) => s[c] & 7;
+  const linked = (Y, s, a, b) => (s[a] & Y.bit[a][b]) !== 0;
+  function link(Y, s, a, b, on) {
+    if (on) { s[a] |= Y.bit[a][b]; s[b] |= Y.bit[b][a]; } else { s[a] &= ~Y.bit[a][b]; s[b] &= ~Y.bit[b][a]; }
+  }
+  function initialState(Y) {
+    const s = new Uint8Array(Y.n + Y.gates.length);
+    for (const [t, i, type] of Y.def.cars) s[Y.cellOf(t, i)] = TYPES.indexOf(type);
+    for (const [t1, i1, t2, i2] of Y.def.coupled || []) link(Y, s, Y.cellOf(t1, i1), Y.cellOf(t2, i2), true);
+    return s;
+  }
+  const stateKey = s => String.fromCharCode.apply(null, s);
+
+  // The cut a flick moves: car c and every car coupled ahead of it on `side`.
+  // Returned lead first, with the lead's moving side.
+  function cutOf(Y, s, c, side) {
+    const cut = [c];
+    let cur = c, sd = side;
+    for (;;) {
+      const m = Y.S[cur][sd].find(x => typ(s, x) && linked(Y, s, cur, x));
+      if (m === undefined || cut.includes(m)) break;
+      sd = 1 - Y.sideOf(m, cur);
+      cur = m; cut.push(m);
+    }
+    return { pos: cut.reverse(), side: sd };
+  }
+  // Flicking c toward side lets go of the car coupled behind it.
+  function detach(Y, s, c, side) {
+    const behind = Y.S[c][1 - side].find(x => typ(s, x) && linked(Y, s, c, x));
+    if (behind !== undefined) link(Y, s, c, behind, false);
+  }
+  // Moves the cut (cells pos, lead first) to the cells np, keeping its couplings.
+  function moveCut(Y, s, pos, np) {
+    const types = pos.map(p => typ(s, p));
+    for (const p of pos) s[p] = 0;
+    np.forEach((p, j) => { s[p] = types[j]; });
+    for (let j = 0; j + 1 < np.length; j++) link(Y, s, np[j], np[j + 1], true);
+  }
+  function armGate(Y, s, a, b) {
+    const gk = Y.gateAt.get(a * 4096 + b);
+    if (gk !== undefined && Y.gates[gk].once && s[Y.n + gk] === 0) s[Y.n + gk] = 1;
+  }
+  // A once-gate drops behind the cut that used it (once nothing straddles it).
+  function dropGates(Y, s) {
+    let dropped = 0;
+    Y.gates.forEach((g, k) => {
+      if (s[Y.n + k] !== 1) return;
+      if (!(typ(s, g.from) && typ(s, g.to) && linked(Y, s, g.from, g.to))) { s[Y.n + k] = 2; dropped++; }
+    });
+    return dropped;
+  }
+  // A car's end takes one coupling: at a switch, a car coupled toward one leg
+  // can't also couple to a car on the other leg.
+  const endFree = (Y, s, q, from) => !Y.S[q][Y.sideOf(q, from)].some(m => m !== from && linked(Y, s, q, m));
+  // Can each car behind the lead move up one place (cut cells, lead first)?
+  function followersPass(Y, s, pos) {
+    for (let k = 1; k < pos.length; k++) if (!passable(Y, s, pos[k], pos[k - 1])) return false;
+    return true;
+  }
+  // Can the lead at cell a roll on into b (no buffer, no closed gate)?
+  function passable(Y, s, a, b) {
+    if (b === undefined) return false;
+    const gk = Y.gateAt.get(a * 4096 + b);
+    return gk === undefined || (Y.gates[gk].from === a && s[Y.n + gk] !== 2);
+  }
+
+  // One flick, step by step (play and drawing). leg(k) says which leg facing
+  // switch k sends the cut down. Returns { s, frames, ev }, or { need: k } if
+  // leg(k) was undefined. frames[j] = cells of the cut's cars (fixed order).
+  function flick(Y, s0, c, side, v, leg) {
+    if (!typ(s0, c)) return null;
+    const s = s0.slice();
+    detach(Y, s, c, side);
+    let { pos, side: sd } = cutOf(Y, s, c, side);
+    let ident = pos.map((_, k) => k);
+    const snap = extra => { const f = []; pos.forEach((p, k) => { f[ident[k]] = p; }); return Object.assign(f, extra); };
+    const ev = { couple: 0, bounce: 0, maxImpact: 0, repel: 0, touch: 0, gravelTouch: false, gates: 0, steps: 0,
+      impact: null, outcome: 'stop', launch: v, cars: pos.length, legs: [] };
+    const frames = [snap({ v })];
+    const inCut = new Set(pos);
+    for (let guard = 0; guard < 400; guard++) {
+      const lead = pos[0];
+      const opts = Y.S[lead][sd];
+      let q;
+      if (opts.length === 2) {
+        const k = Y.swIndex.get(lead), l = leg(k);
+        if (l === undefined) return { need: k };
+        q = opts[l]; ev.legs.push([k, l]);
+      } else q = opts[0];
+      // Every car of the cut crosses an edge this step; any gate can hold it.
+      const wall = !passable(Y, s, lead, q) || !followersPass(Y, s, pos);
+      const car = !wall && typ(s, q) && !inCut.has(q);
+      if (!wall && !car) {
+        if (v < Y.cells[q].f) { ev.outcome = 'stop'; ev.impact = null; break; }
+        v -= Y.cells[q].f;
+        armGate(Y, s, lead, q);
+        for (let k = 1; k < pos.length; k++) armGate(Y, s, pos[k], pos[k - 1]);
+        const np = [q].concat(pos.slice(0, -1));
+        moveCut(Y, s, pos, np);
+        inCut.clear(); np.forEach(p => inCut.add(p));
+        sd = 1 - Y.sideOf(q, lead);
+        pos = np; ev.steps++;
+        frames.push(snap({ v }));
+        continue;
+      }
+      ev.impact = v; ev.at = q; ev.from = lead;
+      let bounce = false;
+      if (wall) { if (v > C_MAX) bounce = true; else { ev.outcome = 'buffer'; break; } }
+      else if (v < C_MIN) {
+        ev.outcome = 'touch'; ev.touch++;
+        if (Y.cells[lead].f === F_GRAVEL) ev.gravelTouch = true;
+        break;
+      } else if (!compatible(typ(s, lead), typ(s, q))) { bounce = true; ev.repel++; }
+      else if (v > C_MAX) bounce = true;
+      else if (!endFree(Y, s, q, lead)) { ev.outcome = 'touch'; ev.touch++; break; }
+      else { link(Y, s, lead, q, true); ev.couple++; ev.outcome = 'couple'; break; }
+      // Bounce: the cut reverses, the old tail leads, at BOUNCE_V.
+      ev.bounce++; ev.maxImpact = Math.max(ev.maxImpact, v);
+      pos = pos.slice().reverse(); ident = ident.slice().reverse();
+      sd = pos.length > 1 ? 1 - Y.sideOf(pos[0], pos[1]) : 1 - sd;
+      v = BOUNCE_V;
+      frames.push(snap({ v, bounce: true, at: q, from: lead }));
+    }
+    ev.gates = dropGates(Y, s);
+    return { s, frames, ev };
+  }
+
+  // Won: the cars on the departure track, read from its buffer, spell the
+  // goal and are one coupled cut, coupled to nothing off the track.
+  function solved(Y, s) {
+    const ids = Y.goal.ids, seq = Y.goal.seq;
+    let k = 0;
+    while (k < ids.length && !typ(s, ids[k])) k++;
+    if (k + seq.length > ids.length) return false;
+    for (let j = 0; j < seq.length; j++) {
+      const c = ids[k + j];
+      if (typ(s, c) !== seq[j]) return false;
+      if (j > 0 && !linked(Y, s, ids[k + j - 1], c)) return false;
+    }
+    for (let j = k + seq.length; j < ids.length; j++) if (typ(s, ids[j])) return false;
+    const last = ids[k + seq.length - 1];
+    return !Y.adj[last].some(m => !ids.includes(m) && linked(Y, s, last, m));
+  }
+
+  // Every distinct result of one flick from state s, for the solver: one walk
+  // per car, side and route gives every speed's outcome (every bounce ends the
+  // same way, since a bounce always rolls back at BOUNCE_V). opts.speeds
+  // limits the speeds; opts.fixed pins the switches (legs by switch index).
+  // Calls emit(state, move) with move = { c, side, lo, hi, asg }: lo..hi are
+  // all the speeds with that result, asg the legs of the switches it passed.
+  function successors(Y, s, opts, emit) {
+    const speeds = opts.speeds || SPEEDS;
+    for (let c = 0; c < Y.n; c++) {
+      if (!typ(s, c)) continue;
+      for (let side = 0; side < 2; side++) {
+        const base = s.slice();
+        detach(Y, base, c, side);
+        const { pos, side: sd0 } = cutOf(Y, base, c, side);
+        const leadType = typ(base, pos[0]);
+        const held = !followersPass(Y, base, pos); // a gate holds a car behind the lead
+        const out = (o, path, obst, asg) => {
+          const move = { c, side, lo: o.lo, hi: o.hi, asg };
+          if (o.kind === 'bounce') {
+            const r = flick(Y, s, c, side, o.lo, k => (asg[k] !== undefined ? asg[k] : opts.fixed ? opts.fixed[k] || 0 : undefined));
+            if (r.s) { emit(r.s, move); return; }
+            for (const b of [0, 1]) {
+              const a2 = Object.assign({}, asg, { [r.need]: b });
+              const r2 = flick(Y, s, c, side, o.lo, k => (a2[k] !== undefined ? a2[k] : 0));
+              if (r2.s) emit(r2.s, Object.assign({}, move, { asg: a2 }));
+            }
+            return;
+          }
+          const k = o.k;
+          if (k === 0 && o.kind !== 'couple') { emit(base, move); return; }
+          const s2 = base.slice();
+          const seq = pos.slice().reverse().concat(path.slice(0, k));
+          const np = seq.slice(seq.length - pos.length).reverse();
+          moveCut(Y, s2, pos, np);
+          if (o.kind === 'couple') link(Y, s2, np[0], obst, true);
+          for (let j = 0; j + 1 < seq.length; j++) armGate(Y, s2, seq[j], seq[j + 1]);
+          dropGates(Y, s2);
+          emit(s2, move);
+        };
+        const finish = (path, cost, obst, asg) => {
+          const m = path.length, Cm = m ? cost[m - 1] : 0;
+          let prevKey = null, cur = null;
+          for (const v of speeds) {
+            let k = 0;
+            while (k < m && cost[k] <= v) k++;
+            let kind = 'stop';
+            if (k === m && obst !== null) {
+              const r = v - Cm;
+              if (obst === -1) kind = r <= C_MAX ? 'stop' : 'bounce';
+              else if (r < C_MIN) kind = 'stop';
+              else if (!compatible(leadType, typ(base, obst)) || r > C_MAX) kind = 'bounce';
+              else kind = endFree(Y, base, obst, path.length ? path[path.length - 1] : pos[0]) ? 'couple' : 'stop';
+            }
+            const key = kind === 'bounce' ? 'b' : kind + k;
+            if (key === prevKey) { cur.hi = v; continue; }
+            if (cur) out(cur, path, obst, asg);
+            prevKey = key; cur = { kind, k, lo: v, hi: v };
+          }
+          if (cur) out(cur, path, obst, asg);
+        };
+        const walk = (lead, sd, path, cost, asg) => {
+          for (;;) {
+            const o2 = Y.S[lead][sd];
+            let q;
+            if (o2.length === 2) {
+              const k = Y.swIndex.get(lead);
+              const l = opts.fixed ? opts.fixed[k] || 0 : asg[k];
+              if (l === undefined) {
+                for (const b of [0, 1]) walk(lead, sd, path.slice(), cost.slice(), Object.assign({}, asg, { [k]: b }));
+                return;
+              }
+              q = o2[l];
+            } else q = o2[0];
+            const total = cost.length ? cost[cost.length - 1] : 0;
+            if (!passable(Y, base, lead, q) || (held && !path.length)) { finish(path, cost, -1, asg); return; }
+            if (typ(base, q)) { finish(path, cost, q, asg); return; }
+            if (total + Y.cells[q].f > S_MAX) { finish(path, cost, null, asg); return; }
+            path.push(q); cost.push(total + Y.cells[q].f);
+            sd = 1 - Y.sideOf(q, lead); lead = q;
+          }
+        };
+        walk(pos[0], sd0, [], [], {});
+      }
+    }
+  }
+
+  // Breadth-first search for the fewest flicks (switch changes are free),
+  // resumable so the hint can plan over several frames: step(ms) returns null
+  // while still searching, then { moves, states } (moves null: no solution, or
+  // capped at opts.maxStates). opts as successors().
+  function makeSolver(Y, s0, opts = {}) {
+    const maxStates = opts.maxStates || 1500000;
+    const k0 = stateKey(s0);
+    const prev = new Map([[k0, null]]);
+    let frontier = [s0], next = [], i = 0, found = solved(Y, s0) ? k0 : null, result = null;
+    const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const finish = () => {
+      if (!found) return (result = { moves: null, states: prev.size, capped: prev.size > maxStates });
+      const moves = [];
+      for (let at = found; prev.get(at); at = prev.get(at).from) moves.unshift(prev.get(at).move);
+      return (result = { moves, states: prev.size });
+    };
+    return {
+      step(ms) {
+        if (result) return result;
+        const t0 = now();
+        while (!found) {
+          if (i >= frontier.length) {
+            if (!next.length) return finish();
+            frontier = next; next = []; i = 0;
+          }
+          const s = frontier[i++], ks = stateKey(s);
+          successors(Y, s, opts, (s2, move) => {
+            if (found) return;
+            const k = stateKey(s2);
+            if (prev.has(k)) return;
+            prev.set(k, { from: ks, move });
+            if (solved(Y, s2)) found = k; else next.push(s2);
+          });
+          if (prev.size > maxStates) return finish();
+          if ((i & 15) === 0 && now() - t0 > ms) return null;
+        }
+        return finish();
+      },
+    };
+  }
+  const solve = (Y, s0, opts) => makeSolver(Y, s0, opts).step(Infinity);
+  // § engine-end
+
+  // § levels (ids are permanent; add levels, never rename them)
+  // tracks: polylines on a grid (see buildYard); cars: [track, index, type];
+  // coupled: [track, i, track, i] pairs; gates: { from, to, once };
+  // sw: starting leg per switch (0 = straight); goal: the departure track
+  // and its train from the buffer; par: fewest flicks (checked by
+  // scripts/balance-rail-yard.mjs). card/tip: shown on the level card/HUD.
+  const CHAPTERS = ['Switches and speed', 'Couplers and gates'];
+  const D_CURVE = { pts: [[0, 2], [2, 2], [3, 3]], to: ['M', 0] };
+  const LEVELS = [
+    { id: 'first-coupling', ch: 1, name: 'First coupling', par: 1,
+      card: 'Drag a car along its track and let go to flick it: the farther you drag, the faster it rolls. Every car length costs 1 speed. Cars that meet at <b>impact 2–4</b> couple; slower only touch, faster bounce back.',
+      tip: 'Impact = your speed minus the car lengths it rolled.',
+      tracks: { D: { pts: [[0, 2], [7, 2]] } },
+      cars: [['D', 0, 'H'], ['D', 2, 'B']],
+      goal: { t: 'D', seq: 'HB' } },
+    { id: 'the-switch', ch: 1, name: 'The switch', par: 3,
+      card: 'A switch sends a car rolling in from its point end down one track or the other: drag its lever toward a track, or {tap} it. Switch changes are free; only flicks count. Cars rolling in from the other side go through either way.',
+      tip: 'Set the lever, then flick.',
+      tracks: { M: { pts: [[0, 3], [9, 3]] }, D: { pts: [[1, 1], [3, 1], [4, 2]], to: ['M', 5] } },
+      cars: [['M', 8, 'H'], ['M', 2, 'B']],
+      goal: { t: 'D', seq: 'HB' } },
+    { id: 'gravel', ch: 1, name: 'Gravel', par: 4,
+      card: 'Gravel (brown bed, double ticks) costs <b>2 speed</b> per car length, so the same flick stops much sooner in the gravel siding than on plain track.',
+      tip: 'Park one car in the gravel to let the other by.',
+      tracks: { D: D_CURVE, M: { pts: [[4, 4], [11, 4]] },
+        G: { pts: [[6, 5], [4, 6]], from: ['M', 3], gravel: [[0, 2]], siding: true } },
+      cars: [['M', 5, 'H'], ['M', 6, 'B']],
+      goal: { t: 'D', seq: 'BH' } },
+    { id: 'full-siding', ch: 1, name: 'Full siding', par: 6,
+      card: 'A siding holds only as many cars as its label says. A flick moves the car and everything coupled <b>in front</b> of it, and lets go of the cars behind: flick the back of a coupled pair to push both.',
+      tip: 'Two cars fit in the siding; the third has to wait.',
+      tracks: { D: D_CURVE, M: { pts: [[4, 4], [11, 4]] },
+        S: { pts: [[6, 5], [5, 6]], from: ['M', 3], siding: true } },
+      cars: [['M', 0, 'B'], ['M', 2, 'H'], ['M', 1, 'H']],
+      goal: { t: 'D', seq: 'HHB' } },
+    { id: 'small-yard', ch: 1, name: 'Small yard', par: 7,
+      card: 'Two sidings, one of them gravel. Plan the order before you flick: nothing moves until you do.',
+      tip: 'The gravel switch starts set toward the gravel.',
+      tracks: { D: D_CURVE, M: { pts: [[4, 4], [11, 4]] },
+        S: { pts: [[5, 5], [4, 6]], from: ['M', 2], siding: true },
+        G: { pts: [[8, 5], [7, 6], [6, 6]], from: ['M', 5], gravel: [[1, 2]], siding: true } },
+      sw: [0, 1],
+      cars: [['M', 1, 'B'], ['M', 0, 'H'], ['G', 2, 'B'], ['G', 0, 'H']],
+      goal: { t: 'D', seq: 'BHHB' } },
+    { id: 'round-couplers', ch: 2, name: 'Round couplers', par: 5,
+      card: 'Tank cars have <b>round</b> couplers (●); box cars and hoppers <b>square</b> ones (■). Round and square repel: they bounce apart at any speed that would couple. The flat car’s double coupler (◆) takes either.',
+      tip: 'A flat car between them lets a tank join a box car.',
+      tracks: { D: D_CURVE, M: { pts: [[4, 4], [10, 4]] },
+        S: { pts: [[6, 5], [5, 6]], from: ['M', 3], siding: true } },
+      cars: [['M', 0, 'B'], ['M', 2, 'T'], ['M', 4, 'F']],
+      goal: { t: 'D', seq: 'BFT' } },
+    { id: 'one-way', ch: 2, name: 'One way', par: 8,
+      card: 'The blue arrows are a <b>one-way gate</b>: cars roll through it toward the departure track, never back. Anything coming the other way meets it like a buffer.',
+      tip: 'What passes the arrows can’t come back.',
+      tracks: { D: D_CURVE, M: { pts: [[4, 4], [11, 4]] },
+        S: { pts: [[6, 5], [5, 6]], from: ['M', 3], siding: true },
+        G: { pts: [[9, 3], [8, 2], [7, 2]], from: ['M', 6], gravel: [[1, 2]], siding: true } },
+      gates: [{ from: ['M', 5], to: ['M', 4] }],
+      sw: [1, 1],
+      cars: [['M', 1, 'B'], ['M', 2, 'F'], ['M', 6, 'H'], ['G', 2, 'T']],
+      goal: { t: 'D', seq: 'HBFT' } },
+    { id: 'one-pass', ch: 2, name: 'One pass', par: 7,
+      card: 'An amber <b>1×</b> gate lets cars through until the gateway is clear, then drops for good. Whatever you need from behind it has to come out in one go.',
+      tip: 'Couple them up before they leave the siding.',
+      tracks: { D: D_CURVE, M: { pts: [[4, 4], [11, 4]] },
+        S: { pts: [[9, 3], [10, 2], [11, 2]], from: ['M', 4], siding: true },
+        G: { pts: [[6, 5], [5, 6]], from: ['M', 3], gravel: [[1, 1]], siding: true } },
+      gates: [{ from: ['S', 0], to: ['M', 4], once: true }],
+      sw: [1, 1],
+      cars: [['S', 0, 'H'], ['S', 1, 'F'], ['S', 2, 'T'], ['G', 1, 'B']],
+      goal: { t: 'D', seq: 'BFT' } },
+    { id: 'both-gates', ch: 2, name: 'Both gates', par: 6,
+      card: 'A 1× gate can guard the way <b>in</b> too: a car parked behind it stays there for good. The train doesn’t need every car in the yard.',
+      tip: 'One car isn’t on the manifest.',
+      tracks: { D: D_CURVE, M: { pts: [[4, 4], [11, 4]] },
+        S: { pts: [[6, 5], [5, 6]], from: ['M', 3], siding: true },
+        G: { pts: [[8, 3], [7, 2], [6, 2]], from: ['M', 5], gravel: [[1, 2]], siding: true } },
+      gates: [{ from: ['M', 0], to: ['D', 3] }, { from: ['M', 3], to: ['S', 0], once: true }, { from: ['G', 0], to: ['M', 5], once: true }],
+      sw: [1, 1],
+      cars: [['G', 1, 'T'], ['G', 2, 'F'], ['M', 6, 'H'], ['M', 7, 'B'], ['M', 1, 'H']],
+      goal: { t: 'D', seq: 'HBFT' } },
+    { id: 'last-yard', ch: 2, name: 'Last yard', par: 8,
+      card: 'Everything at once: gravel, a full siding, couplers that repel, a one-way track and a 1× gate. There’s no clock; nothing moves until you flick.',
+      tip: 'The departure track is one-way: fill it in order.',
+      tracks: { D: { pts: [[0, 2], [3, 2], [4, 3]], to: ['M', 0] }, M: { pts: [[5, 4], [12, 4]] },
+        S: { pts: [[7, 5], [6, 6]], from: ['M', 3], siding: true },
+        G: { pts: [[10, 3], [9, 2], [8, 2]], from: ['M', 6], gravel: [[1, 2]], siding: true } },
+      gates: [{ from: ['M', 0], to: ['D', 4] }, { from: ['S', 0], to: ['M', 3], once: true }],
+      sw: [1, 1],
+      cars: [['S', 0, 'T'], ['S', 1, 'F'], ['M', 0, 'B'], ['M', 5, 'H'], ['M', 1, 'T']],
+      goal: { t: 'D', seq: 'BHFTT' } },
+  ];
+  // § levels-end
+
+  // § platform
+  const canvas = document.getElementById('yard');
+  const ctx = canvas.getContext('2d');
+  const wantCv = document.getElementById('want');
+  const wctx = wantCv.getContext('2d');
+  const msgEl = document.getElementById('msg');
+  const card = document.getElementById('card');
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  const undoBtn = document.getElementById('undoBtn');
+  const hintBtn = document.getElementById('hintBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const levelsBtn = document.getElementById('levelsBtn');
+  const touchy = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  const TAP = touchy ? 'tap' : 'click';
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded.
+  const unlocked = new Set();
+  function unlock(id) {
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  let paused = false, best = null;
+  window.addEventListener('message', evt => {
+    const d = evt.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'arcade:pause') { paused = true; aim = null; }
+    if (d.type === 'arcade:resume') paused = false;
+    if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {
+      const v = Object.values(d.bests).filter(x => typeof x === 'number');
+      best = v.length ? Math.max(...v) : null;
+      hud();
+    }
+  });
+
+  // § progress (kept in this browser when it allows storage; best effort)
+  const STORE = 'rail-yard.progress';
+  const prog = { reachedId: LEVELS[0].id, cleared: [], par: [], clean: [], oneshot: [], nohint: [], noundo: [] };
+  try {
+    const p = JSON.parse(localStorage.getItem(STORE) || '{}');
+    for (const k of Object.keys(prog)) if (p[k] !== undefined && typeof p[k] === typeof prog[k]) prog[k] = p[k];
+  } catch (e) { /* no storage (the gallery's sandbox): this visit only */ }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(prog)); } catch (e) { /* ignore */ } }
+  const has = (k, id) => prog[k].includes(id);
+  const mark = (k, id) => { if (!has(k, id)) prog[k].push(id); };
+  const reachedIdx = () => Math.max(0, LEVELS.findIndex(L => L.id === prog.reachedId));
+  const chLevels = ch => LEVELS.filter(L => L.ch === ch);
+  const chDone = (k, ch) => chLevels(ch).every(L => has(k, L.id));
+
+  // § play state
+  let level = 0, L = null, Y = null, st = null, legs = [], hist = [];
+  let moves = 0, hints = 0, undos = 0, restarts = 0, attempt = 0, switches = 0, bounces = 0, couples = 0;
+  let elapsed = 0, won = false, fullHouse = false, anim = null, pending = null;
+  let hintJob = null, prePlan = null, hintShow = null, memo = new Map(), labels = [], cardLock = 0, cardKind = null;
+  let selCar = -1, kbSpeed = 3, gentle = 0;
+  const runId = Math.random().toString(36).slice(2, 10);
+  const runPts = {};
+  const runTotal = () => Object.values(runPts).reduce((a, b) => a + b, 0);
+  const r1 = v => Math.round(v * 10) / 10;
+
+  // Level results for play telemetry (docs/telemetry.md); keys in docs/games/rail-yard.md.
+  function report(win, reason) {
+    if (window.parent === window) return;
+    const msg = { type: 'arcade:result', game: GAME_ID, outcome: win ? 'win' : 'loss', time: r1(elapsed),
+      level: level + 1, run: runId, attempt,
+      stats: { moves, par: L.par, hints, undos, switches, bounces, couples } };
+    if (win) msg.score = runTotal(); else msg.reason = reason;
+    window.parent.postMessage(msg, '*');
+  }
+
+  function startLevel(i, intro) {
+    level = i; L = LEVELS[i];
+    Y = buildYard(L);
+    restarts = 0; attempt = 0; memo = new Map();
+    reset();
+    // Plan the level quietly from its start, so hints on the way are instant.
+    prePlan = { job: makeSolver(Y, initialState(Y), { maxStates: HINT_MAX }), s: initialState(Y), legs: legs.slice() };
+    if (intro) showIntro();
+  }
+  function reset() {
+    st = initialState(Y);
+    legs = Y.sw.map((_, k) => (L.sw && L.sw[k]) || 0);
+    hist = []; moves = 0; hints = 0; undos = 0; switches = 0; bounces = 0; couples = 0;
+    elapsed = 0; won = false; fullHouse = false; anim = null; pending = null;
+    hintJob = null; hintShow = null; labels = []; selCar = -1; attempt++;
+    say(L.tip || '');
+    hud();
+  }
+  function restart() {
+    if (anim || cardKind === 'intro') return;
+    if (moves > 0 && !won) report(false, 'restart');
+    restarts++;
+    const a = attempt;
+    reset(); attempt = a + 1;
+    say('Restarted. ' + (L.tip || ''));
+  }
+  function undo() {
+    if (anim || won || !hist.length) return;
+    st = hist.pop();
+    undos++; hintShow = null; labels = [];
+    say('Undone. The flick still counts: ' + moves + ' moves.');
+    hud();
+  }
+
+  function doFlick(c, side, v) {
+    if (anim || won || paused || cardKind) return;
+    const r = flick(Y, st, c, side, v, k => legs[k]);
+    if (!r || !r.s) return;
+    hist.push(st);
+    moves++;
+    hintShow = null; labels = [];
+    anim = { from: st, frames: r.frames, j: 0, t: 0, ev: r.ev, types: r.frames[0].map(p => typ(st, p)) };
+    pending = r;
+    hud();
+  }
+  // Called when the rolling animation ends.
+  function settle() {
+    const r = pending; pending = null; anim = null;
+    st = r.s;
+    const ev = r.ev;
+    couples += ev.couple; bounces += ev.bounce;
+    if (ev.bounce) gentle = 0;
+    if (ev.couple) { gentle += ev.couple; if (gentle >= GENTLE_N) unlock('gentle-touch'); }
+    if (ev.bounce && ev.launch === S_MAX && ev.maxImpact >= S_MAX - 1) unlock('overshoot');
+    if (ev.gravelTouch) unlock('gravel-road');
+    for (const T of Object.values(Y.tracks)) if (T.siding && T.ids.every(c => typ(st, c))) fullHouse = true;
+    impactLabel(ev);
+    if (solved(Y, st)) win();
+    hud();
+  }
+  function impactLabel(ev) {
+    if (ev.impact === null || ev.at === undefined) return;
+    const i = ev.impact;
+    let text, col;
+    if (ev.repel) { text = 'repelled: ■ and ● don’t couple'; col = '#ff8fd8'; }
+    else if (ev.outcome === 'couple') { text = 'impact ' + i + ': coupled'; col = '#9be7a4'; }
+    else if (ev.bounce) { text = 'impact ' + ev.maxImpact + ': too fast, bounced'; col = '#ff9a8a'; }
+    else if (ev.outcome === 'touch') { text = 'impact ' + i + ': too slow'; col = '#c9d3dd'; }
+    else if (ev.outcome === 'buffer') { text = 'stopped at the buffer'; col = '#c9d3dd'; }
+    else return;
+    const a = Y.cells[ev.from], b = ev.at !== undefined && Y.cells[ev.at] ? Y.cells[ev.at] : a;
+    labels = [{ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, text, col, t: 0 }];
+  }
+
+  function points() { return Math.max(MIN_PTS, PAR_PTS - OVER_PTS * (moves - L.par)); }
+  function win() {
+    won = true;
+    const pts = points();
+    runPts[L.id] = Math.max(runPts[L.id] || 0, pts);
+    const got = { par: moves <= L.par, clean: hints === 0 && undos === 0, oneshot: restarts === 0 };
+    mark('cleared', L.id);
+    if (got.par) mark('par', L.id);
+    if (got.clean) mark('clean', L.id);
+    if (got.oneshot) mark('oneshot', L.id);
+    if (hints === 0) mark('nohint', L.id);
+    if (undos === 0) mark('noundo', L.id);
+    if (level + 1 < LEVELS.length && reachedIdx() < level + 1) prog.reachedId = LEVELS[level + 1].id;
+    save();
+    if (level === 0) unlock('first-departure');
+    if (chDone('cleared', 1)) unlock('switchman');
+    if (chDone('cleared', 2)) unlock('stationmaster');
+    if (got.par) unlock('on-the-dot');
+    if (chDone('par', 1) || chDone('par', 2)) unlock('perfectionist');
+    if (chDone('nohint', 1) || chDone('nohint', 2)) unlock('unassisted');
+    if (LEVELS.every(X => has('noundo', X.id))) unlock('clean-sweep');
+    if (Y.gates.some(g => g.once) && Y.gates.every((g, k) => !g.once || st[Y.n + k] === 2)) unlock('last-gate');
+    if (fullHouse) unlock('full-house');
+    report(true);
+    setTimeout(() => showEnd(pts, got), 450);
+  }
+
+  // § hint
+  function hint() {
+    if (anim || won || cardKind || hintJob) return;
+    if (hintShow) { say(hintShow.msg); return; } // already paid for: show it again
+    const m = memo.get(stateKey(st));
+    if (m) return showHint(m);
+    hintJob = makeSolver(Y, st, { maxStates: HINT_MAX });
+    say('Planning a hint…');
+  }
+  function remember(s0, plan, lg) {
+    let s = s0;
+    for (const m of plan) {
+      memo.set(stateKey(s), m);
+      const f = flick(Y, s, m.c, m.side, m.lo, k => (m.asg[k] !== undefined ? m.asg[k] : lg[k]));
+      if (!f || !f.s) break;
+      s = f.s;
+    }
+  }
+  function tickHint() {
+    if (prePlan && !hintJob) {
+      const r = prePlan.job.step(PREPLAN_MS);
+      if (r) { if (r.moves) remember(prePlan.s, r.moves, prePlan.legs); prePlan = null; }
+    }
+    if (!hintJob) return;
+    const r = hintJob.step(HINT_MS);
+    if (!r) return;
+    hintJob = null;
+    if (!r.moves) { say(r.capped ? 'Too tangled to plan from here: try Undo or Restart.' : 'No way to finish from here: Undo or Restart.', true); return; }
+    if (!r.moves.length) return;
+    // Remember the plan, so following it gives the next hints at once.
+    remember(st, r.moves, legs);
+    showHint(r.moves[0]);
+  }
+  function showHint(m) {
+    moves += HINT_COST; hints++;
+    let changed = 0;
+    for (const [k, l] of Object.entries(m.asg)) if (legs[k] !== l) { legs[k] = l; changed++; }
+    switches += changed;
+    const sp = m.lo === m.hi ? 'speed ' + m.lo : 'speed ' + m.lo + '–' + m.hi;
+    const msg = 'Hint (+' + HINT_COST + ' moves): flick the ringed car the way the arrow points, ' + sp + '.' + (changed ? ' Switches set.' : '');
+    hintShow = { c: m.c, side: m.side, lo: m.lo, hi: m.hi, t: 0, msg };
+    say(msg);
+    hud();
+  }
+
+  // § messages and cards
+  let msgUntil = 0;
+  function say(text, warn) {
+    msgEl.textContent = text;
+    msgEl.classList.toggle('warn', !!warn);
+    msgUntil = performance.now() + 2500 + 60 * text.length;
+  }
+  function goalsHtml(id, got) {
+    const g = (k, name) => {
+      const now = got && got[k], before = has(k, id);
+      return '<span class="' + (now || before ? 'got' : '') + '">' + (now || before ? '✔ ' : '○ ') + name + '</span>';
+    };
+    return '<div class="goals">' + g('par', 'Par') + g('clean', 'Clean run') + g('oneshot', 'One-shot') + '</div>';
+  }
+  function trainHtml(seq) {
+    return seq.split('').map(ch => '<span style="color:' + CAR_COL[TYPES.indexOf(ch)] + '">' + CAR_NAME[TYPES.indexOf(ch)] + '</span>').join(' → ');
+  }
+  function showCard(kind, html) {
+    cardKind = kind; card.innerHTML = html; card.hidden = false;
+    cardLock = performance.now() + (kind === 'end' ? END_LOCK_MS : 250);
+    aim = null;
+  }
+  function hideCard() { card.hidden = true; cardKind = null; }
+  function showIntro() {
+    const ch = L.ch, n = chLevels(ch).indexOf(L) + 1;
+    showCard('intro', '<h2>' + (level + 1) + '. ' + L.name + '</h2>' +
+      '<p style="color:var(--muted)">Chapter ' + ch + ' · ' + CHAPTERS[ch - 1] + ' · ' + n + ' of ' + chLevels(ch).length + '</p>' +
+      (L.card ? '<p>' + L.card.replace(/\{tap\}/g, TAP) + '</p>' : '') +
+      '<p>Build, from the buffer: ' + trainHtml(L.goal.seq) + '</p>' +
+      '<p>Par <b>' + L.par + '</b> flicks</p>' + goalsHtml(L.id) +
+      '<button data-act="go">Start</button>');
+  }
+  function showEnd(pts, got) {
+    const last = level === LEVELS.length - 1;
+    const chEnd = last || LEVELS[level + 1].ch !== L.ch;
+    let extra = '';
+    if (chEnd) {
+      const ch = L.ch;
+      extra = '<p>Chapter ' + ch + ' cleared' + (chDone('par', ch) ? ' · <b style="color:var(--accent)">chapter badge: par everywhere</b>' : ': hit par on every level for its badge') + '.</p>';
+    }
+    showCard('end', '<h2>' + (last ? 'Yard cleared!' : 'Departed!') + '</h2>' +
+      '<p>' + moves + ' moves (par ' + L.par + ')' + (hints ? ', ' + hints + ' hint' + (hints > 1 ? 's' : '') : '') + ' · <b>+' + pts + '</b> points</p>' +
+      goalsHtml(L.id, got) + extra +
+      '<p>Run total <b>' + runTotal() + '</b>' + (best !== null ? ' · best ' + best : '') + '</p>' +
+      (last ? '' : '<button data-act="next">Next level</button>') +
+      '<button data-act="replay">Replay this level</button>' +
+      '<button data-act="levels">Levels</button>');
+  }
+  function showLevels() {
+    if (anim) return;
+    const top = reachedIdx();
+    let html = '<h2>Levels</h2>';
+    for (let ch = 1; ch <= CHAPTERS.length; ch++) {
+      html += '<h3>' + ch + '. ' + CHAPTERS[ch - 1] + (chDone('par', ch) ? ' ★' : '') + '</h3><div class="grid">';
+      LEVELS.forEach((X, i) => {
+        if (X.ch !== ch) return;
+        const marks = (has('par', X.id) ? 'P' : '·') + (has('clean', X.id) ? 'C' : '·') + (has('oneshot', X.id) ? 'O' : '·');
+        html += '<button data-lv="' + i + '"' + (i > top ? ' disabled' : '') + (i === level ? ' class="cur"' : '') + '>' +
+          (i + 1) + '. ' + X.name + '<small>' + (has('cleared', X.id) ? marks + ' · par ' + X.par : i > top ? 'locked' : 'par ' + X.par) + '</small></button>';
+      });
+      html += '</div>';
+    }
+    html += '<p style="margin-top:8px;color:var(--muted);font-size:0.78rem">P par · C clean run (no hint, no undo) · O one-shot (no restart). ★ chapter badge.</p>';
+    html += '<button data-act="close">Close</button>';
+    showCard('levels', html);
+  }
+  card.addEventListener('click', e => {
+    if (performance.now() < cardLock) return;
+    const b = e.target.closest('button');
+    if (!b) return;
+    const act = b.dataset.act;
+    if (b.dataset.lv !== undefined) { hideCard(); if (moves > 0 && !won) report(false, 'leave'); startLevel(+b.dataset.lv, true); return; }
+    if (act === 'go' || act === 'close') { hideCard(); if (act === 'go') say(L.tip || ''); return; }
+    if (act === 'next') { hideCard(); startLevel(level + 1, true); return; }
+    if (act === 'replay') { hideCard(); startLevel(level, true); return; }
+    if (act === 'levels') showLevels();
+  });
+  undoBtn.addEventListener('click', undo);
+  hintBtn.addEventListener('click', hint);
+  restartBtn.addEventListener('click', restart);
+  levelsBtn.addEventListener('click', () => (cardKind === 'levels' ? hideCard() : showLevels()));
+
+  function hud() {
+    if (!L) return;
+    document.getElementById('lvName').innerHTML = '<b>' + (level + 1) + '. ' + L.name + '</b>';
+    const over = moves > L.par;
+    document.getElementById('hudRight').innerHTML = 'Moves <b style="color:' + (over ? '#ffb4a2' : 'var(--text)') + '">' + moves + '</b> / par ' + L.par +
+      '<small>Run ' + runTotal() + (best !== null ? ' · best ' + best : '') + '</small>';
+    undoBtn.disabled = !hist.length || won;
+    drawWant();
+  }
+
+  // § layout
+  let u = 30, rot = false, ox = 0, oy = 0, bb = null, W = 300, H = 300;
+  const PAD = 1.25;
+  function fitYard() {
+    const fw = field.clientWidth, fh = field.clientHeight;
+    if (!Y || fw < 10 || fh < 10) return;
+    bb = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+    for (const c of Y.cells) { bb.minX = Math.min(bb.minX, c.x); bb.maxX = Math.max(bb.maxX, c.x); bb.minY = Math.min(bb.minY, c.y); bb.maxY = Math.max(bb.maxY, c.y); }
+    const cols = bb.maxX - bb.minX + 1 + 2 * PAD, rows = bb.maxY - bb.minY + 1 + 2 * PAD + 0.8;
+    const uFlat = Math.min(fw / cols, fh / rows), uRot = Math.min(fw / rows, fh / cols);
+    rot = uRot > uFlat * 1.15;
+    u = Math.min(64, rot ? uRot : uFlat);
+    W = Math.floor(rot ? rows * u : cols * u); H = Math.floor(rot ? cols * u : rows * u);
+    W = Math.max(W, Math.min(fw, 200)); H = Math.max(H, Math.min(fh, 200));
+    ox = (W - (rot ? rows : cols) * u) / 2; oy = (H - (rot ? cols : rows) * u) / 2 + (rot ? 0 : 0.8 * u);
+    if (rot) ox += 0.8 * u;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = W + 'px'; stage.style.height = H + 'px';
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  new ResizeObserver(fitYard).observe(field);
+  window.addEventListener('resize', fitYard);
+  // Grid -> screen. Portrait screens turn the yard a quarter turn (clockwise).
+  function S2(x, y) {
+    const X = rot ? bb.maxY - y : x - bb.minX, Yy = rot ? x - bb.minX : y - bb.minY;
+    return [ox + (X + PAD + 0.5) * u, oy + (Yy + PAD + 0.5) * u];
+  }
+  const P = c => S2(Y.cells[c].x, Y.cells[c].y);
+  // Unit vector along the track at cell c, pointing toward side 1 (screen).
+  function tangent(c) {
+    const s0 = Y.S[c][0][0], s1 = Y.S[c][1][0];
+    const p = P(c);
+    let a, b;
+    if (s0 !== undefined && s1 !== undefined) { a = P(s0); b = P(s1); }
+    else if (s0 !== undefined) { a = P(s0); b = p; }
+    else if (s1 !== undefined) { a = p; b = P(s1); }
+    else return [1, 0];
+    const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || 1;
+    return [dx / d, dy / d];
+  }
+  // Where a switch's lever knob sits: off the junction, away from the branch.
+  function knobPos(k) {
+    const c = Y.sw[k], p = P(c);
+    const [st0, br] = Y.S[c][1].map(m => P(m));
+    let nx = st0[0] - br[0], ny = st0[1] - br[1];
+    const d = Math.hypot(nx, ny) || 1;
+    return [p[0] + nx / d * 0.85 * u, p[1] + ny / d * 0.85 * u];
+  }
+  const swName = k => String.fromCharCode(65 + k);
+
+  // § drawing
+  function drawWant() {
+    if (!L) return;
+    const seq = L.goal.seq.split('').map(ch => TYPES.indexOf(ch));
+    const h = 30, cw = 26, dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = 12 + seq.length * (cw + 4) + 4;
+    wantCv.style.width = w + 'px'; wantCv.style.height = h + 'px';
+    wantCv.width = Math.round(w * dpr); wantCv.height = Math.round(h * dpr);
+    wctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    wctx.clearRect(0, 0, w, h);
+    wctx.fillStyle = '#e0655a';
+    wctx.fillRect(2, 7, 4, 16);
+    const ok = solved(Y, st);
+    seq.forEach((t, j) => carShape(wctx, 12 + j * (cw + 4) + cw / 2, h / 2, 0, cw, t, ok ? 1 : 0.9, cw / 26));
+  }
+  // A car centred at (x, y), angle a, length len. alpha fades it.
+  function carShape(g, x, y, a, len, t, alpha, sc) {
+    const wd = len * 0.56, k = len * 0.13;
+    g.save(); g.translate(x, y); g.rotate(a); g.globalAlpha = alpha;
+    // couplers at both ends
+    g.fillStyle = '#d7dde5';
+    for (const e of [-1, 1]) {
+      const cx = e * (len / 2 + k * 0.55);
+      if (COUPLER[t] === 'sq') g.fillRect(cx - k * 0.6, -k * 0.6, k * 1.2, k * 1.2);
+      else if (COUPLER[t] === 'rd') { g.beginPath(); g.arc(cx, 0, k * 0.7, 0, 7); g.fill(); }
+      else { g.beginPath(); g.moveTo(cx - k * 0.85, 0); g.lineTo(cx, -k * 0.85); g.lineTo(cx + k * 0.85, 0); g.lineTo(cx, k * 0.85); g.closePath(); g.fill(); }
+    }
+    g.fillStyle = CAR_COL[t];
+    roundRect(g, -len / 2, -wd / 2, len, wd, wd * 0.22); g.fill();
+    // body icon (the type, not just its colour)
+    g.fillStyle = 'rgba(15,19,24,0.8)'; g.strokeStyle = 'rgba(15,19,24,0.8)'; g.lineWidth = Math.max(1.2, len * 0.06);
+    const r = wd * 0.26;
+    if (t === 1) g.strokeRect(-r, -r, 2 * r, 2 * r);
+    else if (t === 2) { g.beginPath(); g.moveTo(-r * 1.1, -r); g.lineTo(r * 1.1, -r); g.lineTo(0, r * 1.05); g.closePath(); g.fill(); }
+    else if (t === 3) { g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke(); }
+    else if (t === 4) { g.beginPath(); g.moveTo(-r * 1.1, 0); g.lineTo(0, -r * 1.1); g.lineTo(r * 1.1, 0); g.lineTo(0, r * 1.1); g.closePath(); g.stroke(); }
+    g.restore();
+  }
+  function roundRect(g, x, y, w, h, r) {
+    g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+  function pill(x, y, text, bg, fg) {
+    ctx.font = '600 ' + Math.max(10, Math.round(u * 0.3)) + 'px -apple-system, Segoe UI, sans-serif';
+    const w = ctx.measureText(text).width + u * 0.3, h = Math.max(14, u * 0.42);
+    ctx.fillStyle = bg; roundRect(ctx, x - w / 2, y - h / 2, w, h, h / 2); ctx.fill();
+    ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 0.5);
+  }
+  function edgeTrack(a, b) {
+    const A = Y.cells[a], B = Y.cells[b];
+    if (A.t === B.t) return A.t;
+    return Y.swIndex.has(a) ? B.t : A.t;
+  }
+
+  function draw(dt) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#131922'; roundRect(ctx, 0, 0, W, H, 10); ctx.fill();
+    if (!Y || !bb) return;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // gravel beds
+    for (let c = 0; c < Y.n; c++) {
+      if (Y.cells[c].f !== F_GRAVEL) continue;
+      const [x, y] = P(c), [tx, ty] = tangent(c);
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(ty, tx));
+      ctx.fillStyle = '#3a3128'; roundRect(ctx, -u * 0.52, -u * 0.3, u * 1.04, u * 0.6, u * 0.12); ctx.fill();
+      ctx.fillStyle = '#8c7658';
+      for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(-u * 0.4 + i * u * 0.135, (i % 2 ? 0.17 : -0.17) * u, u * 0.035, 0, 7); ctx.fill(); }
+      ctx.restore();
+    }
+    // track lines
+    const seen = new Set();
+    for (let a = 0; a < Y.n; a++) for (const b of Y.adj[a]) {
+      const key = Math.min(a, b) * 4096 + Math.max(a, b);
+      if (seen.has(key)) continue; seen.add(key);
+      let alpha = 1;
+      for (const [s, m] of [[a, b], [b, a]]) {
+        const k = Y.swIndex.get(s);
+        if (k !== undefined && Y.S[s][1].includes(m) && Y.S[s][1][legs[k]] !== m) alpha = 0.28;
+      }
+      const [x1, y1] = P(a), [x2, y2] = P(b);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = TRACK_COL[edgeTrack(a, b)] || '#9fb3c8';
+      ctx.lineWidth = Math.max(2, u * 0.09);
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // sleepers: one tick per car length (two on gravel), and buffer stops
+    for (let c = 0; c < Y.n; c++) {
+      const [x, y] = P(c), [tx, ty] = tangent(c), nx = -ty, ny = tx;
+      ctx.strokeStyle = 'rgba(210,220,235,0.45)'; ctx.lineWidth = Math.max(1, u * 0.04);
+      const ticks = Y.cells[c].f === F_GRAVEL ? [-0.12, 0.12] : [0];
+      for (const o of ticks) {
+        ctx.beginPath(); ctx.moveTo(x + tx * o * u - nx * u * 0.16, y + ty * o * u - ny * u * 0.16);
+        ctx.lineTo(x + tx * o * u + nx * u * 0.16, y + ty * o * u + ny * u * 0.16); ctx.stroke();
+      }
+      for (const side of [0, 1]) {
+        if (Y.S[c][side].length) continue;
+        const e = side ? 1 : -1, bx = x + tx * e * u * 0.5, by = y + ty * e * u * 0.5;
+        ctx.strokeStyle = '#e0655a'; ctx.lineWidth = Math.max(3, u * 0.14);
+        ctx.beginPath(); ctx.moveTo(bx - nx * u * 0.24, by - ny * u * 0.24); ctx.lineTo(bx + nx * u * 0.24, by + ny * u * 0.24); ctx.stroke();
+      }
+    }
+    // gates: chevrons on the edge they guard; once-gates carry a "1"; spent = barrier
+    Y.gates.forEach((g, k) => {
+      const [x1, y1] = P(g.from), [x2, y2] = P(g.to);
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, a = Math.atan2(y2 - y1, x2 - x1);
+      const state = st[Y.n + k];
+      ctx.save(); ctx.translate(mx, my); ctx.rotate(a);
+      if (state === 2) {
+        ctx.strokeStyle = '#ff6b5a'; ctx.lineWidth = Math.max(3, u * 0.12);
+        ctx.beginPath(); ctx.moveTo(0, -u * 0.3); ctx.lineTo(0, u * 0.3); ctx.stroke();
+        ctx.lineWidth = Math.max(1.5, u * 0.05);
+        ctx.beginPath(); ctx.moveTo(-u * 0.12, -u * 0.12); ctx.lineTo(u * 0.12, u * 0.12); ctx.moveTo(u * 0.12, -u * 0.12); ctx.lineTo(-u * 0.12, u * 0.12); ctx.stroke();
+      } else {
+        ctx.strokeStyle = g.once ? '#ffb347' : '#5ee0ff'; ctx.lineWidth = Math.max(2, u * 0.08);
+        for (const o of [-0.12, 0.08]) {
+          ctx.beginPath(); ctx.moveTo((o - 0.1) * u, -u * 0.2); ctx.lineTo((o + 0.08) * u, 0); ctx.lineTo((o - 0.1) * u, u * 0.2); ctx.stroke();
+        }
+      }
+      ctx.restore();
+      if (g.once && state !== 2) {
+        const nx = -(y2 - y1), ny = x2 - x1, d = Math.hypot(nx, ny) || 1;
+        pill(mx + nx / d * u * 0.55, my + ny / d * u * 0.55, '1×', '#ffb347', '#1a1206');
+      }
+    });
+    // switch levers
+    Y.sw.forEach((c, k) => {
+      const p = P(c), kp = knobPos(k), leg = P(Y.S[c][1][legs[k]]);
+      ctx.strokeStyle = 'rgba(230,236,245,0.35)'; ctx.lineWidth = Math.max(1, u * 0.04);
+      ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(kp[0], kp[1]); ctx.stroke();
+      ctx.fillStyle = aimSw === k ? '#fff' : '#26303c';
+      ctx.strokeStyle = '#dfe6ee'; ctx.lineWidth = Math.max(1.5, u * 0.05);
+      ctx.beginPath(); ctx.arc(kp[0], kp[1], u * 0.3, 0, 7); ctx.fill(); ctx.stroke();
+      // the lever points along the set leg
+      const dx = leg[0] - p[0], dy = leg[1] - p[1], d = Math.hypot(dx, dy) || 1;
+      ctx.strokeStyle = TRACK_COL[Y.cells[Y.S[c][1][legs[k]]].t] || '#fff'; ctx.lineWidth = Math.max(2, u * 0.08);
+      ctx.beginPath(); ctx.moveTo(kp[0] - dx / d * u * 0.18, kp[1] - dy / d * u * 0.18); ctx.lineTo(kp[0] + dx / d * u * 0.2, kp[1] + dy / d * u * 0.2); ctx.stroke();
+      if (!touchy) { ctx.fillStyle = 'rgba(220,228,238,0.7)'; ctx.font = Math.round(u * 0.26) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(swName(k), kp[0] + u * 0.38, kp[1] - u * 0.3); }
+    });
+    // siding capacity and the departure track's label
+    for (const T of Object.values(Y.tracks)) {
+      if (!T.siding && !T.depart) continue;
+      const end = T.depart ? T.ids[0] : T.ids[T.ids.length - 1];
+      const [x, y] = P(end), [tx, ty] = tangent(end);
+      const e = Y.S[end][1].length ? -1 : 1; // outward, past the buffer
+      const lx = x + tx * e * u * 1.05, ly = y + ty * e * u * 1.05;
+      if (T.depart) pill(lx, ly, 'OUT', '#ffd166', '#1a1406');
+      else {
+        const full = T.ids.every(c => typ(st, c));
+        pill(lx, ly, 'holds ' + T.ids.length, full ? '#ffb347' : '#2b3644', full ? '#1a1206' : '#dfe6ee');
+      }
+    }
+    drawCars(dt);
+    // hint ring and arrow
+    if (hintShow) {
+      hintShow.t += dt;
+      const c = hintShow.c, [x, y] = P(c), [tx, ty] = tangent(c), e = hintShow.side ? 1 : -1;
+      const pulse = 0.5 + 0.5 * Math.sin(hintShow.t * 5);
+      ctx.strokeStyle = 'rgba(255,209,102,' + (0.55 + 0.45 * pulse) + ')'; ctx.lineWidth = Math.max(2, u * 0.08);
+      ctx.beginPath(); ctx.arc(x, y, u * 0.58, 0, 7); ctx.stroke();
+      arrow(x + tx * e * u * 0.6, y + ty * e * u * 0.6, tx * e, ty * e, u * 0.9, '#ffd166');
+      pill(x - ty * u * 0.9, y + tx * u * 0.9, hintShow.lo === hintShow.hi ? String(hintShow.lo) : hintShow.lo + '–' + hintShow.hi, '#ffd166', '#1a1406');
+    }
+    // aiming: arrow and speed along the track
+    if (aim && aim.v > 0) {
+      const [x, y] = P(aim.c), [tx, ty] = tangent(aim.c), e = aim.side ? 1 : -1;
+      arrow(x + tx * e * u * 0.55, y + ty * e * u * 0.55, tx * e, ty * e, u * (0.3 + aim.v * 0.16), '#ffffff');
+      ctx.font = '700 ' + Math.round(u * 0.62) + 'px -apple-system, Segoe UI, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const lx = x + ty * u * 0.95, ly = y - tx * u * 0.95;
+      ctx.fillStyle = 'rgba(15,19,24,0.8)'; ctx.beginPath(); ctx.arc(lx, ly, u * 0.45, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillText(String(aim.v), lx, ly + 1);
+      speedGauge(aim.v);
+    }
+    // impact labels
+    for (const lb of labels) {
+      lb.t += dt;
+      const a = Math.max(0, Math.min(1, 3.5 - lb.t));
+      if (a <= 0) continue;
+      const [x, y] = S2(lb.x, lb.y);
+      ctx.globalAlpha = a;
+      pill(x, y - u * 0.75 - lb.t * u * 0.08, lb.text, 'rgba(15,19,24,0.9)', lb.col);
+      ctx.globalAlpha = 1;
+    }
+  }
+  function arrow(x, y, dx, dy, len, col) {
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(2, u * 0.07);
+    const ex = x + dx * len, ey = y + dy * len;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
+    const h = u * 0.2;
+    ctx.beginPath(); ctx.moveTo(ex + dx * h, ey + dy * h); ctx.lineTo(ex - dy * h * 0.8, ey + dx * h * 0.8); ctx.lineTo(ex + dy * h * 0.8, ey - dx * h * 0.8); ctx.closePath(); ctx.fill();
+  }
+  function speedGauge(v) {
+    const n = S_MAX, w = Math.min(W - 24, u * 9), h = Math.max(8, u * 0.22), x0 = (W - w) / 2, y0 = H - h - 8;
+    for (let i = 1; i <= n; i++) {
+      ctx.fillStyle = i <= v ? (i === n ? '#ff9a8a' : '#ffffff') : 'rgba(255,255,255,0.14)';
+      roundRect(ctx, x0 + (i - 1) * w / n + 1, y0, w / n - 2, h, 2); ctx.fill();
+    }
+  }
+  function drawCars(dt) {
+    const Lc = u * 0.8;
+    const moving = new Set(anim ? anim.frames[anim.j] : []);
+    const sPos = anim ? anim.from : st;
+    // stationary cars (and their couplings)
+    const carAt = c => P(c);
+    for (let c = 0; c < Y.n; c++) {
+      if (!typ(sPos, c) || (anim && anim.frames[0].includes(c))) continue;
+      for (const m of Y.adj[c]) if (m > c && typ(sPos, m) && linked(Y, sPos, c, m) && !(anim && anim.frames[0].includes(m))) coupling(carAt(c), carAt(m));
+    }
+    for (let c = 0; c < Y.n; c++) {
+      if (!typ(sPos, c) || (anim && anim.frames[0].includes(c))) continue;
+      const [x, y] = carAt(c), [tx, ty] = tangent(c);
+      carShape(ctx, x, y, Math.atan2(ty, tx), Lc, typ(sPos, c), 1, 1);
+      if (c === selCar && !touchy) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, u * 0.55, 0, 7); ctx.stroke(); }
+    }
+    if (!anim) return;
+    // the rolling cut, between frames j and j+1
+    const A = anim;
+    if (!paused) A.t += dt;
+    let f0 = A.frames[A.j], f1 = A.frames[Math.min(A.j + 1, A.frames.length - 1)];
+    const dur = f1.bounce ? 0.14 : ROLL_S + ROLL_K / ((f1.v || 0) + 2);
+    while (A.t >= dur && A.j < A.frames.length - 1) {
+      A.t -= dur; A.j++;
+      f0 = A.frames[A.j]; f1 = A.frames[Math.min(A.j + 1, A.frames.length - 1)];
+    }
+    const k = A.j >= A.frames.length - 1 ? 1 : Math.min(1, A.t / dur);
+    const pos = f0.map((c, i) => {
+      const a = P(c), b = P(f1[i]);
+      return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+    });
+    for (let i = 0; i + 1 < pos.length; i++) coupling(pos[i], pos[i + 1]);
+    pos.forEach((p, i) => {
+      const [tx, ty] = tangent(k < 0.5 ? f0[i] : f1[i]);
+      carShape(ctx, p[0], p[1], Math.atan2(ty, tx), Lc, A.types[i], 1, 1);
+    });
+    if (f1.bounce && k < 1) {
+      const [x, y] = P(f1.from);
+      ctx.strokeStyle = 'rgba(255,154,138,' + (1 - k) + ')'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x, y, u * (0.4 + k * 0.4), 0, 7); ctx.stroke();
+    }
+    if (A.j >= A.frames.length - 1) settle();
+  }
+  function coupling(a, b) {
+    ctx.strokeStyle = '#f5f7fa'; ctx.lineWidth = Math.max(2, u * 0.1);
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || 1;
+    ctx.beginPath(); ctx.moveTo(mx - dx / d * u * 0.22, my - dy / d * u * 0.22); ctx.lineTo(mx + dx / d * u * 0.22, my + dy / d * u * 0.22); ctx.stroke();
+  }
+
+  // § input
+  let aim = null, aimSw = -1, press = null;
+  const stepPx = () => Math.max(STEP_MIN, Math.min(STEP_MAX, u * 0.42));
+  function local(e) { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  function carNear(x, y) {
+    let best = -1, bd = u * 0.62;
+    for (let c = 0; c < Y.n; c++) {
+      if (!typ(st, c)) continue;
+      const [cx, cy] = P(c), d = Math.hypot(cx - x, cy - y);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best;
+  }
+  function knobNear(x, y) {
+    let best = -1, bd = u * 0.55;
+    Y.sw.forEach((c, k) => { const [kx, ky] = knobPos(k), d = Math.hypot(kx - x, ky - y); if (d < bd) { bd = d; best = k; } });
+    return best;
+  }
+  function setLeg(k, l) {
+    if (legs[k] === l) return;
+    legs[k] = l; switches++;
+  }
+  canvas.addEventListener('pointerdown', e => {
+    if (!Y || anim || paused || cardKind || won) return;
+    const [x, y] = local(e);
+    const k = knobNear(x, y), c = k < 0 ? carNear(x, y) : -1;
+    if (k < 0 && c < 0) {
+      // A press on a free junction works like its lever.
+      let j = -1;
+      Y.sw.forEach((sc, kk) => { const [sx, sy] = P(sc); if (!typ(st, sc) && Math.hypot(sx - x, sy - y) < u * 0.45) j = kk; });
+      if (j < 0) return;
+      press = { kind: 'sw', k: j, x, y, moved: false };
+    } else press = k >= 0 ? { kind: 'sw', k, x, y, moved: false } : { kind: 'car', c, x, y, moved: false };
+    if (press.kind === 'sw') aimSw = press.k;
+    canvas.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!press) return;
+    const [x, y] = local(e), dx = x - press.x, dy = y - press.y;
+    if (Math.hypot(dx, dy) > FLICK_DEAD) press.moved = true;
+    if (press.kind === 'car' && press.moved) {
+      const [tx, ty] = tangent(press.c), proj = dx * tx + dy * ty;
+      aim = { c: press.c, side: proj > 0 ? 1 : 0, v: Math.max(0, Math.min(S_MAX, Math.round(Math.abs(proj) / stepPx()))) };
+    }
+    if (press.kind === 'sw' && press.moved) {
+      // drag toward a leg: the lever follows the drag direction
+      const c = Y.sw[press.k], p = P(c);
+      let bestL = legs[press.k], bd = -Infinity;
+      Y.S[c][1].forEach((m, l) => {
+        const q = P(m), vx = q[0] - p[0], vy = q[1] - p[1], d = Math.hypot(vx, vy) || 1;
+        const dot = (dx * vx + dy * vy) / d;
+        if (dot > bd) { bd = dot; bestL = l; }
+      });
+      setLeg(press.k, bestL);
+    }
+  });
+  function endPress(e, cancel) {
+    if (!press) return;
+    const p = press; press = null; aimSw = -1;
+    if (p.kind === 'sw') {
+      if (!p.moved && !cancel) setLeg(p.k, 1 - legs[p.k]);
+      return;
+    }
+    const a = aim; aim = null;
+    if (cancel) return;
+    if (!p.moved) { selCar = p.c; say('Drag the car along the track to flick it: the farther you drag, the faster it rolls.'); return; }
+    if (a && a.v > 0) doFlick(a.c, a.side, a.v);
+  }
+  canvas.addEventListener('pointerup', e => endPress(e, false));
+  canvas.addEventListener('pointercancel', e => endPress(e, true));
+
+  // Keyboard: Tab picks a car, 1-9 set the speed, arrows flick it, A-D switches.
+  window.addEventListener('keydown', e => {
+    if (!Y || paused) return;
+    const key = e.key;
+    if (cardKind) {
+      if (key === 'Enter' || key === ' ') { const b = card.querySelector('button[data-act]:not([disabled])'); if (b && performance.now() >= cardLock) b.click(); e.preventDefault(); }
+      return;
+    }
+    if (key === 'Tab') {
+      const cars = []; for (let c = 0; c < Y.n; c++) if (typ(st, c)) cars.push(c);
+      if (!cars.length) return;
+      const i = cars.indexOf(selCar);
+      selCar = cars[(i + (e.shiftKey ? cars.length - 1 : 1)) % cars.length];
+      say('Car picked: ' + CAR_NAME[typ(st, selCar)] + '. Speed ' + kbSpeed + ' (1–9, + or \u2212); an arrow key flicks it.');
+      e.preventDefault(); return;
+    }
+    if (/^[1-9]$/.test(key)) { kbSpeed = +key; say('Speed ' + kbSpeed + '.'); return; }
+    if (key === '+' || key === '=' || key === '-') { kbSpeed = Math.max(1, Math.min(S_MAX, kbSpeed + (key === '-' ? -1 : 1))); say('Speed ' + kbSpeed + '.'); return; }
+    const dirs = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (dirs[key] && selCar >= 0 && typ(st, selCar)) {
+      const [tx, ty] = tangent(selCar), [dx, dy] = dirs[key], proj = dx * tx + dy * ty;
+      if (Math.abs(proj) > 0.2) doFlick(selCar, proj > 0 ? 1 : 0, kbSpeed);
+      e.preventDefault(); return;
+    }
+    const lk = key.toLowerCase();
+    if (lk.length === 1 && lk >= 'a' && lk <= 'd') { const k = lk.charCodeAt(0) - 97; if (k < Y.sw.length) setLeg(k, 1 - legs[k]); return; }
+    if (lk === 'z') undo();
+    if (lk === 'h') hint();
+    if (lk === 'x') restart();
+  });
+
+  // § loop
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (!paused && !cardKind && !won && L) elapsed += dt;
+    if (!paused) tickHint();
+    if (msgEl.textContent && now > msgUntil && !hintShow) msgEl.textContent = '';
+    // keep the tracked selection valid after moves
+    if (selCar >= 0 && !anim && !typ(st, selCar)) selCar = -1;
+    draw(paused ? 0 : dt);
+    requestAnimationFrame(frame);
+  }
+  startLevel(reachedIdx(), true);
+  fitYard();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
