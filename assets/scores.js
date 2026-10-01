@@ -209,6 +209,33 @@ window.ArcadeScores = (function () {
     return Array.isArray(g.boards[board]) ? g.boards[board] : [];
   }
 
+  // Play counts of a game from leaderboards.json (built hourly from session
+  // rows, docs/scores.md): { total, current, since, versions: [[v, n]] } with
+  // every version 1..current, or null when the file has no counts (an old
+  // file, offline, a standalone copy). Versions newer than the manifest
+  // (a stale gallery) are left out.
+  function plays(data, game) {
+    const p = data && data.plays;
+    if (!p || !p.games || typeof p.games !== "object") return null;
+    const counts = p.games[game.id] || {};
+    const versions = [];
+    let total = 0;
+    for (let v = 1; v <= game.version; v++) {
+      const n = Math.max(0, Math.floor(Number(counts[v]) || 0));
+      versions.push([v, n]);
+      total += n;
+    }
+    const last = versions[versions.length - 1];
+    return { total, current: last ? last[1] : 0, since: String(p.since || ""), versions };
+  }
+
+  // "18", "1,240", "12k": compact past 9,999 so a card line stays short.
+  function count(n) {
+    return n >= 10000
+      ? new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n).toLowerCase()
+      : n.toLocaleString("en-US");
+  }
+
   // Where a score would place on a board (1-based).
   function rank(game, entries, value) {
     const sp = spec(game);
@@ -218,6 +245,6 @@ window.ArcadeScores = (function () {
 
   return {
     ADJ, NOUN, hash, defaultHandle, isHandle, spec, fromResult, beats, format, boardName,
-    load, bests, record, merge, handle, newHandle, listed, setListed, me, leaderboards, top, rank,
+    load, bests, record, merge, handle, newHandle, listed, setListed, me, leaderboards, top, rank, plays, count,
   };
 })();

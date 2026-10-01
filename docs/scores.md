@@ -171,6 +171,40 @@ next hourly run tries again.
 GitHub stops scheduled workflows after 60 days without a commit; any push,
 or "Enable workflow" on the Actions tab, restarts it.
 
+## Play counts
+
+The same build counts **plays**: telemetry session rows (one per cabinet
+visit with 3+ s of play or a finished round, [telemetry.md](telemetry.md)),
+per game and version, into a `plays` block of `leaderboards.json`:
+
+```json
+"plays": { "since": "2026-09-27", "through": "<newest session row>",
+  "recent": { "<hashed session id>": 1759334700892 },
+  "games": { "hot-iron": { "1": 2, "2": 5, "3": 3, "4": 1 } } }
+```
+
+- **Card** (`assets/gallery.js`): "18 plays · 5 on v9" in the card footer
+  ("18 plays" when every play is on the current version). Hidden under 10
+  plays (`PLAYS_SHOWN`), since "2 plays" reads as "nobody plays this".
+  Filled in place once the file loads, so focus and scroll don't move.
+- **About panel** (`assets/cabinet.js`, "Plays by version"): every version,
+  newest first, with a bar. Versions from before counting began (no plays,
+  released on or before `since`) fold into one "v1–v5 · before counting"
+  row. Telemetry started 2026-09-27, so older versions have no counts.
+- **Never double-counted.** Counting isn't idempotent like bests, so
+  `recent` keeps hashed ids of the sessions in the 10-minute overlap
+  window and skips them when they are read again. Tested: an incremental
+  run equals a full recount.
+- **Never lost.** Plays are read and kept separately from scores: if the
+  session read fails, the previous counts are kept. A previous file
+  without `plays` (or `--full`) recounts every session row, so the history
+  since telemetry began is rebuilt from the sheet.
+- **Only real versions.** Rows for an unknown game, or a version outside
+  1..the manifest's, are ignored. A game renamed would lose its counts,
+  but ids never change. Players who turned off play stats aren't counted
+  (the About note says so).
+- Counts include everyone, the maintainer's own playtests too.
+
 ## Cheating
 
 Scores are posted by the browser, so a determined person can forge one.
@@ -179,6 +213,7 @@ entry per player, board names checked against `boardList`, and the
 backend's `BLOCKED_CLIENTS` script property (no redeploy) to drop a
 spammer's rows. If it ever matters, the next step is plausibility checks
 per game in the builder (e.g. a time score must equal the row's `seconds`).
+Play counts can be inflated the same way; `BLOCKED_CLIENTS` covers it.
 
 ## Open ideas
 
