@@ -107,6 +107,11 @@ overturns a rule, update its tag here and add the evidence to its log entry.
 - A hint needed before the first move is on screen from the start; every
   hint has a minimum time on screen. *A hint that waits for stillness never
   shows in tilt mode.* Bubble Glass. players (n=2).
+- Messages get their own strip, never drawn over the play area, and the
+  layout refits on every level change, not only on resize. Screenshot
+  every level at phone sizes (portrait and landscape) with a hint showing.
+  *Text over the board and a stale fit read as broken.* Rail Yard.
+  feedback (n=1).
 
 ## Depth and replay
 

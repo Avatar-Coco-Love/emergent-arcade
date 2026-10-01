@@ -439,3 +439,19 @@ Check:
   prove it with a bot that never uses it.
 
 *Evidence: bots. Provisional.*
+
+## Text over the board and a stale fit read as broken
+
+Rail Yard v1 (2026-10-01, maintainer's in-game note, phone): the level tip
+and hint text drew over the yard (on the OUT label on most levels); the
+yard "did not start fully on the screen" until full screen was toggled;
+the gravel siding looked janky, its per-cell beds overlapping at the bend.
+Telemetry from the same player: every round they finished was a win, but
+4/4 sessions ended with a round left mid-way (~18 s in), so layout, not
+difficulty, likely ended them. Causes: `#msg` sat absolutely over the
+canvas in a 0.8-cell band too small for two lines; `startLevel()` never
+called `fitYard()`, so each yard kept the previous one's fit (level 1 is
+one straight track, turned for portrait) until a resize; gravel was a
+rotated box per cell. v2: message strip of its own (two lines), refit per
+level, one continuous bed, labels placed where no track runs. Bots can't
+see any of this: only screenshots at phone sizes do.

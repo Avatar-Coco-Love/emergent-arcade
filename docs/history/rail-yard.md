@@ -3,6 +3,19 @@
 Older material for `docs/games/rail-yard.md`, newest first. Grep it; don't
 read it whole.
 
+## Moved from the notes at v2 (2026-10-01)
+
+One-verb bots (v1 balance): max (full strength only, full planning) wins
+0 of 10; flicks (never touches a lever) 1 of 10 (level 1 has no switch);
+switches (never flicks) 0 of 10.
+
+Hint in Chromium (phone viewport): 1.2 s cold on level 9 (27k states),
+2.9 s cold on level 10; ~60 ms on the par path once the background plan
+(`PREPLAN_MS` per frame from the level's start) has finished.
+
+Open idea, not planned: Slopes (no v1). Mass (heavier cuts roll shorter) was left out to keep
+  one number to read.
+
 ## v1 development (2026-09-30): rule changes found by the bots
 
 The brief (verbs, complexity list, achievements, v2 ideas) came from the
