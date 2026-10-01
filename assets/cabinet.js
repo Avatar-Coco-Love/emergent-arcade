@@ -436,7 +436,7 @@ window.ArcadeCabinet = (function () {
     $("aboutPlaysRows").replaceChildren(...rows);
     const since = p.since ? ` since ${UI.shortDate(p.since)}` : "";
     $("aboutPlaysNote").textContent = p.total
-      ? `${Scores.count(p.total)} play${p.total === 1 ? "" : "s"}${since}. A play is one visit with at least 3 seconds of play. Players who turned off play stats aren't counted. Updated hourly.`
+      ? `${Scores.count(p.total)} play${p.total === 1 ? "" : "s"}${since}. A play is a finished round, or at least 30 seconds of play. Players who turned off play stats aren't counted. Updated hourly.`
       : "No plays counted yet. Counts update hourly.";
   }
 

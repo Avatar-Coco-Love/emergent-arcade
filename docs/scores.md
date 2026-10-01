@@ -173,12 +173,17 @@ or "Enable workflow" on the Actions tab, restarts it.
 
 ## Play counts
 
-The same build counts **plays**: telemetry session rows (one per cabinet
-visit with 3+ s of play or a finished round, [telemetry.md](telemetry.md)),
-per game and version, into a `plays` block of `leaderboards.json`:
+The same build counts **plays** per game and version, into a `plays` block
+of `leaderboards.json`. A play is a telemetry session row (one per cabinet
+visit, [telemetry.md](telemetry.md)) with a finished round (win or loss) or
+30+ s of play (`PLAY_SECONDS`), so quick looks don't count but open-ended
+games and long first levels do. On the data to Oct 1 that's 77 of 113
+sessions (round only: 68; 60 s: 71). The file records the rule
+(`"rule": "round-or-30s"`); when `PLAY_SECONDS` changes, the next build
+sees a different rule and recounts every session row:
 
 ```json
-"plays": { "since": "2026-09-27", "through": "<newest session row>",
+"plays": { "rule": "round-or-30s", "since": "2026-09-27", "through": "<newest session row>",
   "recent": { "<hashed session id>": 1759334700892 },
   "games": { "hot-iron": { "1": 2, "2": 5, "3": 3, "4": 1 } } }
 ```

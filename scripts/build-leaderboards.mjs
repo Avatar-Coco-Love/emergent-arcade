@@ -31,6 +31,8 @@ const opt = (name, fallback) => {
 const FORMAT = "emergent-arcade-leaderboards";
 const TOP = 25; // entries kept per board
 const MAX_BOARDS = 50; // per game, so a forged board name can't grow the file
+const PLAY_SECONDS = 30; // a play: a finished round, or this much play (docs/scores.md)
+const PLAY_RULE = `round-or-${PLAY_SECONDS}s`; // a file counted by another rule is recounted
 const OVERLAP_MS = 10 * 60 * 1000; // re-read a little before `through`; merging is idempotent
 
 const games = JSON.parse(readFileSync(join(root, "games/games.json"), "utf8")).games;
@@ -202,20 +204,22 @@ function countPlays(prevPlays, rows) {
     const game = byId.get(r.game_id);
     const v = Number(r.game_version);
     const at = Date.parse(r.received_at || r.submitted_at || "") || 0;
-    if (r.kind !== "session" || !game || !Number.isInteger(v) || v < 1 || v > game.version) continue;
+    if (r.kind !== "session") continue;
+    newest = Math.max(newest, at);
+    const day = at ? new Date(at).toISOString().slice(0, 10) : "";
+    if (day && (!since || day < since)) since = day;
+    if (!game || !Number.isInteger(v) || v < 1 || v > game.version) continue;
+    if (!(Number(r.rounds) >= 1 || Number(r.seconds) >= PLAY_SECONDS)) continue;
     const key = scores.hash(`play:${r.session_id || `${r.client_id}|${r.submitted_at}`}`);
     if (seen.has(key)) continue;
     seen.set(key, at);
     const mine = (counts[game.id] ||= {});
     mine[v] = (mine[v] || 0) + 1;
     added++;
-    newest = Math.max(newest, at);
-    const day = at ? new Date(at).toISOString().slice(0, 10) : "";
-    if (day && (!since || day < since)) since = day;
   }
   const recent = {};
   for (const [key, at] of seen) if (at >= newest - OVERLAP_MS) recent[key] = at;
-  return { plays: { since, through: newest ? new Date(newest).toISOString() : null, recent, games: counts }, added };
+  return { plays: { rule: PLAY_RULE, since, through: newest ? new Date(newest).toISOString() : null, recent, games: counts }, added };
 }
 
 const prev = await readPrev(opt("prev", ""));
@@ -240,9 +244,10 @@ if (error) {
   console.log(`leaderboards: ${rows.length} rows read${since ? ` since ${since}` : ""}, ${used} with a score`);
 }
 
-// Plays are read on their own: a file from before play counts (no `plays`)
-// reads every session row once, so history since telemetry began is kept.
-const prevPlays = !full && prev && prev.plays && prev.plays.games ? prev.plays : null;
+// Plays are read on their own: a file from before play counts (no `plays`),
+// or counted by another rule, reads every session row again, so history
+// since telemetry began is kept and follows the current rule.
+const prevPlays = !full && prev && prev.plays && prev.plays.games && prev.plays.rule === PLAY_RULE ? prev.plays : null;
 const playsSince = prevPlays && prevPlays.through ? new Date(Date.parse(prevPlays.through) - OVERLAP_MS).toISOString() : "";
 try {
   const sessions = await fetchSessions(playsSince);
