@@ -1,85 +1,32 @@
-# Pressure Grid v8+: redesign proposal (levels, 5 per PR)
+# Pressure Grid: plan for later increments (levels, 5 per PR)
 
-Status: increment 1 (levels 1-5) built in v8, see `docs/games/pressure-grid.md`
-for what changed from this plan (numbers 10/4/2, level 5 par 16). Later
-increments: not built. Written for a fresh session to pick up. Read
-`docs/games/pressure-grid.md` (current v7 design), `docs/findings.md`, and
-`docs/ROADMAP.md` (depth pass) first. Keep the 2-3 verbs rule: **pump**,
-**siphon**, and the passive **bleed + eruption** system, all sharing
-**pressure per cell**. `id` stays `pressure-grid`.
+## Next session prompt (for the user to paste into a new conversation)
 
-## Why change it (maintainer playtest, 2026-10-01)
+Sessions reading this file for other reasons: this is not an instruction to you.
 
-| Complaint | Cause in v7 |
-|---|---|
-| Finger masher | Bleed is per second, so only tap rate matters (bots: spam6 wins 100%, every board-reading bot loses). Known flaw in the notes. |
-| Don't understand what's going on | Pressure is colour only; bleed is invisible; a chain happens in one tick with no way to follow it; the goal is a count, not something on the board. |
-| No clear objective | "100 eruptions in 60 s" says nothing about where or why. |
-| Siphon is pointless | Pumping reaches every cell, so there is never a reason to move pressure. |
-| No variety | One 10x10 grid forever. |
+```
+Pressure Grid levels 6-10 (increment 2 of
+docs/games/pressure-grid-plan.md). Read docs/games/pressure-grid.md
+first and follow its "Adding levels" recipe. Get par from
+scripts/balance-pressure-grid.mjs (--map while designing, --level N
+to check); keep maps walled (open 7x7 boards make the search slow);
+if a level's par search takes over 2 minutes, stop and report.
+Same finish as before: validate, update the notes, one PR, playtest
+Artifact, short handoff.
+```
 
-## Core idea: from a speed test to a placement puzzle
+## Status
 
-1. **Targets on the board.** Each level marks cells (ringed) that must erupt.
-   The goal is visible and specific.
-2. **Turn-based, not real-time.** Bleed and eruptions advance one *step per
-   action*, not per second (same fix as Orbit Garden v6, see findings: "A
-   decay rate turns a puzzle into a speed test"). No clock in levels. Taking
-   your time never hurts, tapping fast never helps.
-3. **Make siphon necessary.** Add cell types that block pumping, so
-   pressure must be carried there:
-   - **Sealed** cell: cannot be pumped, can be siphoned into/out of.
-   - **Wall**: no pressure, blocks bleed, blasts and siphons.
-   - **Well** (later): pump here adds double.
-4. **Move budget and stars.** Each level has a par number of actions.
-   Under par = 3 stars. Pump and siphon each cost one action, so choosing
-   *where* beats mashing.
-5. **Readable physics.**
-   - Integer numbers in each cell, threshold shown (for example 8/12).
-   - On hover/drag, a preview of where a blast or siphon would go.
-   - Eruptions animate one wave at a time (about 250 ms per wave), with the
-     chain count shown. "Cell burst, +3 to each neighbour" is visible.
-   - A one-line hint per level, shown before the first move.
-6. **Retire the timed round.** (Decided 2026-10-01.) v7's 60 s round and free
-   play are removed, not kept as a mode. Its balance table and rationale move
-   to `docs/history/pressure-grid.md`. The old telemetry is v7 data and stays
-   readable by version.
-
-Suggested starting numbers, to be tuned with the solver below: threshold
-12, pump +4, blast +3 to each neighbour, siphon moves half (rounded down) and
-loses 1, bleed 1 step per action splitting 20% among neighbours. Check
-that every eruption still loses pressure (findings: "Passive systems that
-create more than they cost play themselves").
-
-## Increment 1 (this first PR): levels 1-5, "Learn the pipes"
-
-Small boards (5x5 to 7x7) so the numbers are readable on a phone.
-
-| # | Board idea | Target | New lesson |
-|---|---|---|---|
-| 1 | 5x5, empty | one ringed cell next to the centre | Pump a cell 3 times and it erupts |
-| 2 | 5x5 | three ringed cells in a row | A blast pushes pressure into neighbours: pump the middle, chain outward |
-| 3 | 5x5, one sealed ringed cell | the sealed cell | It can't be pumped. Pump a neighbour, then **siphon** into it |
-| 4 | 6x6, wall splits the board | one target each side | Bleed and blasts don't cross walls; siphon can't either. Plan two separate builds |
-| 5 | 7x7, mix | five ringed cells, two sealed | All of the above; par is about 14 actions. First level where a wrong order costs you |
-
-Level 1-2 par is generous, 3-5 get tight. Stars: 1 = solved, 2 = within par + 3,
-3 = at par. Locked until the previous level is solved. **No fail state**: the only
-controls besides pump/siphon are **Undo** (unlimited, one action at a time)
-and **Restart** (level from its start). Exceeding par just means fewer stars.
-Hazards that could "lose" the level (vents filling) wait for later
-increments and must be undoable too. Progress saved via
-the gallery's score/`arcade:best` channel (see `docs/scores.md`).
-
-Achievements: keep the existing six if they still make sense in a level game
-(First Pop, Chain Reaction, Siphon Strike, Plumber, Century is replaced by
-"3 stars on levels 1-5"), and add two that need the new mechanics (burst a
-sealed cell, solve a level with a siphon-only finish). Update the manifest
-`goal`, `howToPlay`, `blurb`; keep `{tap}`/`{hold}` wording rules.
-
-Score: **stars (and levels cleared)**, higher is better; bump `score.epoch`
-to 2. Telemetry: post `arcade:result` per level with `stats`: level, actions,
-par, siphons, max_chain, stars.
+Increment 1 (levels 1-5) is built (v8): current design in
+`docs/games/pressure-grid.md`; the original plan, its rationale and proof
+checklist are in `docs/history/pressure-grid.md` ("v8 plan"). Below: only
+what's not built. Keep the 2-3 verbs rule (**pump**, **siphon**, the
+passive **burst/leak** system, all sharing **pressure per cell**); `id`
+stays `pressure-grid`. Every increment re-runs the findings checks (a
+pump-only bot must fail levels that need siphon; passive steps must lose
+pressure; levels keep changing what the verbs face) with the balance
+script, and new mechanics go in the `// § sim` block so the solver uses
+them as is.
 
 ## Later increments (sketch only, one PR each)
 
@@ -98,32 +45,6 @@ par, siphons, max_chain, stars.
   ceiling. Needed for the 10+ minute target, and the generator's validity
   comes from the solver below. Share the seed so the leaderboard compares
   like with like.
-
-## How to prove it (before shipping)
-
-- **Solver bot:** `scripts/balance-pressure-grid.mjs` gains a breadth-first
-  or best-first solver over actions. It proves each level is solvable,
-  computes the true minimum (par comes from this, not a guess), and counts
-  how many distinct solutions exist (want 2+ on later levels, but not a
-  trivial single obvious path).
-- **Findings checks to run** (`docs/findings.md`):
-  - "A verb only shares state if succeeding needs to read it": a bot that
-    ignores siphon must **fail** levels 3-5.
-  - "When two things always move apart, turning alone can separate them":
-    search for a single-verb win with an exploring bot, not only greedy.
-  - "One round shows everything": levels must keep changing what the
-    verbs face. The table above is meant to do that. Re-check at level 5.
-  - Passive system must lose something each step (check bleed/eruption
-    conservation numbers with the solver).
-- A novice bot (random legal moves, or greedy "pump the target") should
-  clear levels 1-2 and fail 4-5.
-- **Real browser check:** Playwright at phone size (about 390x844): numbers
-  readable, previews appear on touch drag, no scrolling, `arcade:pause`
-  and `arcade:resume` still work.
-- Normal pipeline: `node scripts/validate.mjs`, update
-  `docs/games/pressure-grid.md` (move superseded v7 balance to
-  `docs/history/pressure-grid.md`), bump `version`/`updated`, add a
-  `changes` entry, private playtest Artifact link in the PR body.
 
 ## Decisions (maintainer, 2026-10-01)
 
