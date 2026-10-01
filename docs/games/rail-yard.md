@@ -50,9 +50,11 @@ drains it, what's left at impact decides couple / touch / bounce.
   15-pip gauge while aiming, and an impact label after every flick.
 - Portrait screens turn the yard a quarter turn (`fitYard`, `rot`);
   `startLevel` refits every yard. Tips and hints go in `#msg`, a two-line
-  strip above the yard (never over it). Gravel is one stroked bed; siding
-  and OUT labels take the first of: past the buffer, beside the end
-  (either side), where `labelClash` finds no other track.
+  strip above the yard: cards clear it, the tip shows on Start, tip and
+  hint stay until the next flick, other lines fade (not while paused or
+  under a card). Gravel is one stroked bed. Board pills (siding/OUT, hint
+  speed, impact) take the first spot `labelClash` finds clear of tracks,
+  other pills and the yard edge.
 - Keys: Tab car, 1–9 / + − speed, arrows flick, A–D switches, Z X H.
 
 ## Key constants (`games/rail-yard.html`, `§ engine`, `§ constants`)
@@ -66,7 +68,7 @@ drains it, what's left at impact decides couple / touch / bounce.
 | GENTLE_N | 10 couplings | END_LOCK_MS | 900 |
 | PREPLAN_MS | 4 ms per frame | ROLL_S / ROLL_K | 0.05 / 0.5 s (roll animation) |
 
-Car types: B box, H hopper (square ■), T tank (round ●), F flat (◆, both).
+Cars: B box, H hopper (square ■), T tank (round ●), F flat (◆, both).
 
 ## Levels (ids permanent; `LEVELS`; add, never rename)
 
@@ -93,14 +95,12 @@ enter first deepest.
 ## Balance (v1, `node scripts/balance-rail-yard.mjs 20`)
 
 Median of 20 seeded runs per level; minutes = 9 s per flick, 4 s per
-hint, 2 s per undo, 10 s per level card.
+hint, 2 s per undo, 10 s per card.
 
 | bot | result |
 |---|---|
 | solver | every stated par verified; total par 55; largest search 67k states (2.5 s Node) |
-| max (full strength only, full planning) | wins 0 of 10 |
-| flicks (never touches a lever) | wins 1 of 10 (level 1 has no switch) |
-| switches (never flicks) | wins 0 of 10 |
+| max / flicks / switches (one-verb bots) | wins 0 / 1 / 0 of 10 |
 | novice (1-move lookahead, ±1-2 speed, hint after 4 stuck flicks, restarts when stuck) | wins 10/10, ~19 min total; level moves 1/4/8/18/22/14/32/21/18/27 |
 | hinted (hint before every flick, off by one 25%) | wins 10/10, ~15 min total |
 
@@ -116,7 +116,8 @@ Wins carry `score` (run total). Losses: `reason` `restart` or `leave`
 v1 (2026-10-01): 1 player (touch), 4 sessions, 7 rounds, all wins (L1-L3,
 L3 7 moves vs par 4); 4/4 sessions left mid-round ~18 s in. Feedback (the
 maintainer): hint text over OUT, yard not fully on screen until a
-full-screen toggle, gravel beds overlapping. All fixed in v2.
+full-screen toggle, gravel beds overlapping, tip shown under the level
+card. All fixed in v2.
 
 ## Open ideas / known limits
 
