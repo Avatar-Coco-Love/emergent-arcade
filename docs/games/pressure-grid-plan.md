@@ -38,9 +38,10 @@ Status: proposal, not built. Written for a fresh session to pick up. Read
    - Eruptions animate one wave at a time (about 250 ms per wave), with the
      chain count shown. "Cell burst, +3 to each neighbour" is visible.
    - A one-line hint per level, shown before the first move.
-6. **Keep the old game as a mode.** v7's timed round and free play stay as
-   "Sandbox" (own score epoch) so nothing is lost and the telemetry history
-   keeps meaning something.
+6. **Retire the timed round.** (Decided 2026-10-01.) v7's 60 s round and free
+   play are removed, not kept as a mode. Its balance table and rationale move
+   to `docs/history/pressure-grid.md`. The old telemetry is v7 data and stays
+   readable by version.
 
 Suggested starting numbers, to be tuned with the solver below: threshold
 12, pump +4, blast +3 to each neighbour, siphon moves half (rounded down) and
@@ -61,7 +62,11 @@ Small boards (5x5 to 7x7) so the numbers are readable on a phone.
 | 5 | 7x7, mix | five ringed cells, two sealed | All of the above; par is about 14 actions. First level where a wrong order costs you |
 
 Level 1-2 par is generous, 3-5 get tight. Stars: 1 = solved, 2 = within par + 3,
-3 = at par. Locked until the previous level is solved. Progress saved via
+3 = at par. Locked until the previous level is solved. **No fail state**: the only
+controls besides pump/siphon are **Undo** (unlimited, one action at a time)
+and **Restart** (level from its start). Exceeding par just means fewer stars.
+Hazards that could "lose" the level (vents filling) wait for later
+increments and must be undoable too. Progress saved via
 the gallery's score/`arcade:best` channel (see `docs/scores.md`).
 
 Achievements: keep the existing six if they still make sense in a level game
@@ -118,11 +123,9 @@ par, siphons, max_chain, stars.
   `docs/history/pressure-grid.md`), bump `version`/`updated`, add a
   `changes` entry, private playtest Artifact link in the PR body.
 
-## Open questions for the maintainer
+## Decisions (maintainer, 2026-10-01)
 
-1. Keep the v7 timed round as a "Sandbox" mode, or retire it?
-2. Is "stars by action count" the right reward, or would you prefer
-   no par and a plain level count?
-3. Should failing exist (a vent fills, move budget runs out), or should
-   levels only be solved or undone? The proposal assumes undo plus
-   restart, with no fail screen for increment 1.
+1. Retire the v7 timed round and free play (no Sandbox mode).
+2. Reward is **stars** by action count (1 = solved, 2 = within par + 3,
+   3 = at par). Score = total stars, higher is better, `score.epoch` bump.
+3. **Undo and Restart only**, no fail screens.
