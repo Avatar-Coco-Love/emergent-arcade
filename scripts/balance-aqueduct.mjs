@@ -1,6 +1,6 @@
 // Headless bots for the Aqueduct prototype (prototypes/aqueduct.html).
 //
-// Usage: node scripts/balance-aqueduct.mjs [runs=10] [bot,bot,...] [DEPTH=10,BEAM=6]
+// Usage: node scripts/balance-aqueduct.mjs [runs=10] [bot,bot,...] [DEPTH=14,BEAM=10]
 //   TRACE=1 prints the planner's chosen angles.
 //
 // The prototype exposes window.__dbg (seeded rng, step(dt), snapshot/restore),
@@ -10,6 +10,7 @@
 //   idle: never turns.
 //   sweeper: rotates at a constant 90°/s.
 //   novice: every 0.7 s picks a random angle within ±120° of upright.
+//   greedy: points gravity from the bead toward the exit, ignores the vial.
 //   keys: PC player model: holds ← or → for 1.2 s, then switches, fixed pattern
 //     (no look-ahead). Shows what quantized/ramped turning alone achieves.
 //   planner: beam search over (turn to ±k·30°, hold 1 s) actions by rolling the
@@ -53,6 +54,8 @@ function playInPage({ seed, bot, search }) {
     const r = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
     return drive(k => { if (k % 42 === 0) turnTo((r() * 2 - 1) * 120); });
   }
+  if (bot === 'greedy') return drive(k => {   // turns so gravity points from the bead toward the exit; never looks at the vial
+    if (k % 12 === 0) { const dx = D.EXIT.x - D.bead.x, dy = D.EXIT.y - D.bead.y; D.setTarget(Math.atan2(dx, dy) * 180 / Math.PI); } });
   if (bot === 'keys') return drive(k => { const ph = Math.floor(k / 72) % 4; D.setKey(ph === 0 ? 1 : ph === 2 ? -1 : 0); });
   // planner
   const SH = D.SHAPES, CELL = 4, X0 = -200, Y0 = -100, GW = 100, GH = 80;
@@ -81,7 +84,8 @@ function playInPage({ seed, bot, search }) {
     let best = 1e9;
     for (let k = 0; k < HOLD && D.state === 'playing'; k++) { D.step(dt); if (k % 10 === 9) best = Math.min(best, geo()); }
     const g = geo(); best = Math.min(best, g);
-    return { snap: D.snap(), score: g + 0.5 * best + (D.state === 'won' ? -1000 : 0), won: D.state === 'won', a };
+    const f = D.fill, vErr = f < D.BAND.lo ? D.BAND.lo - f : f > D.BAND.hi ? f - D.BAND.hi : 0;
+    return { snap: D.snap(), score: g + 0.5 * best + 80 * vErr - (D.doorOpen ? 20 : 0) + (D.state === 'won' ? -1000 : 0), won: D.state === 'won', a };
   }
   let beam = [{ snap: D.snap(), score: geo(), plan: [] }], found = null, expanded = 0;
   for (let depth = 0; depth < search.DEPTH && !found; depth++) {
@@ -121,9 +125,9 @@ async function run(bot, runs, browser, search) {
   return out;
 }
 
-const BOTS = (process.argv[3] || 'idle,sweeper,novice,keys,planner').split(',');
+const BOTS = (process.argv[3] || 'idle,sweeper,greedy,novice,keys,planner').split(',');
 const runsArg = +process.argv[2] || 10;
-const search = { DEPTH: 10, BEAM: 6 };
+const search = { DEPTH: 14, BEAM: 10 };
 for (const kv of (process.argv[4] || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); search[k] = +v; }
 const browser = await chromium.launch();
 for (const bot of BOTS) {

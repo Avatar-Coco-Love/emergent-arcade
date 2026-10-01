@@ -185,3 +185,31 @@ Bots (45 s limit, seeded):
 Not verified: how the bead and water *feel* in a hand (that is the gate (b);
 needs a human playtest). Snapshots must include the pair list (the viscosity
 pass reuses the previous substep's pairs) or planner replays diverge.
+
+## Step 1 results: vial and level lock (2026-10-01)
+
+Added to `prototypes/aqueduct.html` (still no stopcock, one level):
+- Chambers A and B are taller (240 px) and the channel sits higher, so the
+  sill is 56 px above the starting water. A **vial** (28 px wide, 200 px
+  tall, open at the top into the bridge) hangs between them: water crossing
+  the bridge drops in. Reading = particles inside `VIAL` / capacity (~179),
+  low-pass 0.3 s (`FILT`). Target band 25-50% (`BAND`), drawn as a green
+  strip on the glass.
+- **Lock**: the exit door opens after `HOLD_T` 1.0 s in band and closes if
+  the reading leaves it. Win = bead inside the exit circle (right wall of B)
+  for 0.4 s with the door open. HUD shows the vial %, band and door state.
+- A vial open only at the top banks its water: it holds until tilted past
+  roughly atan(2*(L-d)/w), about 80 deg when half full. That is
+  hysteresis with no stopcock, and is what makes this more than a dial.
+
+Bots (45 s limit, 20 seeds; planner 5, DEPTH=14 BEAM=10):
+- idle 0%, sweeper 0%, keys 0%, novice 5%, greedy (bead toward exit, ignores
+  vial) 15%, planner 5/5 (median win 5.3 s, ~390 deg turned, ~530 rollouts).
+- Planner at DEPTH=10 BEAM=6 won 2 of 3: the search needs the deeper default.
+- Gate met: novice well under 30%, planner wins every seed. Greedy's 15%
+  is luck (a sweep happens to bank the vial); not a design problem yet.
+
+Open: all bots here turn only, since the stopcock does not exist, so the
+"Turn alone must not win" finding is not testable until step 2. Exit and
+band positions were picked by one planner pass, not tuned; a player may find
+the 25-50% band hard to read. Phone feel and tilt direction still untested.

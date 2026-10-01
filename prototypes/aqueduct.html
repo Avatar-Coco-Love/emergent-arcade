@@ -35,17 +35,21 @@ const NEG = 0.25;         // share of negative pressure kept (surface tension)
 const VISC = 0.05;        // pair viscosity
 const MAXPUSH = 1.4;      // px, per pair per substep
 const BEAD_R = 10, BEAD_M = 7;   // bead radius; mass in particle masses (water displaced ≈ 14)
-const EXIT = { x: 135, y: 130, r: 16 }, EXIT_T = 0.5;
+const EXIT = { x: 152, y: 40, r: 18 }, EXIT_T = 0.4;   // door: bead must sit here while the lock is open
+const BAND = { lo: 0.25, hi: 0.5 }, HOLD_T = 1.0, FILT = 0.3;   // vial target band (fraction of capacity), hold time, reading filter (s)
+const VIAL = { x0: -14, x1: 14, y0: -45, y1: 155 };   // reading region of the vial under the bridge
 const KEY_W0 = 50, KEY_W1 = 420, KEY_RAMP = 1.1;   // deg/s for ← → (hold = faster = flick)
 const TARGET_RATE = 360;  // deg/s, bots and tilt-follow
 const DEAD = 3;           // deg, tilt dead zone
 // Free space (vessel frame, y down): rounded boxes {cx, cy, hw, hh, r}.
 const SHAPES = [
-  { cx: -100, cy: 45, hw: 75, hh: 105, r: 16 },   // chamber A (water starts here)
-  { cx: 100, cy: 45, hw: 75, hh: 105, r: 16 },    // chamber B (exit pocket on its floor)
-  { cx: 0, cy: -40, hw: 62, hh: 14, r: 10 },      // the channel (a bridge over a sill)
+  { cx: -100, cy: 35, hw: 75, hh: 120, r: 16 },   // chamber A (water starts here)
+  { cx: 100, cy: 35, hw: 75, hh: 120, r: 16 },    // chamber B (the exit is on its right wall)
+  { cx: 0, cy: -62, hw: 62, hh: 17, r: 10 },      // the channel (a bridge over a high sill)
+  { cx: 0, cy: 52.5, hw: 14, hh: 102.5, r: 8 },   // the vial, open at the top into the bridge
 ];
-const CEN = { x: 0, y: 45 };   // rotation centre
+const CEN = { x: 0, y: 35 };
+const VIAL_CAP = (VIAL.x1 - VIAL.x0) * (VIAL.y1 - VIAL.y0) / (SPACING * SPACING * 0.866);   // particles when full   // rotation centre
 const R2D = 180 / Math.PI;
 
 // § rng
@@ -78,6 +82,7 @@ const OX = new Float32Array(N), OY = new Float32Array(N);
 const bead = { x: 0, y: 0, vx: 0, vy: 0, ox: 0, oy: 0 };
 let angle = 0, omega = 0, target = 0, mode = 'free';   // degrees; mode: 'free' (keys/dial/tilt) or 'target' (bots)
 let elapsed = 0, exitT = 0, state = 'playing', keyDir = 0, keyHold = 0, rho0 = 1;
+let fill = 0, bandT = 0, doorOpen = false;   // filtered vial reading (0..1), seconds in band, lock state
 const gv = { x: 0, y: 1 };
 
 // § grid
@@ -180,7 +185,12 @@ function step(dt) {        // one 1/60 s frame
   turn(dt);
   for (let s = 0; s < SUB; s++) substep(dt / SUB);
   elapsed += dt;
-  if (Math.hypot(bead.x - EXIT.x, bead.y - EXIT.y) < EXIT.r) { exitT += dt; if (exitT >= EXIT_T) state = 'won'; } else exitT = 0;
+  let n = 0;
+  for (let i = 0; i < N; i++) if (PX[i] > VIAL.x0 && PX[i] < VIAL.x1 && PY[i] > VIAL.y0 && PY[i] < VIAL.y1) n++;
+  fill += (n / VIAL_CAP - fill) * Math.min(1, dt / FILT);
+  if (fill >= BAND.lo && fill <= BAND.hi) bandT += dt; else bandT = 0;
+  doorOpen = bandT >= HOLD_T;
+  if (doorOpen && Math.hypot(bead.x - EXIT.x, bead.y - EXIT.y) < EXIT.r) { exitT += dt; if (exitT >= EXIT_T) state = 'won'; } else exitT = 0;
 }
 
 // § init
@@ -204,11 +214,11 @@ function reset(seed) {
     if (d > 0 && d < H) rho0 += (1 - d / H) ** 2;
   }
   for (let k = 0; k < 150; k++) step(1 / 60);   // settle 2.5 s
-  elapsed = 0; exitT = 0; state = 'playing'; angle = 0; target = 0;
+  elapsed = 0; exitT = 0; state = 'playing'; angle = 0; target = 0; fill = 0; bandT = 0; doorOpen = false;
 }
-function snap() { return { np: npairs, pI: pI.slice(0, npairs), pJ: pJ.slice(0, npairs), pQ: pQ.slice(0, npairs), pNX: pNX.slice(0, npairs), pNY: pNY.slice(0, npairs), PX: PX.slice(), PY: PY.slice(), VX: VX.slice(), VY: VY.slice(), b: { ...bead }, angle, target, mode, omega, elapsed, exitT, state, keyDir, keyHold }; }
+function snap() { return { np: npairs, pI: pI.slice(0, npairs), pJ: pJ.slice(0, npairs), pQ: pQ.slice(0, npairs), pNX: pNX.slice(0, npairs), pNY: pNY.slice(0, npairs), PX: PX.slice(), PY: PY.slice(), VX: VX.slice(), VY: VY.slice(), b: { ...bead }, angle, target, mode, omega, elapsed, exitT, state, keyDir, keyHold, fill, bandT, doorOpen }; }
 function restore(s) { npairs = s.np; pI.set(s.pI); pJ.set(s.pJ); pQ.set(s.pQ); pNX.set(s.pNX); pNY.set(s.pNY); PX.set(s.PX); PY.set(s.PY); VX.set(s.VX); VY.set(s.VY); Object.assign(bead, s.b);
-  angle = s.angle; target = s.target; mode = s.mode; omega = s.omega; elapsed = s.elapsed; exitT = s.exitT; state = s.state; keyDir = s.keyDir; keyHold = s.keyHold;
+  angle = s.angle; target = s.target; mode = s.mode; omega = s.omega; elapsed = s.elapsed; exitT = s.exitT; state = s.state; keyDir = s.keyDir; keyHold = s.keyHold; fill = s.fill; bandT = s.bandT; doorOpen = s.doorOpen;
   const a = angle / R2D; gv.x = Math.sin(a); gv.y = Math.cos(a); }
 
 // § render
@@ -218,7 +228,7 @@ let W = 0, Hh = 0, dpr = 1, scale = 1;
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 1.25);   // water is soft-edged; raster cost scales with dpr²
   W = cv.clientWidth; Hh = cv.clientHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr);
-  scale = Math.min(W, Hh) / 420;
+  scale = Math.min(W, Hh) / 440;
 }
 function shapePath(s, pad) {
   const x = s.cx - s.hw - pad, y = s.cy - s.hh - pad, w = 2 * (s.hw + pad), h = 2 * (s.hh + pad), r = s.r + pad;
@@ -229,8 +239,14 @@ function draw() {
   ctx.save(); ctx.translate(W / 2, Hh / 2); ctx.scale(scale, scale); ctx.rotate(angle / R2D); ctx.translate(-CEN.x, -CEN.y);
   ctx.fillStyle = '#35547d'; ctx.beginPath(); for (const s of SHAPES) shapePath(s, 5); ctx.fill();
   ctx.fillStyle = '#0e1a2c'; ctx.beginPath(); for (const s of SHAPES) shapePath(s, 0); ctx.fill();
-  ctx.fillStyle = 'rgba(255,216,107,.18)'; ctx.strokeStyle = '#ffd86b'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.arc(EXIT.x, EXIT.y, EXIT.r, 0, 6.2832); ctx.fill(); ctx.stroke();
+  const vh = VIAL.y1 - VIAL.y0, yb = f => VIAL.y1 - f * vh;   // target band on the vial glass
+  ctx.fillStyle = 'rgba(120,230,160,.22)'; ctx.fillRect(VIAL.x0 - 6, yb(BAND.hi), VIAL.x1 - VIAL.x0 + 12, yb(BAND.lo) - yb(BAND.hi));
+  ctx.strokeStyle = '#78e6a0'; ctx.lineWidth = 1.5; ctx.beginPath();
+  for (const f of [BAND.lo, BAND.hi]) { ctx.moveTo(VIAL.x0 - 6, yb(f)); ctx.lineTo(VIAL.x1 + 6, yb(f)); } ctx.stroke();
+  ctx.fillStyle = doorOpen ? 'rgba(255,216,107,.25)' : 'rgba(255,110,110,.14)'; ctx.strokeStyle = doorOpen ? '#ffd86b' : '#d86a6a'; ctx.lineWidth = 2;
+  ctx.setLineDash(doorOpen ? [] : [5, 4]);
+  ctx.beginPath(); ctx.arc(EXIT.x, EXIT.y, EXIT.r, 0, 6.2832); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+  if (!doorOpen && bandT > 0) { ctx.strokeStyle = '#78e6a0'; ctx.beginPath(); ctx.arc(EXIT.x, EXIT.y, EXIT.r + 4, -1.5708, -1.5708 + 6.2832 * bandT / HOLD_T); ctx.stroke(); }
   ctx.fillStyle = 'rgba(70,160,255,.9)'; ctx.beginPath();
   for (let i = 0; i < N; i++) { ctx.moveTo(PX[i] + 4.2, PY[i]); ctx.arc(PX[i], PY[i], 4.2, 0, 6.2832); }
   ctx.fill();
@@ -287,10 +303,10 @@ function frame(t) {
   while (acc >= 1 / 60) { step(1 / 60); acc -= 1 / 60; }
   simEMA += (performance.now() - t0 - simEMA) * 0.05;
   draw();
-  hud.textContent = `Aqueduct prototype  ·  ← → or drag to turn  ·  R restart\n${fpsEMA.toFixed(0)} fps · sim ${simEMA.toFixed(1)} ms · ${(((angle % 360) + 360) % 360).toFixed(0)}°`;
+  hud.textContent = `Aqueduct prototype  ·  ← → or drag to turn  ·  R restart\n${fpsEMA.toFixed(0)} fps · sim ${simEMA.toFixed(1)} ms · ${(((angle % 360) + 360) % 360).toFixed(0)}° · vial ${(fill * 100).toFixed(0)}% (${BAND.lo * 100}-${BAND.hi * 100})${doorOpen ? ' · DOOR OPEN' : ''}`;
   msg.textContent = state === 'won' ? 'Through the exit! (R to restart)' : '';
 }
-window.__dbg = { N, step, snap, restore, reset, sdf, SHAPES, EXIT, BEAD_R, PR, TARGET_RATE, H,
+window.__dbg = { N, BAND, VIAL_CAP, get fill() { return fill; }, get doorOpen() { return doorOpen; }, N0: N, step, snap, restore, reset, sdf, SHAPES, EXIT, BEAD_R, PR, TARGET_RATE, H,
   get px() { return PX; }, get py() { return PY; }, get vx() { return VX; }, get vy() { return VY; },
   bead, get angle() { return angle; }, get state() { return state; }, get elapsed() { return elapsed; },
   setTarget(a) { mode = 'target'; target = a; }, setAngle(a) { mode = 'free'; angle = a; },
