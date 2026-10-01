@@ -1,105 +1,130 @@
 # Pressure Grid: design notes
 
-**v7** (2026-09-29) · playtest: https://claude.ai/artifact/6XdvHNUwNZx9LdbutZBSuL ·
-balance: `node scripts/balance-pressure-grid.mjs 100`
-The arcade's first game and its structural reference
-(`docs/adding-a-game.md`). Mechanics: **pump** (tap a cell: +pressure) and
-**siphon** (drag from a cell toward a neighbour: move 60% of it, 15% lost),
-sharing **pressure per cell**. A passive system bleeds pressure into
-neighbours every tick. Cells at the threshold erupt: they empty and blast
-their neighbours, which can chain. **Round (v7): make `TARGET` (100)
-eruptions within `ROUND_S` (60 s)**; the clock starts at the first pump or
-siphon. Win or loss posts `arcade:result`, then the board stays open for
-free play until New round. Until v6 it was a sandbox with no round. 6
-achievements (in `games/games.json`).
+**v8** (2026-10-01) · playtest: PLAYTEST_LINK ·
+balance: `node scripts/balance-pressure-grid.mjs` (`--count`, `--line`, `--level N`)
+The arcade's first game, rebuilt as a turn-based level puzzle (plan and
+later increments: `docs/games/pressure-grid-plan.md`). v7's 60 s round was
+a tap-speed test and is retired (history: `docs/history/pressure-grid.md`).
+Mechanics: **pump** ({tap} a cell: +4) and **siphon** (drag to a
+neighbour: pour all of it in, 1 lost), sharing **pressure per cell**,
+read by the passive **burst** system (at 10 a cell empties, +2 to each
+open neighbour, chains in waves) and a small **leak** (a cell left above
+8 loses 1 per move). Goal per level: burst every ringed cell. Stars by
+moves: 3 at par, 2 within par + 3, 1 for any solve. No fail state: Undo
+(unlimited, Restart is undoable too) and Restart only. Increment 1 =
+levels 1-5; next increments add 5 levels each.
 
-**Known flaw, accepted for now:** the round is a tapping-speed test (see
-Balance (v7)). It was added to get human win rates and round data. A goal
-where decisions matter needs a redesign (below).
+## Rules (`// § sim` block in the game; the balance script runs it as is)
 
-Feedback: one 3/5 test rating on v5 (2026-09-27). No telemetry sessions
-recorded yet.
+| Const | Value | Note |
+|---|---|---|
+| THRESHOLD | 10 | a cell at 10+ bursts |
+| PUMP_ADD | 4 | three pumps from empty burst (12, 2 wasted) |
+| BLAST | 2 | to each **open** neighbour; walls, edges and sealed cells take none. 4 × 2 < 10: every burst loses ≥ 2 |
+| SAFE_MAX | 8 | after a move, a cell at 9 leaks to 8 |
+| SIPHON_LOSS | 1 | a pour moves everything, 1 lost; source needs 2+ |
 
-## Key constants (`games/pressure-grid.html`, top of the script)
+Cells: open, **target** (ring), **wall** (nothing passes), **sealed** (no
+pumps, no blasts in: only a pour fills it; it can be poured from).
+Order inside a move: pump/pour → burst waves (all cells at 10+ together,
+then their neighbours) → leaks. Between moves every cell is ≤ 8.
 
-| Const | Value | Const | Value |
-|---|---|---|---|
-| GRID_SIZE | 10×10 | TICK_MS | 200 (5 ticks/s) |
-| CLICK_ADD | 30 | BLEED_RATE | 0.15 of a cell per tick, split among neighbours |
-| ERUPT_THRESHOLD | 100 | ERUPT_BLAST | 24 to each neighbour (was 40 until v6) |
-| SIPHON_FRACTION / _EFFICIENCY | 0.6 / 0.85 | DRAG_THRESHOLD_PX | 12 |
-| ROUND_S | 60 s (clock from the first input) | TARGET | 100 eruptions |
+Why these numbers (first tries in the plan: threshold 12, pump 4, blast
+3): with 12/4/3 a blast never completes a pumped cell (8 + 3 = 11), so
+chains didn't pay. 10/4/2 makes "prime at 8, let the neighbour finish it"
+the core move.
 
-Eruptions resolve in up to 20 passes per tick (`resolveEruptions`, `guard`).
-An interior eruption removes ≥100 and adds 96 (4 × 24), so **every
-eruption loses pressure** (edges and corners lose more) and storms burn out.
-Before v6 it added 160 and storms sustained themselves. Bleed conserves
-pressure and siphons lose 15%.
+## Levels (increment 1)
+
+| # | id | map | par | lesson |
+|---|---|---|---|---|
+| 1 | first-pop | 5×5, one ring | 3 | pump to 10 |
+| 2 | chain | 5×5, three rings in a row | 7 | a burst gives +2; 8 + 2 bursts |
+| 3 | sealed | 5×5, sealed ring in the centre | 5 | pour into a seal; pour a little to top it off |
+| 4 | wall | 6×6, wall column, ring left; ring + sealed ring right | 10 | walls; prime the ring beside the seal |
+| 5 | pipes | 7×7 mostly walls: o S o row, a feeder, o, S, feeder | 16 | pour out of a ring into a seal, then refill it |
+
+Plan said "par about 14" for level 5; the solver's minimum for this map
+is 16 (kept: it's what the map needs).
+
+## Balance (`node scripts/balance-pressure-grid.mjs --count`)
+
+| Level | par | optimal lines (first moves) | pump-only | habit | greedy novice (≤40) | random (≤40) | ledger: in / burst loss / pour loss / left |
+|---|---|---|---|---|---|---|---|
+| 1 first-pop | 3 | 1 (1) | 3 | 3 | 100%, med 3 | 96%, med 13 | 12 / 4 / 0 / 8 |
+| 2 chain | 7 | 630 (3) | 7 | 7 | 100%, med 7 | 28%, med 31 | 28 / 8 / 0 / 20 |
+| 3 sealed | 5 | 128 (4) | none | 5 | 62%, med 17 | 62%, med 17 | 12 / 2 / 2 / 8 |
+| 4 wall | 10 | 186,720 (5) | none | 11 | 56%, med 22 | 17%, med 32 | 32 / 14 / 2 / 16 |
+| 5 pipes | 16 | 5.5 × 10⁹ (5) | none | 18 | 9%, med 36 | 0% | 48 / 32 / 4 / 12 |
+
+Greedy novice = pump the fullest unburst ring, else a random move near a
+ring. Its level 4 solves take ~22 moves (1 star), not a clean fail as the
+plan hoped; level 5 it mostly fails. "Optimal lines" counts orderings, so
+it's large; the distinct first moves show there's more than one plan.
+
+- **Siphon is required** on levels 3-5 (sealed rings): the pump-only
+  search finds no solution (findings: "A verb only shares state if
+  succeeding needs to read it").
+- **Habit** (burst rings one at a time in reading order, each by its
+  shortest line) loses 1 move on level 4 and 2 on level 5: still 2 stars.
+- **Novices** clear 1-2 almost always, rarely clear 5 within 40 moves.
+- **Passive system loses**: every burst destroys ≥ 2 (the ledger column:
+  pressure in vs lost to bursts, pours, leaks on the solver's line).
+- Browser (Playwright, 390×844 and 844×390): solver lines played by
+  pointer reach "Solved … ★★★" on all five; no scrolling; pause blocks
+  input; results and achievements post as below.
+
+Solver: A* over moves with an admissible bound (pumps are the only
+source; each unburst ring must destroy ≥ 10 − 2 × open neighbours; each
+pour into a seal destroys 1, and a seal needs ⌈deficit / 7⌉ pours). Moves
+limited to cells within 1 step of an unburst ring; `--zone 2` gives the
+same par on 1-4. A fast copy of `play()` is checked against the game's on
+random sequences each run. Level 5 takes ~40 s.
+
+## Score, progress, telemetry
+
+`score`: **total stars** (own `score` in `arcade:result`, board `main`,
+higher, max 15, **epoch 2**). The gallery only keeps the best total, so
+on a later visit levels 1..⌈best/3⌉ count as solved (shown ✓, the next
+one unlocked) and the total is spread over them; stars per level are only
+exact for levels played this visit.
+
+`arcade:result` per solve: `outcome: 'win'`, `time` (unpaused seconds on
+the level), `level`, `level_id`, `run`, `attempt` (times the level was
+opened this run), `score`, `stats`: `level`, `actions`, `par`, `siphons`,
+`max_chain` (most cells burst by one move), `stars`, `undos`, `restarts`.
+Levels left unsolved post nothing (read from session time).
+
+Achievements (7): First Pop, Chain Reaction (3+ cells in one move: prime
+both rings beside a seal on level 5, or all three on level 2), Siphon
+Strike, Unsealed, Last Drop (a final pour that bursts 2 rings), Plumber
+(15 pours in a visit), All Stars. Full Pressure and Century were v7-only.
 
 ## Layout
 
-400×400 board (40 px cells), scaled to fit. A status line below (the goal
-before the first input, then seconds left · eruptions/100 · siphons, then
-the result and free-play counts) and a New round button.
-
-## Balance (v7 round, `node scripts/balance-pressure-grid.mjs 100`)
-
-One 60 s round per run. Achievements are only counted inside the round.
-
-| Bot | win | median win time | pumps used | eruptions |
-|---|---|---|---|---|
-| spam1 (centre, 1/s) | 0% | – | – | 0 |
-| spam3 (centre, 3/s) | 100% | 56 s | 168 | 103 |
-| spam6 (centre, 6/s) | 100% | 24 s | 144 | 100 |
-| spread3 (random cells, 3/s) | 0% | – | – | 0 |
-| spread6 (random cells, 6/s) | 100% | 45 s | 270 | 108 |
-| sweep3 (lowest cell, 3/s) | 0% | – | – | 0 |
-| sweep6 (lowest cell, 6/s) | 100% | 44 s | 265 | 100 |
-| strike3 (siphon strikes, 3/s) | 0% | – | – | 41 |
-
-Tap rate decides the round, not where you tap. Bleed spreads pumped
-pressure across the board within about a second, so only pressure
-concentrated faster than it bleeds away erupts. Spam at 3/s wins just
-before the clock. The siphon bot loses, so siphon doesn't help win.
-
-Tried first: a pump budget (reach 100 eruptions with 150 pumps, siphons
-free, no clock). Still a speed test: spam6 won 100% (144 pumps), spam3 0%
-(85 eruptions), and every board-reading bot 0%, because pressure bled away
-between slow taps.
-
-Real-browser check (Playwright fake clock): one tap, then idle → loss at
-60.0 s, `reason: time`; centre spam 6/s → win at 25 s with 166 pumps and
-107 eruptions, max chain 9.
-
-### Telemetry fields (v7)
-
-`reason` on a loss: `time`. `stats`: `eruptions`, `pumps`, `siphons`,
-`siphon_hits` (siphons that set off an eruption), `max_chain` (most
-eruptions in one tick or one siphon), `pressure` (total left on the board).
-`time` is the round clock (paused ticks don't count). New round mid-round
-posts nothing.
-
-## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
-
-v6 sandbox, 1 session of 64 s: **all 6 achievements unlocked** (no bot
-earns all six), so they may be too easy for a human using both verbs. A
-second player: 13 s of play, First Eruption only, then left. No v7 round
-data yet, so no human win rate.
+Top: level buttons with stars and the total. A two-line message strip
+(level name + hint; the result after a solve). The board (80-unit cells,
+fitted to the space, refitted on every level). A status line (moves, star
+limits, rings left, the threshold) and Undo / Restart / Next. Numbers in
+every cell; 8+ drawn larger and warm; rings orange, green ✓ when burst;
+sealed cells have a steel frame and a padlock; walls hatched. Pressing a
+cell previews the pump, dragging previews the pour: each changed cell
+shows its new value, bursts get a dashed outline. Bursts play one wave
+per 260 ms (white flash, "chain wave n/m"); a leak shows "−1 leak". A
+press during the animation finishes it and acts. Keys: Z undo, R
+restart, N next.
 
 ## Open ideas / known limits
 
-- **Fixed in v6: eruption storms sustained themselves** (4 × 40 > 100).
-  Now `ERUPT_BLAST` 24; all bots settle. Watch for the opposite problem:
-  play may feel too calm. If so, try 25 (break-even, occasional storms that
-  still burn out) before anything larger.
-- Siphon is rarely needed. Only a deliberate strike pattern earns Siphon
-  Strike or Plumber; pumping alone reaches 4 of 6 achievements.
-- **The v7 round is a speed test** (Balance (v7)). A goal where decisions
-  matter could come from making bleed slower, or charging it per action
-  instead of per second (as Orbit Garden v6 did for wither, see
-  `docs/findings.md`). Or add a goal only siphon can reach, such as making
-  marked cells erupt. Compare the human win rate and `pumps` against the
-  bot table first: a human at ~3 taps/s is right at the limit.
-- Not yet hand-played on a phone.
-
-History (older versions, balance tables, playtests): `docs/history/pressure-grid.md`
+- Not hand-played on a phone yet. Watch: is the pour gesture found
+  without the level 3 hint? Do players read the preview?
+- The leak rarely matters in 1-5 (0 leaks on every solver line); it's
+  the hook for "leaky" cells in levels 6-10.
+- Order costs little with 10/4/2 (a cell needs 4a + 2b = 10 in any
+  order); order shows up through pours and overshoot. Later levels need
+  rules that empty or block (valves, vents, delayed bursts) to make order
+  matter more.
+- Search cost grows fast on open boards (state = every cell's value);
+  keep later maps walled, or improve the bound, before 7×7 open boards.
+- Progress across visits is only the best total (see Score). A per-game
+  save channel in the gallery would fix it.

@@ -1,153 +1,258 @@
-// Headless bots for Pressure Grid: round win rate (TARGET eruptions within
-// ROUND_S seconds), and how long each achievement takes within the round.
+// Solver and bots for Pressure Grid's levels (v8+). One line per level.
 //
-// Usage: node scripts/balance-pressure-grid.mjs [runs=100] [bot,bot,...] [CONST=value,...]
-//   e.g. node scripts/balance-pressure-grid.mjs 100 spread,strike BLEED_RATE=0.2
+// Usage: node scripts/balance-pressure-grid.mjs [--count] [--level N] [--zone R] [--runs N]
 //
-// Builds a debug copy of games/pressure-grid.html (state on window, no
-// timer), then plays one round per run in headless Chromium by calling tick()
-// directly, until the round ends (the game's own clock). Bots act
-// `rate` times per second; seeded randomness picks cells. Prints one line per
-// bot: round win rate, median round time and pumps used, median eruptions,
-// then the share of runs that earned each achievement and the median seconds
-// to earn it. Also: "storm" = when a single
-// 0.2 s tick first had 100+ eruptions (the board flashing white), and whether
-// the board settles (no eruptions) within 20 s of the bot stopping.
-// Needs Playwright (installed globally in Claude Code cloud sessions).
+// Runs the game's own rules: the block between "// § sim" and "// § end sim"
+// in games/pressure-grid.html (no browser needed). A fast copy of play() is
+// used for search; it is checked against the game's play() on random move
+// sequences first, so the two can't drift apart.
+//
+// Per level:
+//   par      the true minimum number of moves (A*, admissible bound below),
+//            and whether it matches `par` in LEVELS
+//   seqs     with --count: optimal move sequences, and how many distinct first
+//            moves start one (slow on level 5)
+//   pump     the minimum with pumps only ("none" = siphon is required)
+//   habit    the rule a player takes from level 1: burst the targets one at a
+//            time in reading order, each by its shortest sequence
+//   greedy   novice: pump the fullest target not yet burst (a random move
+//            near a target when none can be pumped); solved % within 40 moves
+//   random   novice: random moves near targets; solved % within 40 moves
+//   ledger   pressure on the solver's line: pumped in, and lost to bursts,
+//            pours and leaks (every passive step must lose something)
+//
+// Search moves only touch cells within `zone` steps (default 1) of a target
+// that hasn't burst yet: pressure from further away has to be carried in at a
+// loss. `--zone 2` gives the same par on levels 1-4 (slower).
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
-import { execSync } from 'child_process';
-import { fileURLToPath, pathToFileURL } from 'url';
-
-let chromium;
-try { ({ chromium } = await import('playwright')); } catch {
-  const root = execSync('npm root -g').toString().trim();
-  ({ chromium } = await import(pathToFileURL(path.join(root, 'playwright/index.mjs'))));
-}
+import { fileURLToPath } from 'url';
 
 const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/pressure-grid.html');
-const LIMIT_S = 120;
+const args = process.argv.slice(2);
+const opt = (name, d) => { const i = args.indexOf(name); return i < 0 ? d : args[i + 1]; };
+const COUNT = args.includes('--count');
+const ONLY = opt('--level', null);
+const RADIUS = +opt('--zone', 1);
+const RUNS = +opt('--runs', 200);
 
-// spam: pump the centre cell. spread: pump random cells. sweep: pump the
-// lowest-pressure cell (aims at Full Pressure). strike: pump two neighbours,
-// then siphon one into the other once that makes it erupt (Siphon Strike).
-const BOTS = {
-  spam1: { mode: 'spam', rate: 1 },
-  spam3: { mode: 'spam', rate: 3 },
-  spam6: { mode: 'spam', rate: 6 },
-  spread3: { mode: 'spread', rate: 3 },
-  spread6: { mode: 'spread', rate: 6 },
-  sweep3: { mode: 'sweep', rate: 3 },
-  sweep6: { mode: 'sweep', rate: 6 },
-  strike3: { mode: 'strike', rate: 3 },
-};
+const html = fs.readFileSync(SRC, 'utf8');
+const block = html.match(/\/\/ § sim[\s\S]*?\/\/ § end sim/);
+if (!block) throw new Error('no "// § sim" … "// § end sim" block in games/pressure-grid.html');
+const S = new Function(block[0] + `
+  return { LEVELS, parseLevel, startState, solved, play, stars, OPEN, SEALED, WALL,
+    C: { THRESHOLD, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS } };`)();
+const { THRESHOLD: T, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS } = S.C;
 
-function buildDebug(overrides) {
-  let html = fs.readFileSync(SRC, 'utf8');
-  for (const [k, v] of Object.entries(overrides)) {
-    const re = new RegExp(`(\\b${k} = )(\\[[^\\]]*\\]|[^,;]+)`);
-    if (!re.test(html)) throw new Error('no const ' + k);
-    html = html.replace(re, `$1${v}`);
+// § fast engine: a state is a Uint8Array, cell = pressure + 32 if it's a burst target.
+function makeFast(L) {
+  const openNb = L.nbrs.map(a => a.filter(j => L.kind[j] === S.OPEN));
+  const cand = new Int32Array(4096), wave = new Int32Array(4096), touched = new Int32Array(4096), mark = new Uint8Array(L.n);
+  // Returns { q, burst, targets, leaks, lost }; j < 0 = pump i, else pour i -> j.
+  function play(s, i, j) {
+    const q = s.slice();
+    let nc = 0, burst = 0, targets = 0, leaks = 0, lost = 0;
+    if (j < 0) { q[i] += PUMP_ADD; cand[nc++] = i; }
+    else { const v = q[i] & 31; q[j] += v - SIPHON_LOSS; q[i] &= 32; cand[nc++] = j; lost += SIPHON_LOSS; }
+    let nt = 0; touched[nt++] = cand[0];
+    for (let g = 0; g < 60 && nc; g++) {
+      let nw = 0;
+      for (let k = 0; k < nc; k++) { const c = cand[k]; if (!mark[c] && (q[c] & 31) >= T) { mark[c] = 1; wave[nw++] = c; } }
+      for (let k = 0; k < nw; k++) mark[wave[k]] = 0;
+      if (!nw) break;
+      for (let k = 0; k < nw; k++) {
+        const c = wave[k]; burst++;
+        lost += (q[c] & 31) - BLAST * openNb[c].length;
+        if (L.target[c]) { targets++; q[c] = 32; } else q[c] &= 32;
+      }
+      nc = 0;
+      for (let k = 0; k < nw; k++) for (const o of openNb[wave[k]]) { q[o] += BLAST; cand[nc++] = o; touched[nt++] = o; }
+    }
+    for (let k = 0; k < nt; k++) { const c = touched[k]; if (mark[c]) continue; mark[c] = 1; const v = q[c] & 31; if (v > SAFE_MAX && v < T) { q[c]--; leaks++; lost++; } }
+    for (let k = 0; k < nt; k++) mark[touched[k]] = 0;
+    return { q, burst, targets, leaks, lost };
   }
-  const tail = '  fitBoard();\n  setInterval(tick, TICK_MS);\n})();';
-  if (!html.includes(tail)) throw new Error('game file layout changed: update buildDebug()');
-  html = html.replace(tail, `
-  window.__dbg = {
-    get pressure() { return pressure; }, get eruptions() { return eruptions; }, get siphons() { return siphons; },
-    get round() { return round; }, get pumps() { return pumps; }, get roundTicks() { return roundTicks; },
-    GRID_SIZE, TICK_MS, unlocked, tick, doPump, doSiphon,
-    reset() { pressure = makeGrid(0); flash = makeGrid(0); ticks = 0; eruptions = 0; siphons = 0; unlocked.clear(); newRound(); },
+  const solved = q => L.targets.every(t => q[t] & 32);
+  return { play, solved };
+}
+
+function checkEngine(L, F) {
+  let s = 7;
+  const rnd = k => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return (s >>> 8) % k; };
+  for (let run = 0; run < 300; run++) {
+    let st = S.startState(L), q = new Uint8Array(L.n);
+    for (let step = 0; step < 40; step++) {
+      const i = rnd(L.n), nb = L.nbrs[i];
+      const j = rnd(3) || !nb.length ? -1 : nb[rnd(nb.length)];
+      const r = S.play(L, st, j < 0 ? { pump: i } : { from: i, to: j });
+      if (!r) continue;
+      st = r.st; q = F.play(q, i, j).q;
+      for (let c = 0; c < L.n; c++) if (st.p[c] + 32 * st.hit[c] !== q[c]) throw new Error(`fast engine differs from the game on ${L.def.id}`);
+    }
+  }
+}
+
+// § search
+const key = q => Buffer.from(q.buffer, q.byteOffset, q.length).toString('latin1');
+
+// Admissible bound on moves left. Pumps are the only source of pressure
+// (+PUMP_ADD each). Every target not yet burst must burst, destroying at least
+// T - BLAST × (open neighbours); every pour destroys SIPHON_LOSS, and a sealed
+// target needs ceil(deficit / (SAFE_MAX - SIPHON_LOSS)) pours of its own
+// (between moves no cell holds more than SAFE_MAX).
+function bound(L) {
+  const destroy = L.targets.map(t => Math.max(0, T - BLAST * L.nbrs[t].filter(j => L.kind[j] === S.OPEN).length));
+  return q => {
+    let H = 0, D = 0, K = 0, open = false;
+    for (let i = 0; i < L.n; i++) H += q[i] & 31;
+    L.targets.forEach((t, k) => {
+      if (q[t] & 32) return;
+      open = true;
+      D += destroy[k];
+      if (L.kind[t] === S.SEALED) K += Math.ceil((T - (q[t] & 31)) / (SAFE_MAX - SIPHON_LOSS));
+    });
+    if (!open) return 0;
+    return K + Math.max(0, Math.ceil((D + K * SIPHON_LOSS - H) / PUMP_ADD));
   };
-})();`);
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pressure-')), 'debug.html');
-  fs.writeFileSync(out, html);
+}
+
+function zones(L) {
+  return L.targets.map(t => {
+    let ring = [t]; const z = new Set(ring);
+    for (let r = 0; r < RADIUS; r++) { const nx = []; for (const i of ring) for (const j of L.nbrs[i]) if (!z.has(j)) { z.add(j); nx.push(j); } ring = nx; }
+    return [...z];
+  });
+}
+function moves(L, Z, q, siphon) {
+  const z = new Uint8Array(L.n), out = [];
+  L.targets.forEach((t, k) => { if (!(q[t] & 32)) for (const i of Z[k]) z[i] = 1; });
+  for (let i = 0; i < L.n; i++) {
+    if (!z[i] || L.kind[i] === S.WALL) continue;
+    if (L.kind[i] === S.OPEN) out.push([i, -1]);
+    if (siphon && (q[i] & 31) > SIPHON_LOSS) for (const j of L.nbrs[i]) if (z[j]) out.push([i, j]);
+  }
   return out;
 }
 
-// Runs inside the page.
-function playInPage({ seed, bot, limit }) {
-  const D = window.__dbg;
-  D.reset();
-  let s = seed;
-  const rand = () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  const N = D.GRID_SIZE, dt = D.TICK_MS / 1000;
-  const c = N >> 1;
-  const when = {};
-  const note = t => { for (const id of D.unlocked) if (!(id in when)) when[id] = t; };
-
-  function act() {
-    const P = D.pressure;
-    if (bot.mode === 'spam') D.doPump([c, c]);
-    else if (bot.mode === 'spread') D.doPump([rand() * N | 0, rand() * N | 0]);
-    else if (bot.mode === 'sweep') {
-      let bx = 0, by = 0;
-      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (P[y][x] < P[by][bx]) { bx = x; by = y; }
-      D.doPump([bx, by]);
-    } else if (bot.mode === 'strike') {
-      // Siphon B (c+1) into A (c) when that tips A over; otherwise top up the lower one.
-      const a = P[c][c], b = P[c][c + 1];
-      if (a + b * 0.6 * 0.85 >= 100 && a < 100) D.doSiphon([c + 1, c], [-1, 0]);
-      else D.doPump(a <= b ? [c, c] : [c + 1, c]);
+// A* from q; returns the shortest line of moves, or null.
+function astar(L, F, h, Z, start, siphon = true, maxExpanded = 5e6) {
+  const best = new Map([[key(start), 0]]), buckets = [];
+  (buckets[h(start)] ||= []).push([start, 0, null]);
+  let expanded = 0;
+  for (let f = 0; f < buckets.length; f++) {
+    const b = buckets[f];
+    while (b && b.length) {
+      const [q, g, line] = b.pop();
+      if (best.get(key(q)) < g) continue;
+      if (++expanded > maxExpanded) return { line: null, expanded };
+      for (const [i, j] of moves(L, Z, q, siphon)) {
+        const r = F.play(q, i, j).q;
+        const nl = { i, j, prev: line };
+        if (F.solved(r)) {
+          const out = []; for (let x = nl; x; x = x.prev) out.unshift([x.i, x.j]);
+          return { line: out, expanded };
+        }
+        const k = key(r), old = best.get(k);
+        if (old !== undefined && old <= g + 1) continue;
+        best.set(k, g + 1);
+        (buckets[g + 1 + h(r)] ||= []).push([r, g + 1, nl]);
+      }
     }
   }
+  return { line: null, expanded };
+}
 
-  let acc = 0, storm = null;
-  for (let t = 0; t < limit && (D.round === 'ready' || D.round === 'playing'); t += dt) {
-    acc += bot.rate * dt;
-    while (acc >= 1) { act(); acc--; note(t); }
-    const before = D.eruptions;
-    D.tick();
-    if (storm === null && D.eruptions - before >= 100) storm = t;
-    note(t);
+// Optimal sequences of exactly `par` moves, and distinct first moves among them.
+function countSolutions(L, F, h, Z, par) {
+  const memo = new Map();
+  function count(q, g) {
+    const k = key(q) + g;
+    if (memo.has(k)) return memo.get(k);
+    let c = 0;
+    for (const [i, j] of moves(L, Z, q, true)) {
+      const r = F.play(q, i, j).q;
+      if (F.solved(r)) { if (g + 1 === par) c++; }
+      else if (g + 1 < par && g + 1 + h(r) <= par) c += count(r, g + 1);
+    }
+    memo.set(k, c);
+    return c;
   }
-  const eruptions = D.eruptions;
-  let settled = false;
-  for (let t = 0; t < 20 && !settled; t += dt) {
-    const before = D.eruptions;
-    D.tick();
-    if (t > 5 && D.eruptions === before) settled = true;
+  const start = new Uint8Array(L.n);
+  let total = 0, firsts = 0;
+  for (const [i, j] of moves(L, Z, start, true)) {
+    const r = F.play(start, i, j).q;
+    const c = F.solved(r) ? (par === 1 ? 1 : 0) : count(r, 1);
+    total += c; if (c) firsts++;
   }
-  return { when, eruptions, storm, settled, won: D.round === 'win', time: D.roundTicks * dt, pumps: D.pumps };
+  return { total, firsts };
 }
 
-async function run(bot, runs, file, browser, workers = 8) {
-  const results = [];
-  let next = 0;
-  await Promise.all(Array.from({ length: workers }, async () => {
-    const page = await browser.newPage();
-    await page.goto(pathToFileURL(file).href);
-    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: 1000 + i, bot, limit: LIMIT_S }); }
-    await page.close();
-  }));
-  return results;
+// § bots
+function habit(L) {
+  let q = new Uint8Array(L.n), total = 0;
+  for (const t of L.targets) {
+    if (q[t] & 32) continue;
+    const sub = { ...L, targets: [t] };
+    const Fs = makeFast(sub), r = astar(sub, Fs, bound(sub), zones(sub), q);
+    if (!r.line) return null;
+    for (const [i, j] of r.line) q = Fs.play(q, i, j).q;
+    total += r.line.length;
+  }
+  return total;
 }
 
-const IDS = ['first-eruption', 'chain-reaction', 'siphon-strike', 'plumber', 'full-pressure', 'century'];
-function report(name, rs) {
-  const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
-  const cols = IDS.map(id => {
-    const ts = rs.filter(r => id in r.when).map(r => r.when[id]);
-    return ts.length ? `${id} ${Math.round(100 * ts.length / rs.length)}% @${Math.round(med(ts))}s` : `${id} -`;
-  });
-  const storms = rs.filter(r => r.storm !== null).map(r => r.storm);
-  const storm = storms.length ? `${Math.round(100 * storms.length / rs.length)}% @${Math.round(med(storms))}s` : '-';
-  const settled = `${Math.round(100 * rs.filter(r => r.settled).length / rs.length)}%`;
-  const wins = rs.filter(r => r.won);
-  const round = `win ${Math.round(100 * wins.length / rs.length)}%` +
-    (wins.length ? ` @${Math.round(med(wins.map(r => r.time)))}s ${med(wins.map(r => r.pumps))} pumps` : '');
-  console.log(`${name.padEnd(8)} ${round} | eruptions ${med(rs.map(r => r.eruptions))} | storm ${storm} | settles ${settled} | ${cols.join(', ')}`);
+function novice(L, F, Z, mode, seed) {
+  let s = seed;
+  const rnd = k => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return (s >>> 8) % k; };
+  let q = new Uint8Array(L.n);
+  for (let n = 1; n <= 40; n++) {
+    let mv = null;
+    if (mode === 'greedy') {
+      const open = L.targets.filter(t => !(q[t] & 32) && L.kind[t] === S.OPEN).sort((a, b) => (q[b] & 31) - (q[a] & 31));
+      if (open.length) mv = [open[0], -1];
+    }
+    if (!mv) { const ms = moves(L, Z, q, true); mv = ms[rnd(ms.length)]; }
+    q = F.play(q, mv[0], mv[1]).q;
+    if (F.solved(q)) return n;
+  }
+  return null;
 }
 
-const runs = +process.argv[2] || 100;
-const names = (process.argv[3] || Object.keys(BOTS).join(',')).split(',');
-const overrides = {};
-for (const kv of (process.argv[4] || '').split(/,(?![^\[]*\])/).filter(Boolean)) { const [k, v] = kv.split('='); overrides[k] = v; }
-const file = buildDebug(overrides);
-const browser = await chromium.launch();
-for (const n of names) {
-  if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
-  report(n, await run(BOTS[n], runs, file, browser));
+function ledger(L, F, line) {
+  let q = new Uint8Array(L.n), pumped = 0, lostBurst = 0, lostPour = 0, leaks = 0, bursts = 0;
+  for (const [i, j] of line) {
+    const r = F.play(q, i, j);
+    if (j < 0) pumped += PUMP_ADD; else lostPour += SIPHON_LOSS;
+    lostBurst += r.lost - (j < 0 ? 0 : SIPHON_LOSS) - r.leaks; leaks += r.leaks; bursts += r.burst;
+    q = r.q;
+  }
+  let left = 0; for (let c = 0; c < L.n; c++) left += q[c] & 31;
+  return `in ${pumped}, bursts ${bursts} lost ${lostBurst}, pours lost ${lostPour}, leaks ${leaks}, left ${left}`;
 }
-await browser.close();
+
+const cellName = (L, k) => `${String.fromCharCode(97 + k % L.w)}${(k / L.w | 0) + 1}`;
+const fmt = (L, [i, j]) => j < 0 ? `+${cellName(L, i)}` : `${cellName(L, i)}>${cellName(L, j)}`;
+
+if (4 * BLAST >= T) console.log(`WARNING: 4 × BLAST (${4 * BLAST}) >= THRESHOLD (${T}): interior bursts don't lose pressure`);
+S.LEVELS.forEach((def, idx) => {
+  if (ONLY !== null && +ONLY !== idx + 1) return;
+  const L = S.parseLevel(def), F = makeFast(L), h = bound(L), Z = zones(L);
+  checkEngine(L, F);
+  const t0 = Date.now();
+  const sol = astar(L, F, h, Z, new Uint8Array(L.n));
+  const par = sol.line ? sol.line.length : null;
+  const ms = Date.now() - t0;
+  const parNote = par === def.par ? 'ok' : `MISMATCH (LEVELS says ${def.par})`;
+  const seqs = COUNT && par ? (() => { const c = countSolutions(L, F, h, Z, par); return ` | seqs ${c.total}, ${c.firsts} first moves`; })() : '';
+  const needsSiphon = L.targets.some(t => L.kind[t] === S.SEALED);
+  const pump = needsSiphon ? 'none (sealed target)' : (astar(L, F, h, Z, new Uint8Array(L.n), false).line?.length ?? 'none');
+  const hb = habit(L);
+  const nov = mode => {
+    const ns = []; for (let r = 0; r < RUNS; r++) { const n = novice(L, F, Z, mode, 1000 + r); if (n) ns.push(n); }
+    ns.sort((a, b) => a - b);
+    return `${Math.round(100 * ns.length / RUNS)}%` + (ns.length ? ` med ${ns[ns.length >> 1]}` : '');
+  };
+  console.log(`L${idx + 1} ${def.id.padEnd(9)} par ${par} ${parNote} (${sol.expanded} expanded, ${ms} ms)${seqs} | pump ${pump} | habit ${hb ?? '-'}` +
+    ` | greedy ${nov('greedy')} | random ${nov('random')} | ${par ? ledger(L, F, sol.line) : ''}` +
+    (args.includes('--line') && par ? ` | ${sol.line.map(m => fmt(L, m)).join(' ')}` : ''));
+});

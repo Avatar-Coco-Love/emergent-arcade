@@ -1,6 +1,8 @@
 # Pressure Grid v8+: redesign proposal (levels, 5 per PR)
 
-Status: proposal, not built. Written for a fresh session to pick up. Read
+Status: increment 1 (levels 1-5) built in v8, see `docs/games/pressure-grid.md`
+for what changed from this plan (numbers 10/4/2, level 5 par 16). Later
+increments: not built. Written for a fresh session to pick up. Read
 `docs/games/pressure-grid.md` (current v7 design), `docs/findings.md`, and
 `docs/ROADMAP.md` (depth pass) first. Keep the 2-3 verbs rule: **pump**,
 **siphon**, and the passive **bleed + eruption** system, all sharing

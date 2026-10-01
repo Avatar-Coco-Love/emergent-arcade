@@ -54,7 +54,7 @@ its own `score`, and bumps `epoch`.
 
 | game | score | ceiling |
 |---|---|---|
-| pressure-grid | Fastest 100 eruptions (time, wins) | none (time) |
+| pressure-grid | Stars (own `score`, total over levels, v8 / epoch 2) | 15 (3 per level, 5 levels so far) |
 | orbit-garden | Fastest bloom (time, wins) | none |
 | murmuration | Fastest flight (time, wins) | none |
 | ant-trails | Days survived (level, wins) | 6 |

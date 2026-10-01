@@ -62,7 +62,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === "/leaderboards.json") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ format: "emergent-arcade-leaderboards", version: 1, updated_at: "2026-09-30T12:00:00Z", through: null,
-      games: { "pressure-grid": { epoch: 1, boards: { main: [{ h: "Jade Owl", p: "x", s: 30, at: "2026-09-30", v: 7 }, { h: "Misty Wren", p: "y", s: 45, at: "2026-09-30", v: 7 }] } } } }));
+      games: { "pressure-grid": { epoch: 2, boards: { main: [{ h: "Jade Owl", p: "x", s: 12, at: "2026-10-01", v: 8 }, { h: "Misty Wren", p: "y", s: 6, at: "2026-10-01", v: 8 }] } } } }));
     return;
   }
   const rel = normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)).replace(/^([/\\])+/, "");
@@ -352,18 +352,19 @@ for (const vp of VIEWPORTS) {
     await check("scores: best, toasts, records panel, leaderboard", async () => {
       assert(first.id === "pressure-grid", `fixture is for pressure-grid, first is ${first.id}`);
       const frame = page.frames().find((f) => f.url().includes(first.file));
-      const post = (outcome, time) => frame.evaluate(([id, o, t]) => parent.postMessage({ type: "arcade:result", game: id, outcome: o, time: t }, "*"), [first.id, outcome, time]);
-      await post("win", 50);
+      // Pressure Grid's score is total stars, posted by the game (score.from "score").
+      const post = (outcome, stars) => frame.evaluate(([id, o, s]) => parent.postMessage({ type: "arcade:result", game: id, outcome: o, time: 20, score: s }, "*"), [first.id, outcome, stars]);
+      await post("win", 5);
       await page.waitForSelector(".toast:has-text('Your first best')", { timeout: 3000 });
-      await post("win", 40);
-      await page.waitForSelector(".toast:has-text('New best!'):has-text('was 50.0 s'):has-text('#2 on the leaderboard')", { timeout: 3000 });
-      await post("win", 60);
-      await page.waitForSelector(".toast:has-text('your best 40.0 s')", { timeout: 3000 });
+      await post("win", 9);
+      await page.waitForSelector(".toast:has-text('New best!'):has-text('was 5'):has-text('#2 on the leaderboard')", { timeout: 3000 });
+      await post("win", 4);
+      await page.waitForSelector(".toast:has-text('your best 9')", { timeout: 3000 });
       const scored = rows.filter((r) => r.kind === "round" && r.score != null);
-      assert(scored.length === 3 && scored[1].score === 40 && scored[1].board === "main" && scored[1].score_epoch === 1 && /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(scored[1].handle), JSON.stringify(scored[1]));
+      assert(scored.length === 3 && scored[1].score === 9 && scored[1].board === "main" && scored[1].score_epoch === 2 && /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(scored[1].handle), JSON.stringify(scored[1]));
       await page.locator('.toolbar [data-panel="achievements"]').click();
       assert((await page.locator("#panelTitle").textContent()) === "Records", "panel title");
-      assert((await page.locator("#bestLine").textContent()).includes("40.0 s"), "best line");
+      assert((await page.locator("#bestLine").textContent()).includes("9"), "best line");
       await page.waitForSelector("#lbList li.me");
       const lb = await page.locator("#lbList li").allTextContents();
       assert(lb.length === 3 && lb[0].includes("Jade Owl") && lb[1].includes("(you)") && lb[1].startsWith("#2"), lb.join(" | "));

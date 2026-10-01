@@ -57,6 +57,13 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   the verb on a timer; give every hazard that blocks the verb a window to
   use it. *A two-way verb forgives its own misuse.* Tidewright. bots.
 
+- In an order puzzle, amounts that only add up make the order free (4a +
+  2b reaches 10 whatever the order); order costs come from what takes or
+  empties (pours, bursts, caps). Land the key interaction exactly on the
+  threshold from natural states (8 + 2 = 10). Measure it with a habit bot
+  against the solver's par. *Additive amounts make the order free.*
+  Pressure Grid. bots.
+
 ## Time pressure and input
 
 - A decay rate (or a bleed that undoes actions) turns a puzzle into a speed

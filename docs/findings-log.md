@@ -455,3 +455,27 @@ one straight track, turned for portrait) until a resize; gravel was a
 rotated box per cell. v2: message strip of its own (two lines), refit per
 level, one continuous bed, labels placed where no track runs. Bots can't
 see any of this: only screenshots at phone sizes do.
+
+## Additive amounts make the order free
+
+Pressure Grid v8 (2026-10-01, solver bots). Turn-based levels with pump
++4, blast +2, burst at 10. A cell bursts once it has collected 4a + 2b ≥
+10 from a pumps and b neighbour bursts, in any order: bursting a sealed
+cell before or after priming the ring beside it costs the same. The
+"habit" bot (one target at a time, in reading order, each solved
+optimally) lost only 1 move on level 4 and 2 on level 5. What did make
+order cost: pours (they take everything, so pouring out of a ring
+first means refilling it), overshoot (pumping 8 → 12 wastes 2 that a
++2 blast wouldn't), and cells that empty. The first numbers tried
+(threshold 12, pump 4, blast 3) had the opposite problem: 8 + 3 = 11, so a
+blast never finished a pumped cell and chains didn't pay.
+Check:
+- For a puzzle about order, look for contributions that just add up:
+  if every source adds a fixed amount, order is free. Order needs
+  something that takes or empties (pours, bursts, caps, decays).
+- Check that the key interaction lands exactly on the threshold from
+  the states a player naturally makes (8 + 2 = 10), not one short.
+- Measure order with a habit bot (targets one at a time) against the
+  solver's par.
+
+*Evidence: bots. Provisional.*
