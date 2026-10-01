@@ -8,9 +8,12 @@
   :root {
     --bg: #0b0b10;
     --panel: #16161d;
+    --line: #2a2a34;
     --text: #e8e8ee;
     --muted: #9a9aa5;
-    --accent: #6fd3ff;
+    --accent: #ff7a3d;
+    --ok: #7be08a;
+    --star: #ffd25a;
   }
   * { box-sizing: border-box; }
   /* Fill whatever window the game is given (a browser tab or the gallery
@@ -22,25 +25,16 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     display: flex;
     flex-direction: column;
-    padding: 12px;
-    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
-    gap: 10px;
+    padding: 10px 12px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+    user-select: none;
+    -webkit-user-select: none;
   }
-  #boardWrap {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    place-items: center;
-  }
-  #board {
-    display: block;
-    touch-action: none;
-    border-radius: 8px;
-  }
-  .controls {
+  .bar {
     flex: none;
     display: flex;
-    gap: 12px;
+    gap: 6px;
     align-items: center;
     justify-content: center;
     flex-wrap: wrap;
@@ -48,358 +42,532 @@
   button {
     background: var(--panel);
     color: var(--text);
-    border: 1px solid #2a2a34;
+    border: 1px solid var(--line);
     border-radius: 6px;
     padding: 8px 14px;
     font-size: 0.9rem;
     cursor: pointer;
+    font-family: inherit;
   }
   button:active { transform: scale(0.97); }
-  .stat {
-    color: var(--muted);
-    font-size: 0.8rem;
+  button:disabled { opacity: 0.35; cursor: default; transform: none; }
+  button.lv { padding: 4px 8px; min-width: 52px; line-height: 1.15; font-size: 0.8rem; }
+  button.lv .st { display: block; font-size: 0.7rem; color: var(--star); letter-spacing: 1px; min-height: 0.85rem; }
+  button.lv.on { border-color: var(--accent); }
+  button.primary { border-color: var(--accent); color: #fff; background: #3a1d10; }
+  /* Messages get their own strip, never over the board (two lines tall so the board doesn't jump). */
+  #msg {
+    flex: none;
+    min-height: 2.6em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.92rem;
+    line-height: 1.3;
   }
+  #msg b { color: var(--accent); }
+  #msg .stars { color: var(--star); letter-spacing: 2px; }
+  #boardWrap {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+  }
+  #board { display: block; touch-action: none; }
+  .stat { color: var(--muted); font-size: 0.8rem; text-align: center; }
 </style>
 </head>
 <body>
+  <div class="bar" id="levels"></div>
+  <div id="msg"></div>
   <div id="boardWrap">
-    <canvas id="board" aria-label="Pressure Grid board. Tap a cell to pump, drag to siphon."></canvas>
+    <canvas id="board" aria-label="Pressure Grid board. Tap a cell to pump, drag to a neighbour to siphon."></canvas>
   </div>
-  <div class="controls">
-    <button id="resetBtn">New round</button>
-    <span class="stat" id="stat"></span>
+  <div class="stat" id="stat"></div>
+  <div class="bar">
+    <button id="undoBtn">Undo</button>
+    <button id="restartBtn">Restart</button>
+    <button id="nextBtn" class="primary" hidden>Next level</button>
   </div>
 
 <script>
 (function() {
   const GAME_ID = 'pressure-grid';
-  const GRID_SIZE = 10;
-  const CELL_PX = 40;
-  const CLICK_ADD = 30;
-  const BLEED_RATE = 0.15;
-  const ERUPT_THRESHOLD = 100;
-  const ERUPT_BLAST = 24;   // 4 × 24 < ERUPT_THRESHOLD: every interior eruption loses pressure, so storms burn out
-  const TICK_MS = 200;
-  const SIPHON_FRACTION = 0.6;   // fraction of source cell's pressure moved
-  const SIPHON_EFFICIENCY = 0.85; // fraction of siphoned amount that survives the transfer
-  const DRAG_THRESHOLD_PX = 12;   // movement needed before a tap becomes a drag
-  const ROUND_S = 60;             // a round: reach TARGET eruptions within this many seconds
-  const TARGET = 100;
+  const CELL = 80;               // board units per cell (drawing)
+  const WAVE_MS = 260;           // one eruption wave on screen
+  const DRAG_THRESHOLD_PX = 12;  // movement needed before a press becomes a drag
 
-  const canvas = document.getElementById('board');
-  const ctx = canvas.getContext('2d');
-  const statEl = document.getElementById('stat');
-  const size = GRID_SIZE * CELL_PX; // board size in game units; drawing uses these
+  // § sim: rules and levels. Pure functions, no DOM: scripts/balance-pressure-grid.mjs
+  // runs this block as is (between "§ sim" and "§ end sim") to solve every level.
+  const THRESHOLD = 10;   // a cell at this much erupts
+  const PUMP_ADD = 4;     // pump: +4 (three pumps from empty erupt)
+  const BLAST = 2;        // an eruption sends this much to each open neighbour (4 × 2 < 10: every eruption loses pressure)
+  const SAFE_MAX = 8;     // above this a cell leaks 1 per move (the bleed)
+  const SIPHON_LOSS = 1;  // a siphon pours all of a cell into a neighbour, minus this
+  const MAX_WAVES = 60;   // guard; chains always end (every eruption loses pressure)
 
-  // Scale the board to the largest square that fits the space it's given, and
-  // give the canvas one pixel per screen pixel so it stays sharp at any size.
-  const wrap = document.getElementById('boardWrap');
-  function fitBoard() {
-    const side = Math.max(120, Math.floor(Math.min(wrap.clientWidth, wrap.clientHeight)));
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    canvas.style.width = side + 'px';
-    canvas.style.height = side + 'px';
-    canvas.width = canvas.height = Math.round(side * dpr);
-    ctx.setTransform(canvas.width / size, 0, 0, canvas.height / size, 0, 0);
-    draw(); // resizing a canvas clears it
+  // Map letters: . open, o target, # wall, s sealed, S sealed target.
+  // Sealed cells can't be pumped and take no blasts: only a siphon fills them.
+  // Ids are permanent (telemetry). par is the solver's minimum (balance script).
+  const LEVELS = [
+    { id: 'first-pop', name: 'First pop', par: 3,
+      hint: '{Tap} the ringed cell to pump it (+4). At 10 it bursts.',
+      map: ['.....', '..o..', '.....', '.....', '.....'] },
+    { id: 'chain', name: 'Chain', par: 7,
+      hint: 'A burst sends +2 to each neighbour. A neighbour at 8 bursts too.',
+      map: ['.....', '.....', '.ooo.', '.....', '.....'] },
+    { id: 'sealed', name: 'Sealed', par: 5,
+      hint: 'Sealed cells can\'t be pumped. Drag from a neighbour onto it to pour everything in (1 is lost).',
+      map: ['.....', '.....', '..S..', '.....', '.....'] },
+    { id: 'wall', name: 'Wall', par: 10,
+      hint: 'Walls stop bursts and pours. A ring at 8 bursts when its neighbour does.',
+      map: ['......', '..#...', '.o#oS.', '..#...', '......', '......'] },
+    { id: 'pipes', name: 'Pipes', par: 16,
+      hint: 'Two seals, three rings. You can pour out of a ring too: the order matters.',
+      map: ['#######', '#.oSo.#', '###.###', '##.o.##', '###S###', '###.###', '#######'] },
+  ];
+
+  const OPEN = 0, SEALED = 1, WALL = 2;
+  function parseLevel(def) {
+    const h = def.map.length, w = def.map[0].length;
+    const kind = new Int8Array(w * h), target = new Uint8Array(w * h);
+    def.map.forEach((row, y) => [...row].forEach((ch, x) => {
+      const i = y * w + x;
+      kind[i] = ch === '#' ? WALL : (ch === 's' || ch === 'S') ? SEALED : OPEN;
+      target[i] = ch === 'o' || ch === 'S' ? 1 : 0;
+    }));
+    const nbrs = [];
+    for (let i = 0; i < w * h; i++) {
+      const x = i % w, y = (i / w) | 0, n = [];
+      if (y > 0) n.push(i - w);
+      if (x < w - 1) n.push(i + 1);
+      if (y < h - 1) n.push(i + w);
+      if (x > 0) n.push(i - 1);
+      nbrs.push(n.filter(j => kind[j] !== WALL));
+    }
+    const targets = [];
+    for (let i = 0; i < w * h; i++) if (target[i]) targets.push(i);
+    return { def, w, h, n: w * h, kind, target, nbrs, targets };
   }
 
-  // The gallery pauses the game while one of its panels covers it.
-  let paused = false;
-  window.addEventListener('message', evt => {
-    if (evt.data && evt.data.type === 'arcade:pause') paused = true;
-    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
-  });
+  // A state: p = pressure per cell, hit = targets that have erupted.
+  function startState(L) { return { p: new Int8Array(L.n), hit: new Uint8Array(L.n) }; }
+  function solved(L, st) { return L.targets.every(i => st.hit[i]); }
 
-  let pressure = makeGrid(0);
-  let flash = makeGrid(0);
-  let ticks = 0;
-  let eruptions = 0;
-  let siphons = 0;
-  // Round: the clock starts at the first pump or siphon. After it ends the
-  // board stays playable (free play) until New round.
-  let round, roundTicks, pumps, siphonHits, maxChain;
-  function newRound() {
-    round = 'ready'; roundTicks = 0; pumps = 0; siphonHits = 0; maxChain = 0;
+  function canPump(L, st, i) { return L.kind[i] === OPEN; }
+  function canSiphon(L, st, i, j) {
+    return L.kind[i] !== WALL && L.kind[j] !== WALL && st.p[i] > SIPHON_LOSS && L.nbrs[i].includes(j);
   }
-  newRound();
 
-  // drag tracking
-  let pointerDown = false;
-  let startCell = null;
-  let startPx = null;
-  let isDragging = false;
-  let dragDir = null; // [dx, dy]
+  // Plays one move: { pump: i } or { from: i, to: j }. Returns the new state
+  // and what happened, for the animation: frames (pressure after the move,
+  // after each wave), waves (cells that erupted together) and leaks. Returns
+  // null for an illegal move. Between moves every cell holds at most
+  // SAFE_MAX, so only cells this move touched can erupt or leak.
+  function play(L, st, move) {
+    const p = Int8Array.from(st.p), hit = Uint8Array.from(st.hit);
+    let cand;
+    if (move.pump !== undefined) {
+      if (!canPump(L, st, move.pump)) return null;
+      p[move.pump] += PUMP_ADD;
+      cand = [move.pump];
+    } else {
+      if (!canSiphon(L, st, move.from, move.to)) return null;
+      p[move.to] += p[move.from] - SIPHON_LOSS;
+      p[move.from] = 0;
+      cand = [move.to];
+    }
+    const frames = [Int8Array.from(p)], touched = new Set(cand), waves = [];
+    for (let guard = 0; guard < MAX_WAVES; guard++) {
+      const wave = [...new Set(cand)].filter(i => p[i] >= THRESHOLD).sort((a, b) => a - b);
+      if (!wave.length) break;
+      for (const i of wave) { p[i] = 0; if (L.target[i]) hit[i] = 1; }
+      cand = [];
+      for (const i of wave) for (const j of L.nbrs[i]) if (L.kind[j] === OPEN) { p[j] += BLAST; cand.push(j); touched.add(j); }
+      waves.push(wave);
+      frames.push(Int8Array.from(p));
+    }
+    const leaks = [];
+    for (const i of touched) if (p[i] > SAFE_MAX && p[i] < THRESHOLD) { p[i]--; leaks.push(i); }
+    return { st: { p, hit }, frames, waves, leaks };
+  }
 
-  // Achievements: announced to the Emergent Arcade gallery when embedded
-  // (it records them); harmless when the file is opened on its own.
+  // 3 stars at par, 2 within par + 3, 1 for any solve.
+  function stars(par, moves) { return moves <= par ? 3 : moves <= par + 3 ? 2 : 1; }
+  // § end sim
+
+  // § words: the gallery fills {tap} in the manifest; the game does its own.
+  const COARSE = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  const words = s => s.replace(/\{Tap\}/g, COARSE ? 'Tap' : 'Click').replace(/\{tap\}/g, COARSE ? 'tap' : 'click');
+
+  // § messaging: achievements, results, pause, bests from the gallery.
+  // Checked when used: a downloaded copy's shim stands in for the parent.
+  const embedded = () => window.parent !== window;
   const unlocked = new Set();
   function unlock(id) {
     if (unlocked.has(id)) return;
     unlocked.add(id);
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    if (embedded()) window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+  }
+  let paused = false;
+  // Stars per level this visit (0 = not solved here). The gallery only keeps
+  // the best total, so levels solved on an earlier visit are inferred from it
+  // (solved in order): they unlock the next level and count toward the total.
+  const best = LEVELS.map(() => 0);
+  let restoredTotal = 0;
+  window.addEventListener('message', evt => {
+    const d = evt.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'arcade:pause') { paused = true; cancelGesture(); }
+    if (d.type === 'arcade:resume') paused = false;
+    if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {
+      const t = Number(d.bests.main);
+      if (t > 0 && t <= LEVELS.length * 3) { restoredTotal = Math.round(t); renderLevels(); }
     }
+  });
+  // Levels solved on an earlier visit, filled with stars from the first one
+  // (3 each, the rest on the last) so the total matches the stored best.
+  function inferred() {
+    const out = LEVELS.map(() => 0);
+    let left = restoredTotal;
+    const solvedCount = Math.min(LEVELS.length, Math.ceil(restoredTotal / 3));
+    for (let i = 0; i < solvedCount; i++) { out[i] = Math.max(1, Math.min(3, left - (solvedCount - 1 - i))); left -= out[i]; }
+    return out;
+  }
+  const levelStars = i => Math.max(best[i], inferred()[i]);
+  const totalStars = () => LEVELS.reduce((a, _, i) => a + levelStars(i), 0);
+  const isOpen = i => i === 0 || levelStars(i - 1) > 0;
+
+  const RUN = Math.random().toString(36).slice(2, 10) || 'run';
+  const attempts = LEVELS.map(() => 0);
+  function postResult() {
+    if (!embedded()) return;
+    window.parent.postMessage({ type: 'arcade:result', game: GAME_ID, outcome: 'win',
+      time: Math.round(playMs / 100) / 10, level: cur + 1, level_id: LEVELS[cur].id,
+      run: RUN, attempt: attempts[cur], score: totalStars(),
+      stats: { level: cur + 1, actions: moves, par: LEVELS[cur].par, siphons, max_chain: maxChain,
+        stars: stars(LEVELS[cur].par, moves), undos, restarts } }, '*');
   }
 
-  function makeGrid(fill) {
-    return Array.from({length: GRID_SIZE}, () => Array(GRID_SIZE).fill(fill));
-  }
+  // § state
+  let cur = 0, L, st, moves, siphons, maxChain, undos, restarts, history, done, playMs;
+  let anim = null;            // { frames, waves, leaks, t } while an eruption plays out
+  let last = performance.now();
 
-  function inBounds(x, y) {
-    return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
+  function loadLevel(i) {
+    cur = i; L = parseLevel(LEVELS[i]);
+    st = startState(L); moves = 0; siphons = 0; maxChain = 0; undos = 0; restarts = 0;
+    history = []; done = false; playMs = 0; anim = null;
+    attempts[i]++;
+    fitBoard(); renderLevels(); renderUI();
   }
+  function snapshot() { return { st, moves, siphons, maxChain, done }; }
+  function restore(s) { ({ st, moves, siphons, maxChain, done } = s); anim = null; }
 
-  function neighbors(x, y) {
-    const result = [];
-    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-      const nx = x + dx, ny = y + dy;
-      if (inBounds(nx, ny)) result.push([nx, ny]);
+  function doMove(move) {
+    if (done || paused) return;
+    const r = play(L, st, move);
+    if (!r) return;
+    history.push(snapshot());
+    st = r.st; moves++;
+    const burst = r.waves.reduce((a, w) => a + w.length, 0);
+    if (move.from !== undefined) {
+      siphons++;
+      if (siphons >= 15) unlock('plumber');
+      if (burst) unlock('siphon-strike');
     }
-    return result;
+    maxChain = Math.max(maxChain, burst);
+    if (burst) unlock('first-eruption');
+    if (burst >= 3) unlock('chain-reaction');
+    if (r.waves.some(w => w.some(i => L.kind[i] === SEALED))) unlock('unsealed');
+    if (r.waves.length || r.leaks.length) anim = { frames: r.frames, waves: r.waves, leaks: r.leaks, t: 0 };
+    if (solved(L, st)) {
+      done = true;
+      const s = stars(LEVELS[cur].par, moves);
+      best[cur] = Math.max(best[cur], s);
+      if (move.from !== undefined && r.waves.flat().filter(i => L.target[i]).length >= 2) unlock('last-drop');
+      if (LEVELS.every((_, i) => best[i] === 3)) unlock('all-stars');
+      postResult();
+      renderLevels();
+    }
+    renderUI();
+  }
+  function undo() {
+    if (!history.length || paused) return;
+    restore(history.pop()); undos++; renderUI();
+  }
+  function restart() {
+    if (paused || (!moves && !done)) return;
+    history.push(snapshot());
+    st = startState(L); moves = 0; siphons = 0; maxChain = 0; done = false; anim = null;
+    restarts++; renderUI();
   }
 
-  function colorFor(p, f) {
-    if (f > 0) return 'rgb(255,255,255)';
-    const t = Math.min(p / ERUPT_THRESHOLD, 1);
-    const r = Math.round(30 + t * 225);
-    const g = Math.round(30 + (1 - Math.abs(t - 0.5) * 2) * 120);
-    const b = Math.round(80 * (1 - t));
+  // § ui: level buttons, message strip, status line
+  const levelsEl = document.getElementById('levels');
+  const msgEl = document.getElementById('msg');
+  const statEl = document.getElementById('stat');
+  const nextBtn = document.getElementById('nextBtn');
+  const starText = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+  function renderLevels() {
+    levelsEl.replaceChildren(...LEVELS.map((def, i) => {
+      const b = document.createElement('button');
+      b.className = 'lv' + (i === cur ? ' on' : '');
+      b.disabled = !isOpen(i);
+      const s = levelStars(i);
+      b.innerHTML = `${i + 1}<span class="st">${best[i] ? starText(best[i]) : s ? '✓' : ''}</span>`;
+      b.title = isOpen(i) ? `Level ${i + 1}: ${def.name}` : 'Solve the level before to open it';
+      b.addEventListener('click', () => { if (isOpen(i)) loadLevel(i); });
+      return b;
+    }));
+    const t = document.createElement('span');
+    t.className = 'stat';
+    t.textContent = `★ ${totalStars()}/${LEVELS.length * 3}`;
+    levelsEl.append(t);
+  }
+  function renderUI() {
+    const def = LEVELS[cur];
+    if (done) {
+      const s = stars(def.par, moves);
+      const tip = s === 3 ? (moves < def.par ? 'Under par!' : 'At par.') : `Par is ${def.par}: try again for ${s === 2 ? 'the last star' : 'more stars'}.`;
+      msgEl.innerHTML = `<span>Solved in ${moves} moves <span class="stars">${starText(s)}</span><br>${tip}</span>`;
+    } else {
+      msgEl.innerHTML = `<span><b>${cur + 1}. ${def.name}</b> · ${words(def.hint)}</span>`;
+    }
+    const left = L.targets.filter(t => !st.hit[t]).length;
+    statEl.textContent = `Moves ${moves} · ★★★ ≤${def.par} ★★ ≤${def.par + 3} · ${left ? left + ' left' : 'all burst'} · bursts at ${THRESHOLD}`;
+    document.getElementById('undoBtn').disabled = !history.length;
+    document.getElementById('restartBtn').disabled = !moves && !done;
+    nextBtn.hidden = !done || cur === LEVELS.length - 1;
+    draw();
+  }
+
+  // § board: layout and drawing
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const wrap = document.getElementById('boardWrap');
+  // Scale the board to the largest size that fits, one canvas pixel per
+  // screen pixel. Refit on every level change, not only on resize.
+  function fitBoard() {
+    if (!L) return;
+    const bw = L.w * CELL, bh = L.h * CELL;
+    const k = Math.min(wrap.clientWidth / bw, wrap.clientHeight / bh);
+    const cw = Math.max(60, Math.floor(bw * k)), ch = Math.max(60, Math.floor(bh * k));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
+    canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
+    ctx.setTransform(canvas.width / bw, 0, 0, canvas.height / bh, 0, 0);
+    draw();
+  }
+
+  function fillFor(v) {
+    const t = Math.max(0, Math.min(v / THRESHOLD, 1));
+    const r = Math.round(34 + t * 200), g = Math.round(34 + t * 88), b = Math.round(48 - t * 20);
     return `rgb(${r},${g},${b})`;
   }
 
-  function tick() {
-    if (paused) return;
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
-        if (flash[y][x] > 0) flash[y][x]--;
-      }
-    }
-
-    const deltas = makeGrid(0);
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
-        const p = pressure[y][x];
-        if (p <= 0) continue;
-        const ns = neighbors(x, y);
-        if (ns.length === 0) continue;
-        const amount = p * BLEED_RATE;
-        const per = amount / ns.length;
-        deltas[y][x] -= amount;
-        for (const [nx, ny] of ns) deltas[ny][nx] += per;
-      }
-    }
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
-        pressure[y][x] = Math.max(0, pressure[y][x] + deltas[y][x]);
-      }
-    }
-
-    const n = resolveEruptions();
-    if (pressure.every(row => row.every(p => p >= 20))) unlock('full-pressure');
-    ticks++;
-    if (round === 'playing') {
-      roundTicks++;
-      maxChain = Math.max(maxChain, n);
-      if (eruptions >= TARGET) endRound('win');
-      else if (roundTicks * TICK_MS >= ROUND_S * 1000) endRound('loss');
-    }
-    draw();
-  }
-
-  // Returns how many cells erupted.
-  function resolveEruptions() {
-    let count = 0;
-    let eruptedAny = true;
-    let guard = 0;
-    while (eruptedAny && guard < 20) {
-      eruptedAny = false;
-      guard++;
-      for (let y = 0; y < GRID_SIZE; y++) {
-        for (let x = 0; x < GRID_SIZE; x++) {
-          if (pressure[y][x] >= ERUPT_THRESHOLD) {
-            pressure[y][x] = 0;
-            flash[y][x] = 3;
-            eruptions++;
-            count++;
-            for (const [nx, ny] of neighbors(x, y)) pressure[ny][nx] += ERUPT_BLAST;
-            eruptedAny = true;
-          }
-        }
-      }
-    }
-    if (count >= 1) unlock('first-eruption');
-    if (count >= 5) unlock('chain-reaction');
-    if (eruptions >= 100) unlock('century');
-    return count;
-  }
-
-  function startRound() {
-    if (round !== 'ready') return;
-    round = 'playing';
-    // Earlier free-play eruptions don't count toward this round.
-    eruptions = 0; siphons = 0;
-  }
-
-  function endRound(outcome) {
-    round = outcome;
-    // Tell the gallery how the round ended (anonymous play telemetry, see
-    // docs/telemetry.md). time is seconds of unpaused play since the first
-    // input; stats keys are in docs/games/pressure-grid.md.
-    if (window.parent !== window) {
-      const total = pressure.reduce((a, row) => a + row.reduce((b, p) => b + p, 0), 0);
-      const msg = { type: 'arcade:result', game: GAME_ID, outcome,
-        time: Math.round(roundTicks * TICK_MS / 100) / 10,
-        stats: { eruptions, pumps, siphons, siphon_hits: siphonHits, max_chain: maxChain,
-          pressure: Math.round(total) } };
-      if (outcome === 'loss') msg.reason = 'time';
-      window.parent.postMessage(msg, '*');
-    }
-  }
-
-  function statusText() {
-    if (round === 'ready') return `Make ${TARGET} eruptions in ${ROUND_S} s. The clock starts when you do.`;
-    const secs = Math.round(roundTicks * TICK_MS / 1000);
-    if (round === 'playing') return `${ROUND_S - secs} s left · eruptions: ${eruptions}/${TARGET} · siphons: ${siphons}`;
-    const head = round === 'win' ? `Won in ${secs} s!` : `Time's up at ${eruptions}/${TARGET} eruptions.`;
-    return `${head} Free play: eruptions ${eruptions} · siphons ${siphons}`;
+  // What to show: the animation frame if one is playing, else the state.
+  function shown() {
+    if (!anim) return { p: st.p, flash: null };
+    const k = Math.min(anim.frames.length - 1, Math.floor(anim.t / WAVE_MS));
+    return { p: anim.frames[k], flash: k > 0 ? anim.waves[k - 1] : null, wave: k, waves: anim.waves.length };
   }
 
   function draw() {
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
-        ctx.fillStyle = colorFor(pressure[y][x], flash[y][x]);
-        ctx.fillRect(x * CELL_PX, y * CELL_PX, CELL_PX, CELL_PX);
-        ctx.strokeStyle = '#222228';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x * CELL_PX, y * CELL_PX, CELL_PX, CELL_PX);
+    if (!L) return;
+    const { p, flash, wave, waves } = shown();
+    const flashSet = new Set(flash || []);
+    ctx.clearRect(0, 0, L.w * CELL, L.h * CELL);
+    const preview = gesturePreview();
+    for (let i = 0; i < L.n; i++) {
+      const x = (i % L.w) * CELL, y = ((i / L.w) | 0) * CELL;
+      if (L.kind[i] === WALL) {
+        ctx.fillStyle = '#121218';
+        ctx.fillRect(x, y, CELL, CELL);
+        ctx.strokeStyle = '#24242e'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let d = -CELL; d < CELL; d += 20) { ctx.moveTo(x + Math.max(0, d), y + Math.max(0, -d)); ctx.lineTo(x + Math.min(CELL, CELL + d), y + Math.min(CELL, CELL - d)); }
+        ctx.stroke();
+        continue;
+      }
+      ctx.fillStyle = flashSet.has(i) ? '#ffffff' : fillFor(p[i]);
+      ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4);
+      if (L.kind[i] === SEALED) {
+        // a steel frame: pours only
+        ctx.strokeStyle = '#8fb3d9'; ctx.lineWidth = 6;
+        ctx.strokeRect(x + 7, y + 7, CELL - 14, CELL - 14);
+        // and a padlock in the corner
+        ctx.fillStyle = '#8fb3d9'; ctx.fillRect(x + 11, y + 19, 14, 10);
+        ctx.beginPath(); ctx.arc(x + 18, y + 19, 4.5, Math.PI, 0); ctx.lineWidth = 3; ctx.stroke();
+      }
+      if (L.target[i]) {
+        ctx.beginPath(); ctx.arc(x + CELL / 2, y + CELL / 2, CELL * 0.36, 0, Math.PI * 2);
+        ctx.strokeStyle = st.hit[i] && !anim ? '#7be08a' : '#ff7a3d'; ctx.lineWidth = 5; ctx.stroke();
+      }
+      if (st.hit[i] && !anim && L.target[i]) {
+        ctx.fillStyle = '#7be08a'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+        ctx.fillText('✓', x + CELL - 8, y + 6);
+      }
+      if (!flashSet.has(i)) {
+        const v = p[i];
+        ctx.fillStyle = v ? '#ffffff' : 'rgba(255,255,255,0.28)';
+        if (v >= SAFE_MAX) ctx.fillStyle = '#ffe9a8';
+        ctx.font = `bold ${v >= SAFE_MAX ? 36 : 32}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(v), x + CELL / 2, y + CELL / 2 + 2);
       }
     }
+    // leaks: after the last wave, a "-1" on each cell that leaked
+    if (anim && wave === waves) {
+      ctx.fillStyle = '#9ad7ff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      for (const i of anim.leaks) ctx.fillText('−1 leak', (i % L.w) * CELL + CELL - 4, ((i / L.w) | 0) * CELL + CELL - 4);
+    }
+    if (anim && waves > 1 && wave > 0) {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, 170, 34);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(`chain wave ${wave}/${waves}`, 8, 17);
+    }
+    if (preview) drawPreview(preview);
+  }
 
-    if (isDragging && startCell && dragDir) {
-      const [sx, sy] = startCell;
-      const [dx, dy] = dragDir;
-      const tx = sx + dx, ty = sy + dy;
-      ctx.strokeStyle = 'rgba(111,211,255,0.9)';
-      ctx.lineWidth = 3;
+  // A move's preview: arrow for a pour, and on every cell it changes the
+  // value it will have (a burst mark where it erupts).
+  function drawPreview({ move, r }) {
+    const cx = i => (i % L.w) * CELL + CELL / 2, cy = i => ((i / L.w) | 0) * CELL + CELL / 2;
+    if (move.from !== undefined) {
+      ctx.strokeStyle = r ? 'rgba(111,211,255,0.95)' : 'rgba(255,90,90,0.9)'; ctx.lineWidth = 8;
+      const a = move.from, b = move.to;
+      ctx.beginPath(); ctx.moveTo(cx(a), cy(a)); ctx.lineTo(cx(b), cy(b)); ctx.stroke();
+      const ang = Math.atan2(cy(b) - cy(a), cx(b) - cx(a));
       ctx.beginPath();
-      ctx.moveTo(sx * CELL_PX + CELL_PX / 2, sy * CELL_PX + CELL_PX / 2);
-      ctx.lineTo(tx * CELL_PX + CELL_PX / 2, ty * CELL_PX + CELL_PX / 2);
-      ctx.stroke();
+      ctx.moveTo(cx(b) + Math.cos(ang) * 6, cy(b) + Math.sin(ang) * 6);
+      ctx.lineTo(cx(b) - Math.cos(ang - 0.6) * 22, cy(b) - Math.sin(ang - 0.6) * 22);
+      ctx.lineTo(cx(b) - Math.cos(ang + 0.6) * 22, cy(b) - Math.sin(ang + 0.6) * 22);
+      ctx.closePath(); ctx.fillStyle = ctx.strokeStyle; ctx.fill();
+    } else if (!r) {
+      const i = move.pump;
+      ctx.strokeStyle = 'rgba(255,90,90,0.9)'; ctx.lineWidth = 6;
+      ctx.strokeRect((i % L.w) * CELL + 6, ((i / L.w) | 0) * CELL + 6, CELL - 12, CELL - 12);
     }
-
-    statEl.textContent = statusText();
+    if (!r) return;
+    const erupted = new Set(r.waves.flat());
+    for (let i = 0; i < L.n; i++) {
+      if (L.kind[i] === WALL) continue;
+      const x = (i % L.w) * CELL, y = ((i / L.w) | 0) * CELL;
+      if (erupted.has(i)) {
+        ctx.setLineDash([8, 6]); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4;
+        ctx.strokeRect(x + 5, y + 5, CELL - 10, CELL - 10); ctx.setLineDash([]);
+      }
+      if (r.st.p[i] !== st.p[i] || erupted.has(i)) {
+        ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x + CELL - 34, y + CELL - 26, 32, 24);
+        ctx.fillStyle = erupted.has(i) ? '#ffffff' : '#9ad7ff'; ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(erupted.has(i) && !r.st.p[i] ? '💥' : '→' + r.st.p[i], x + CELL - 18, y + CELL - 14);
+      }
+    }
   }
 
-  function cellFromClientXY(clientX, clientY) {
+  // § input: press = pump preview, drag toward a neighbour = siphon preview,
+  // release = play it. Leaving the board cancels. Hover (mouse) previews a pump.
+  let gesture = null;   // { cell, x0, y0, dir, drag }
+  let hoverCell = -1;
+  function cellAt(evt) {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = size / rect.width;
-    const scaleY = size / rect.height;
-    const cx = (clientX - rect.left) * scaleX;
-    const cy = (clientY - rect.top) * scaleY;
-    return [Math.floor(cx / CELL_PX), Math.floor(cy / CELL_PX)];
+    const x = Math.floor((evt.clientX - rect.left) / rect.width * L.w);
+    const y = Math.floor((evt.clientY - rect.top) / rect.height * L.h);
+    return x >= 0 && y >= 0 && x < L.w && y < L.h ? y * L.w + x : -1;
   }
-
-  function primaryDirection(dx, dy) {
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      return [Math.sign(dx), 0];
-    } else {
-      return [0, Math.sign(dy)];
+  function gestureMove() {
+    if (gesture) {
+      if (!gesture.drag) return { pump: gesture.cell };
+      const x = gesture.cell % L.w + gesture.dir[0], y = ((gesture.cell / L.w) | 0) + gesture.dir[1];
+      if (x < 0 || y < 0 || x >= L.w || y >= L.h) return { from: gesture.cell, to: -1 };
+      return { from: gesture.cell, to: y * L.w + x };
     }
+    if (hoverCell >= 0 && !COARSE) return { pump: hoverCell };
+    return null;
   }
-
-  function doPump(cell) {
-    const [x, y] = cell;
-    if (!inBounds(x, y)) return;
-    startRound();
-    if (round === 'playing') pumps++;
-    pressure[y][x] += CLICK_ADD;
+  function gesturePreview() {
+    if (done || anim || paused || !L) return null;
+    const move = gestureMove();
+    if (!move) return null;
+    if (move.pump !== undefined && L.kind[move.pump] === WALL) return null;
+    const r = move.to === -1 ? null : play(L, st, move);
+    if (move.from !== undefined && move.to === -1) return { move: { from: move.from, to: move.from }, r: null };
+    return { move, r };
   }
-
-  function doSiphon(cell, dir) {
-    const [x, y] = cell;
-    const [dx, dy] = dir;
-    const tx = x + dx, ty = y + dy;
-    if (!inBounds(x, y) || !inBounds(tx, ty)) return;
-    const amount = pressure[y][x] * SIPHON_FRACTION;
-    if (amount <= 0.01) return;
-    startRound();
-    pressure[y][x] -= amount;
-    pressure[ty][tx] += amount * SIPHON_EFFICIENCY;
-    siphons++;
-    if (siphons >= 25) unlock('plumber');
-    const n = resolveEruptions();
-    if (n > 0) {
-      unlock('siphon-strike');
-      if (round === 'playing') { siphonHits++; maxChain = Math.max(maxChain, n); }
-    }
-  }
-
-  function onPointerDown(evt) {
+  function cancelGesture() { gesture = null; draw(); }
+  canvas.addEventListener('pointerdown', evt => {
     evt.preventDefault();
+    if (paused) return;
+    anim = null;   // a press finishes any animation, then acts as usual
+    const c = cellAt(evt);
+    if (c < 0 || done) return;
     canvas.setPointerCapture(evt.pointerId);
-    pointerDown = true;
-    isDragging = false;
-    dragDir = null;
-    startCell = cellFromClientXY(evt.clientX, evt.clientY);
-    startPx = [evt.clientX, evt.clientY];
-  }
-
-  function onPointerMove(evt) {
-    if (!pointerDown || !startCell) return;
-    const dxPx = evt.clientX - startPx[0];
-    const dyPx = evt.clientY - startPx[1];
-    const dist = Math.hypot(dxPx, dyPx);
-    if (dist > DRAG_THRESHOLD_PX) {
-      isDragging = true;
-      dragDir = primaryDirection(dxPx, dyPx);
-      draw();
-    }
-  }
-
-  function onPointerUp(evt) {
-    if (!pointerDown) return;
-    pointerDown = false;
-    if (!startCell) return;
-
-    if (isDragging && dragDir) {
-      doSiphon(startCell, dragDir);
-    } else {
-      doPump(startCell);
-    }
-
-    startCell = null;
-    isDragging = false;
-    dragDir = null;
-    draw();
-  }
-
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerup', onPointerUp);
-  // A cancelled pointer (e.g. the browser took over the gesture) does nothing.
-  canvas.addEventListener('pointercancel', () => {
-    pointerDown = false;
-    startCell = null;
-    isDragging = false;
-    dragDir = null;
+    gesture = { cell: c, x0: evt.clientX, y0: evt.clientY, dir: null, drag: false };
     draw();
   });
-
-  document.getElementById('resetBtn').addEventListener('click', () => {
-    pressure = makeGrid(0);
-    flash = makeGrid(0);
-    ticks = 0;
-    eruptions = 0;
-    siphons = 0;
-    newRound();
+  canvas.addEventListener('pointermove', evt => {
+    if (!gesture) {
+      const c = evt.pointerType === 'mouse' ? cellAt(evt) : -1;
+      if (c !== hoverCell) { hoverCell = c; draw(); }
+      return;
+    }
+    const dx = evt.clientX - gesture.x0, dy = evt.clientY - gesture.y0;
+    const rect = canvas.getBoundingClientRect();
+    const out = evt.clientX < rect.left || evt.clientX > rect.right || evt.clientY < rect.top || evt.clientY > rect.bottom;
+    if (out) { gesture.out = true; draw(); return; }
+    gesture.out = false;
+    if (Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
+      gesture.drag = true;
+      gesture.dir = Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+    } else gesture.drag = false;
     draw();
   });
+  canvas.addEventListener('pointerup', () => {
+    if (!gesture) return;
+    const g = gesture; gesture = null;
+    if (!g.out) {
+      const move = g.drag ? null : { pump: g.cell };
+      if (g.drag) {
+        const x = g.cell % L.w + g.dir[0], y = ((g.cell / L.w) | 0) + g.dir[1];
+        if (x >= 0 && y >= 0 && x < L.w && y < L.h) doMove({ from: g.cell, to: y * L.w + x });
+      } else doMove(move);
+    }
+    draw();
+  });
+  canvas.addEventListener('pointercancel', cancelGesture);
+  canvas.addEventListener('pointerleave', () => { if (hoverCell >= 0) { hoverCell = -1; draw(); } });
+
+  document.getElementById('undoBtn').addEventListener('click', undo);
+  document.getElementById('restartBtn').addEventListener('click', restart);
+  nextBtn.addEventListener('click', () => { if (cur + 1 < LEVELS.length) loadLevel(cur + 1); });
+  window.addEventListener('keydown', evt => {
+    if (paused) return;
+    const k = evt.key.toLowerCase();
+    if (k === 'z' || k === 'u') undo();
+    else if (k === 'r') restart();
+    else if ((k === 'n' || k === 'enter') && done && cur + 1 < LEVELS.length) loadLevel(cur + 1);
+  });
+
+  // § clock: animation and unpaused play time (for telemetry)
+  function frame(now) {
+    const dt = Math.min(100, now - last); last = now;
+    if (!paused) {
+      if (!done) playMs += dt;
+      if (anim) {
+        anim.t += dt;
+        if (anim.t >= anim.frames.length * WAVE_MS + (anim.leaks.length ? 300 : 0)) anim = null;
+        draw();
+      }
+    }
+    requestAnimationFrame(frame);
+  }
 
   new ResizeObserver(fitBoard).observe(wrap);
   window.addEventListener('resize', fitBoard); // browser zoom changes devicePixelRatio
-  fitBoard();
-  setInterval(tick, TICK_MS);
+  loadLevel(0);
+  requestAnimationFrame(frame);
 })();
 </script>
 </body>

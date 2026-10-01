@@ -83,7 +83,7 @@ Each revision:
 | bubble-glass | 5 levels, ~1.5 min for a good player | More boxes from the Evolution list (sand types, second bubble, fixtures), grouped in chapters; score = total time over a chapter | v3: 14 boxes in 3 chapters, chapter time score (PR pending playtest) |
 | ant-trails | 6-day run | Endless days after day 6 with rising twists; score = days survived | |
 | terrace-garden | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run | |
-| pressure-grid | 60 s challenge | Stages with rising targets on new grid shapes; score = eruptions over the run | |
+| pressure-grid | 60 s challenge | Stages with rising targets on new grid shapes; score = eruptions over the run | v8: turn-based levels 1-5 with stars (plan: `docs/games/pressure-grid-plan.md`, 5 levels per PR) |
 | orbit-garden | 1 garden, 40 seeds | Successive gardens, leftover seeds carry over; score = gardens bloomed | |
 | hot-iron | 1 blade | A run of commissions, harder profiles, fuel carried over; score = blades forged | |
 | loom | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held | |

@@ -4,10 +4,15 @@
       "id": "pressure-grid",
       "title": "Pressure Grid",
       "file": "pressure-grid.html",
-      "version": 7,
+      "version": 8,
       "added": "2026-09-26",
-      "updated": "2026-09-29",
+      "updated": "2026-10-01",
       "changes": [
+        {
+          "version": 8,
+          "date": "2026-10-01",
+          "text": "Rebuilt as a puzzle: 5 levels with ringed cells to burst, sealed cells only a pour can fill, and walls. Turn-based, no clock; stars for few moves, with free Undo and Restart."
+        },
         {
           "version": 7,
           "date": "2026-09-29",
@@ -44,63 +49,68 @@
           "text": "First version: pump and siphon pressure across the grid, and set off chains of eruptions."
         }
       ],
-      "blurb": "Pump pressure into cells, siphon it toward neighbors, and ride the chain reactions when cells erupt.",
+      "blurb": "A turn-based pressure puzzle: pump cells, pour pressure through sealed pipes, and line up the chain reactions that burst every ringed cell.",
       "mechanics": [
         {
           "name": "pump",
           "verb": "tap",
-          "description": "{Tap} a cell to add pressure to it."
+          "description": "{Tap} a cell to add 4 pressure. At 10 it bursts."
         },
         {
           "name": "siphon",
           "verb": "drag",
-          "description": "Drag from a cell to move a fraction of its pressure into the neighbor you dragged toward, losing some to inefficiency."
+          "description": "Drag from a cell to a neighbor to pour all its pressure in, losing 1. The only way into a sealed cell."
         }
       ],
-      "sharedState": "Pressure per cell: written by pump and siphon, read by siphon and by the passive bleed-and-eruption system.",
+      "keyboard": "Z undo · R restart · N next level",
+      "sharedState": "Pressure per cell: written by pump and siphon, read by siphon (it pours what is there) and by bursts, which empty a cell at 10 and send +2 to each open neighbor, setting off chains.",
       "accent": "#ff7a3d",
-      "goal": "Make 100 eruptions within 60 seconds. The clock starts on your first pump or siphon; after the round the board stays open for free play.",
-      "howToPlay": "Pressure builds wherever you pump it and constantly bleeds into neighboring cells. When a cell reaches the limit it erupts (flashes white), empties, and blasts pressure into its neighbors, which can set off chain reactions. Siphoning lets you move pressure around before that happens, or aim an eruption where you want it.",
+      "goal": "Burst every ringed cell on each of 5 levels in as few moves as you can. Match par for 3 stars; stars open the next level.",
+      "howToPlay": "Each {tap} adds 4 pressure to a cell. At 10 a cell bursts: it empties and sends +2 to each open neighbor, so a neighbor at 8 bursts too. Drag from a cell to a neighbor to pour everything into it (1 is lost); sealed cells can only be filled this way. Walls stop bursts and pours, and a cell left above 8 leaks 1 per move. Nothing moves between your moves, so take your time. Undo and Restart are free; fewer moves earn more stars.",
       "achievements": [
         {
           "id": "first-eruption",
           "title": "First Pop",
-          "description": "Make a cell erupt."
+          "description": "Make a cell burst."
         },
         {
           "id": "chain-reaction",
           "title": "Chain Reaction",
-          "description": "Set off 5 or more eruptions at once."
+          "description": "Burst 3 or more cells with one move."
         },
         {
           "id": "siphon-strike",
           "title": "Siphon Strike",
-          "description": "Cause an eruption with a siphon."
+          "description": "Set off a burst with a pour."
+        },
+        {
+          "id": "unsealed",
+          "title": "Unsealed",
+          "description": "Burst a sealed cell."
+        },
+        {
+          "id": "last-drop",
+          "title": "Last Drop",
+          "description": "Finish a level with a pour that bursts two ringed cells at once."
         },
         {
           "id": "plumber",
           "title": "Plumber",
-          "description": "Siphon 25 times in one game."
+          "description": "Pour 15 times in one visit."
         },
         {
-          "id": "full-pressure",
-          "title": "Full Pressure",
-          "description": "Get every cell on the board to 20+ pressure at once."
-        },
-        {
-          "id": "century",
-          "title": "Century",
-          "description": "Reach 100 eruptions in one game."
+          "id": "all-stars",
+          "title": "All Stars",
+          "description": "Get 3 stars on all five levels in one visit."
         }
       ],
       "score": {
-        "label": "Fastest 100 eruptions",
-        "better": "lower",
-        "format": "time",
-        "from": "time",
-        "wins": true,
-        "max": 3600,
-        "epoch": 1
+        "label": "Stars",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "max": 15,
+        "epoch": 2
       }
     },
     {
