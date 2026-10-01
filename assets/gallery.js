@@ -138,7 +138,7 @@
   // "18 plays · 5 on v9" on the card (docs/scores.md, "Play counts"). Hidden
   // under PLAYS_SHOWN: "2 plays" reads as "nobody plays this". The About
   // panel always shows the full count.
-  const PLAYS_SHOWN = 10;
+  const PLAYS_SHOWN = 5;
   function playsText(game) {
     const p = Scores.plays(boards, game);
     if (!p || p.total < PLAYS_SHOWN) return "";

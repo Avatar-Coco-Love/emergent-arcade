@@ -189,7 +189,7 @@ sees a different rule and recounts every session row:
 ```
 
 - **Card** (`assets/gallery.js`): "18 plays · 5 on v9" in the card footer
-  ("18 plays" when every play is on the current version). Hidden under 10
+  ("18 plays" when every play is on the current version). Hidden under 5
   plays (`PLAYS_SHOWN`), since "2 plays" reads as "nobody plays this".
   Filled in place once the file loads, so focus and scroll don't move.
 - **About panel** (`assets/cabinet.js`, "Plays by version"): every version,
