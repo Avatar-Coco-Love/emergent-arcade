@@ -112,6 +112,9 @@ logs a `share` row with `from: "gallery"`.
   toast, and the cabinet posts `arcade:best` to the game on load and after
   a new best ([scores.md](scores.md)). Smoke-tested with a fixture
   `leaderboards.json` served by `smoke-gallery.mjs`.
+- Play counts: the card footer shows "18 plays · 5 on v9" (from 5
+  plays), the About panel a "Plays by version" table, both from the
+  `plays` block of `leaderboards.json` ([scores.md](scores.md#play-counts)).
 - Toasts stack (max 3). Callouts are toasts with buttons: what's new (12 s)
   and the rate nudge (after the 3rd `arcade:result` in a cabinet visit, once
   per game version, not if already rated).

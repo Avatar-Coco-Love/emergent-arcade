@@ -446,6 +446,15 @@ body.playing .site-header, body.playing .site-footer { display: none; }
 .change-toggle { min-height: var(--tap); margin-top: 4px; }
 .built { margin: 12px auto; font-size: 0.88rem; color: var(--muted); }
 .built summary { cursor: pointer; color: var(--text); min-height: var(--tap); display: flex; align-items: center; }
+.plays-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.plays-table th { text-align: left; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 0 8px 4px 0; }
+.plays-table td { padding: 4px 8px 4px 0; border-top: 1px solid var(--border); white-space: nowrap; }
+.plays-table .num { text-align: right; width: 4.5em; }
+.plays-table .bar-cell { width: 45%; padding-right: 0; }
+.plays-table tr.current td { font-weight: 600; }
+.plays-bar { display: block; height: 6px; border-radius: 3px; background: var(--game-accent, var(--accent)); opacity: 0.45; }
+.plays-table tr.current .plays-bar { opacity: 1; }
+.plays-note { font-size: 0.8rem; margin: 6px 0 0; }
 .about-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 
 /* Rating */

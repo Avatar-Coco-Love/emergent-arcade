@@ -4,6 +4,8 @@
 // docs/scores.md), plus the gallery's "handle" events (a name picked or the
 // leaderboard toggled in the Records panel), so renames show without another
 // round. Runs at every deploy and hourly (pages.yml schedule).
+// It also counts plays (telemetry session rows) per game version for the
+// gallery cards and the About panel ("plays" below, docs/scores.md).
 //
 // Incremental: it starts from the live leaderboards.json (--prev) and reads
 // only rows received since that file's `through`, so each run stays small
@@ -29,6 +31,8 @@ const opt = (name, fallback) => {
 const FORMAT = "emergent-arcade-leaderboards";
 const TOP = 25; // entries kept per board
 const MAX_BOARDS = 50; // per game, so a forged board name can't grow the file
+const PLAY_SECONDS = 30; // a play: a finished round, or this much play (docs/scores.md)
+const PLAY_RULE = `round-or-${PLAY_SECONDS}s`; // a file counted by another rule is recounted
 const OVERLAP_MS = 10 * 60 * 1000; // re-read a little before `through`; merging is idempotent
 
 const games = JSON.parse(readFileSync(join(root, "games/games.json"), "utf8")).games;
@@ -78,6 +82,14 @@ async function fetchRows(since) {
   const rounds = await fetchTab(since, "telemetry", "round");
   const events = await fetchTab(since, "events", "gallery");
   return rounds.concat(events.filter((r) => r.action === "handle"));
+}
+
+// Session rows (one per cabinet visit with 3+ s of play or a round) for the
+// play counts. With --input, the session rows of that export.
+async function fetchSessions(since) {
+  const input = opt("input", "");
+  if (input) return JSON.parse(readFileSync(input, "utf8")).filter((r) => r.kind === "session");
+  return fetchTab(since, "telemetry", "session");
 }
 
 async function fetchTab(since, tab, kind) {
@@ -173,6 +185,43 @@ function merge(prevGames, rows) {
   return { games: result, used };
 }
 
+// Play counts: { since, through, recent, games: { id: { version: n } } }.
+// Counting isn't idempotent like merging bests, so the sessions re-read in
+// the overlap window are recognized by `recent` (hashed session ids of the
+// rows received in the window before `through`) and skipped. Rows for
+// unknown games or versions (forged, or a game since removed) don't count.
+function countPlays(prevPlays, rows) {
+  const counts = {};
+  const byId = new Map(games.map((g) => [g.id, g]));
+  for (const [id, versions] of Object.entries((prevPlays && prevPlays.games) || {})) {
+    if (byId.has(id)) counts[id] = { ...versions };
+  }
+  const seen = new Map(Object.entries((prevPlays && prevPlays.recent) || {}));
+  let since = (prevPlays && prevPlays.since) || "";
+  let newest = Date.parse((prevPlays && prevPlays.through) || "") || 0;
+  let added = 0;
+  for (const r of rows) {
+    const game = byId.get(r.game_id);
+    const v = Number(r.game_version);
+    const at = Date.parse(r.received_at || r.submitted_at || "") || 0;
+    if (r.kind !== "session") continue;
+    newest = Math.max(newest, at);
+    const day = at ? new Date(at).toISOString().slice(0, 10) : "";
+    if (day && (!since || day < since)) since = day;
+    if (!game || !Number.isInteger(v) || v < 1 || v > game.version) continue;
+    if (!(Number(r.rounds) >= 1 || Number(r.seconds) >= PLAY_SECONDS)) continue;
+    const key = scores.hash(`play:${r.session_id || `${r.client_id}|${r.submitted_at}`}`);
+    if (seen.has(key)) continue;
+    seen.set(key, at);
+    const mine = (counts[game.id] ||= {});
+    mine[v] = (mine[v] || 0) + 1;
+    added++;
+  }
+  const recent = {};
+  for (const [key, at] of seen) if (at >= newest - OVERLAP_MS) recent[key] = at;
+  return { plays: { rule: PLAY_RULE, since, through: newest ? new Date(newest).toISOString() : null, recent, games: counts }, added };
+}
+
 const prev = await readPrev(opt("prev", ""));
 const since = !full && prev && prev.through ? new Date(Date.parse(prev.through) - OVERLAP_MS).toISOString() : "";
 let rows = [];
@@ -193,6 +242,25 @@ if (error) {
   const through = newest ? new Date(newest).toISOString() : prev && !full ? prev.through : null;
   data = { format: FORMAT, version: 1, updated_at: new Date().toISOString(), through, games: merged };
   console.log(`leaderboards: ${rows.length} rows read${since ? ` since ${since}` : ""}, ${used} with a score`);
+}
+
+// Plays are read on their own: a file from before play counts (no `plays`),
+// or counted by another rule, reads every session row again, so history
+// since telemetry began is kept and follows the current rule.
+const prevPlays = !full && prev && prev.plays && prev.plays.games && prev.plays.rule === PLAY_RULE ? prev.plays : null;
+const playsSince = prevPlays && prevPlays.through ? new Date(Date.parse(prevPlays.through) - OVERLAP_MS).toISOString() : "";
+try {
+  const sessions = await fetchSessions(playsSince);
+  const { plays, added } = countPlays(prevPlays, sessions);
+  data.plays = plays;
+  console.log(`plays: ${sessions.length} session rows read${playsSince ? ` since ${playsSince}` : " (all)"}, ${added} counted`);
+} catch (err) {
+  console.warn(`plays: ${err.message}; keeping the previous counts`);
+  if (prev && prev.plays) data.plays = prev.plays;
+}
+for (const [id, versions] of Object.entries((data.plays && data.plays.games) || {})) {
+  const list = Object.entries(versions).map(([v, n]) => `v${v} ${n}`).join(", ");
+  console.log(`  ${id}: ${Object.values(versions).reduce((a, b) => a + b, 0)} plays (${list})`);
 }
 
 for (const [id, g] of Object.entries(data.games)) {

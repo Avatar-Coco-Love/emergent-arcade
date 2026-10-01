@@ -400,6 +400,44 @@ window.ArcadeCabinet = (function () {
     const archived = g.status === "archived" ? " · archived (still playable)" : "";
     $("aboutMeta").textContent = `Version ${g.version} · added ${UI.shortDate(g.added)} · updated ${UI.shortDate(g.updated)}${archived}`;
     $("aboutState").textContent = `Shared state: ${g.sharedState}`;
+    $("aboutPlays").hidden = true;
+    Scores.leaderboards().then((data) => {
+      if (current === g) renderPlays(g, Scores.plays(data, g));
+    });
+  }
+
+  // Plays by version, newest first (docs/scores.md, "Play counts"). Versions
+  // from before counting began (no plays, released on or before its first
+  // day) are folded into one row, so a v1-v5 with no data doesn't read as
+  // "nobody played it".
+  function renderPlays(g, p) {
+    $("aboutPlays").hidden = !p;
+    if (!p) return;
+    const released = (v) => (v === 1 ? g.added : ((g.changes || []).find((c) => c.version === v) || {}).date) || "";
+    const firstCounted = p.versions.findIndex(([v, n]) => n > 0 || (p.since && released(v) > p.since));
+    // The current version is live while counting, so it's never folded.
+    const untracked = p.since ? Math.min(p.versions.length - 1, firstCounted < 0 ? p.versions.length : firstCounted) : 0;
+    const max = Math.max(1, ...p.versions.map(([, n]) => n));
+    const row = (label, n, isCurrent) => {
+      const bar = el("span", { className: "plays-bar" });
+      bar.style.width = n == null ? "0" : `${Math.max(n ? 4 : 0, (n / max) * 100)}%`;
+      const tr = el("tr", { className: isCurrent ? "current" : "" }, [
+        el("td", { textContent: label }),
+        el("td", { className: "num", textContent: n == null ? "–" : Scores.count(n) }),
+        el("td", { className: "bar-cell" }, [bar]),
+      ]);
+      return tr;
+    };
+    const rows = p.versions.slice(untracked).reverse().map(([v, n]) => row(`v${v}${v === g.version ? " (current)" : ""}`, n, v === g.version));
+    if (untracked) {
+      const span = untracked === 1 ? "v1" : `v1–v${untracked}`;
+      rows.push(row(`${span} · before counting`, null, false));
+    }
+    $("aboutPlaysRows").replaceChildren(...rows);
+    const since = p.since ? ` since ${UI.shortDate(p.since)}` : "";
+    $("aboutPlaysNote").textContent = p.total
+      ? `${Scores.count(p.total)} play${p.total === 1 ? "" : "s"}${since}. A play is a finished round, or at least 30 seconds of play. Players who turned off play stats aren't counted. Updated hourly.`
+      : "No plays counted yet. Counts update hourly.";
   }
 
   // A one-time note the first time an updated version is opened.

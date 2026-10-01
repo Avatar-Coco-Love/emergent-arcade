@@ -43,6 +43,14 @@ const { WORDS } = (await import("./wording.mjs")).wording;
 const games = manifest.games;
 const rows = []; // everything the gallery sent to the (fake) endpoint
 
+// Play counts in the leaderboards.json fixture: the first game has 18 plays
+// on its 4 newest versions (older ones fold into "before counting"), the
+// second only 3 (under the card's threshold).
+const PLAYS = { since: "2026-09-27", through: "2026-10-01T12:00:00Z", recent: {}, games: {
+  [games[0].id]: Object.fromEntries([4, 6, 3, 5].map((n, i) => [games[0].version - 3 + i, n]).filter(([v]) => v >= 1)),
+  [games[1].id]: { [games[1].version]: 3 },
+} };
+
 // ---------- local server ----------
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml" };
@@ -62,7 +70,8 @@ const server = http.createServer((req, res) => {
   if (url.pathname === "/leaderboards.json") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ format: "emergent-arcade-leaderboards", version: 1, updated_at: "2026-09-30T12:00:00Z", through: null,
-      games: { "pressure-grid": { epoch: 2, boards: { main: [{ h: "Jade Owl", p: "x", s: 12, at: "2026-10-01", v: 8 }, { h: "Misty Wren", p: "y", s: 6, at: "2026-10-01", v: 8 }] } } } }));
+      games: { "pressure-grid": { epoch: 2, boards: { main: [{ h: "Jade Owl", p: "x", s: 12, at: "2026-10-01", v: 8 }, { h: "Misty Wren", p: "y", s: 6, at: "2026-10-01", v: 8 }] } } },
+      plays: PLAYS }));
     return;
   }
   const rel = normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)).replace(/^([/\\])+/, "");
@@ -257,6 +266,30 @@ for (const vp of VIEWPORTS) {
       assert(await toggle.isHidden(), "toggle shown with 3 or fewer versions");
     }
     await page.keyboard.press("Escape");
+  });
+
+  await check(tag("play counts: card line + about table"), async () => {
+    const expect = Object.values(PLAYS.games[first.id]).reduce((a, b) => a + b, 0);
+    await page.locator('.toolbar [data-panel="about"]').click();
+    await page.waitForSelector("#aboutPlays:not([hidden])");
+    const rows = await page.locator("#aboutPlaysRows tr").allTextContents();
+    assert(rows[0].startsWith(`v${first.version} (current)`), `first row ${rows[0]}`);
+    if (first.version > 4) assert(rows.at(-1).includes("before counting"), `last row ${rows.at(-1)}`);
+    const note = await page.locator("#aboutPlaysNote").textContent();
+    assert(note.startsWith(`${expect} plays since`), `note ${note}`);
+    await shot("about-plays");
+    await page.keyboard.press("Escape");
+    await page.locator("#backLink").click();
+    await page.waitForSelector("#galleryView:not([hidden])");
+    const line = (id) => page.locator(`#gameList .game-card[data-id="${id}"] .card-plays`);
+    await page.waitForFunction((id) => document.querySelector(`.game-card[data-id="${id}"] .card-plays`).textContent, first.id);
+    const text = await line(first.id).textContent();
+    assert(text === `${expect} plays · ${PLAYS.games[first.id][first.version]} on v${first.version}`, `card ${text}`);
+    assert(await line(games[1].id).isHidden(), "card shows a count under the threshold");
+    assert(await noHScroll(page), "horizontal scroll");
+    await page.locator(`#gameList .game-card[data-id="${first.id}"]`).click();
+    await waitGame(page);
+    return `${rows.length} rows, card "${text}"`;
   });
 
   await check(tag("focus trap in panel"), async () => {

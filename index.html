@@ -213,6 +213,14 @@
                 <ul id="aboutChangeList" class="change-list"></ul>
                 <button type="button" class="linkish change-toggle" id="aboutChangesAll" aria-controls="aboutChangeList" hidden></button>
               </div>
+              <div id="aboutPlays" hidden>
+                <h3>Plays by version</h3>
+                <table class="plays-table">
+                  <thead><tr><th scope="col">Version</th><th scope="col" class="num">Plays</th><th scope="col"><span class="visually-hidden">Share of plays</span></th></tr></thead>
+                  <tbody id="aboutPlaysRows"></tbody>
+                </table>
+                <p id="aboutPlaysNote" class="muted plays-note"></p>
+              </div>
               <h3>About this game</h3>
               <p id="aboutMeta" class="muted"></p>
               <details class="built">

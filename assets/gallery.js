@@ -30,6 +30,7 @@
   let galleryScroll = 0;
   let pendingOpen = null;
   let searchTimer = null;
+  let boards = null; // leaderboards.json once loaded, for the play counts
 
   if (config.repo) {
     const repo = `https://github.com/${config.repo}`;
@@ -134,14 +135,32 @@
     return boards.length ? `${boards.length} best${boards.length > 1 ? "s" : ""}` : "";
   }
 
+  // "18 plays · 5 on v9" on the card (docs/scores.md, "Play counts"). Hidden
+  // under PLAYS_SHOWN: "2 plays" reads as "nobody plays this". The About
+  // panel always shows the full count.
+  const PLAYS_SHOWN = 5;
+  function playsText(game) {
+    const p = Scores.plays(boards, game);
+    if (!p || p.total < PLAYS_SHOWN) return "";
+    const total = `${Scores.count(p.total)} play${p.total === 1 ? "" : "s"}`;
+    return p.current === p.total ? total : `${total} · ${Scores.count(p.current)} on v${game.version}`;
+  }
+
+  function fillPlays(span, game) {
+    span.textContent = playsText(game);
+    span.hidden = !span.textContent;
+  }
+
   function card(game, from, index) {
     const chips = game.mechanics.map((m) =>
       el("span", { className: "chip" }, [el("b", { textContent: m.name }), ` · ${Wording.verb(m.verb)}`])
     );
     const meta = el("div", { className: "card-meta" }, [
       el("span", { textContent: `v${game.version} · updated ${UI.shortDate(game.updated)}` }),
+      el("span", { className: "card-plays" }),
       el("span", { textContent: [bestText(game), trophies(game)].filter(Boolean).join(" · ") }),
     ]);
+    fillPlays(meta.querySelector(".card-plays"), game);
     const link = el("a", { className: "game-card", href: `#/play/${game.id}` }, [
       thumb(game),
       el("div", { className: "card-body" }, [
@@ -468,6 +487,15 @@
       // {tap}-style placeholders become "tap" or "click" (assets/wording.js).
       games = (data.games || []).map((g) => Wording.game(g));
       route();
+      // Play counts arrive after the cards are drawn: fill them in place, so
+      // focus and scroll stay put (a failed load just leaves them hidden).
+      Scores.leaderboards().then((data) => {
+        boards = data;
+        for (const span of document.querySelectorAll(".game-card .card-plays")) {
+          const game = games.find((g) => g.id === span.closest(".game-card").dataset.id);
+          if (game) fillPlays(span, game);
+        }
+      });
     })
     .catch((err) => {
       galleryStatus.textContent = `Couldn't load the game list (${err.message}). If you opened this file directly, serve the folder instead: python3 -m http.server`;
