@@ -1,6 +1,6 @@
 # Rail Sorting Yard: design notes
 
-**v1** (2026-09-30) · playtest: https://claude.ai/artifact/QKEiYegRLePYqd8EhaecPH (private, republished each push) ·
+**v2** (2026-10-01, layout fixes; v1 2026-09-30) · playtest: https://claude.ai/artifact/QKEiYegRLePYqd8EhaecPH (private, republished each push) ·
 balance: `node scripts/balance-rail-yard.mjs [runs=20] [bots] [level ids]`
 Turn-based shunting puzzle. Verbs: **switch** (drag a lever, or {tap}) and
 **flick** (drag a car along its track; drag length = speed). Shared state: a
@@ -48,7 +48,11 @@ drains it, what's left at impact decides couple / touch / bounce.
   would show the only answer the puzzle asks the player to read. Instead:
   a sleeper per car length (two on gravel), the speed number and a
   15-pip gauge while aiming, and an impact label after every flick.
-- Portrait screens turn the yard a quarter turn (`fitYard`, `rot`).
+- Portrait screens turn the yard a quarter turn (`fitYard`, `rot`);
+  `startLevel` refits every yard. Tips and hints go in `#msg`, a two-line
+  strip above the yard (never over it). Gravel is one stroked bed; siding
+  and OUT labels take the first of: past the buffer, beside the end
+  (either side), where `labelClash` finds no other track.
 - Keys: Tab car, 1–9 / + − speed, arrows flick, A–D switches, Z X H.
 
 ## Key constants (`games/rail-yard.html`, `§ engine`, `§ constants`)
@@ -100,10 +104,6 @@ hint, 2 s per undo, 10 s per level card.
 | novice (1-move lookahead, ±1-2 speed, hint after 4 stuck flicks, restarts when stuck) | wins 10/10, ~19 min total; level moves 1/4/8/18/22/14/32/21/18/27 |
 | hinted (hint before every flick, off by one 25%) | wins 10/10, ~15 min total |
 
-Hint in Chromium (phone viewport): 1.2 s cold on level 9 (27k states),
-2.9 s cold on level 10; ~60 ms on the par path once the background plan
-(`PREPLAN_MS` per frame from the level's start) has finished.
-
 ## Telemetry fields
 
 `arcade:result` per level end: `level` (1-10), `run`, `attempt`, `time`.
@@ -113,7 +113,10 @@ Wins carry `score` (run total). Losses: `reason` `restart` or `leave`
 
 ## Player data
 
-None yet.
+v1 (2026-10-01): 1 player (touch), 4 sessions, 7 rounds, all wins (L1-L3,
+L3 7 moves vs par 4); 4/4 sessions left mid-round ~18 s in. Feedback (the
+maintainer): hint text over OUT, yard not fully on screen until a
+full-screen toggle, gravel beds overlapping. All fixed in v2.
 
 ## Open ideas / known limits
 
@@ -135,7 +138,5 @@ None yet.
   the exploring solver (every yard solvable, known par; the scratch
   `enum`/`search` approach behind these levels is a start). This is the
   natural uncapped endless mode for the depth pass.
-- Slopes (no v1). Mass (heavier cuts roll shorter) was left out to keep
-  one number to read.
 
 History: `docs/history/rail-yard.md`.

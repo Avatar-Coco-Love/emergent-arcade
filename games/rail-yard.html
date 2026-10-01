@@ -41,10 +41,12 @@
   #field { flex: 1; min-height: 0; display: grid; place-items: center; }
   #stage { position: relative; }
   #yard { display: block; width: 100%; height: 100%; touch-action: none; border-radius: 10px; }
+  /* Its own two-line strip above the yard, so tips and hints never cover it. */
   #msg {
-    position: absolute; top: 6px; left: 12px; right: 12px; margin: 0;
+    flex: none; height: 2.6em; margin: 0; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
     text-align: center; font-size: 0.85rem; line-height: 1.3; color: #fff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95); pointer-events: none;
+    pointer-events: none;
   }
   #msg.warn { color: #ffb4a2; font-weight: 600; }
   #card {
@@ -83,10 +85,10 @@
     <canvas id="want" aria-label="The train to build, buffer end first"></canvas>
     <span id="hudRight"></span>
   </div>
+  <p id="msg" role="status"></p>
   <div id="field">
     <div id="stage">
       <canvas id="yard" aria-label="Rail yard. Drag a switch lever to set its route; flick a car along the track to send it rolling."></canvas>
-      <p id="msg" role="status"></p>
       <div id="card" hidden></div>
     </div>
   </div>
@@ -642,6 +644,7 @@
   function startLevel(i, intro) {
     level = i; L = LEVELS[i];
     Y = buildYard(L);
+    fitYard(); // each yard has its own size and may turn for portrait
     restarts = 0; attempt = 0; memo = new Map();
     reset();
     // Plan the level quietly from its start, so hints on the way are instant.
@@ -779,7 +782,7 @@
     for (const [k, l] of Object.entries(m.asg)) if (legs[k] !== l) { legs[k] = l; changed++; }
     switches += changed;
     const sp = m.lo === m.hi ? 'speed ' + m.lo : 'speed ' + m.lo + '–' + m.hi;
-    const msg = 'Hint (+' + HINT_COST + ' moves): flick the ringed car the way the arrow points, ' + sp + '.' + (changed ? ' Switches set.' : '');
+    const msg = 'Hint (+' + HINT_COST + ' moves): flick the ringed car along the arrow, ' + sp + '.' + (changed ? ' Switches set.' : '');
     hintShow = { c: m.c, side: m.side, lo: m.lo, hi: m.hi, t: 0, msg };
     say(msg);
     hud();
@@ -885,14 +888,13 @@
     if (!Y || fw < 10 || fh < 10) return;
     bb = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
     for (const c of Y.cells) { bb.minX = Math.min(bb.minX, c.x); bb.maxX = Math.max(bb.maxX, c.x); bb.minY = Math.min(bb.minY, c.y); bb.maxY = Math.max(bb.maxY, c.y); }
-    const cols = bb.maxX - bb.minX + 1 + 2 * PAD, rows = bb.maxY - bb.minY + 1 + 2 * PAD + 0.8;
+    const cols = bb.maxX - bb.minX + 1 + 2 * PAD, rows = bb.maxY - bb.minY + 1 + 2 * PAD;
     const uFlat = Math.min(fw / cols, fh / rows), uRot = Math.min(fw / rows, fh / cols);
     rot = uRot > uFlat * 1.15;
     u = Math.min(64, rot ? uRot : uFlat);
     W = Math.floor(rot ? rows * u : cols * u); H = Math.floor(rot ? cols * u : rows * u);
     W = Math.max(W, Math.min(fw, 200)); H = Math.max(H, Math.min(fh, 200));
-    ox = (W - (rot ? rows : cols) * u) / 2; oy = (H - (rot ? cols : rows) * u) / 2 + (rot ? 0 : 0.8 * u);
-    if (rot) ox += 0.8 * u;
+    ox = (W - (rot ? rows : cols) * u) / 2; oy = (H - (rot ? cols : rows) * u) / 2;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     stage.style.width = W + 'px'; stage.style.height = H + 'px';
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
@@ -970,11 +972,29 @@
     g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
     g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
   }
-  function pill(x, y, text, bg, fg) {
+  function pillSize(text) {
     ctx.font = '600 ' + Math.max(10, Math.round(u * 0.3)) + 'px -apple-system, Segoe UI, sans-serif';
-    const w = ctx.measureText(text).width + u * 0.3, h = Math.max(14, u * 0.42);
+    return [ctx.measureText(text).width + u * 0.3, Math.max(14, u * 0.42)];
+  }
+  function pill(x, y, text, bg, fg) {
+    const [w, h] = pillSize(text);
     ctx.fillStyle = bg; roundRect(ctx, x - w / 2, y - h / 2, w, h, h / 2); ctx.fill();
     ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 0.5);
+  }
+  // How badly a label box at (x, y) clashes: leaving the yard, or other
+  // tracks (sampled along each edge) running through it.
+  function labelClash(x, y, w, h, own) {
+    let bad = (x - w / 2 < 2 || x + w / 2 > W - 2 || y - h / 2 < 2 || y + h / 2 > H - 2) ? 100 : 0;
+    const m = u * 0.12;
+    for (let a = 0; a < Y.n; a++) for (const b of Y.adj[a]) {
+      if (b < a || (own.includes(a) && own.includes(b))) continue;
+      const [x1, y1] = P(a), [x2, y2] = P(b);
+      for (let i = 0; i <= 8; i++) {
+        const px = x1 + (x2 - x1) * i / 8, py = y1 + (y2 - y1) * i / 8;
+        if (Math.abs(px - x) < w / 2 + m && Math.abs(py - y) < h / 2 + m) bad++;
+      }
+    }
+    return bad;
   }
   function edgeTrack(a, b) {
     const A = Y.cells[a], B = Y.cells[b];
@@ -987,15 +1007,28 @@
     ctx.fillStyle = '#131922'; roundRect(ctx, 0, 0, W, H, 10); ctx.fill();
     if (!Y || !bb) return;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    // gravel beds
+    // gravel beds: one continuous bed along the track (half a cell toward
+    // each neighbour, or past the buffer), so bends don't stack boxes
+    const halves = [];
     for (let c = 0; c < Y.n; c++) {
       if (Y.cells[c].f !== F_GRAVEL) continue;
       const [x, y] = P(c), [tx, ty] = tangent(c);
-      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(ty, tx));
-      ctx.fillStyle = '#3a3128'; roundRect(ctx, -u * 0.52, -u * 0.3, u * 1.04, u * 0.6, u * 0.12); ctx.fill();
-      ctx.fillStyle = '#8c7658';
-      for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(-u * 0.4 + i * u * 0.135, (i % 2 ? 0.17 : -0.17) * u, u * 0.035, 0, 7); ctx.fill(); }
-      ctx.restore();
+      for (const side of [0, 1]) {
+        const nb = Y.S[c][side];
+        if (!nb.length) { const e = side ? 0.5 : -0.5; halves.push([x, y, x + tx * e * u, y + ty * e * u, 'butt']); }
+        for (const m of nb) { const q = P(m); halves.push([x, y, (x + q[0]) / 2, (y + q[1]) / 2, 'round']); }
+      }
+    }
+    ctx.strokeStyle = '#3a3128'; ctx.lineWidth = u * 0.6;
+    for (const [x1, y1, x2, y2, cap] of halves) { ctx.lineCap = cap; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+    ctx.lineCap = 'round';
+    ctx.fillStyle = '#8c7658';
+    for (const [x1, y1, x2, y2] of halves) {
+      const d = Math.hypot(x2 - x1, y2 - y1) || 1, nx = -(y2 - y1) / d, ny = (x2 - x1) / d;
+      for (let i = 0; i < 4; i++) {
+        const f = (i + 0.5) / 4, o = (i % 2 ? 0.17 : -0.17) * u;
+        ctx.beginPath(); ctx.arc(x1 + (x2 - x1) * f + nx * o, y1 + (y2 - y1) * f + ny * o, u * 0.035, 0, 7); ctx.fill();
+      }
     }
     // track lines
     const seen = new Set();
@@ -1073,11 +1106,26 @@
       const end = T.depart ? T.ids[0] : T.ids[T.ids.length - 1];
       const [x, y] = P(end), [tx, ty] = tangent(end);
       const e = Y.S[end][1].length ? -1 : 1; // outward, past the buffer
-      const lx = x + tx * e * u * 1.05, ly = y + ty * e * u * 1.05;
-      if (T.depart) pill(lx, ly, 'OUT', '#ffd166', '#1a1406');
+      const text = T.depart ? 'OUT' : 'holds ' + T.ids.length, [w, h] = pillSize(text);
+      const dx = tx * e, dy = ty * e;
+      // Past the buffer, else beside the track's end (either side): the
+      // first spot inside the yard that no other track runs through.
+      const along = Math.abs(dx) * w / 2 + Math.abs(dy) * h / 2, across = Math.abs(dy) * w / 2 + Math.abs(dx) * h / 2;
+      const bx = x + dx * u * 0.5, by = y + dy * u * 0.5;
+      const spots = [[x + dx * (u * 0.62 + along), y + dy * (u * 0.62 + along)]];
+      for (const sg of [1, -1]) {
+        const o = sg * (u * 0.32 + across), a2 = along - u * 0.3;
+        spots.push([bx + dx * a2 - dy * o, by + dy * a2 + dx * o]);
+      }
+      let lx, ly, bestBad = Infinity;
+      for (const [sx, sy] of spots) {
+        const bad = labelClash(sx, sy, w, h, T.ids);
+        if (bad < bestBad) { bestBad = bad; lx = sx; ly = sy; }
+      }
+      if (T.depart) pill(lx, ly, text, '#ffd166', '#1a1406');
       else {
         const full = T.ids.every(c => typ(st, c));
-        pill(lx, ly, 'holds ' + T.ids.length, full ? '#ffb347' : '#2b3644', full ? '#1a1206' : '#dfe6ee');
+        pill(lx, ly, text, full ? '#ffb347' : '#2b3644', full ? '#1a1206' : '#dfe6ee');
       }
     }
     drawCars(dt);
