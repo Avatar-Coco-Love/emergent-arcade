@@ -479,3 +479,24 @@ Check:
   solver's par.
 
 *Evidence: bots. Provisional.*
+
+## A hazard that is also a resource makes order matter
+
+*Pressure Grid v9, levels 6-10 (2026-10-01).* Vents start at 8: poured
+out, their pressure is free (7 into a neighbour); hit by a burst first,
+they go off and empty every open neighbour, primed rings included. On the
+vent intro (level 7) the solver pours both vents into the rings: par 4,
+pump-only 6, habit 5. On level 9 a seal's burst beside the full vent
+wipes the ring next to it, so the vent goes into a seal first: par 10,
+habit 12, greedy novice 14% within 40 moves. Leaky cells (−2 per move)
+add order the other way: fill them last, in one move (level 10 pours a
+vent into the leaky ring: 4 + 7 = 11). Valves only bound order where an
+arrow faced the wrong way (level 8: 7 vs 6 with a two-way pipe).
+Check:
+- Give a hazard something worth taking from it, so defusing it is a
+  move the solver wants, not just a cost.
+- Run pump-only and habit bots: both should lose moves on the level.
+- A one-way rule only shows when the wrong way is tempting: test the
+  level with the restriction lifted (par should drop).
+
+*Evidence: bots. Provisional.*

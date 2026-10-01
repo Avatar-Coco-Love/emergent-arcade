@@ -4,10 +4,15 @@
       "id": "pressure-grid",
       "title": "Pressure Grid",
       "file": "pressure-grid.html",
-      "version": 8,
+      "version": 9,
       "added": "2026-09-26",
       "updated": "2026-10-01",
       "changes": [
+        {
+          "version": 9,
+          "date": "2026-10-01",
+          "text": "Levels 6-10: leaky cells, vents that empty their neighbors, and one-way valves. A burst ring is just green now (no stray check mark), and the level hint sits under the board so achievement toasts don't cover it."
+        },
         {
           "version": 8,
           "date": "2026-10-01",
@@ -49,7 +54,7 @@
           "text": "First version: pump and siphon pressure across the grid, and set off chains of eruptions."
         }
       ],
-      "blurb": "A turn-based pressure puzzle: pump cells, pour pressure through sealed pipes, and line up the chain reactions that burst every ringed cell.",
+      "blurb": "A turn-based pressure puzzle: pump cells, pour pressure through sealed pipes and one-way valves, defuse vents, and line up the chain reactions that burst every ringed cell.",
       "mechanics": [
         {
           "name": "pump",
@@ -65,8 +70,8 @@
       "keyboard": "Z undo · R restart · N next level",
       "sharedState": "Pressure per cell: written by pump and siphon, read by siphon (it pours what is there) and by bursts, which empty a cell at 10 and send +2 to each open neighbor, setting off chains.",
       "accent": "#ff7a3d",
-      "goal": "Burst every ringed cell on each of 5 levels in as few moves as you can. Match par for 3 stars; stars open the next level.",
-      "howToPlay": "Each {tap} adds 4 pressure to a cell. At 10 a cell bursts: it empties and sends +2 to each open neighbor, so a neighbor at 8 bursts too. Drag from a cell to a neighbor to pour everything into it (1 is lost); sealed cells can only be filled this way. Walls stop bursts and pours, and a cell left above 8 leaks 1 per move. Nothing moves between your moves, so take your time. Undo and Restart are free; fewer moves earn more stars.",
+      "goal": "Burst every ringed cell on each of 10 levels in as few moves as you can. Match par for 3 stars; stars open the next level.",
+      "howToPlay": "Each {tap} adds 4 pressure to a cell. At 10 a cell bursts: it empties and sends +2 to each open neighbor, so a neighbor at 8 bursts too. Drag from a cell to a neighbor to pour everything into it (1 is lost); sealed cells can only be filled this way. Walls stop bursts and pours, and a cell left above 8 leaks 1 per move. Later levels add valves (arrows: pours through them only go the arrow's way), vents (they start at 8; one that bursts empties its neighbors) and leaky cells (they lose 2 after every move). Nothing moves between your moves, so take your time. Undo and Restart are free; fewer moves earn more stars.",
       "achievements": [
         {
           "id": "first-eruption",
@@ -101,7 +106,7 @@
         {
           "id": "all-stars",
           "title": "All Stars",
-          "description": "Get 3 stars on all five levels in one visit."
+          "description": "Get 3 stars on every level in one visit."
         }
       ],
       "score": {
@@ -109,7 +114,7 @@
         "better": "higher",
         "format": "count",
         "from": "score",
-        "max": 15,
+        "max": 30,
         "epoch": 2
       }
     },
