@@ -45,10 +45,10 @@ const rows = []; // everything the gallery sent to the (fake) endpoint
 
 // Play counts in the leaderboards.json fixture: the first game has 18 plays
 // on its 4 newest versions (older ones fold into "before counting"), the
-// second only 3 (under the card's threshold).
+// second a single play (shown from the first), the third none (hidden).
 const PLAYS = { since: "2026-09-27", through: "2026-10-01T12:00:00Z", recent: {}, games: {
   [games[0].id]: Object.fromEntries([4, 6, 3, 5].map((n, i) => [games[0].version - 3 + i, n]).filter(([v]) => v >= 1)),
-  [games[1].id]: { [games[1].version]: 3 },
+  [games[1].id]: { [games[1].version]: 1 },
 } };
 
 // ---------- local server ----------
@@ -285,7 +285,8 @@ for (const vp of VIEWPORTS) {
     await page.waitForFunction((id) => document.querySelector(`.game-card[data-id="${id}"] .card-plays`).textContent, first.id);
     const text = await line(first.id).textContent();
     assert(text === `${expect} plays · ${PLAYS.games[first.id][first.version]} on v${first.version}`, `card ${text}`);
-    assert(await line(games[1].id).isHidden(), "card shows a count under the threshold");
+    assert((await line(games[1].id).textContent()) === "1 play", "card hides a single play");
+    assert(await line(games[2].id).isHidden(), "card shows a count with no plays");
     assert(await noHScroll(page), "horizontal scroll");
     await page.locator(`#gameList .game-card[data-id="${first.id}"]`).click();
     await waitGame(page);

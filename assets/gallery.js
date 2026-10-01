@@ -135,13 +135,11 @@
     return boards.length ? `${boards.length} best${boards.length > 1 ? "s" : ""}` : "";
   }
 
-  // "18 plays · 5 on v9" on the card (docs/scores.md, "Play counts"). Hidden
-  // under PLAYS_SHOWN: "2 plays" reads as "nobody plays this". The About
-  // panel always shows the full count.
-  const PLAYS_SHOWN = 5;
+  // "18 plays · 5 on v9" on the card (docs/scores.md, "Play counts"),
+  // shown from the first play.
   function playsText(game) {
     const p = Scores.plays(boards, game);
-    if (!p || p.total < PLAYS_SHOWN) return "";
+    if (!p || p.total < 1) return "";
     const total = `${Scores.count(p.total)} play${p.total === 1 ? "" : "s"}`;
     return p.current === p.total ? total : `${total} · ${Scores.count(p.current)} on v${game.version}`;
   }

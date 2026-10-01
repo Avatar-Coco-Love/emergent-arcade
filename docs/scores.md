@@ -189,8 +189,9 @@ sees a different rule and recounts every session row:
 ```
 
 - **Card** (`assets/gallery.js`): "18 plays · 5 on v9" in the card footer
-  ("18 plays" when every play is on the current version). Hidden under 5
-  plays (`PLAYS_SHOWN`), since "2 plays" reads as "nobody plays this".
+  ("18 plays" when every play is on the current version), shown from the
+  first play (it used to wait for 5; small counts are honest, and new games
+  start there).
   Filled in place once the file loads, so focus and scroll don't move.
 - **About panel** (`assets/cabinet.js`, "Plays by version"): every version,
   newest first, with a bar. Versions from before counting began (no plays,
