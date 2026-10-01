@@ -111,6 +111,10 @@ None yet.
   a human who pre-builds before springs may go further. Late waves are
   random combos, so a run's end is partly luck.
 - The sand pile isn't drawn in the scene (the bar has the meter).
+- The score only posts when a season ends (win at 6 waves, or a loss), so
+  a run left mid-season records nothing: a player who held 4 waves and
+  quit can still see "Your best 1". Candidate for v2: post the waves held
+  on leaving (gallery support needed), or score per wave.
 - Possible v2: gates that jam if opened under pressure; a second wall line.
 
 History (tuning story, why each rule exists): `docs/history/tidewright.md`

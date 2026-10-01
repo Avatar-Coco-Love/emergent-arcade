@@ -125,13 +125,14 @@
     return total ? `🏆 ${Ach.count(game)}/${total}` : "";
   }
 
-  // "Best 87" on the card, for games with one board (docs/scores.md).
+  // "Your best 87" on the card, for games with one board (docs/scores.md).
+  // "Your" so it doesn't read as a rank or a global record.
   function bestText(game) {
     const sp = Scores.spec(game);
     const bests = Scores.bests(game);
     if (!sp) return "";
     const boards = Object.keys(bests);
-    if (bests.main) return `Best ${Scores.format(sp, bests.main.score)}`;
+    if (bests.main) return `Your best ${Scores.format(sp, bests.main.score)}`;
     return boards.length ? `${boards.length} best${boards.length > 1 ? "s" : ""}` : "";
   }
 

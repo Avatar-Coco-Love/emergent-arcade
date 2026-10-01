@@ -91,7 +91,8 @@ same-origin, so `localStorage` inside a game throws.
   several boards), the top 10 with your row highlighted, and your public
   name. Your own best is merged in at once; the published file catches up
   within the hour.
-- Cards show "Best 40.2 s" (or "3 bests" for games with boards).
+- Cards show "Your best 40.2 s" (or "3 bests" for games with
+  boards): your own best on this browser, not the leaderboard's.
 - Export/import carries bests (the better one per board wins on import);
   "Reset everything" erases them.
 
