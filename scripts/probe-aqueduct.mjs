@@ -22,6 +22,7 @@ try { ({ chromium } = await import('playwright')); } catch {
   ({ chromium } = await import(pathToFileURL(path.join(root, 'playwright/index.mjs'))));
 }
 const b = await chromium.launch(); const p = await b.newPage();
+if (process.env.EXIT) { const [x, y] = process.env.EXIT.split(',').map(Number); await p.addInitScript(e => { window.__EXIT = e; }, { x, y }); }   // same override as balance-aqueduct.mjs
 await p.goto(pathToFileURL(SRC).href + '?nostart');
 if (mode === 'float') {
   const rows = await p.evaluate(() => { const D = window.__dbg, out = [];

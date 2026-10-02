@@ -39,9 +39,9 @@ const VISC = 0.05;        // pair viscosity
 const MAXPUSH = 1.4;      // px, per pair per substep
 const BEAD_R = 10, BEAD_M = 7, BEAD_DRAG = 8;   // drag: per second toward the local water velocity
 const RING = 6, RING_FULL = 19, LIFT = 3;   // LIFT: buoyancy as a multiple of g when fully submerged (net up = (LIFT-1) g)   // buoyancy probe: particles within RING px of the bead's edge; 19 = fully submerged   // bead radius; mass in particle masses (water displaced ≈ 14)
-const EXIT = Object.assign({ x: 100, y: 35, r: 18 }, window.__EXIT || null), EXIT_T = 0.4;   // __EXIT: bot harness override   // door: bead must sit here while the lock is open
+const EXIT = Object.assign({ x: 70, y: 95, r: 18 }, window.__EXIT || null), EXIT_T = 0.4;   // __EXIT: bot harness override   // door: bead must sit here while the lock is open
 const BAND = { lo: 0.25, hi: 0.5 }, HOLD_T = 1.0, FILT = 0.3;   // vial target band (fraction of capacity), hold time, reading filter (s)
-const VIAL = { x0: -22, x1: 22, y0: -40, y1: 15 };   // a short wide cup: it spills at about 55 deg   // reading region of the vial under the bridge
+const VIAL = { x0: -22, x1: 22, y0: -139, y1: -84, inv: true };   // reading region of the cup; inv: it hangs from the bridge ceiling, mouth down, so it holds water only past ~105 deg
 const KEY_W0 = 50, KEY_W1 = 420, KEY_RAMP = 1.1;   // deg/s for ← → (hold = faster = flick)
 const TARGET_RATE = 360;  // deg/s, bots and tilt-follow
 const DEAD = 3;           // deg, tilt dead zone
@@ -50,10 +50,10 @@ const SHAPES = [
   { cx: -100, cy: 35, hw: 75, hh: 120, r: 16 },   // chamber A (water starts here)
   { cx: 100, cy: 35, hw: 75, hh: 120, r: 16 },    // chamber B (the exit is on its right wall)
   { cx: 0, cy: -62, hw: 62, hh: 17, r: 10 },      // the channel (a bridge over a high sill)
-  { cx: 0, cy: -17.5, hw: 22, hh: 32.5, r: 8 },   // the vial (cup), open at the top into the bridge
+  { cx: 0, cy: -106.5, hw: 22, hh: 32.5, r: 8 },  // the cup, hung from the bridge ceiling with its mouth down: it fills when the vessel is upside down
 ];
 const CEN = { x: 0, y: 35 };
-const VALVE = { x: -22, w: 44, y: -44, hh: 3, T: 0.15 };   // stopcock: a plate that slides across the vial's neck in VALVE.T s
+const VALVE = { x: -22, w: 44, y: -80, hh: 3, T: 0.15 };   // stopcock: a plate that slides across the cup's mouth in VALVE.T s
 const VIAL_CAP = (VIAL.x1 - VIAL.x0) * (VIAL.y1 - VIAL.y0) / (SPACING * SPACING * 0.866);   // particles when full   // rotation centre
 const R2D = 180 / Math.PI;
 
@@ -262,7 +262,7 @@ function draw() {
   ctx.save(); ctx.translate(W / 2, Hh / 2); ctx.scale(scale, scale); ctx.rotate(angle / R2D); ctx.translate(-CEN.x, -CEN.y);
   ctx.fillStyle = '#35547d'; ctx.beginPath(); for (const s of SHAPES) shapePath(s, 5); ctx.fill();
   ctx.fillStyle = '#0e1a2c'; ctx.beginPath(); for (const s of SHAPES) shapePath(s, 0); ctx.fill();
-  const vh = VIAL.y1 - VIAL.y0, yb = f => VIAL.y1 - f * vh;   // target band on the vial glass
+  const vh = VIAL.y1 - VIAL.y0, yb = f => VIAL.inv ? VIAL.y0 + f * vh : VIAL.y1 - f * vh;   // target band on the cup glass, measured from its closed end
   ctx.fillStyle = 'rgba(120,230,160,.22)'; ctx.fillRect(VIAL.x0 - 6, yb(BAND.hi), VIAL.x1 - VIAL.x0 + 12, yb(BAND.lo) - yb(BAND.hi));
   ctx.strokeStyle = '#78e6a0'; ctx.lineWidth = 1.5; ctx.beginPath();
   for (const f of [BAND.lo, BAND.hi]) { ctx.moveTo(VIAL.x0 - 6, yb(f)); ctx.lineTo(VIAL.x1 + 6, yb(f)); } ctx.stroke();
@@ -327,10 +327,10 @@ addEventListener('message', e => { if (e.data && e.data.type === 'arcade:pause')
 const valveBtn = document.getElementById('valve');
 valveBtn.addEventListener('pointerdown', e => { e.stopPropagation(); valveWant = valveWant ? 0 : 1; e.preventDefault(); });
 // § loop
-function lowB() {   // most of the loose water is still on the left: the bead cannot rise to the ring
+function lowB() {   // too little water on the right: the bead cannot float down to the ring
   let b = 0, v = 0;
   for (let i = 0; i < N; i++) { if (PX[i] > 25) b++; else if (PX[i] > VIAL.x0 && PX[i] < VIAL.x1 && PY[i] > VIAL.y0 && PY[i] < VIAL.y1) v++; }
-  return b < 0.7 * (N - v);
+  return b < 250;   // the ring is low in B: ~220 particles float the bead to it
 }
 let paused = false, last = 0, acc = 0, fpsEMA = 60, simEMA = 0;
 function frame(t) {
@@ -347,11 +347,11 @@ function frame(t) {
   valveBtn.textContent = valveWant ? 'Valve: shut' : 'Valve: open'; valveBtn.classList.toggle('shut', !!valveWant);
   let hint;
   if (state === 'won') hint = 'Through the exit! (R to restart)';
-  else if ((doorOpen || (valveWant && fill >= BAND.lo)) && lowB()) hint = 'Not enough water on the ring side. The bead rides the water, so pour most of it across the bridge into the right chamber.';
+  else if ((doorOpen || (valveWant && fill >= BAND.lo)) && lowB()) hint = 'Not enough water on the ring side. The bead rides the water, so pour some across the bridge into the right chamber.';
   else if (doorOpen) hint = 'Door open. Carry the bead into the gold ring.';
   else if (fill >= BAND.lo && fill <= BAND.hi) hint = valveWant ? 'Holding the level… the door is about to open.' : 'In the green band! Shut the valve to keep it.';
-  else if (fill > BAND.hi) hint = 'Too much water in the cup. Open the valve and tilt to spill some.';
-  else hint = 'Goal: fill the cup to the green band, shut the valve to keep it, then carry the bead to the exit.';
+  else if (fill > BAND.hi) hint = 'Too much water in the cup. Open the valve and turn part way back toward upright to let some out.';
+  else hint = 'Goal: the cup hangs mouth-down, so turn the vessel upside down to fill it. Bring it to the green band, shut the valve to keep it, then carry the bead to the exit.';
   msg.textContent = hint;
 }
 window.__dbg = { N, BAND, VIAL_CAP, get fill() { return fill; }, get doorOpen() { return doorOpen; }, N0: N, step, snap, restore, reset, sdf, SHAPES, EXIT, BEAD_R, PR, TARGET_RATE, H,

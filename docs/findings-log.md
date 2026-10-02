@@ -500,3 +500,22 @@ Check:
   level with the restriction lifted (par should drop).
 
 *Evidence: bots. Provisional.*
+
+## A valve is required only when the goals need disjoint angles
+
+Aqueduct prototype, 2026-10-02 (draft PR #59, `docs/games/aqueduct.md`).
+Goal: a cup in a target band (door lock) plus a floating bead at an exit ring;
+one global verb (turn the vessel) and one local verb (a valve sealing the
+cup). With a top-opening cup under the bridge, a planner that never touched
+the valve won at every exit tried (low, high, near the bridge, far corner):
+it either filled the cup last while the bead waited at the ring, or rode
+the A-to-B stream, which both refills the open cup to an in-band
+equilibrium and carries the bead past high rings. Hanging the cup mouth-down
+from the bridge ceiling made it hold water only past ~90° (empty at ≤60°),
+and a ring low in B near its left wall is only reachable near upright; at
+-90° B drains through the bridge mouth on that wall. The no-valve planner
+then lost 0/5 at DEPTH 22 BEAM 16; with the valve, 5/5 in 4.3 s. A ring 20 px
+lower and left, (60, 110), still let the no-valve planner win 1/3 by tilting
+the other way (-60°, water pools in that corner). Rule: map each goal's
+reachable angle range (both directions, including transient stream states)
+and make them disjoint.
