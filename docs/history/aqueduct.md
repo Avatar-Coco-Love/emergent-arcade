@@ -4,6 +4,21 @@ Superseded design-note text, prototype measurements and playtest logs.
 Current design: `docs/games/aqueduct.md`. Add new entries at the top;
 sessions don't read this file by default.
 
+## Step 3: layouts rejected before the inverted cup (2026-10-02)
+
+Moved from the design note when levels became data (step 4).
+
+Rejected on the way (planner-nv wins = valve optional):
+- Top-opening cup under the bridge, exit high in B: (50,-45) 1/2, (70,-55)
+  2/2, (45,-30) 2/2, (100,-30) 1/2, (100,-45) 2/2, (125,-35) 2/2. The A↔B
+  stream refills the open cup to an in-band equilibrium (~30%) at 60-90°
+  and carries the bead past high rings; exits near the bridge mouth are on
+  the stream path.
+- Inverted cup, exit (60, 110): planner-nv 1/3 at DEPTH 22 BEAM 16 (at -60°
+  B's water pools in its bottom-left corner, next to that ring).
+- Lessons: an exit must be off every stream lane, not just off the static
+  surface; check both turn directions (mirror) when gating by angle.
+
 ## Design note as of 2026-10-02, before step 3 (inverted cup), verbatim
 
 Everything below was the whole of `docs/games/aqueduct.md` until the inverted

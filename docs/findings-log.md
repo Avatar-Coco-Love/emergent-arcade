@@ -519,3 +519,18 @@ lower and left, (60, 110), still let the no-valve planner win 1/3 by tilting
 the other way (-60°, water pools in that corner). Rule: map each goal's
 reachable angle range (both directions, including transient stream states)
 and make them disjoint.
+
+## When one move fills two cups, the lock order is the puzzle
+
+Aqueduct prototype level 2, 2026-10-02 (draft PR #59, `docs/games/aqueduct.md`).
+A second cup (mouth sideways on chamber B's right wall) next to the
+mouth-down amber cup. One tumble to -150° fills both (amber 33-69%, violet
+~36%). The valve planner (3/3) shuts violet at -60° while amber is still
+open and over band, lets amber drain to ~35% while easing back, then shuts
+it. Shutting amber first at -60° traps it at 76% while violet drains to 0%,
+so the door never opens without reopening a valve (and paying taps). The
+no-valve planner lost 0/3 at DEPTH 22 BEAM 16; novice and timer 0/20.
+Check: trace the reverse order explicitly; the score (degrees + taps)
+then rewards finding the right order on the first try.
+
+*Evidence: bots. Provisional.*
