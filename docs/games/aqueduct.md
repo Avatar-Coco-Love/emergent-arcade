@@ -213,3 +213,47 @@ Open: all bots here turn only, since the stopcock does not exist, so the
 "Turn alone must not win" finding is not testable until step 2. Exit and
 band positions were picked by one planner pass, not tuned; a player may find
 the 25-50% band hard to read. Phone feel and tilt direction still untested.
+
+## Step 2 results: the stopcock (2026-10-02)
+
+Changed in `prototypes/aqueduct.html` (still one level):
+- **Valve** at the vial's neck: a 44 px plate (`VALVE`) slides across in 0.15 s,
+  solid in the SDF. Space or the fixed on-screen button toggles it; the
+  harness uses `setValve()`. Snapshots include the valve.
+- **Vial is now a short wide cup** (44 x 55 px, ~78 particles, band 25-50%).
+  The tall tube from step 1 let a no-valve bot bank water through
+  hysteresis; the cup spills past about 55-60 deg.
+- **Exit moved to (100, 0)**, mid-height in B (`__EXIT` overrides it for
+  bots: `EXIT=x,y node scripts/balance-aqueduct.mjs ...`).
+
+What I learned (this changed the design, so it is worth keeping):
+- A particle vial does not spill where tube geometry predicts: at exactly
+  90 deg the water lies along a wall and stays. The first valve test
+  (exit on B's right wall, or near the bridge) was won by `planner-nv`
+  (planner that never touches the valve) 3/3, so the valve was optional.
+- The bead sits on the water surface, so an exit pins *where the surface is*
+  (volume and angle together), not just a spot. The vessel is left-right
+  symmetric, so a bot can also tilt the other way. Exit candidates tried,
+  `planner-nv` wins (3 seeds): (152,40) 3, (152,100) 3, (40,-30) 3,
+  (40,-10) 3, (100,135) 3, (45,130) 3, (152,-60) 2, (45,-60) 1, (152,-45) 1,
+  **(100,0) 0**. Only (100,0) needs the valve.
+- Solution that needs it: tilt -120, shut the valve with the cup in band,
+  turn through to -270 (=90 deg) with the cup sealed.
+
+Bots at the shipped exit (20 seeds; planner 5, DEPTH=14 BEAM=14):
+- idle 0%, sweeper 0%, greedy 0%, novice (random turns, 30% valve toggles)
+  0%, timer (valve toggled every 2 s, random turns) 0%, keys 0%.
+- planner (uses the valve) 5/5: median 4.2 s, 270 deg turned, ~1100 rollouts.
+- planner-nv (no valve): 0/3 at DEPTH=14 BEAM=10 and 0/3 at DEPTH=22 BEAM=16.
+- Gates met: the valve is required (planner-nv loses), reading it matters
+  (timer loses), planner solves every seed. The planner needed a bonus for
+  "banked and valve shut" to find the plan at BEAM=10 (1 of 3 before, 4 of 4
+  after at BEAM=14).
+
+Open: novice 0% is harsh for a first level; the 25-50% band is a thin strip
+(14 px) on the cup and hard to read; the winning plan is one idea, so this is
+level-1 depth, not a puzzle yet. Cost of misuse: shutting at the wrong
+fill is undone by opening and re-filling, so the penalty is time and
+degrees (the future score), not failure. Phone tilt and feel: untested.
+Next: level format with data-driven shapes, a second vial (so the pour/lock
+order matters), the score, levels 0-2.

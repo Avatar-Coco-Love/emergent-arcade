@@ -52,7 +52,11 @@ function playInPage({ seed, bot, search }) {
   if (bot === 'novice') {
     let s = seed * 7919 + 13;
     const r = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-    return drive(k => { if (k % 42 === 0) turnTo((r() * 2 - 1) * 120); });
+    return drive(k => { if (k % 42 === 0) { turnTo((r() * 2 - 1) * 120); if (r() < 0.3) D.setValve(!D.valve); } });
+  }
+  if (bot === 'timer') {   // toggles the valve every 2 s, turns at random: shows the valve must be read, not run on a clock
+    let s = seed * 104729 + 7; const r = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    return drive(k => { if (k % 42 === 0) turnTo((r() * 2 - 1) * 120); if (k % 120 === 0) D.setValve(!D.valve); });
   }
   if (bot === 'greedy') return drive(k => {   // turns so gravity points from the bead toward the exit; never looks at the vial
     if (k % 12 === 0) { const dx = D.EXIT.x - D.bead.x, dy = D.EXIT.y - D.bead.y; D.setTarget(Math.atan2(dx, dy) * 180 / Math.PI); } });
@@ -76,31 +80,32 @@ function playInPage({ seed, bot, search }) {
     const cx = Math.round((D.bead.x - X0) / CELL), cy = Math.round((D.bead.y - Y0) / CELL);
     return dist[cy * GW + cx] < 1e8 ? dist[cy * GW + cx] : 200;
   };
-  const HOLD = 60;
+  const HOLD = 60, useValve = bot === 'planner';   // planner-nv: same search, valve never touched
   const OPTS = [0]; for (let k = 1; k <= 6; k++) OPTS.push(30 * k, -30 * k);
-  function roll(s, a) {           // apply one action from snapshot s; returns {snap, score, won}
+  function roll(s, a, v) {        // apply one action from snapshot s; returns {snap, score, won}
     D.restore(s);
-    D.setTarget(a);
+    D.setTarget(a); D.setValve(v);
     let best = 1e9;
     for (let k = 0; k < HOLD && D.state === 'playing'; k++) { D.step(dt); if (k % 10 === 9) best = Math.min(best, geo()); }
     const g = geo(); best = Math.min(best, g);
     const f = D.fill, vErr = f < D.BAND.lo ? D.BAND.lo - f : f > D.BAND.hi ? f - D.BAND.hi : 0;
-    return { snap: D.snap(), score: g + 0.5 * best + 80 * vErr - (D.doorOpen ? 20 : 0) + (D.state === 'won' ? -1000 : 0), won: D.state === 'won', a };
+    return { snap: D.snap(), score: g + 0.5 * best + 80 * vErr - (D.doorOpen ? 20 : 0) - (D.valve && vErr === 0 ? 25 : 0) + (D.state === 'won' ? -1000 : 0), won: D.state === 'won', a, v };
   }
   let beam = [{ snap: D.snap(), score: geo(), plan: [] }], found = null, expanded = 0;
   for (let depth = 0; depth < search.DEPTH && !found; depth++) {
     const next = [], seen = new Set();
     for (const node of beam) {
       const base = node.snap.angle;
-      for (const o of OPTS) {
+      for (const v of useValve ? [0, 1] : [0]) for (const o of OPTS) {
         const a = base + o; if (Math.abs(a) > 540) continue;
-        const r = roll(node.snap, a); expanded++;
-        const key = `${Math.round(r.snap.angle / 30)}|${Math.round(r.snap.b.x / 8)}|${Math.round(r.snap.b.y / 8)}`;
+        const r = roll(node.snap, a, v); expanded++;
+        const key = `${Math.round(r.snap.angle / 30)}|${Math.round(r.snap.b.x / 8)}|${Math.round(r.snap.b.y / 8)}|${v}|${Math.round(D.fill * 20)}`;
         if (seen.has(key)) continue; seen.add(key);
-        const n = { snap: r.snap, score: r.score, plan: [...node.plan, a] };
+        const n = { snap: r.snap, score: r.score, plan: [...node.plan, [a, v]] };
         if (r.won) { found = n; break; }
         next.push(n);
       }
+      if (found) break;
       if (found) break;
     }
     next.sort((x, y) => x.score - y.score);
@@ -110,13 +115,14 @@ function playInPage({ seed, bot, search }) {
   // replay open-loop from the start state to confirm it wins for real
   window.__start(seed);
   let k = 0;
-  const res = drive(t => { if (t % HOLD === 0) { const a = plan[(t / HOLD) | 0]; if (a !== undefined) D.setTarget(a); } });
+  const res = drive(t => { if (t % HOLD === 0) { const m = plan[(t / HOLD) | 0]; if (m !== undefined) { D.setTarget(m[0]); D.setValve(m[1]); } } });
   return { ...res, plan, expanded, found: !!found };
 }
 
 async function run(bot, runs, browser, search) {
   const page = await browser.newPage({ viewport: { width: 390, height: 740 } });
   await page.addInitScript(l => { window.__LIMIT = l; }, LIMIT);
+  if (process.env.EXIT) { const [x, y] = process.env.EXIT.split(',').map(Number); await page.addInitScript(e => { window.__EXIT = e; }, { x, y }); }
   await page.goto(pathToFileURL(SRC).href + '?nostart');
   await page.evaluate(() => { const s = window.__start; window.__start = seed => { window.__dbg.reset(seed); }; });
   const out = [];
@@ -125,19 +131,19 @@ async function run(bot, runs, browser, search) {
   return out;
 }
 
-const BOTS = (process.argv[3] || 'idle,sweeper,greedy,novice,keys,planner').split(',');
+const BOTS = (process.argv[3] || 'idle,sweeper,greedy,novice,timer,keys,planner,planner-nv').split(',');
 const runsArg = +process.argv[2] || 10;
 const search = { DEPTH: 14, BEAM: 10 };
 for (const kv of (process.argv[4] || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); search[k] = +v; }
 const browser = await chromium.launch();
 for (const bot of BOTS) {
-  const runs = bot === 'planner' ? Math.min(runsArg, +process.env.PLAN_RUNS || 5) : runsArg;
+  const runs = bot.startsWith('planner') ? Math.min(runsArg, +process.env.PLAN_RUNS || 5) : runsArg;
   const t0 = Date.now();
   const rs = await run(bot, runs, browser, search);
   const wins = rs.filter(r => r.won), med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
   console.log(`${bot.padEnd(8)} win ${String(Math.round(100 * wins.length / rs.length)).padStart(3)}% (${wins.length}/${rs.length})` +
     ` | median win ${wins.length ? med(wins.map(r => r.t)).toFixed(1) + 's' : '-'} | turned ${med(rs.map(r => r.turned))}°` +
-    (bot === 'planner' ? ` | plan ${med(rs.map(r => r.plan.length))} moves, ${med(rs.map(r => r.expanded))} rollouts` : '') + ` | ${((Date.now() - t0) / 1000).toFixed(0)}s`);
-  if (process.env.TRACE && bot === 'planner') console.log('  plan', rs[0].plan.join(' '));
+    (bot.startsWith('planner') ? ` | plan ${med(rs.map(r => r.plan.length))} moves, ${med(rs.map(r => r.expanded))} rollouts` : '') + ` | ${((Date.now() - t0) / 1000).toFixed(0)}s`);
+  if (process.env.TRACE && bot.startsWith('planner')) console.log('  plan', rs[0].plan.join(' '));
 }
 await browser.close();
