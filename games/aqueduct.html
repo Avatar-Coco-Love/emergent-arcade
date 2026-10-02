@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Aqueduct prototype</title>
+<title>Aqueduct</title>
 <style>
 html,body{margin:0;height:100%;background:#0b1320;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
 canvas{display:block;width:100vw;height:100vh;height:100dvh}
-#hud{position:fixed;left:8px;top:6px;right:130px;font:12px/1.4 system-ui,sans-serif;color:#8fa8c8;pointer-events:none;white-space:pre-wrap}
+#hud{position:fixed;left:8px;top:8px;right:130px;max-height:40px;font:600 13px/20px system-ui,sans-serif;color:#8fa8c8;pointer-events:none;overflow:hidden}
 #msg{position:fixed;left:0;right:0;bottom:104px;padding:0 16px;text-align:center;font:600 15px system-ui,sans-serif;color:#ffd86b;pointer-events:none}
 #valves{position:fixed;left:0;right:0;bottom:44px;display:flex;justify-content:center;gap:12px;pointer-events:none}
-#valves button{pointer-events:auto;min-width:120px;height:48px;font:600 15px system-ui,sans-serif;border-radius:10px;border:2px solid var(--c);background:#161b24;color:#f2e6cf;touch-action:manipulation}
+#valves button{pointer-events:auto;min-width:120px;height:48px;font:600 14px system-ui,sans-serif;border-radius:10px;border:2px solid var(--c);background:#161b24;color:#f2e6cf;touch-action:manipulation}
 #valves button.shut{background:var(--c);color:#14100a}
 #valves button span{display:block}
 #valves .g{display:block;position:relative;height:6px;margin:3px 2px 0;border-radius:3px;background:#0b1320;overflow:hidden}
@@ -25,7 +25,8 @@ body.side #msg{left:auto;right:8px;width:34vw;top:auto;bottom:120px;padding:0;te
 body.side #valves{left:auto;right:8px;width:34vw;bottom:8px;flex-direction:column;align-items:stretch;gap:6px}
 body.side #valves button{height:44px}
 body.side #hud{right:calc(36vw + 8px)}
-#tilt{position:fixed;left:8px;bottom:104px;font:12px system-ui,sans-serif;padding:6px 10px;border-radius:6px;border:1px solid #38577f;background:#142238;color:#cfe0f5;display:none}
+#tilt{position:fixed;left:8px;bottom:8px;font:12px system-ui,sans-serif;padding:6px 10px;border-radius:6px;border:1px solid #38577f;background:#142238;color:#cfe0f5;display:none}
+body.side #tilt{left:auto;right:8px;top:48px;bottom:auto}
 #lv{position:fixed;right:8px;top:8px;font:600 13px system-ui,sans-serif;padding:7px 12px;border-radius:8px;border:1px solid #38577f;background:#142238;color:#cfe0f5}
 #menu{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,10,18,.82);font:15px system-ui,sans-serif;color:#cfe0f5}
 #menu.on{display:flex}
@@ -51,8 +52,8 @@ body.side #hud{right:calc(36vw + 8px)}
 <div id="valves"></div>
 <div id="menu"><div class="box"></div></div>
 <script>
-// Aqueduct prototype: turn a sealed vessel through 360° so the water carries a bead to the ring; levels are data (§ levels).
-// Not a game yet (docs/games/aqueduct.md, "First step: the prototype").
+// Aqueduct: turn a sealed vessel through 360° so the water carries a bead to the ring; levels are data (§ levels).
+// Design notes: docs/games/aqueduct.md.
 (function () {
 'use strict';
 
@@ -150,7 +151,7 @@ const LEVELS = [
     goal: 'Each cup wants its own colour. Fill both, keep the colours apart, then carry the bead across.' },
   { id: 'free', name: 'Free pour', free: true, shapes: CHAMBERS, water: [{ shape: 0, n: 600, dye: 'split' }], bead: { x: -100, y: -10 },
     exit: null, cen: { x: 0, y: 35 }, cups: [],
-    goal: 'Nothing to solve here: turn the vessel and watch the water. R refills it.' },
+    goal: 'Nothing to solve here: turn the vessel and watch the water. ↻ refills it.' },
 ];
 let L = LEVELS[0], level = 0, N = 600, SHAPES = L.shapes, CUPS = L.cups, EXIT = L.exit, CEN = L.cen;
 function cupCap(c) { return (c.read.x1 - c.read.x0) * (c.read.y1 - c.read.y0) / (SPACING * SPACING * 0.866); }   // particles when full
@@ -525,6 +526,13 @@ try { const v = JSON.parse(localStorage.getItem(SAVE) || '{}'); best = v.best ||
 for (const old of ['aqueduct.v1', 'aqueduct.v2']) try { for (const id in JSON.parse(localStorage.getItem(old) || '{}').best || {}) cleared[id] = 1; } catch (_) { /* no old save */ }
 for (const id in best) cleared[id] = 1;
 function saveBest() { try { localStorage.setItem(SAVE, JSON.stringify({ best, pearls: bestPearls })); } catch (_) { /* private mode: progress lasts this visit */ } }
+const GAME_ID = 'aqueduct', RUN = Math.random().toString(36).slice(2, 10) || 'run', attempts = LEVELS.map(() => 0);
+const unlockedA = new Set();
+function unlock(id) {
+  if (unlockedA.has(id)) return;
+  unlockedA.add(id);
+  if (window.parent !== window) window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+}
 function unlocked(i) { return i === 0 || LEVELS[i].free || !!cleared[LEVELS[i - 1].id]; }
 function pearlDots(n, of) { return of ? ' ' + '●'.repeat(n) + '○'.repeat(of - n) : ''; }
 const valvesEl = document.getElementById('valves'), menu = document.getElementById('menu'), box = menu.querySelector('.box');
@@ -544,7 +552,13 @@ function onWin() {
   const prev = best[id]; cleared[id] = 1;
   if (prev === undefined || s > prev) best[id] = s;
   bestPearls[id] = Math.max(bestPearls[id] || 0, n); saveBest();
-  try { if (parent !== window) parent.postMessage({ type: 'arcade:result', game: 'aqueduct', outcome: 'win', time: +elapsed.toFixed(1), level: id, score: s, pearls: n }, '*'); } catch (_) { /* no parent */ }
+  const bulls = CUPS.map((c, k) => Math.round(BULL_PTS * bull(k)));
+  unlock('first-drop');
+  if (n && n === (L.pearls || []).length) unlock('pearl-diver');
+  if (bulls.length && bulls.every(b => b === BULL_PTS)) unlock('bullseye');
+  if (id === 'sorting') unlock('sorted');
+  try { if (parent !== window) parent.postMessage({ type: 'arcade:result', game: GAME_ID, outcome: 'win', time: Math.round(elapsed * 10) / 10, level: level + 1, level_id: id,
+    run: RUN, attempt: attempts[level], score: s, stats: { pearls: n, bull: bulls.reduce((t, b) => t + b, 0), home: homePts() } }, '*'); } catch (_) { /* no parent */ }
   setTimeout(() => showMenu('won', s, prev), 1200);   // a moment to see the bead's whole path
 }
 function showMenu(kind, s, prev) {
@@ -560,13 +574,13 @@ function showMenu(kind, s, prev) {
     h += `<button class="main" data-a="retry">Retry</button>`;
     if (level + 1 < LEVELS.length && !LEVELS[level + 1].free) h += `<button class="main" data-a="next">Next level</button>`;
     h += `</div>`;
-  } else h += `<h2>Aqueduct</h2><p>Turn the vessel to carry the bead to the ring. Take your time: turning is free. Points for clearing, for each pearl the bead picks up, for each cup's level on its centre line, and for the water you bring into the ring's chamber (60% earns it all) when you finish.</p>`;
+  } else h += `<h2>Levels</h2>`;
   h += `<div class="levels">` + LEVELS.map((l, i) => l.free ? `<button data-l="${i}">${l.name}<small>no goal, no score: just water</small></button>` : `<button data-l="${i}" ${unlocked(i) ? '' : 'disabled'}>${i}. ${l.name}<small>${best[l.id] !== undefined ? 'best ' + best[l.id] + pearlDots(bestPearls[l.id] || 0, (l.pearls || []).length) : cleared[l.id] ? 'cleared' : unlocked(i) ? 'not cleared' : 'clear the level before'}</small></button>`).join('') + `</div>`;
   if (kind !== 'won') h += `<div class="row" style="margin-top:12px"><button class="main" data-a="close">Back</button></div>`;
   box.innerHTML = h;
 }
 function hideMenu() { menuOn = false; menu.classList.remove('on'); }
-function start(i) { load(i); settling = true; reset(1); settling = false; hideMenu(); }
+function start(i) { load(i); attempts[level]++; settling = true; reset(1); settling = false; hideMenu(); }
 box.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.l !== undefined) start(+b.dataset.l);
@@ -616,7 +630,19 @@ if (typeof DeviceMotionEvent !== 'undefined' && 'ontouchstart' in window) {
     tiltOn = true; tiltBtn.style.display = 'none'; addEventListener('devicemotion', onMotion);
   };
 }
-addEventListener('message', e => { if (e.data && e.data.type === 'arcade:pause') paused = true; if (e.data && e.data.type === 'arcade:resume') paused = false; });
+let touched = false;   // no input yet: progress arriving from the gallery may still move the player on to their next level
+addEventListener('keydown', () => { touched = true; }); addEventListener('pointerdown', () => { touched = true; }, true);
+addEventListener('message', e => {
+  const d = e.data; if (!d || typeof d !== 'object') return;
+  if (d.type === 'arcade:pause') { paused = true; keyDir = 0; drag = null; }
+  if (d.type === 'arcade:resume') paused = false;
+  if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {   // per-level bests kept by the gallery (this file's storage is blocked in its sandbox)
+    for (const l of LEVELS) { const v = Number(d.bests[l.id]); if (v > 0) { cleared[l.id] = 1; if (!(best[l.id] >= v)) best[l.id] = v; } }
+    if (menuOn && state !== 'won') showMenu('levels');
+    const next = LEVELS.findIndex(l => !l.free && !cleared[l.id]);
+    if (!touched && !menuOn && next > level) start(next);
+  }
+});
 
 // § loop
 function lowSide() {   // too little water on the ring side: the bead cannot float down to the ring
@@ -628,9 +654,9 @@ function hint() {
   if (state === 'won') return `Through the exit! Score ${score()}.`;
   if (doorOpen && CUPS.length && CUPS.some((c, k) => bull(k) < 0.999)) return 'Door open. Carry the bead into the gold ring (a level right on the dotted centre line scores a bullseye).';
   if (!CUPS.length) return L.goal;
-  if (hopeT >= HOPE_T) { const c = CUPS[hopeK], o = DYE_NAME[1 - c.dye]; return `The ${DYE_NAME[c.dye]} water is too mixed with ${o} to fill the ${c.name} now. Colours never separate: tap ↻ to start again.`; }
+  if (hopeT >= HOPE_T) { const c = CUPS[hopeK], o = DYE_NAME[1 - c.dye]; return `The ${DYE_NAME[c.dye]} water is too mixed with ${o} to fill the ${c.name} now. Colours never separate: use ↻ to start again.`; }
   const mixed = CUPS.findIndex((c, k) => !pure(k) && fill[k] + foreign[k] > 0.1);
-  if (mixed >= 0) { const c = CUPS[mixed]; return `The ${c.name} holds too much ${DYE_NAME[1 - c.dye]} (${Math.round(100 * mix[mixed])}%, at most ${100 * PURITY}%). Open its valve and pour it out${hopeT > 0 ? ', or tap ↻ to start again' : ''}.`; }
+  if (mixed >= 0) { const c = CUPS[mixed]; return `The ${c.name} holds too much ${DYE_NAME[1 - c.dye]} (${Math.round(100 * mix[mixed])}%, at most ${100 * PURITY}%). Open its valve and pour it out${hopeT > 0 ? ', or use ↻ to start again' : ''}.`; }
   const shutInBand = CUPS.length && CUPS.every((c, k) => valveWant[k] && inBand(k) && pure(k));
   if ((doorOpen || shutInBand) && lowSide()) return L.low.hint;
   if (doorOpen) return 'Door open. Carry the bead into the gold ring.';
@@ -644,24 +670,19 @@ function hint() {
   if (under >= 0 && started) return `The ${CUPS[under].name} needs water: ${CUPS[under].fill}. Shut its valve once the level is in the green band.`;
   return L.goal;
 }
-let paused = false, last = 0, acc = 0, fpsEMA = 60, simEMA = 0, shownHint = '';
+let paused = false, last = 0, acc = 0, shownHint = '';
 function frame(t) {
   requestAnimationFrame(frame);
   const dtms = last ? t - last : 16.7; last = t;
-  if (dtms > 0) fpsEMA += (1000 / dtms - fpsEMA) * 0.05;
   if (paused || menuOn) return;
   acc = Math.min(acc + dtms / 1000, 2 / 60);   // never more than 2 catch-up steps
-  const t0 = performance.now();
   while (acc >= 1 / 60) { step(1 / 60); acc -= 1 / 60; }
-  simEMA += (performance.now() - t0 - simEMA) * 0.05;
   draw();
   for (let i = pearlFx.length - 1; i >= 0; i--) if ((pearlFx[i].t += dtms / 1000) > 0.6) pearlFx.splice(i, 1);
-  const cups = CUPS.map((c, k) => `${c.name} ${(fill[k] * 100).toFixed(0)}% (${c.band[0] * 100}-${c.band[1] * 100}, aim ${(c.band[0] + c.band[1]) * 50})${c.dye !== undefined ? ` ${DYE_NAME[1 - c.dye]} ${(mix[k] * 100).toFixed(0)}%${pure(k) ? '' : ' TOO MIXED'}` : ''}`).join(' · ');
   const P = L.pearls || [];
-  hud.textContent = L.free ? `${L.name}  ·  ← → or drag to turn · R refill\n${(((angle % 360) + 360) % 360).toFixed(0)}° · ${fpsEMA.toFixed(0)} fps · sim ${simEMA.toFixed(1)} ms` : `${level}. ${L.name}  ·  ${P.length ? `pearls ${pearlCount()}/${P.length} · ` : ''}score ${score()}/${maxScore()}${best[L.id] !== undefined ? ' · best ' + best[L.id] : ''}  ·  ← → or drag to turn · ${CUPS.length > 1 ? '1 2' : 'Space'} valve${CUPS.length > 1 ? 's' : ''} · R restart\n` +
-    `${(((angle % 360) + 360) % 360).toFixed(0)}°${cups ? ' · ' + cups : ''}${doorOpen ? ' · DOOR OPEN' : ''} · ${fpsEMA.toFixed(0)} fps · sim ${simEMA.toFixed(1)} ms`;
+  hud.textContent = L.free ? L.name : `${level}. ${L.name}${P.length ? ' ·' + pearlDots(pearlCount(), P.length) : ''} · score ${score()}/${maxScore()}${best[L.id] !== undefined ? ' · best ' + best[L.id] : ''}`;
   [...valvesEl.children].forEach((b, k) => {   // label and gauge: own colour from the left against the band, foreign water striped after it
-    b.classList.toggle('shut', !!valveWant[k]); b.classList.toggle('mixed', !pure(k)); b.firstChild.textContent = `${CUPS[k].name}: ${valveWant[k] ? 'shut' : 'open'}`;
+    b.classList.toggle('shut', !!valveWant[k]); b.classList.toggle('mixed', !pure(k)); b.firstChild.textContent = `${CUPS[k].name.replace(' cup', '')} ${Math.round(100 * fill[k])}% · ${valveWant[k] ? 'shut' : 'open'}`;
     const g = b.lastChild.children, f = Math.min(1, fill[k]); g[0].style.width = 100 * f + '%'; g[1].style.left = 100 * f + '%'; g[1].style.width = 100 * Math.min(1 - f, foreign[k]) + '%'; });
   restartBtn.classList.toggle('pulse', hopeT >= HOPE_T);
   const h = hint(); if (h !== shownHint) { msg.textContent = h; shownHint = h; }

@@ -7,6 +7,35 @@ sessions don't read this file by default.
 
 
 
+## Prototype to game (2026-10-02, moved from the design note at registration)
+
+Status before: prototype `prototypes/aqueduct.html`, unregistered. The
+"Next" item that became the registration PR: register once playable (user,
+2026-10-02: 10+ minutes not required first; players' feedback from the
+site is the point). Move to `games/aqueduct.html`; manifest (`goal`,
+`howToPlay`, `keyboard`, accent), `score` (higher, per-level `boards`,
+epoch 1), 3+ achievements. Launch `version` 5, `changes` agreed
+2026-10-02 (dates 10-01, 10-01, 10-02, 10-02, merge): 1 first vessel,
+turn to pour; 2 cup lock and valve; 3 levels, two cups; 4 pearls,
+bullseye; 5 water home, free pour, trail + the colours batch (colours,
+levels 3-5, restart). Drop HUD debug; repoint bot scripts.
+
+Prototype HUD (dropped): two lines, `level. name · pearls · score/max ·
+best · key help`, then angle, each cup's reading (`amber cup 34% (25-50,
+aim 37.5)`, foreign share, TOO MIXED), DOOR OPEN, fps and sim ms. The
+level menu opened with a paragraph of instructions (now the manifest's
+`howToPlay`). Results posted `level` as the level id and `pearls` at the
+top level.
+
+Stuck check counts (moved from the note): reachability is unknown, so
+the clean-water counts overlap (rescuable 59, lost 63); `MIX_NEED` 2×
+flags a full spin (31), no rescuable state measured.
+
+Achievement ideas not used at launch: Banked, Upside Down, Light Touch
+(fewest valve taps), One Flick, and Sorted as "a colour level with both
+homes full" (feasibility never measured; it fights the win, so Sorted
+became "clear Sorting").
+
 ## Bot results, levels 0-2 (2026-10-02, moved from the design note)
 
 `LEVEL=i node scripts/balance-aqueduct.mjs` (20 seeds; planners as noted).

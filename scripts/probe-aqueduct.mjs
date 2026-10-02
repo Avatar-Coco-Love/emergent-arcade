@@ -1,4 +1,4 @@
-// Quick probes for the Aqueduct prototype (prototypes/aqueduct.html).
+// Quick probes for Aqueduct (games/aqueduct.html).
 //   node scripts/probe-aqueduct.mjs float          bead dropped 55-60 px under the surface: does it rise? (one line per case)
 //   node scripts/probe-aqueduct.mjs trace '[[-120,0],[-180,1]]'   replay a plan [[angle,valve bits],...] (1 s each), print every 0.25 s
 //   LEVEL=i picks the level (default 1); EXIT=x,y overrides its exit.
@@ -9,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath, pathToFileURL } from 'url';
-const SRC = process.env.SRC || path.join(path.dirname(fileURLToPath(import.meta.url)), '../prototypes/aqueduct.html');   // SRC: try a scratch copy
+const SRC = process.env.SRC || path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/aqueduct.html');   // SRC: try a scratch copy
 const [mode, arg] = process.argv.slice(2);
 if (mode === 'publish-copy') {
   let s = fs.readFileSync(SRC, 'utf8');

@@ -42,18 +42,18 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   angle ranges: one state must hold only where the other goal can't be
   reached. Moving the goal is not enough while a current links the two;
   check both turn directions. *A valve is required only when the goals
-  need disjoint angles.* Aqueduct (prototype). bots.
+  need disjoint angles.* Aqueduct. bots.
 - Two locks filled by the same move make their order the puzzle when they
   drain at different rates: shut the one already in band, let the other
   drain, then shut it. The reverse order traps the wrong volume. *When one
-  move fills two cups, the lock order is the puzzle.* Aqueduct (prototype).
+  move fills two cups, the lock order is the puzzle.* Aqueduct.
   bots.
 - Particles of equal density layer instead of blending: a "can't unmix"
   rule only bites after vigorous motion (a full spin), not a wrong pour.
   Measure the mixing a real mistake causes before building a fail state
   around it, and keep a stuck check conservative (a miss costs a ↻, a
   false alarm costs trust). *Same-density colours layer, they don't
-  blend.* Aqueduct (prototype). bots.
+  blend.* Aqueduct. bots.
 - A slow hazard is no threat to a fast move: time the player's exposure,
   and ask what happens if each hazard is triggered first. *A slow hazard is
   no threat to a fast move.* Bubble Glass. bots.
@@ -158,4 +158,4 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   them: run the shortest-route bot and count what it picks up by accident,
   then move those (a sweep along one wall took 2 of 3). One free pickup on
   the first level teaches what they are. *A collectible must sit off the
-  solution's lanes.* Aqueduct (prototype). bots.
+  solution's lanes.* Aqueduct. bots.
