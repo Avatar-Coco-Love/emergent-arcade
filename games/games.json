@@ -1166,10 +1166,15 @@
       "id": "aqueduct",
       "title": "Aqueduct",
       "file": "aqueduct.html",
-      "version": 5,
+      "version": 6,
       "added": "2026-10-02",
       "updated": "2026-10-02",
       "changes": [
+        {
+         "version": 6,
+         "date": "2026-10-02",
+         "text": "Phone tilt fixed: the vessel stays level on screen and the water falls to the real down, it follows the phone smoothly, and the Tilt button now switches it off again (so does dragging the vessel)."
+        },
         {
           "version": 5,
           "date": "2026-10-02",
@@ -1198,7 +1203,7 @@
       ],
       "blurb": "Turn a sealed glass vessel all the way round so its water floats a glowing bead to the exit ring.",
       "goal": "Carry the bead into the gold ring on each level. Cups lock the ring: it opens only while every cup holds water in its green band. Score more for pearls, bullseye levels and water brought home.",
-      "howToPlay": "{Press} anywhere and turn your {finger} around the vessel like a dial to rotate it; gravity stays down, so the water pours and the bead floats along on it. On a phone you can also tilt to turn. A cup fills only when you turn its mouth upward; {tap} its valve button below to shut it and keep the water while you turn back. When every cup sits in its green band the ring opens: float the bead in. Turning is free and there is no clock. Points: clearing the level, each pink pearl the bead touches, each cup level on its dotted centre line, and how much water ends up in the ring's chamber (on colour levels, each colour in its own chamber). Colour levels: a cup counts only its own colour and may hold at most 20% of the other; colours never separate once mixed, so use ↻ to start again.",
+      "howToPlay": "{Press} anywhere and turn your {finger} around the vessel like a dial to rotate it; gravity stays down, so the water pours and the bead floats along on it. On a phone you can also turn on Tilt and turn the phone itself: the vessel stays level on the screen and the water falls to the real down. {Tap} Tilt again, or drag the vessel, to switch back. A cup fills only when you turn its mouth upward; {tap} its valve button below to shut it and keep the water while you turn back. When every cup sits in its green band the ring opens: float the bead in. Turning is free and there is no clock. Points: clearing the level, each pink pearl the bead touches, each cup level on its dotted centre line, and how much water ends up in the ring's chamber (on colour levels, each colour in its own chamber). Colour levels: a cup counts only its own colour and may hold at most 20% of the other; colours never separate once mixed, so use ↻ to start again.",
       "keyboard": "← → turn, Space or 1 / 2 shut and open valves, R restart, L levels",
       "mechanics": [
         {

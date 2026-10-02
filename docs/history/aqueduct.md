@@ -4,8 +4,20 @@ Superseded design-note text, prototype measurements and playtest logs.
 Current design: `docs/games/aqueduct.md`. Add new entries at the top;
 sessions don't read this file by default.
 
+## v6 tilt (2026-10-02)
 
-
+User on a phone: tilt "super glitchy and cannot be turned off". v5 read
+`devicemotion` gravity with a UA-guessed iOS sign, set `angle` straight from
+each raw sample (no smoothing, 3° dead zone only) and still drew the vessel
+rotated by `angle`, so the vessel turned on screen *and* with the phone
+(double turn, water falling toward the screen's bottom, not the real
+down). The button hid itself once on. v6 copies Bubble Glass's playtested
+model: `deviceorientation` beta/gamma + screen angle give real gravity on
+screen (`tiltA`, dead zone `DEAD`, 0.5 smoothing), the vessel is drawn level
+(rotation 0), `angle` follows `tiltA` at `TARGET_RATE`, level settle runs
+upright. The button toggles Tilt on/off; drag or ← → switch it off.
+Headless check (synthetic events): on/off, 40° roll followed, ±1.5° jitter
+ignored, drag turns it off.
 
 ## Prototype to game (2026-10-02, moved from the design note at registration)
 
@@ -54,7 +66,6 @@ well over 20 points, so it scores; nothing passed 65%, hence full at 60%.
 Pearl routes and pre-home scores per level (planner 0-1 pearls, pearls bot
 3/3 on every level): history, "Pearl routes".
 
-
 ## Free pour (moved from the design note, 2026-10-02)
 
 - **Free pour**: last entry in `LEVELS` (`free: true`, id `free`): no exit,
@@ -80,7 +91,6 @@ order, then exits (D22 B12, 2 seeds). Score = clear + pearls + bullseye.
 | 0 | A top-left, A bottom-left, B top-right | 1/3, 200 | 2/2, 5.3 s, 6, 400 | `180 270 90 30 30` |
 | 1 | A top-left, A bottom-left, B bottom-right | 0/3, 169 | 2/2, 6.2 s, 7, 493 | `180 300 210 60 240a 270a 240` |
 | 2 | A top-left, A bottom-right, A bottom-left | 0/3, 172 | 2/2, 7.6 s, 8, 567 | `150a 270 150a 120ab -30ab 30a` |
-
 
 ## Plan for the trail / free pour / water-home PR (done 2026-10-02)
 
