@@ -1161,6 +1161,99 @@
           "text": "First version: ten yards in two chapters."
         }
       ]
+    },
+    {
+      "id": "aqueduct",
+      "title": "Aqueduct",
+      "file": "aqueduct.html",
+      "version": 5,
+      "added": "2026-10-02",
+      "updated": "2026-10-02",
+      "changes": [
+        {
+          "version": 5,
+          "date": "2026-10-02",
+          "text": "Points for bringing water home to the ring's chamber, a free-pour toy, and a trail behind the bead. Then a second spring: orange water, cups that want one colour, levels 3-5, and a restart button."
+        },
+        {
+          "version": 4,
+          "date": "2026-10-02",
+          "text": "Pink pearls to steer the bead through, and a bullseye line in each cup: a level right on it scores full points."
+        },
+        {
+          "version": 3,
+          "date": "2026-10-02",
+          "text": "Levels: a warm-up, the cup, and a level with two cups."
+        },
+        {
+          "version": 2,
+          "date": "2026-10-01",
+          "text": "The ring is locked until a cup holds the right amount of water, and a valve shuts the cup to keep it."
+        },
+        {
+          "version": 1,
+          "date": "2026-10-01",
+          "text": "First vessel: turn it to pour the water and float the bead to the ring."
+        }
+      ],
+      "blurb": "Turn a sealed glass vessel all the way round so its water floats a glowing bead to the exit ring.",
+      "goal": "Carry the bead into the gold ring on each level. Cups lock the ring: it opens only while every cup holds water in its green band. Score more for pearls, bullseye levels and water brought home.",
+      "howToPlay": "{Press} anywhere and turn your {finger} around the vessel like a dial to rotate it; gravity stays down, so the water pours and the bead floats along on it. On a phone you can also tilt to turn. A cup fills only when you turn its mouth upward; {tap} its valve button below to shut it and keep the water while you turn back. When every cup sits in its green band the ring opens: float the bead in. Turning is free and there is no clock. Points: clearing the level, each pink pearl the bead touches, each cup level on its dotted centre line, and how much water ends up in the ring's chamber (on colour levels, each colour in its own chamber). Colour levels: a cup counts only its own colour and may hold at most 20% of the other; colours never separate once mixed, so use ↻ to start again.",
+      "keyboard": "← → turn, Space or 1 / 2 shut and open valves, R restart, L levels",
+      "mechanics": [
+        {
+          "name": "turn",
+          "verb": "drag",
+          "description": "Turn the whole vessel through 360°: all the water pours and the bead rides on it. Turn fast to slosh water over a lip."
+        },
+        {
+          "name": "valve",
+          "verb": "tap",
+          "description": "{Tap} a cup's valve to shut its mouth, so its water stays put while you turn the vessel back."
+        }
+      ],
+      "sharedState": "The water. Turning moves all of it (and the floating bead); valves freeze one cup's share of it; the ring reads the cups, and the bead needs enough free water to float down to the ring.",
+      "accent": "#d9a441",
+      "achievements": [
+        {
+          "id": "first-drop",
+          "title": "First Drop",
+          "description": "Carry the bead into the ring."
+        },
+        {
+          "id": "pearl-diver",
+          "title": "Pearl Diver",
+          "description": "Clear a level with all three pearls."
+        },
+        {
+          "id": "bullseye",
+          "title": "Bullseye",
+          "description": "Clear a level with cups, every cup right on its centre line."
+        },
+        {
+          "id": "sorted",
+          "title": "Sorted",
+          "description": "Clear Sorting: fill each cup with its own colour."
+        }
+      ],
+      "score": {
+        "label": "Level score",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": true,
+        "max": 1000,
+        "epoch": 1,
+        "boards": "level_id",
+        "boardList": [
+          "warmup",
+          "one-cup",
+          "two-cups",
+          "second-spring",
+          "wrong-way",
+          "sorting"
+        ]
+      }
     }
   ]
 }

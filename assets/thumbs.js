@@ -255,5 +255,17 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard };
+  function aqueduct() {
+    let body = `<rect width="72" height="72" fill="#0b1320"/>`;
+    // The two-chamber vessel with its bridge and hanging cup, the bead afloat, the ring across the sill.
+    let v = `<path d="M 4 24 h 24 v -12 h 16 v 12 h 24 v 40 h -24 v -30 h -16 v 30 h -24 Z" fill="#0e1a2c" stroke="#35547d" stroke-width="2.4" stroke-linejoin="round"/>`;
+    v += `<rect x="31" y="8" width="10" height="10" fill="none" stroke="#d9a441" stroke-width="1.2"/><rect x="31" y="14" width="10" height="4" fill="#3c87ff"/>`;
+    v += `<rect x="5.2" y="44" width="21.6" height="18.8" fill="#3c87ff"/><rect x="45.2" y="55" width="21.6" height="7.8" fill="#3c87ff"/>`;
+    v += `<circle cx="56" cy="46" r="5" fill="none" stroke="#ffd86b" stroke-width="1.6"/>`;
+    v += `<circle cx="16" cy="41" r="5.5" fill="#ffc940" opacity="0.25"/><circle cx="16" cy="41" r="3.2" fill="#ffe9a8"/>`;
+    body += `<g transform="translate(5.4 4) scale(0.85)">${v}</g>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct };
 })();

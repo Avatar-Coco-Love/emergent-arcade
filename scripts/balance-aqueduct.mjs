@@ -1,4 +1,4 @@
-// Headless bots for the Aqueduct prototype (prototypes/aqueduct.html).
+// Headless bots for Aqueduct (games/aqueduct.html).
 //
 // Usage: LEVEL=1 node scripts/balance-aqueduct.mjs [runs=10] [bot,bot,...] [DEPTH=14,BEAM=10]
 //   OPENING='[[-90,0],[-90,1]]' plays fixed opening moves before the planners search.
@@ -7,7 +7,7 @@
 //   pearl + up to 100 per cup bullseye (higher is better); `pearls` is the median picked up; + up to 100 for water home;
 //   `home` the range of the share of free water in the level's home region at the win.
 //
-// The prototype exposes window.__dbg (seeded rng, step(dt), snapshot/restore),
+// The game exposes window.__dbg (seeded rng, step(dt), snapshot/restore),
 // so no source patching is needed. Each run is one seeded vessel (seed only
 // jitters the particle lattice); a run is lost after LIMIT seconds. One line
 // per bot. Needs Playwright (installed globally in Claude Code cloud sessions).
@@ -34,7 +34,7 @@ try { ({ chromium } = await import('playwright')); } catch {
   const root = execSync('npm root -g').toString().trim();
   ({ chromium } = await import(pathToFileURL(path.join(root, 'playwright/index.mjs'))));
 }
-const SRC = process.env.SRC || path.join(path.dirname(fileURLToPath(import.meta.url)), '../prototypes/aqueduct.html');   // SRC: try a scratch copy
+const SRC = process.env.SRC || path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/aqueduct.html');   // SRC: try a scratch copy
 const LIMIT = 45;
 
 function playInPage({ seed, bot, search, lv }) {

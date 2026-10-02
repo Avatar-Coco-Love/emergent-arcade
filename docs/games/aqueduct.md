@@ -1,7 +1,9 @@
-# Aqueduct: design note (prototype, not registered)
+# Aqueduct: design note
 
-Status: prototype `prototypes/aqueduct.html` (unregistered). Id when
-built: `aqueduct`. Older text and measurements: `docs/history/aqueduct.md`.
+**v5** (2026-10-02, registered) · playtest:
+https://claude.ai/artifact/21dXA2QwrHe2QZqkM5HuZf · balance:
+`LEVEL=i node scripts/balance-aqueduct.mjs`. File `games/aqueduct.html`.
+Older text and measurements: `docs/history/aqueduct.md`.
 
 Pitch: a sealed glass vessel of chambers and channels with a little water and
 a glowing **bead** adrift in it. Turn the whole vessel through **360°** so
@@ -38,7 +40,9 @@ above it). A new level needs no code. Vessel frame, y down, angle 0 = upright.
   100 + `PEARL_PTS` 100 per pearl + up to `BULL_PTS` 100 per cup
   **bullseye** (full within `BULL_TOL` ±2% of the band's dotted centre
   line, 0 at the band edge, read at the win) + `HOME_PTS` 100. Bests in
-  localStorage `aqueduct.v3`. `arcade:result` adds `pearls`.
+  localStorage `aqueduct.v3` (blocked in the gallery's sandbox: there the
+  gallery's per-level bests arrive as `arcade:best`, mark levels cleared
+  and, before any input, move the player on to the first uncleared one).
 - **Pearls** (3 per level): within `PEARL_PICK` 15 px of the bead's
   centre; corners need a nearly empty chamber. Order = `pearls` bot's.
 - **Water home** (levels 0-2: chamber B, `HOME_B`): share of free water (not
@@ -55,9 +59,7 @@ above it). A new level needs no code. Vessel frame, y down, angle 0 = upright.
   at 90°/s interleaves them for good (43% foreign at best).
 - **Stuck check** `stuckCup()`: own-colour water in cells ≥ 80% that
   colour under `MIX_NEED` 2 × the band floor for `HOPE_T` 2 s → hint, ↻
-  pulses. Reachability is unknown, so counts overlap (rescuable 59, lost
-  63); 2× flags a full spin (31), no rescuable state measured. Misses are
-  fine: ↻ (`R`) is always in the toolbar.
+  pulses. Misses are fine: ↻ (`R`) is always there. Counts: history.
 - **Colour homes** (`home` as a list, one region per `dye`, `full` 0.9,
   sharing `HOME_PTS`): blue in A, orange in B. The bead still needs blue
   poured across, so it fights the win as before.
@@ -81,6 +83,19 @@ Levels 3-5 start with 450 blue in A, 250 orange in B, bead in A.
 
 Fill maps, why the valve is needed: history, "Step 4 measurements".
 
+## Site: manifest, telemetry, achievements
+
+- `score`: "Level score", higher, own `score`, wins only, max 1000,
+  `boards: level_id`, `boardList` = the six level ids, epoch 1 (bump it
+  when points change). Max per level 400-700.
+- `arcade:result` (wins only; there is no loss): `level` 1-based (warm-up
+  = 1), `level_id`, `run`, `attempt` (starts of that level this visit),
+  `score`, `stats` {`pearls`, `bull` (cup points), `home`}.
+- Achievements: `first-drop` (any clear), `pearl-diver` (all 3 pearls),
+  `bullseye` (every cup 100 at a level with cups), `sorted` (clear Sorting).
+- HUD: one line, `level. name · ●○○ · score now/max · best`; cups' % on
+  their valve buttons. Tilt button bottom-left (side column in landscape).
+
 ## Bot results
 
 Levels 0-2 (one colour, 2026-10-02): planner wins all (4.3-5.3 s, 4-6
@@ -98,30 +113,18 @@ warm-up's free pearl at 90° is on purpose. Placement notes: history.
 
 ## Next (in order)
 
-1. Human playtest of levels 0-2 and free pour (Artifact below): are pearls
-   visible and wanted? Bullseye line readable? Does "water home" read, and
-   does the bead-vs-water trade feel fair or fiddly? Warm-up too easy
-   (novice 40%)? Does level 2's "which one first" read? Human scores for a par.
-   Levels 3-5: is the own-colour line / gauge readable? Does level 4's
-   "other way round" land? Is ↻ found when mixed? Trail length now OK?
-2. Register next PR (user, 2026-10-02: deploy once playable; 10+ minutes
-   is not required first, players' feedback from the site is the point).
-   Move to `games/aqueduct.html`; manifest (`goal`, `howToPlay`,
-   `keyboard`, accent), `score` (higher, per-level `boards`, epoch 1), 3+
-   achievements. Launch `version` 5, `changes` (agreed 2026-10-02; dates
-   10-01, 10-01, 10-02, 10-02, merge): 1 first vessel, turn to pour;
-   2 cup lock and valve; 3 levels, two cups; 4 pearls, bullseye; 5 water
-   home, free pour, trail + this batch (colours, levels 3-5, restart). Drop HUD debug; repoint bot scripts; `smoke-gallery.mjs`.
-3. Phone tilt test after merge (iOS sign flipped, untested), real-phone fps.
-4. Known gap: the door stays open 0.3 s (filter lag) after a cup reopens.
+1. Phone tilt test (iOS sign flipped, untested) and real-phone fps.
+2. Read players' feedback and telemetry (`--game aqueduct`): are pearls
+   visible and wanted? Bullseye line, water home, own-colour line and
+   gauge readable? Warm-up too easy (novice 40%)? Level 4's "other way
+   round"? Is ↻ found when mixed? Human scores for a par.
+3. Known gap: the door stays open 0.3 s (filter lag) after a cup reopens.
 
 Level ideas: history (siphon, leak, tide room…). User,
 2026-10-02: differently shaped and open vessels; a **separator** in the
 middle that splits mixed water, one colour each way, past a one-way line
 it can't fall back over (a later colour level: undoes mixing at a cost).
-Achievements draft: First Drop, Banked, Upside Down, Light Touch (fewest
-valve taps), One Flick, Pearl Diver (all pearls on a level), Bullseye
-(100 on every cup), Sorted (a colour level with both homes full).
+Unused achievement ideas: history, "Prototype to game".
 
 ## Workflow notes
 
@@ -131,6 +134,5 @@ valve taps), One Flick, Pearl Diver (all pearls on a level), Bullseye
   `fillmap` / `trace` print cup readings, pearls, colours per chamber.
 - A sim or layout change invalidates bot numbers (rerun planner,
   planner-nv, pearls).
-- Playtest Artifact (republish with `url`):
-  https://claude.ai/artifact/21dXA2QwrHe2QZqkM5HuZf, upload copy from
+- Playtest Artifact (link above; republish with `url`) from
   `node scripts/probe-aqueduct.mjs publish-copy OUT.html`.
