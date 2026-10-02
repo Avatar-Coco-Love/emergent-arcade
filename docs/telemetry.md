@@ -47,7 +47,8 @@ too, in an `extra` column that reads merge back in
 ([backend-api.md](backend-api.md)). Newer columns are always added at the end, so old rows
 stay aligned; the script extends an existing tab's header row itself.
 
-Nothing else: no names, IPs (Apps Script doesn't expose them), cookies or
+Nothing else: no names beyond the leaderboard name (random, or typed by
+the player, [scores.md](scores.md)), no IPs (Apps Script doesn't expose them), cookies or
 user agents. The gallery footer tells players the stats are recorded. Turn
 telemetry off with `telemetry: false` in `assets/config.js` (whole site), or
 a player turns it off for their browser in the gallery's ⚙ settings

@@ -386,7 +386,7 @@
     toggle.disabled = !telemetry.enabled;
     toggle.checked = telemetry.enabled && !Progress.telemetryOptedOut();
     $("statsNote").textContent = telemetry.enabled
-      ? "Time played, wins and losses, achievements, and which gallery buttons get used. No names, no cookies. Turning it off only affects this browser."
+      ? "Time played, wins and losses, scores, achievements, and which gallery buttons get used. No accounts, no cookies. The only name sent is your leaderboard name (made up, or one you typed). Turning it off only affects this browser."
       : "Play stats are switched off for the whole site.";
     $("clientIdText").textContent = `${Progress.clientIdShort() || "none yet"}…`;
     $("telemetryNote").hidden = !telemetry.active();
