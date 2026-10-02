@@ -16,6 +16,7 @@ canvas{display:block;width:100vw;height:100vh;height:100dvh}
 #lv{position:fixed;right:8px;top:8px;font:600 13px system-ui,sans-serif;padding:7px 12px;border-radius:8px;border:1px solid #38577f;background:#142238;color:#cfe0f5}
 #menu{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,10,18,.82);font:15px system-ui,sans-serif;color:#cfe0f5}
 #menu.on{display:flex}
+#menu.won{background:rgba(6,10,18,.5)}
 #menu .box{width:min(340px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#111c2e;border:1px solid #2b4466}
 #menu h2{margin:0 0 6px;font-size:18px;color:#ffd86b}
 #menu p{margin:0 0 12px;color:#9fb6d3;font-size:14px}
@@ -58,9 +59,12 @@ const EXIT_T = 0.4;       // door: bead must sit in the ring this long while the
 const HOLD_T = 1.0, FILT = 0.3;   // every cup in band this long opens the door; cup reading filter (s)
 const VALVE_T = 0.15;     // s for a valve plate to slide shut or open
 const CLEAR_PTS = 100, PEARL_PTS = 100, BULL_PTS = 100;   // score (higher is better): clearing, each pearl, each cup's bullseye at the win
+const HOME_PTS = 100, HOME_FULL = 0.6;   // share of free water (not in a cup) in the level's home region at the win: linear, full points at 60%
+                          // (a fuller exit chamber floats the bead above the low ring; bots topped out at 65%)
 const BULL_TOL = 0.02;    // a cup within ±2% of its band's centre line gets the full bullseye; it falls to 0 at the band edge
 const PEARL_R = 5, PEARL_PICK = 15;   // pearl radius; the bead collects it within this distance (centre to centre)
-const DYE = ['rgba(60,135,255,.9)', 'rgba(40,205,190,.9)'];   // water colour by the half of its chamber it started in (looks only)
+const DYE = ['rgba(60,135,255,.9)', 'rgba(40,205,190,.9)'];   // water colours (level data `dye`; looks only until a level reads colour)
+const TRAIL_N = 48, PATH_EVERY = 3, PATH_MAX = 2400;   // bead trail: last 48 frames (0.8 s); whole path one point per 3 frames (50 ms), thinned to every other point past 2400
 const KEY_W0 = 50, KEY_W1 = 420, KEY_RAMP = 1.1;   // deg/s for ← → (hold = faster = flick)
 const TARGET_RATE = 360;  // deg/s, bots and tilt-follow
 const DEAD = 3;           // deg, tilt dead zone
@@ -69,13 +73,17 @@ const R2D = 180 / Math.PI;
 // § levels
 // A level is data only (vessel frame, y down, angle 0 = upright):
 //   shapes: free space as rounded boxes {cx, cy, hw, hh, r}.
-//   water: [{shape, n}] particles stacked from the floor of shapes[shape].
+//   water: [{shape, n, dye}] particles stacked from the floor of shapes[shape]; dye: DYE index
+//          (default 0) or 'split' (left half 0, right half 1: decoration where colour means nothing).
 //   bead: start {x, y}. exit: ring {x, y, r}. cen: rotation centre (drawing only).
 //   cups: [{name, color, read: {x0, x1, y0, y1}, mouth: 'up'|'down'|'left'|'right',
 //          band: [lo, hi], valve: {x0, y0, x1, y1, from}, fill: hint}]. The reading
 //          region counts particles; the band is measured from the closed end; the
 //          valve plate grows from its `from` edge. No cups: the door is always open.
 //   pearls: [{x, y}] the bead collects for points (optional; set in the order the bot collects them).
+//   home: {x0, x1, y0, y1, pts}: region counted at the win (share of the water not in a cup);
+//          pts: whether it scores HOME_PTS (else it is shown only).
+//   free: true: free pour, a toy with no exit, score or result.
 //   low: {x, n, hint}: fewer than n particles at x > low.x and the bead can't float to the ring.
 const CHAMBERS = [
   { cx: -100, cy: 35, hw: 75, hh: 120, r: 16 },   // chamber A (water starts here)
@@ -85,22 +93,26 @@ const CHAMBERS = [
 const TOP_CUP = {   // hangs from the bridge ceiling, mouth down: holds water only past ~105 deg
   name: 'amber cup', color: '#d9a441', read: { x0: -22, x1: 22, y0: -139, y1: -84 }, mouth: 'down', band: [0.25, 0.5],
   valve: { x0: -22, y0: -83, x1: 22, y1: -77, from: 'left' }, fill: 'its mouth points down, so turn the vessel upside down to fill it' };
+const HOME_B = { x0: 25, x1: 175, y0: -85, y1: 155, pts: true };   // chamber B, where the ring is
 const LOW_B = { x: 25, n: 250, hint: 'Not enough water on the ring side. The bead rides the water, so pour some across the bridge into the right chamber.' };
 const LEVELS = [
   { id: 'warmup', name: 'Warm-up', shapes: CHAMBERS, water: [{ shape: 0, n: 600 }], bead: { x: -100, y: -10 },
-    exit: { x: 100, y: 120, r: 18 }, cen: { x: 0, y: 35 }, cups: [], low: LOW_B,
+    exit: { x: 100, y: 120, r: 18 }, cen: { x: 0, y: 35 }, cups: [], low: LOW_B, home: HOME_B,
     pearls: [{ x: -150, y: -65 }, { x: -145, y: 125 }, { x: 150, y: -65 }],
     goal: 'Carry the glowing bead to the gold ring. It floats, so pour the water over the bridge and it rides along. Bonus: steer it through the pink pearls first.' },
   { id: 'one-cup', name: 'The cup', shapes: [...CHAMBERS, { cx: 0, cy: -106.5, hw: 22, hh: 32.5, r: 8 }],
-    water: [{ shape: 0, n: 600 }], bead: { x: -100, y: -10 }, exit: { x: 70, y: 95, r: 18 }, cen: { x: 0, y: 35 }, cups: [TOP_CUP], low: LOW_B,
+    water: [{ shape: 0, n: 600 }], bead: { x: -100, y: -10 }, exit: { x: 70, y: 95, r: 18 }, cen: { x: 0, y: 35 }, cups: [TOP_CUP], low: LOW_B, home: HOME_B,
     pearls: [{ x: -150, y: -65 }, { x: -145, y: 125 }, { x: 150, y: 125 }],
     goal: 'The ring opens only while the amber cup holds water in its green band. The cup hangs mouth-down: fill it upside down, shut its valve to keep the water, then carry the bead to the ring.' },
   { id: 'two-cups', name: 'Two cups', shapes: [...CHAMBERS, { cx: 0, cy: -106.5, hw: 22, hh: 32.5, r: 8 }, { cx: 202, cy: -40, hw: 32.5, hh: 20, r: 8 }],
-    water: [{ shape: 0, n: 600 }], bead: { x: -100, y: -10 }, exit: { x: 70, y: 95, r: 18 }, cen: { x: 20, y: 35 }, low: LOW_B,
+    water: [{ shape: 0, n: 600 }], bead: { x: -100, y: -10 }, exit: { x: 70, y: 95, r: 18 }, cen: { x: 20, y: 35 }, low: LOW_B, home: HOME_B,
     pearls: [{ x: -150, y: -65 }, { x: -40, y: 125 }, { x: -145, y: 125 }],
     cups: [TOP_CUP, { name: 'violet cup', color: '#b48cff', read: { x0: 182, x1: 234.5, y0: -60, y1: -20 }, mouth: 'left', band: [0.25, 0.5],
       valve: { x0: 176, y0: -60, x1: 182, y1: -20, from: 'top' }, fill: 'it opens sideways into the right chamber, so tip the right chamber over it' }],
     goal: 'Both cups must sit in their green bands at once. Each has its own valve, and which one you shut first matters.' },
+  { id: 'free', name: 'Free pour', free: true, shapes: CHAMBERS, water: [{ shape: 0, n: 600, dye: 'split' }], bead: { x: -100, y: -10 },
+    exit: null, cen: { x: 0, y: 35 }, cups: [],
+    goal: 'Nothing to solve here: turn the vessel and watch the water. R refills it.' },
 ];
 let L = LEVELS[0], level = 0, N = 600, SHAPES = L.shapes, CUPS = L.cups, EXIT = L.exit, CEN = L.cen;
 function cupCap(c) { return (c.read.x1 - c.read.x0) * (c.read.y1 - c.read.y0) / (SPACING * SPACING * 0.866); }   // particles when full
@@ -149,6 +161,8 @@ const bead = { x: 0, y: 0, vx: 0, vy: 0, ox: 0, oy: 0 };
 let angle = 0, omega = 0, target = 0, mode = 'free';   // degrees; mode: 'free' (keys/dial/tilt) or 'target' (bots)
 let elapsed = 0, exitT = 0, state = 'playing', keyDir = 0, keyHold = 0, rho0 = 1;
 let bandT = 0, doorOpen = false, got = [];   // seconds all cups in band, lock state; pearls collected (per pearl, 0/1)
+const trail = [], path = [];   // bead positions, flat x, y: live trail (last TRAIL_N frames), whole run (drawn at the win)
+let pathEvery = PATH_EVERY, pathTick = 0;
 const pearlFx = [];   // pickup sparkles: {k: pearl index, t: seconds since}
 let fill = [], valveC = [], valveWant = [], plates = [];   // per cup: filtered reading (0..1), plate closed amount, where it is heading, plate rect
 const gv = { x: 0, y: 1 };
@@ -156,11 +170,22 @@ function bull(k) {   // 0..1: how close the cup's reading is to the centre line 
   const [lo, hi] = CUPS[k].band, half = (hi - lo) / 2, e = Math.abs(fill[k] - (lo + hi) / 2) - BULL_TOL;
   return Math.max(0, Math.min(1, 1 - e / (half - BULL_TOL)));
 }
+function homeFrac() {   // 0..1: share of the water outside every cup that sits in the home region
+  const h = L.home; if (!h) return 0;
+  let home = 0, free = 0;
+  for (let i = 0; i < N; i++) {
+    const x = PX[i], y = PY[i];
+    if (CUPS.some(c => x > c.read.x0 && x < c.read.x1 && y > c.read.y0 && y < c.read.y1)) continue;
+    free++; if (x > h.x0 && x < h.x1 && y > h.y0 && y < h.y1) home++;
+  }
+  return free ? home / free : 0;
+}
+function homePts() { return L.home && L.home.pts ? Math.round(HOME_PTS * Math.min(1, homeFrac() / HOME_FULL)) : 0; }
 function pearlCount() { return got.reduce((t, g) => t + g, 0); }
 function score() {   // live: what a win right now would score
-  return CLEAR_PTS + PEARL_PTS * pearlCount() + CUPS.reduce((t, c, k) => t + Math.round(BULL_PTS * bull(k)), 0);
+  return CLEAR_PTS + PEARL_PTS * pearlCount() + homePts() + CUPS.reduce((t, c, k) => t + Math.round(BULL_PTS * bull(k)), 0);
 }
-function maxScore() { return CLEAR_PTS + PEARL_PTS * (L.pearls || []).length + BULL_PTS * CUPS.length; }
+function maxScore() { return CLEAR_PTS + PEARL_PTS * (L.pearls || []).length + BULL_PTS * CUPS.length + (L.home && L.home.pts ? HOME_PTS : 0); }
 function toggleValve(k) { if (k < CUPS.length && state === 'playing') valveWant[k] = valveWant[k] ? 0 : 1; }
 
 // § grid
@@ -278,6 +303,13 @@ function step(dt) {        // one 1/60 s frame
   }
   for (let s = 0; s < SUB; s++) substep(dt / SUB);
   elapsed += dt;
+  if (!settling) {   // looks only
+    trail.push(bead.x, bead.y); if (trail.length > 2 * TRAIL_N) trail.splice(0, 2);
+    if (++pathTick >= pathEvery) {
+      pathTick = 0; path.push(bead.x, bead.y);
+      if (path.length > 2 * PATH_MAX) { let j = 0; for (let i = 0; i < path.length; i += 4) { path[j++] = path[i]; path[j++] = path[i + 1]; } path.length = j; pathEvery *= 2; }
+    }
+  }
   let all = true;
   for (let k = 0; k < CUPS.length; k++) {
     const r = CUPS[k].read; let n = 0;
@@ -289,13 +321,13 @@ function step(dt) {        // one 1/60 s frame
   doorOpen = !CUPS.length || bandT >= HOLD_T;
   const P = L.pearls || [];
   for (let k = 0; k < P.length; k++) if (!got[k] && Math.hypot(bead.x - P[k].x, bead.y - P[k].y) < PEARL_PICK) { got[k] = 1; if (!settling) pearlFx.push({ k, t: 0 }); }
-  if (doorOpen && Math.hypot(bead.x - EXIT.x, bead.y - EXIT.y) < EXIT.r) { exitT += dt; if (exitT >= EXIT_T) { state = 'won'; onWin(); } } else exitT = 0;
+  if (EXIT && doorOpen && Math.hypot(bead.x - EXIT.x, bead.y - EXIT.y) < EXIT.r) { exitT += dt; if (exitT >= EXIT_T) { state = 'won'; onWin(); } } else exitT = 0;
 }
 
 // § init
 function load(i) {   // switch level: data only, no state
   level = Math.max(0, Math.min(LEVELS.length - 1, i | 0)); L = LEVELS[level];
-  SHAPES = L.shapes; CUPS = L.cups; CEN = L.cen; EXIT = Object.assign({}, L.exit, window.__EXIT || null);   // __EXIT: bot harness override
+  SHAPES = L.shapes; CUPS = L.cups; CEN = L.cen; EXIT = L.exit ? Object.assign({}, L.exit, window.__EXIT || null) : null;   // __EXIT: bot harness override
   N = L.water.reduce((t, w) => t + w.n, 0);
   got = (L.pearls || []).map(() => 0); fill = CUPS.map(() => 0); valveC = CUPS.map(() => 0); valveWant = CUPS.map(() => 0); plates = CUPS.map(c => plate(c.valve, 0));
   onLoad();
@@ -309,7 +341,7 @@ function reset(seed) {
     for (let j = 0; j < w.n; j++, i++) {
       const c = j % cols, r = (j / cols) | 0;
       PX[i] = x0 + c * SPACING + (r & 1 ? SPACING / 2 : 0) + (rnd() - 0.5) * 0.4;
-      PY[i] = y1 - r * SPACING * 0.866 + (rnd() - 0.5) * 0.4; VX[i] = VY[i] = 0; COL[i] = PX[i] < a.cx ? 0 : 1;
+      PY[i] = y1 - r * SPACING * 0.866 + (rnd() - 0.5) * 0.4; VX[i] = VY[i] = 0; COL[i] = w.dye === 'split' ? (PX[i] < a.cx ? 0 : 1) : w.dye | 0;
     }
   }
   bead.x = L.bead.x + (rnd() - 0.5) * 2; bead.y = L.bead.y; bead.vx = bead.vy = 0;
@@ -325,7 +357,7 @@ function reset(seed) {
   }
   for (let k = 0; k < 150; k++) step(1 / 60);   // settle 2.5 s
   elapsed = 0; exitT = 0; state = 'playing'; angle = 0; target = 0; bandT = 0; doorOpen = !CUPS.length;
-  fill.fill(0); got.fill(0); pearlFx.length = 0;
+  fill.fill(0); got.fill(0); pearlFx.length = 0; trail.length = 0; path.length = 0; pathEvery = PATH_EVERY; pathTick = 0;
 }
 function snap() { return { np: npairs, pI: pI.slice(0, npairs), pJ: pJ.slice(0, npairs), pQ: pQ.slice(0, npairs), pNX: pNX.slice(0, npairs), pNY: pNY.slice(0, npairs), PX: PX.slice(0, N), PY: PY.slice(0, N), VX: VX.slice(0, N), VY: VY.slice(0, N), b: { ...bead }, angle, target, mode, omega, elapsed, exitT, state, keyDir, keyHold, bandT, doorOpen, got: got.slice(), fill: fill.slice(), valveC: valveC.slice(), valveWant: valveWant.slice() }; }
 function restore(s) { npairs = s.np; pI.set(s.pI); pJ.set(s.pJ); pQ.set(s.pQ); pNX.set(s.pNX); pNY.set(s.pNY); PX.set(s.PX); PY.set(s.PY); VX.set(s.VX); VY.set(s.VY); Object.assign(bead, s.b);
@@ -381,10 +413,12 @@ function draw() {
     else ctx.fillRect(v.x0 - 2, v.y1, v.x1 - v.x0 + 4, hw);
     if (valveC[k] > 0.01) { const p = plates[k]; ctx.fillRect(p.cx - p.hw, p.cy - p.hh, 2 * p.hw, 2 * p.hh); }
   });
+  if (EXIT) {
   ctx.fillStyle = doorOpen ? 'rgba(255,216,107,.25)' : 'rgba(255,110,110,.14)'; ctx.strokeStyle = doorOpen ? '#ffd86b' : '#d86a6a'; ctx.lineWidth = 2;
   ctx.setLineDash(doorOpen ? [] : [5, 4]);
   ctx.beginPath(); ctx.arc(EXIT.x, EXIT.y, EXIT.r, 0, 6.2832); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
   if (!doorOpen && bandT > 0) { ctx.strokeStyle = '#78e6a0'; ctx.beginPath(); ctx.arc(EXIT.x, EXIT.y, EXIT.r + 4, -1.5708, -1.5708 + 6.2832 * bandT / HOLD_T); ctx.stroke(); }
+  }
   (L.pearls || []).forEach((p, k) => {   // under the water: a pearl shows through it
     ctx.beginPath(); ctx.arc(p.x, p.y, PEARL_R, 0, 6.2832);
     if (got[k]) { ctx.strokeStyle = 'rgba(255,240,250,.25)'; ctx.lineWidth = 1; ctx.stroke(); }
@@ -399,18 +433,29 @@ function draw() {
     const p = L.pearls[f.k]; ctx.strokeStyle = `rgba(255,190,235,${1 - f.t / 0.6})`; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(p.x, p.y, PEARL_R + 30 * f.t, 0, 6.2832); ctx.stroke();
   }
+  ctx.lineCap = ctx.lineJoin = 'round';
+  if (state === 'won' && path.length > 2) {   // the whole run, with the pearls it picked up
+    ctx.strokeStyle = 'rgba(255,233,168,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(path[0], path[1]);
+    for (let i = 2; i < path.length; i += 2) ctx.lineTo(path[i], path[i + 1]);
+    ctx.lineTo(bead.x, bead.y); ctx.stroke();
+    ctx.fillStyle = '#ffb8e6'; (L.pearls || []).forEach((p, k) => { if (got[k]) { ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, 6.2832); ctx.fill(); } });
+  }
+  for (let i = 2, n = trail.length / 2; i < trail.length; i += 2) {   // live trail: fades and narrows with age
+    const f = i / 2 / n; ctx.strokeStyle = `rgba(255,233,168,${0.5 * f})`; ctx.lineWidth = 1 + (BEAD_R * 1.2 - 1) * f;
+    ctx.beginPath(); ctx.moveTo(trail[i - 2], trail[i - 1]); ctx.lineTo(trail[i], trail[i + 1]); ctx.stroke();
+  }
   ctx.fillStyle = '#ffe9a8'; ctx.shadowColor = '#ffc940'; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(bead.x, bead.y, BEAD_R, 0, 6.2832); ctx.fill();
   ctx.restore();
 }
 
 // § progress
-const SAVE = 'aqueduct.v2';   // v2: score is points (higher is better); v1 held degrees turned, kept only as "cleared"
+const SAVE = 'aqueduct.v3';   // v3: score adds water home; v2 (points without it) and v1 (degrees turned) are kept only as "cleared"
 let best = {}, bestPearls = {}, cleared = {};
 try { const v = JSON.parse(localStorage.getItem(SAVE) || '{}'); best = v.best || {}; bestPearls = v.pearls || {}; } catch (_) { best = {}; }
-try { for (const id in JSON.parse(localStorage.getItem('aqueduct.v1') || '{}').best || {}) cleared[id] = 1; } catch (_) { /* no old save */ }
+for (const old of ['aqueduct.v1', 'aqueduct.v2']) try { for (const id in JSON.parse(localStorage.getItem(old) || '{}').best || {}) cleared[id] = 1; } catch (_) { /* no old save */ }
 for (const id in best) cleared[id] = 1;
 function saveBest() { try { localStorage.setItem(SAVE, JSON.stringify({ best, pearls: bestPearls })); } catch (_) { /* private mode: progress lasts this visit */ } }
-function unlocked(i) { return i === 0 || !!cleared[LEVELS[i - 1].id]; }
+function unlocked(i) { return i === 0 || LEVELS[i].free || !!cleared[LEVELS[i - 1].id]; }
 function pearlDots(n, of) { return of ? ' ' + '●'.repeat(n) + '○'.repeat(of - n) : ''; }
 const valvesEl = document.getElementById('valves'), menu = document.getElementById('menu'), box = menu.querySelector('.box');
 let menuOn = false, settling = false;
@@ -429,21 +474,22 @@ function onWin() {
   if (prev === undefined || s > prev) best[id] = s;
   bestPearls[id] = Math.max(bestPearls[id] || 0, n); saveBest();
   try { if (parent !== window) parent.postMessage({ type: 'arcade:result', game: 'aqueduct', outcome: 'win', time: +elapsed.toFixed(1), level: id, score: s, pearls: n }, '*'); } catch (_) { /* no parent */ }
-  setTimeout(() => showMenu('won', s, prev), 500);
+  setTimeout(() => showMenu('won', s, prev), 1200);   // a moment to see the bead's whole path
 }
 function showMenu(kind, s, prev) {
-  menuOn = true; menu.classList.add('on');
+  menuOn = true; menu.classList.add('on'); menu.classList.toggle('won', kind === 'won');
   let h = '';
   if (kind === 'won') {
     const P = L.pearls || [], parts = [`clear ${CLEAR_PTS}`];
     if (P.length) parts.push(`pearls ${pearlCount()}/${P.length} × ${PEARL_PTS}`);
     CUPS.forEach((c, k) => parts.push(`${c.name} bullseye ${Math.round(BULL_PTS * bull(k))}`));
+    if (L.home) parts.push(L.home.pts ? `water home ${Math.round(100 * homeFrac())}%: ${homePts()}` : `water home ${Math.round(100 * homeFrac())}%`);
     h += `<h2>${L.name}: through!</h2><p>Score <b>${s}</b> of ${maxScore()}${prev !== undefined ? ` · best ${Math.max(s, prev)}` : ''}<br><small>${parts.join(' · ')}</small></p><div class="row">`;
     h += `<button class="main" data-a="retry">Retry</button>`;
-    if (level + 1 < LEVELS.length) h += `<button class="main" data-a="next">Next level</button>`;
+    if (level + 1 < LEVELS.length && !LEVELS[level + 1].free) h += `<button class="main" data-a="next">Next level</button>`;
     h += `</div>`;
-  } else h += `<h2>Aqueduct</h2><p>Turn the vessel to carry the bead to the ring. Take your time: turning is free. Points for clearing, for each pearl the bead picks up, and for each cup's level on its centre line when you finish.</p>`;
-  h += `<div class="levels">` + LEVELS.map((l, i) => `<button data-l="${i}" ${unlocked(i) ? '' : 'disabled'}>${i}. ${l.name}<small>${best[l.id] !== undefined ? 'best ' + best[l.id] + pearlDots(bestPearls[l.id] || 0, (l.pearls || []).length) : cleared[l.id] ? 'cleared' : unlocked(i) ? 'not cleared' : 'clear the level before'}</small></button>`).join('') + `</div>`;
+  } else h += `<h2>Aqueduct</h2><p>Turn the vessel to carry the bead to the ring. Take your time: turning is free. Points for clearing, for each pearl the bead picks up, for each cup's level on its centre line, and for the water you bring into the ring's chamber (60% earns it all) when you finish.</p>`;
+  h += `<div class="levels">` + LEVELS.map((l, i) => l.free ? `<button data-l="${i}">${l.name}<small>no goal, no score: just water</small></button>` : `<button data-l="${i}" ${unlocked(i) ? '' : 'disabled'}>${i}. ${l.name}<small>${best[l.id] !== undefined ? 'best ' + best[l.id] + pearlDots(bestPearls[l.id] || 0, (l.pearls || []).length) : cleared[l.id] ? 'cleared' : unlocked(i) ? 'not cleared' : 'clear the level before'}</small></button>`).join('') + `</div>`;
   if (kind !== 'won') h += `<div class="row" style="margin-top:12px"><button class="main" data-a="close">Back</button></div>`;
   box.innerHTML = h;
 }
@@ -535,7 +581,7 @@ function frame(t) {
   for (let i = pearlFx.length - 1; i >= 0; i--) if ((pearlFx[i].t += dtms / 1000) > 0.6) pearlFx.splice(i, 1);
   const cups = CUPS.map((c, k) => `${c.name} ${(fill[k] * 100).toFixed(0)}% (${c.band[0] * 100}-${c.band[1] * 100}, aim ${(c.band[0] + c.band[1]) * 50})`).join(' · ');
   const P = L.pearls || [];
-  hud.textContent = `${level}. ${L.name}  ·  ${P.length ? `pearls ${pearlCount()}/${P.length} · ` : ''}score ${score()}/${maxScore()}${best[L.id] !== undefined ? ' · best ' + best[L.id] : ''}  ·  ← → or drag to turn · ${CUPS.length > 1 ? '1 2' : 'Space'} valve${CUPS.length > 1 ? 's' : ''} · R restart\n` +
+  hud.textContent = L.free ? `${L.name}  ·  ← → or drag to turn · R refill\n${(((angle % 360) + 360) % 360).toFixed(0)}° · ${fpsEMA.toFixed(0)} fps · sim ${simEMA.toFixed(1)} ms` : `${level}. ${L.name}  ·  ${P.length ? `pearls ${pearlCount()}/${P.length} · ` : ''}score ${score()}/${maxScore()}${best[L.id] !== undefined ? ' · best ' + best[L.id] : ''}  ·  ← → or drag to turn · ${CUPS.length > 1 ? '1 2' : 'Space'} valve${CUPS.length > 1 ? 's' : ''} · R restart\n` +
     `${(((angle % 360) + 360) % 360).toFixed(0)}°${cups ? ' · ' + cups : ''}${doorOpen ? ' · DOOR OPEN' : ''} · ${fpsEMA.toFixed(0)} fps · sim ${simEMA.toFixed(1)} ms`;
   [...valvesEl.children].forEach((b, k) => { b.classList.toggle('shut', !!valveWant[k]); b.textContent = `${CUPS[k].name}: ${valveWant[k] ? 'shut' : 'open'}`; });
   const h = hint(); if (h !== shownHint) { msg.textContent = h; shownHint = h; }
@@ -545,10 +591,10 @@ window.__dbg = { get N() { return N; }, get cups() { return CUPS; }, get fill() 
   bead, get angle() { return angle; }, get state() { return state; }, get elapsed() { return elapsed; },
   setTarget(a) { mode = 'target'; target = a; }, setAngle(a) { mode = 'free'; angle = a; },
   setValve(v, k = 0) { if (!!valveWant[k] !== !!v) toggleValve(k); }, get valve() { return valveWant[0] | 0; }, get valves() { return valveWant; },
-  get score() { return score(); }, get got() { return got; }, get pearls() { return L.pearls || []; }, bull,
+  get score() { return score(); }, homeFrac, get got() { return got; }, get pearls() { return L.pearls || []; }, bull,
   setKey(d) { mode = 'free'; keyDir = d; }, get rho0() { return rho0; }, drawNow: draw, load, get level() { return level; }, levels: LEVELS.map(l => l.id) };
 addEventListener('resize', resize); resize();
-const first = LEVELS.findIndex(l => !cleared[l.id]);
+const first = LEVELS.findIndex(l => !l.free && !cleared[l.id]);
 if (!/[?&]nostart/.test(location.search)) { start(first < 0 ? 0 : first); requestAnimationFrame(frame); }
 else { load(1); window.__start = (s, lv) => { if (lv !== undefined) load(lv); reset(s || 1); }; }
 })();

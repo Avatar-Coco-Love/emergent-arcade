@@ -3,7 +3,8 @@
 // Usage: LEVEL=1 node scripts/balance-aqueduct.mjs [runs=10] [bot,bot,...] [DEPTH=14,BEAM=10]
 //   LEVEL picks the level (index into LEVELS, default 1). TRACE=1 prints the planner's chosen
 //   actions [angle, valve bits]. PLAN_RUNS caps planner runs (default 5). Score = 100 clear + 100 per
-//   pearl + up to 100 per cup bullseye (higher is better); `pearls` is the median picked up.
+//   pearl + up to 100 per cup bullseye (higher is better); `pearls` is the median picked up; + up to 100 for water home;
+//   `home` the range of the share of free water in the level's home region at the win.
 //
 // The prototype exposes window.__dbg (seeded rng, step(dt), snapshot/restore),
 // so no source patching is needed. Each run is one seeded vessel (seed only
@@ -40,7 +41,7 @@ function playInPage({ seed, bot, search, lv }) {
   const NV = D.cups.length, bits = () => D.valves.reduce((t, v, k) => t | (v ? 1 << k : 0), 0);
   const setBits = b => { for (let k = 0; k < NV; k++) D.setValve(b >> k & 1, k); };
   const dt = 1 / 60;
-  const finish = (extra = {}) => ({ won: D.state === 'won', t: D.elapsed, score: D.score, pearls: D.got.reduce((t, g) => t + g, 0), ...extra });
+  const finish = (extra = {}) => ({ won: D.state === 'won', t: D.elapsed, score: D.score, pearls: D.got.reduce((t, g) => t + g, 0), home: Math.round(100 * D.homeFrac()), ...extra });
   let turned = 0;
   const turnTo = a => { D.setTarget(a); };
   function drive(fn) {
@@ -156,7 +157,7 @@ for (const bot of BOTS) {
   const rs = await run(bot, runs, browser, search);
   const wins = rs.filter(r => r.won), med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
   console.log(`${bot.padEnd(8)} win ${String(Math.round(100 * wins.length / rs.length)).padStart(3)}% (${wins.length}/${rs.length})` +
-    ` | median win ${wins.length ? med(wins.map(r => r.t)).toFixed(1) + 's, score ' + med(wins.map(r => r.score)) + ', pearls ' + med(wins.map(r => r.pearls)) : '-'} | turned ${med(rs.map(r => r.turned))}°` +
+    ` | median win ${wins.length ? med(wins.map(r => r.t)).toFixed(1) + 's, score ' + med(wins.map(r => r.score)) + ', pearls ' + med(wins.map(r => r.pearls)) + ', home ' + Math.min(...wins.map(r => r.home)) + '-' + Math.max(...wins.map(r => r.home)) + '%' : '-'} | turned ${med(rs.map(r => r.turned))}°` +
     (plans ? ` | plan ${med(rs.map(r => r.plan.length))} moves, ${med(rs.map(r => r.expanded))} rollouts` : '') + ` | ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   if (process.env.TRACE && (bot.startsWith('planner') || bot === 'pearls')) console.log('  plan', rs[0].plan.join(' '));
 }
