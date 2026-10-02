@@ -1,0 +1,4 @@
+{
+  "about": "Players whose typed leaderboard name was taken down (docs/scores.md, \"Takedowns\"). Each p is a player hash as it appears in leaderboards.json. At the next build scripts/build-leaderboards.mjs shows them under their random two-word name again, frees the typed name, and ignores typed names from them until their line is removed.",
+  "players": []
+}

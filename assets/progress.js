@@ -5,7 +5,8 @@
 //   arcade.rated.<id>.v<n>     "1" after rating that version
 //   arcade.nudged.<id>.v<n>    "1" after the "Rate this game?" nudge
 //   arcade.best.<id>           { "e<epoch>:<board>": { score, at, version } } (assets/scores.js)
-//   arcade.handle              public leaderboard name, from assets/scores.js word lists (kept on reset)
+//   arcade.handle              random leaderboard name, from assets/scores.js word lists (kept on reset)
+//   arcade.name                typed leaderboard name, assets/names.js rules (kept on reset)
 //   arcade.leaderboardOptOut   "1" = send scores without a name, off the leaderboard (kept on reset)
 //   arcade.recent              [ids], most recently opened first
 //   arcade.clientId            anonymous id for feedback/telemetry (kept on reset)

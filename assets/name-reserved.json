@@ -1,0 +1,12 @@
+{
+  "about": "Names only the arcade may use (docs/scores.md, \"Typed names\"). Compared after folding (lowercase, accents and look-alikes removed). anywhere: refused inside any name. word: refused as a whole word or the whole name (short words that hide in ordinary names). Used by assets/names.js in the gallery and by scripts/build-leaderboards.mjs.",
+  "anywhere": [
+    "admin", "administrator", "arcade", "official", "moderator", "moderation", "staff", "system", "sysop",
+    "claude", "anthropic", "owner", "support", "helpdesk", "developer", "maintainer", "operator",
+    "webmaster", "superuser", "verified", "emergent", "leaderboard", "security", "announcement"
+  ],
+  "word": [
+    "mod", "mods", "dev", "devs", "gm", "root", "bot", "team", "help", "host", "server", "null", "undefined",
+    "anonymous", "anon", "everyone", "nobody", "you", "me", "player", "guest", "test", "tester"
+  ]
+}

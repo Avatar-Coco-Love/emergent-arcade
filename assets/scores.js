@@ -14,9 +14,10 @@ window.ArcadeScores = (function () {
   const BOARD = /^[a-z0-9-]{1,24}$/;
   const FROM = /^(score|time|level|stats\.[a-z][a-z0-9_]{0,15})$/;
 
-  // Public names are made from these two lists only (never typed), so a
-  // leaderboard can't carry anything a player wrote. Append words; never
-  // reorder them (a handle's default is its position in the lists).
+  // Random public names are made from these two lists. A player can also
+  // type a name (assets/names.js, checked again by the builder); it shows
+  // with a tag, and this random one stays as the fallback. Append words;
+  // never reorder them (a handle's default is its position in the lists).
   const ADJ = ["Amber", "Brisk", "Coral", "Dusky", "Ember", "Fern", "Gilded", "Hazel",
     "Indigo", "Jade", "Keen", "Lunar", "Mossy", "Nimble", "Ochre", "Pearl",
     "Quiet", "Russet", "Sable", "Tidal", "Umber", "Velvet", "Windy", "Young",
@@ -173,11 +174,56 @@ window.ArcadeScores = (function () {
     return isHandle(saved) ? saved : defaultHandle(window.ArcadeFeedback.clientId());
   }
 
+  // "Pick another name": a new random name, and no typed one.
   function newHandle() {
     let h = randomHandle();
     while (h === handle()) h = randomHandle();
     store().set("arcade.handle", h);
+    store().remove("arcade.name");
     return h;
+  }
+
+  // The typed name, cleaned, or "" (the random one is used).
+  function typedName() {
+    const N = window.ArcadeNames;
+    return N ? N.clean(store().get("arcade.name") || "").slice(0, 32) : "";
+  }
+
+  function setTypedName(text) {
+    const n = window.ArcadeNames.clean(text);
+    if (n) store().set("arcade.name", n);
+    else store().remove("arcade.name");
+  }
+
+  // Who holds a typed name, by its key, in leaderboards.json's `names`
+  // block (built by scripts/build-leaderboards.mjs): a player hash or "".
+  function nameOwner(data, nameKey) {
+    const book = data && data.names && typeof data.names === "object" ? data.names : {};
+    for (const [p, c] of Object.entries(book)) {
+      if (c && typeof c.n === "string" && window.ArcadeNames.key(c.n) === nameKey) return p;
+    }
+    return "";
+  }
+
+  // The name the leaderboard shows: "Coco ·4F2A" for a typed name (unless
+  // the published file says another player holds it), else the random one.
+  function publicName(data) {
+    const n = typedName();
+    if (!n) return handle();
+    const owner = nameOwner(data, window.ArcadeNames.key(n));
+    return owner && owner !== me() ? handle() : window.ArcadeNames.display(n, me());
+  }
+
+  // The word lists for instant feedback (the builder checks again):
+  // { reserved, blocked }, or {} offline.
+  let listsPromise = null;
+  function nameLists() {
+    if (!listsPromise) {
+      const get = (file) => fetch(file, { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      listsPromise = Promise.all([get("assets/name-reserved.json"), get("assets/name-blocked.json")])
+        .then(([reserved, blocked]) => ({ reserved, blocked }));
+    }
+    return listsPromise;
   }
 
   const listed = () => store().get("arcade.leaderboardOptOut") !== "1";
@@ -245,6 +291,7 @@ window.ArcadeScores = (function () {
 
   return {
     ADJ, NOUN, hash, defaultHandle, isHandle, spec, fromResult, beats, format, boardName,
-    load, bests, record, merge, handle, newHandle, listed, setListed, me, leaderboards, top, rank, plays, count,
+    load, bests, record, merge, handle, newHandle, typedName, setTypedName, nameOwner, publicName, nameLists,
+    listed, setListed, me, leaderboards, top, rank, plays, count,
   };
 })();
