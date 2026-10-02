@@ -565,21 +565,12 @@ window.ArcadeCabinet = (function () {
     });
   }
 
-  function recordBoards(game) {
-    const sp = Scores.spec(game);
-    const mine = Object.keys(Scores.bests(game));
-    const boards = new Set(sp.boards ? [] : ["main"]);
-    for (const b of (game.score && game.score.boardList) || []) boards.add(b);
-    for (const b of mine) boards.add(b);
-    return [...boards];
-  }
-
   function renderRecords() {
     const game = current;
     const sp = game && Scores.spec(game);
     $("records").hidden = !sp;
     if (!sp) return;
-    const boards = recordBoards(game);
+    const boards = Scores.boardsOf(game);
     if (!boards.includes(recordsBoard)) recordsBoard = boards[0] || null;
     const pick = $("boardPick");
     $("boardPickRow").hidden = boards.length < 2;
@@ -597,44 +588,35 @@ window.ArcadeCabinet = (function () {
     $("lbList").replaceChildren(el("li", { className: "gap", textContent: "Loading…" }));
     Scores.leaderboards().then((data) => {
       if (current !== game) return;
-      renderBoard(game, sp, data, best);
+      renderBoard(game, sp, data);
       renderName(data);
     });
   }
 
   // Top 10 of the published board, with this browser's best merged in right
   // away (the published file only catches up at the next hourly build).
-  function renderBoard(game, sp, data, best) {
-    const me = Scores.me();
-    const sending = Scores.listed() && telemetry.active();
-    let rows = Scores.top(data, game, recordsBoard).filter((e) => !(sending && e.p === me));
-    const published = Scores.top(data, game, recordsBoard).find((e) => e.p === me);
-    let mine = null;
-    if (sending && (best || published)) {
-      const s = best && (!published || Scores.beats(sp, best.score, published.s)) ? best.score : published.s;
-      mine = { h: Scores.publicName(data), s, me: true };
-    }
-    if (mine) rows.push(mine);
-    rows.sort((a, b) => (a.s === b.s ? 0 : Scores.beats(sp, a.s, b.s) ? -1 : 1));
-    const items = [];
-    let prev = null;
-    let place = 0;
-    rows.forEach((e, i) => {
-      if (e.s !== prev) place = i + 1;
-      prev = e.s;
-      e.place = place;
-    });
+  function renderBoard(game, sp, data) {
+    $("lbList").replaceChildren(...lbItems(game, recordsBoard, data, Scores.listed() && telemetry.active()));
+    $("lbNote").textContent = lbNote(data, " Your own best shows here right away.");
+  }
+
+  // The top 10 of one board as <li>s, with "…" and this browser's row when
+  // it's further down. Also used by the gallery's Records view.
+  function lbItems(game, board, data, sending) {
+    const sp = Scores.spec(game);
+    const { rows, mine } = Scores.standings(data, game, board, sending);
     const shown = rows.slice(0, 10);
-    for (const e of shown) items.push(lbRow(sp, e));
-    if (mine && !shown.includes(mine)) {
-      items.push(el("li", { className: "gap", textContent: "…" }), lbRow(sp, mine));
-    }
+    const items = shown.map((e) => lbRow(sp, e));
+    if (mine && !shown.includes(mine)) items.push(el("li", { className: "gap", textContent: "…" }), lbRow(sp, mine));
     if (!items.length) items.push(el("li", { className: "gap", textContent: data ? "No scores yet. Be the first." : "The leaderboard isn't available here." }));
-    $("lbList").replaceChildren(...items);
+    return items;
+  }
+
+  function lbNote(data, extra) {
     const when = data && data.updated_at ? new Date(data.updated_at) : null;
-    $("lbNote").textContent = !telemetry.active()
+    return !telemetry.active()
       ? "Play stats are off (⚙ settings), so your scores stay in this browser."
-      : `Updates about once an hour${when ? `, last ${when.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}. Your own best shows here right away.`;
+      : `Updates about once an hour${when ? `, last ${when.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}.${extra || ""}`;
   }
 
   function lbRow(sp, e) {
@@ -848,5 +830,5 @@ window.ArcadeCabinet = (function () {
   });
   window.addEventListener("pagehide", () => telemetry.end());
 
-  return { open, close, current: () => current };
+  return { open, close, current: () => current, lbItems, lbNote };
 })();

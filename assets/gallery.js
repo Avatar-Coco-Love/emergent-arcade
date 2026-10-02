@@ -4,6 +4,7 @@
 //
 // Routes:  #/play/<id>                     a game's cabinet (shareable)
 //          #/?sort=updated&verb=drag&q=ant  the gallery, with its view state
+//          #/records, #/records?mine=1     every game's leaderboard (assets/records.js)
 (function () {
   const UI = window.ArcadeUI;
   const { el } = UI;
@@ -15,6 +16,7 @@
   const Scores = window.ArcadeScores;
   const Cabinet = window.ArcadeCabinet;
   const Wording = window.ArcadeWording;
+  const Records = window.ArcadeRecords;
 
   const galleryView = $("galleryView");
   const gameList = $("gameList");
@@ -27,6 +29,7 @@
   let games = [];
   let state = { q: "", sort: "", verb: "" };
   let galleryHash = "#/";
+  let listHash = "#/"; // where the cabinet's ← goes: the gallery or Records
   let galleryScroll = 0;
   let pendingOpen = null;
   let searchTimer = null;
@@ -280,11 +283,29 @@
   // ---------- routing ----------
 
   function route() {
+    if (/^#\/records(\?|$)/.test(location.hash)) {
+      const closing = Cabinet.current();
+      Cabinet.close();
+      galleryView.hidden = true;
+      $("recordsBack").href = galleryHash;
+      Records.show(location.hash, { games, thumb });
+      if (closing) {
+        window.scrollTo(0, galleryScroll);
+        const back = document.querySelector(`.rec-row[data-id="${closing.id}"] .rec-play`);
+        if (back) back.focus({ preventScroll: true });
+      } else window.scrollTo(0, 0);
+      return;
+    }
+    const fromRecords = Records.current();
+    Records.hide();
     const match = location.hash.match(/^#\/play\/([a-z0-9-]+)/);
     const game = match && games.find((g) => g.id === match[1]);
     if (game) {
       const open = Cabinet.current();
-      if (!open) galleryScroll = window.scrollY;
+      if (!open) {
+        galleryScroll = window.scrollY;
+        listHash = fromRecords || galleryHash;
+      }
       if (!open || open.id !== game.id) {
         const src = pendingOpen || { from: "link" };
         const row = { game_id: game.id, game_version: game.version, from: src.from, sort: state.sort || "featured" };
@@ -294,7 +315,7 @@
         telemetry.event("open", row);
       }
       pendingOpen = null;
-      $("backLink").href = galleryHash;
+      $("backLink").href = listHash;
       galleryView.hidden = true;
       Cabinet.open(game);
       return;
@@ -309,6 +330,7 @@
       galleryStatus.className = "status gallery-status err";
       galleryStatus.textContent = `There's no game called "${match[1]}". Here are all of them.`;
     }
+    if (fromRecords) window.scrollTo(0, 0);
     if (closing) {
       // Back where the player left off, with focus on the card they opened.
       window.scrollTo(0, galleryScroll);
@@ -319,6 +341,7 @@
 
   window.addEventListener("hashchange", route);
   window.addEventListener("arcade:progress", renderHeader);
+  window.addEventListener("arcade:records-open", () => { pendingOpen = { from: "records" }; });
 
   // ---------- dialogs: settings and about the arcade ----------
 
@@ -363,7 +386,7 @@
     toggle.disabled = !telemetry.enabled;
     toggle.checked = telemetry.enabled && !Progress.telemetryOptedOut();
     $("statsNote").textContent = telemetry.enabled
-      ? "Time played, wins and losses, achievements, and which gallery buttons get used. No names, no cookies. Turning it off only affects this browser."
+      ? "Time played, wins and losses, scores, achievements, and which gallery buttons get used. No accounts, no cookies. The only name sent is your leaderboard name (made up, or one you typed). Turning it off only affects this browser."
       : "Play stats are switched off for the whole site.";
     $("clientIdText").textContent = `${Progress.clientIdShort() || "none yet"}…`;
     $("telemetryNote").hidden = !telemetry.active();
@@ -390,6 +413,7 @@
     renderSettings();
     if (!Cabinet.current()) renderGallery();
     else renderHeader();
+    if (Records.current()) Records.show(location.hash, { games, thumb });
   }
 
   $("exportBtn").addEventListener("click", () => {

@@ -117,6 +117,20 @@ button.linkish {
 }
 .catalog-controls input { flex: 1; min-width: 0; }
 .catalog-controls select { flex: none; max-width: 48%; }
+.records-btn {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  min-width: var(--tap); height: var(--tap); padding: 0 12px; justify-content: center;
+  font-size: 0.95rem; font-weight: 600; color: var(--text); text-decoration: none;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+}
+.records-btn svg { color: var(--star); flex: none; }
+.records-btn:hover, .records-btn:focus-visible { border-color: var(--accent); }
+/* Phones: search on its own row, then sort and Records. */
+@media (max-width: 480px) {
+  .catalog-controls { flex-wrap: wrap; }
+  .catalog-controls input { flex: 1 1 100%; }
+  .catalog-controls select { flex: 1 1 0; min-width: 0; max-width: none; }
+}
 .verb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
 .verb-chip {
   min-height: var(--tap); padding: 0 16px;
@@ -536,6 +550,39 @@ textarea {
 .lb-name-msg { margin: 4px 0 0; min-height: 1.3em; }
 .lb-name-msg.bad, .lb-name-note { color: var(--bad); }
 .lb-name-note { font-size: 0.85rem; margin: 2px 0 4px; }
+
+.lb-all { font-size: 0.88rem; margin: 6px 0 0; }
+.lb-all a { color: var(--accent); }
+
+/* ---------- Records view: every game's leaderboard (assets/records.js) ---------- */
+
+.records-head { display: flex; align-items: center; gap: 4px; margin: 8px 0 4px; margin-left: -6px; }
+.records-head h2 { margin: 0; font-size: 1.25rem; }
+.records-summary { margin: 0 0 2px; font-size: 0.95rem; }
+.records-name { margin: 0 0 10px; }
+.rec-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rec-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.rec-row:has(.rec-details[open]) { border-color: var(--card-accent, var(--accent)); }
+.rec-play { margin: 8px 6px 0 0; color: var(--card-accent, var(--accent)); }
+.rec-summary {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: center;
+  padding: 10px 0 10px 12px; cursor: pointer; list-style: none; border-radius: var(--radius);
+}
+.rec-summary::-webkit-details-marker { display: none; }
+.rec-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.rec-main { display: grid; gap: 2px; min-width: 0; }
+.rec-title { font-weight: 600; overflow-wrap: anywhere; }
+.rec-title::after { content: " ▸"; color: var(--muted); font-weight: 400; }
+.rec-details[open] .rec-title::after { content: " ▾"; }
+.rec-board { font-weight: 400; font-size: 0.82rem; color: var(--muted); }
+.rec-line { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 0.88rem; }
+.rec-line b { font-variant-numeric: tabular-nums; }
+.rec-lead bdi { overflow-wrap: anywhere; }
+.rec-body { padding: 0 12px 12px; }
+.rec-body .board-pick { margin-top: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

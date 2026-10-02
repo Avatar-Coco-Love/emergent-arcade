@@ -58,6 +58,10 @@
           <option value="title">Title</option>
           <option value="left">Most achievements left</option>
         </select>
+        <a class="records-btn" id="recordsLink" href="#/records" title="Every game's leaderboard">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21V9h6v12"/><path d="M3 21v-7h6"/><path d="M15 21v-4h6v4"/><path d="M2 21h20"/><path d="M12 2.5l.9 1.8 2 .3-1.4 1.4.3 2-1.8-.9-1.8.9.3-2-1.4-1.4 2-.3z"/></svg>
+          <span class="records-label">Records</span>
+        </a>
       </div>
       <div id="verbChips" class="verb-chips" role="group" aria-label="Filter by verb"></div>
 
@@ -71,11 +75,28 @@
         <ul id="archiveList" class="game-list"></ul>
       </section>
     </section>
+
+    <!-- Records: every game's leaderboard on one page (assets/records.js). -->
+    <section id="recordsView" class="records-view" hidden aria-labelledby="recordsTitle">
+      <div class="records-head">
+        <a class="tool back" id="recordsBack" href="#/" aria-label="Back to all games" title="All games">&larr;</a>
+        <h2 id="recordsTitle">Records</h2>
+      </div>
+      <p id="recordsSummary" class="records-summary"></p>
+      <p id="recordsName" class="muted small records-name" hidden></p>
+      <div id="recordsFilter" class="verb-chips" role="group" aria-label="Show">
+        <button type="button" class="verb-chip" data-mine="0">All games</button>
+        <button type="button" class="verb-chip" data-mine="1">My bests</button>
+      </div>
+      <ul id="recordsList" class="rec-list"></ul>
+      <p id="recordsEmpty" class="status" hidden>No bests in this browser yet. Play a game and finish a round to set one.</p>
+      <p id="recordsNote" class="muted lb-note"></p>
+    </section>
   </main>
 
   <footer class="site-footer">
     <a id="repoLink" target="_blank" rel="noopener">Source on GitHub</a>
-    <p class="muted" id="telemetryNote" hidden>To tune the games, the arcade records anonymous play stats: time played, wins and losses, scores, and achievements. No real names, no cookies: leaderboards show a made-up name like "Amber Otter", or one you type. <button type="button" class="linkish" id="telemetryNoteBtn">Turn off for this browser</button></p>
+    <p class="muted" id="telemetryNote" hidden>To tune the games, the arcade records anonymous play stats: time played, wins and losses, scores, and achievements. No accounts, no cookies. Leaderboards show a made-up name like "Amber Otter" unless you type your own, and anyone can see it. <button type="button" class="linkish" id="telemetryNoteBtn">Turn off for this browser</button></p>
   </footer>
 
   <!-- Progress and settings: everything the arcade remembers lives in this
@@ -245,6 +266,7 @@
                 <h3>Leaderboard</h3>
                 <ol id="lbList" class="lb-list"></ol>
                 <p id="lbNote" class="muted lb-note"></p>
+                <p class="lb-all"><a href="#/records">Every game's leaderboard &rarr;</a></p>
                 <div class="lb-me">
                   <label class="check"><input type="checkbox" id="lbListed"><span>Show my best on the leaderboard as <b id="lbHandle"></b></span></label>
                   <button type="button" class="linkish" id="lbRename">Pick another name</button>
@@ -307,6 +329,7 @@
 <script src="assets/thumbs.js"></script>
 <script src="assets/download.js"></script>
 <script src="assets/cabinet.js"></script>
+<script src="assets/records.js"></script>
 <script src="assets/gallery.js"></script>
 </body>
 </html>
