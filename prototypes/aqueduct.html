@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Aqueduct prototype</title>
+<style>
+html,body{margin:0;height:100%;background:#0b1320;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{display:block;width:100vw;height:100vh;height:100dvh}
+#hud{position:fixed;left:8px;top:6px;right:96px;font:12px/1.4 system-ui,sans-serif;color:#8fa8c8;pointer-events:none;white-space:pre-wrap}
+#msg{position:fixed;left:0;right:0;bottom:104px;padding:0 16px;text-align:center;font:600 15px system-ui,sans-serif;color:#ffd86b;pointer-events:none}
+#valves{position:fixed;left:0;right:0;bottom:44px;display:flex;justify-content:center;gap:12px;pointer-events:none}
+#valves button{pointer-events:auto;min-width:120px;height:48px;font:600 15px system-ui,sans-serif;border-radius:10px;border:2px solid var(--c);background:#161b24;color:#f2e6cf;touch-action:manipulation}
+#valves button.shut{background:var(--c);color:#14100a}
+#tilt{position:fixed;left:8px;bottom:104px;font:12px system-ui,sans-serif;padding:6px 10px;border-radius:6px;border:1px solid #38577f;background:#142238;color:#cfe0f5;display:none}
+#lv{position:fixed;right:8px;top:8px;font:600 13px system-ui,sans-serif;padding:7px 12px;border-radius:8px;border:1px solid #38577f;background:#142238;color:#cfe0f5}
+#menu{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,10,18,.82);font:15px system-ui,sans-serif;color:#cfe0f5}
+#menu.on{display:flex}
+#menu .box{width:min(340px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#111c2e;border:1px solid #2b4466}
+#menu h2{margin:0 0 6px;font-size:18px;color:#ffd86b}
+#menu p{margin:0 0 12px;color:#9fb6d3;font-size:14px}
+#menu .row{display:flex;gap:8px;flex-wrap:wrap}
+#menu button{flex:1 1 auto;min-height:44px;font:600 14px system-ui,sans-serif;border-radius:9px;border:1px solid #38577f;background:#1a2a42;color:#e3eefc;text-align:left;padding:8px 12px}
+#menu button.main{background:#d9a441;border-color:#d9a441;color:#14100a;text-align:center}
+#menu button:disabled{opacity:.4}
+#menu .levels{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+#menu small{display:block;font-weight:400;color:#9fb6d3}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+<div id="msg"></div>
+<button id="tilt">Enable tilt</button>
+<button id="lv">Levels</button>
+<div id="valves"></div>
+<div id="menu"><div class="box"></div></div>
+<script>
+// Aqueduct prototype: turn a sealed vessel through 360° so the water carries a bead to the ring; levels are data (§ levels).
+// Not a game yet (docs/games/aqueduct.md, "First step: the prototype").
+(function () {
+'use strict';
+
+// § constants
+const NMAX = 800;         // particle arrays are sized for the largest level
+const SPACING = 6;        // initial lattice spacing, px (vessel units)
+const H = 13;             // interaction radius
+const PR = 2.6;           // particle radius vs walls and bead
+const G = 800;            // gravity, px/s²
+const SUB = 2;            // substeps per 1/60 s frame
+const KP = 2.5, KN = 1.5;  // double-density stiffness (far, near)
+const NEG = 0.25;         // share of negative pressure kept (surface tension)
+const VISC = 0.05;        // pair viscosity
+const MAXPUSH = 1.4;      // px, per pair per substep
+const BEAD_R = 10, BEAD_M = 7, BEAD_DRAG = 8;   // bead radius; mass in particle masses (water displaced ≈ 14); drag per second toward the local water velocity
+const RING = 6, RING_FULL = 19, LIFT = 3;   // buoyancy probe: particles within RING px of the bead's edge (19 = fully submerged); LIFT: buoyancy as a multiple of g when submerged
+const EXIT_T = 0.4;       // door: bead must sit in the ring this long while the lock is open
+const HOLD_T = 1.0, FILT = 0.3;   // every cup in band this long opens the door; cup reading filter (s)
+const VALVE_T = 0.15;     // s for a valve plate to slide shut or open
+const TAP_COST = 30;      // score: one valve tap costs as much as 30 degrees of turning
+const KEY_W0 = 50, KEY_W1 = 420, KEY_RAMP = 1.1;   // deg/s for ← → (hold = faster = flick)
+const TARGET_RATE = 360;  // deg/s, bots and tilt-follow
+const DEAD = 3;           // deg, tilt dead zone
+const R2D = 180 / Math.PI;
+
+// § levels
+// A level is data only (vessel frame, y down, angle 0 = upright):
+//   shapes: free space as rounded boxes {cx, cy, hw, hh, r}.
+//   water: [{shape, n}] particles stacked from the floor of shapes[shape].
+//   bead: start {x, y}. exit: ring {x, y, r}. cen: rotation centre (drawing only).
+//   cups: [{name, color, read: {x0, x1, y0, y1}, mouth: 'up'|'down'|'left'|'right',
+//          band: [lo, hi], valve: {x0, y0, x1, y1, from}, fill: hint}]. The reading
+//          region counts particles; the band is measured from the closed end; the
+//          valve plate grows from its `from` edge. No cups: the door is always open.
+//   low: {x, n, hint}: fewer than n particles at x > low.x and the bead can't float to the ring.
+const CHAMBERS = [
+  { cx: -100, cy: 35, hw: 75, hh: 120, r: 16 },   // chamber A (water starts here)
+  { cx: 100, cy: 35, hw: 75, hh: 120, r: 16 },    // chamber B (the exit is low in it)
+  { cx: 0, cy: -62, hw: 62, hh: 17, r: 10 },      // the channel (a bridge over a high sill)
+];
+const TOP_CUP = {   // hangs from the bridge ceiling, mouth down: holds water only past ~105 deg
+  name: 'amber cup', color: '#d9a441', read: { x0: -22, x1: 22, y0: -139, y1: -84 }, mouth: 'down', band: [0.25, 0.5],
+  valve: { x0: -22, y0: -83, x1: 22, y1: -77, from: 'left' }, fill: 'its mouth points down, so turn the vessel upside down to fill it' };
+const LOW_B = { x: 25, n: 250, hint: 'Not enough water on the ring side. The bead rides the water, so pour some across the bridge into the right chamber.' };
+const LEVELS = [
+  { id: 'warmup', name: 'Warm-up', shapes: CHAMBERS, water: [{ shape: 0, n: 600 }], bead: { x: -100, y: -10 },
+    exit: { x: 100, y: 120, r: 18 }, cen: { x: 0, y: 35 }, cups: [], low: LOW_B,
+    goal: 'Carry the glowing bead to the gold ring. It floats, so pour the water over the bridge and it rides along.' },
+  { id: 'one-cup', name: 'The cup', shapes: [...CHAMBERS, { cx: 0, cy: -106.5, hw: 22, hh: 32.5, r: 8 }],
+    water: [{ shape: 0, n: 600 }], bead: { x: -100, y: -10 }, exit: { x: 70, y: 95, r: 18 }, cen: { x: 0, y: 35 }, cups: [TOP_CUP], low: LOW_B,
+    goal: 'The ring opens only while the amber cup holds water in its green band. The cup hangs mouth-down: fill it upside down, shut its valve to keep the water, then carry the bead to the ring.' },
+  { id: 'two-cups', name: 'Two cups', shapes: [...CHAMBERS, { cx: 0, cy: -106.5, hw: 22, hh: 32.5, r: 8 }, { cx: 202, cy: -40, hw: 32.5, hh: 20, r: 8 }],
+    water: [{ shape: 0, n: 600 }], bead: { x: -100, y: -10 }, exit: { x: 70, y: 95, r: 18 }, cen: { x: 20, y: 35 }, low: LOW_B,
+    cups: [TOP_CUP, { name: 'violet cup', color: '#b48cff', read: { x0: 182, x1: 234.5, y0: -60, y1: -20 }, mouth: 'left', band: [0.25, 0.5],
+      valve: { x0: 176, y0: -60, x1: 182, y1: -20, from: 'top' }, fill: 'it opens sideways into the right chamber, so tip the right chamber over it' }],
+    goal: 'Both cups must sit in their green bands at once. Each has its own valve, and which one you shut first matters.' },
+];
+let L = LEVELS[0], level = 0, N = 600, SHAPES = L.shapes, CUPS = L.cups, EXIT = L.exit, CEN = L.cen;
+function cupCap(c) { return (c.read.x1 - c.read.x0) * (c.read.y1 - c.read.y0) / (SPACING * SPACING * 0.866); }   // particles when full
+function plate(v, c) {   // the valve plate's rect when it is c (0..1) shut: {cx, cy, hw, hh}
+  const w = v.x1 - v.x0, h = v.y1 - v.y0;
+  if (v.from === 'left') return { cx: v.x0 + w * c / 2, cy: (v.y0 + v.y1) / 2, hw: w * c / 2, hh: h / 2 };
+  if (v.from === 'right') return { cx: v.x1 - w * c / 2, cy: (v.y0 + v.y1) / 2, hw: w * c / 2, hh: h / 2 };
+  if (v.from === 'top') return { cx: (v.x0 + v.x1) / 2, cy: v.y0 + h * c / 2, hw: w / 2, hh: h * c / 2 };
+  return { cx: (v.x0 + v.x1) / 2, cy: v.y1 - h * c / 2, hw: w / 2, hh: h * c / 2 };
+}
+
+// § rng
+let seedState = 1;
+function rnd() { seedState |= 0; seedState = seedState + 0x6D2B79F5 | 0; let t = Math.imul(seedState ^ seedState >>> 15, 1 | seedState);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+
+// § sdf
+function sdf(x, y) {
+  let m = 1e9;
+  for (let i = 0; i < SHAPES.length; i++) {
+    const s = SHAPES[i];
+    const qx = Math.abs(x - s.cx) - (s.hw - s.r), qy = Math.abs(y - s.cy) - (s.hh - s.r);
+    const ox = qx > 0 ? qx : 0, oy = qy > 0 ? qy : 0;
+    const d = Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(qx, qy), 0) - s.r;
+    if (d < m) m = d;
+  }
+  for (let k = 0; k < CUPS.length; k++) {   // a closed plate is solid: carve it out of the free space
+    if (valveC[k] <= 0.01) continue;
+    const p = plates[k], qx = Math.abs(x - p.cx) - p.hw, qy = Math.abs(y - p.cy) - p.hh;
+    const ox = qx > 0 ? qx : 0, oy = qy > 0 ? qy : 0, d = Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(qx, qy), 0);
+    if (-d > m) m = -d;
+  }
+  return m;
+}
+const nrm = { x: 0, y: 0 };
+function normal(x, y) {
+  const e = 0.5;
+  let gx = sdf(x + e, y) - sdf(x - e, y), gy = sdf(x, y + e) - sdf(x, y - e);
+  const l = Math.hypot(gx, gy) || 1; nrm.x = gx / l; nrm.y = gy / l;
+}
+
+// § state
+const PX = new Float32Array(NMAX), PY = new Float32Array(NMAX), VX = new Float32Array(NMAX), VY = new Float32Array(NMAX);
+const OX = new Float32Array(NMAX), OY = new Float32Array(NMAX);
+const bead = { x: 0, y: 0, vx: 0, vy: 0, ox: 0, oy: 0 };
+let angle = 0, omega = 0, target = 0, mode = 'free';   // degrees; mode: 'free' (keys/dial/tilt) or 'target' (bots)
+let elapsed = 0, exitT = 0, state = 'playing', keyDir = 0, keyHold = 0, rho0 = 1;
+let bandT = 0, doorOpen = false, turned = 0, taps = 0, lastAngle = 0;   // seconds all cups in band, lock state; score parts
+let fill = [], valveC = [], valveWant = [], plates = [];   // per cup: filtered reading (0..1), plate closed amount, where it is heading, plate rect
+const gv = { x: 0, y: 1 };
+function score() { return Math.round(turned) + TAP_COST * taps; }
+function toggleValve(k) { if (k < CUPS.length && state === 'playing') { valveWant[k] = valveWant[k] ? 0 : 1; taps++; } }
+
+// § grid
+const GC = 40, GO = -200, GCELLS = GC * GC;
+const cellStart = new Int32Array(GCELLS + 1), cellIdx = new Int32Array(NMAX), cellOf = new Int32Array(NMAX);
+const MAXP = NMAX * 16;
+const pI = new Int32Array(MAXP), pJ = new Int32Array(MAXP);
+const pQ = new Float32Array(MAXP), pNX = new Float32Array(MAXP), pNY = new Float32Array(MAXP);
+const rho = new Float32Array(NMAX), rhoN = new Float32Array(NMAX);
+let npairs = 0;
+function cellXY(v) { let c = Math.floor((v - GO) / H); return c < 0 ? 0 : c >= GC ? GC - 1 : c; }
+function buildGrid() {
+  cellStart.fill(0);
+  for (let i = 0; i < N; i++) { const c = cellXY(PY[i]) * GC + cellXY(PX[i]); cellOf[i] = c; cellStart[c + 1]++; }
+  for (let c = 0; c < GCELLS; c++) cellStart[c + 1] += cellStart[c];
+  const fill = gridFill; fill.set(cellStart.subarray(0, GCELLS));
+  for (let i = 0; i < N; i++) cellIdx[fill[cellOf[i]]++] = i;
+}
+const gridFill = new Int32Array(GCELLS);
+
+// § fluid
+function pairs() {
+  buildGrid();
+  rho.fill(0, 0, N); rhoN.fill(0, 0, N); npairs = 0;
+  const H2 = H * H;
+  for (let i = 0; i < N; i++) {
+    const cx = cellXY(PX[i]), cy = cellXY(PY[i]);
+    const x0 = cx > 0 ? cx - 1 : 0, x1 = cx < GC - 1 ? cx + 1 : cx, y0 = cy > 0 ? cy - 1 : 0, y1 = cy < GC - 1 ? cy + 1 : cy;
+    for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
+      const c = yy * GC + xx;
+      for (let k = cellStart[c]; k < cellStart[c + 1]; k++) {
+        const j = cellIdx[k]; if (j <= i) continue;
+        const dx = PX[j] - PX[i], dy = PY[j] - PY[i], d2 = dx * dx + dy * dy;
+        if (d2 >= H2 || npairs >= MAXP) continue;
+        const d = Math.sqrt(d2) || 1e-4, q = 1 - d / H;
+        rho[i] += q * q; rho[j] += q * q; rhoN[i] += q * q * q; rhoN[j] += q * q * q;
+        pI[npairs] = i; pJ[npairs] = j; pQ[npairs] = q; pNX[npairs] = dx / d; pNY[npairs] = dy / d; npairs++;
+      }
+    }
+  }
+}
+function relax(dt) {
+  for (let p = 0; p < npairs; p++) {
+    const i = pI[p], j = pJ[p], q = pQ[p], nx = pNX[p], ny = pNY[p];
+    let Pi = KP * (rho[i] - rho0), Pj = KP * (rho[j] - rho0);
+    if (Pi < 0) Pi *= NEG; if (Pj < 0) Pj *= NEG;
+    let m = 0.5 * (Pi + Pj) * q + 0.5 * KN * (rhoN[i] + rhoN[j]) * q * q;
+    if (m > MAXPUSH) m = MAXPUSH; else if (m < -MAXPUSH) m = -MAXPUSH;
+    PX[i] -= nx * m * 0.5; PY[i] -= ny * m * 0.5; PX[j] += nx * m * 0.5; PY[j] += ny * m * 0.5;
+  }
+}
+function viscosity() {   // uses the previous substep's pair list (one substep stale, free)
+  for (let p = 0; p < npairs; p++) {
+    const i = pI[p], j = pJ[p], nx = pNX[p], ny = pNY[p];
+    const u = (VX[i] - VX[j]) * nx + (VY[i] - VY[j]) * ny;
+    if (u > 0) { const I = 0.5 * pQ[p] * VISC * u * 8; VX[i] -= I * nx; VY[i] -= I * ny; VX[j] += I * nx; VY[j] += I * ny; }
+  }
+}
+
+// § step
+function substep(dt) {
+  const gx = gv.x * G, gy = gv.y * G;
+  for (let i = 0; i < N; i++) { VX[i] += gx * dt; VY[i] += gy * dt; }
+  viscosity();
+  {  // buoyancy and current: the bead is half as dense as water. Pressure alone left it hanging mid-water.
+    const rr = (BEAD_R + PR + RING) * (BEAD_R + PR + RING);
+    let n = 0, sx = 0, sy = 0;
+    for (let i = 0; i < N; i++) {
+      const dx = PX[i] - bead.x, dy = PY[i] - bead.y;
+      if (dx * dx + dy * dy < rr) { n++; sx += VX[i]; sy += VY[i]; }
+    }
+    const f = Math.min(1, n / RING_FULL);
+    bead.vx -= gv.x * G * LIFT * f * dt; bead.vy -= gv.y * G * LIFT * f * dt;   // net g * (1 - LIFT*f): rises when under, floats near f = 1/LIFT
+    if (n > 0) { const k = Math.min(1, BEAD_DRAG * f * dt); bead.vx += (sx / n - bead.vx) * k; bead.vy += (sy / n - bead.vy) * k; }
+  }
+  bead.vx += gx * dt; bead.vy += gy * dt;
+  for (let i = 0; i < N; i++) { OX[i] = PX[i]; OY[i] = PY[i]; PX[i] += VX[i] * dt; PY[i] += VY[i] * dt; }
+  bead.ox = bead.x; bead.oy = bead.y; bead.x += bead.vx * dt; bead.y += bead.vy * dt;
+  pairs(); relax(dt);
+  // bead <-> particles (two-way; the bead is mass BEAD_M, so lighter than the water it displaces: it floats)
+  const wb = 1 / BEAD_M, minD = BEAD_R + PR;
+  for (let i = 0; i < N; i++) {
+    const dx = PX[i] - bead.x, dy = PY[i] - bead.y, d2 = dx * dx + dy * dy;
+    if (d2 >= minD * minD) continue;
+    const d = Math.sqrt(d2) || 1e-4, c = minD - d, nx = dx / d, ny = dy / d, s = 1 / (1 + wb);
+    PX[i] += nx * c * s; PY[i] += ny * c * s; bead.x -= nx * c * (1 - s); bead.y -= ny * c * (1 - s);
+  }
+  let d = sdf(bead.x, bead.y);
+  if (d > -BEAD_R) { normal(bead.x, bead.y); bead.x -= nrm.x * (d + BEAD_R); bead.y -= nrm.y * (d + BEAD_R); }
+  for (let i = 0; i < N; i++) {
+    d = sdf(PX[i], PY[i]);
+    if (d > -PR) { normal(PX[i], PY[i]); PX[i] -= nrm.x * (d + PR); PY[i] -= nrm.y * (d + PR); }
+    VX[i] = (PX[i] - OX[i]) / dt; VY[i] = (PY[i] - OY[i]) / dt;
+    const sp = VX[i] * VX[i] + VY[i] * VY[i]; if (sp > 1.2e6) { const k = 1100 / Math.sqrt(sp); VX[i] *= k; VY[i] *= k; }
+  }
+  bead.vx = (bead.x - bead.ox) / dt * 0.9995; bead.vy = (bead.y - bead.oy) / dt * 0.9995;
+}
+function turn(dt) {
+  if (mode === 'target') {
+    const d = target - angle, m = TARGET_RATE * dt;
+    angle += Math.abs(d) <= m ? d : Math.sign(d) * m;
+  } else if (keyDir) {
+    keyHold += dt;
+    omega = keyDir * (KEY_W0 + (KEY_W1 - KEY_W0) * Math.min(1, keyHold / KEY_RAMP));
+    angle += omega * dt;
+  } else { keyHold = 0; omega = 0; }
+  const a = angle / R2D; gv.x = Math.sin(a); gv.y = Math.cos(a);
+}
+function step(dt) {        // one 1/60 s frame
+  if (state !== 'playing') return;
+  turn(dt);
+  turned += Math.abs(angle - lastAngle); lastAngle = angle;   // the dial moves angle between frames: counted here too
+  for (let k = 0; k < CUPS.length; k++) {
+    const c = valveC[k] + Math.max(-dt / VALVE_T, Math.min(dt / VALVE_T, valveWant[k] - valveC[k]));
+    if (c !== valveC[k]) { valveC[k] = c; plates[k] = plate(CUPS[k].valve, c); }
+  }
+  for (let s = 0; s < SUB; s++) substep(dt / SUB);
+  elapsed += dt;
+  let all = true;
+  for (let k = 0; k < CUPS.length; k++) {
+    const r = CUPS[k].read; let n = 0;
+    for (let i = 0; i < N; i++) if (PX[i] > r.x0 && PX[i] < r.x1 && PY[i] > r.y0 && PY[i] < r.y1) n++;
+    fill[k] += (n / cupCap(CUPS[k]) - fill[k]) * Math.min(1, dt / FILT);
+    if (fill[k] < CUPS[k].band[0] || fill[k] > CUPS[k].band[1]) all = false;
+  }
+  if (all) bandT += dt; else bandT = 0;
+  doorOpen = !CUPS.length || bandT >= HOLD_T;
+  if (doorOpen && Math.hypot(bead.x - EXIT.x, bead.y - EXIT.y) < EXIT.r) { exitT += dt; if (exitT >= EXIT_T) { state = 'won'; onWin(); } } else exitT = 0;
+}
+
+// § init
+function load(i) {   // switch level: data only, no state
+  level = Math.max(0, Math.min(LEVELS.length - 1, i | 0)); L = LEVELS[level];
+  SHAPES = L.shapes; CUPS = L.cups; CEN = L.cen; EXIT = Object.assign({}, L.exit, window.__EXIT || null);   // __EXIT: bot harness override
+  N = L.water.reduce((t, w) => t + w.n, 0);
+  fill = CUPS.map(() => 0); valveC = CUPS.map(() => 0); valveWant = CUPS.map(() => 0); plates = CUPS.map(c => plate(c.valve, 0));
+  onLoad();
+}
+function reset(seed) {
+  seedState = seed | 0 || 1;
+  let i = 0;
+  for (const w of L.water) {
+    const a = SHAPES[w.shape], x0 = a.cx - a.hw + a.r * 0.3 + PR, x1 = a.cx + a.hw - a.r * 0.3 - PR, y1 = a.cy + a.hh - PR;
+    const cols = Math.floor((x1 - x0) / SPACING) + 1;
+    for (let j = 0; j < w.n; j++, i++) {
+      const c = j % cols, r = (j / cols) | 0;
+      PX[i] = x0 + c * SPACING + (r & 1 ? SPACING / 2 : 0) + (rnd() - 0.5) * 0.4;
+      PY[i] = y1 - r * SPACING * 0.866 + (rnd() - 0.5) * 0.4; VX[i] = VY[i] = 0;
+    }
+  }
+  bead.x = L.bead.x + (rnd() - 0.5) * 2; bead.y = L.bead.y; bead.vx = bead.vy = 0;
+  angle = 0; target = 0; omega = 0; keyDir = 0; keyHold = 0; mode = 'free'; elapsed = 0; exitT = 0; state = 'playing';
+  gv.x = 0; gv.y = 1;
+  fill.fill(0); valveC.fill(0); valveWant.fill(0); plates = CUPS.map(c => plate(c.valve, 0));
+  pairs();
+  // rest density of a hex lattice at SPACING (interior particle)
+  rho0 = 0;
+  for (let a = -3; a <= 3; a++) for (let b = -4; b <= 4; b++) {
+    const x = (a + (b & 1 ? 0.5 : 0)) * SPACING, y = b * SPACING * 0.866, d = Math.hypot(x, y);
+    if (d > 0 && d < H) rho0 += (1 - d / H) ** 2;
+  }
+  for (let k = 0; k < 150; k++) step(1 / 60);   // settle 2.5 s
+  elapsed = 0; exitT = 0; state = 'playing'; angle = 0; target = 0; bandT = 0; doorOpen = !CUPS.length;
+  fill.fill(0); turned = 0; taps = 0; lastAngle = 0;
+}
+function snap() { return { np: npairs, pI: pI.slice(0, npairs), pJ: pJ.slice(0, npairs), pQ: pQ.slice(0, npairs), pNX: pNX.slice(0, npairs), pNY: pNY.slice(0, npairs), PX: PX.slice(0, N), PY: PY.slice(0, N), VX: VX.slice(0, N), VY: VY.slice(0, N), b: { ...bead }, angle, target, mode, omega, elapsed, exitT, state, keyDir, keyHold, bandT, doorOpen, turned, taps, lastAngle, fill: fill.slice(), valveC: valveC.slice(), valveWant: valveWant.slice() }; }
+function restore(s) { npairs = s.np; pI.set(s.pI); pJ.set(s.pJ); pQ.set(s.pQ); pNX.set(s.pNX); pNY.set(s.pNY); PX.set(s.PX); PY.set(s.PY); VX.set(s.VX); VY.set(s.VY); Object.assign(bead, s.b);
+  angle = s.angle; target = s.target; mode = s.mode; omega = s.omega; elapsed = s.elapsed; exitT = s.exitT; state = s.state; keyDir = s.keyDir; keyHold = s.keyHold; bandT = s.bandT; doorOpen = s.doorOpen;
+  turned = s.turned; taps = s.taps; lastAngle = s.lastAngle; fill = s.fill.slice(); valveC = s.valveC.slice(); valveWant = s.valveWant.slice(); plates = CUPS.map((c, k) => plate(c.valve, valveC[k]));
+  const a = angle / R2D; gv.x = Math.sin(a); gv.y = Math.cos(a); }
+
+// § render
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const hud = document.getElementById('hud'), msg = document.getElementById('msg');
+let W = 0, Hh = 0, dpr = 1, scale = 1, view = 440;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 1.25);   // water is soft-edged; raster cost scales with dpr²
+  W = cv.clientWidth; Hh = cv.clientHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr);
+  scale = Math.min(W, Hh) / view;
+}
+function shapePath(s, pad) {
+  const x = s.cx - s.hw - pad, y = s.cy - s.hh - pad, w = 2 * (s.hw + pad), h = 2 * (s.hh + pad), r = s.r + pad;
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function bandRect(c, lo, hi) {   // the part of the cup glass between fractions lo and hi, measured from the closed end
+  const r = c.read, m = c.mouth, vert = m === 'up' || m === 'down', len = vert ? r.y1 - r.y0 : r.x1 - r.x0;
+  const at = f => m === 'down' ? r.y0 + f * len : m === 'up' ? r.y1 - f * len : m === 'left' ? r.x1 - f * len : r.x0 + f * len;
+  const a = Math.min(at(lo), at(hi)), b = Math.max(at(lo), at(hi));
+  return vert ? [r.x0 - 6, a, r.x1 - r.x0 + 12, b - a, [r.x0 - 6, at(lo), r.x1 + 6, at(lo)], [r.x0 - 6, at(hi), r.x1 + 6, at(hi)]]
+    : [a, r.y0 - 6, b - a, r.y1 - r.y0 + 12, [at(lo), r.y0 - 6, at(lo), r.y1 + 6], [at(hi), r.y0 - 6, at(hi), r.y1 + 6]];
+}
+function inBand(k) { return fill[k] >= CUPS[k].band[0] && fill[k] <= CUPS[k].band[1]; }
+function draw() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
+  ctx.save(); ctx.translate(W / 2, Hh / 2); ctx.scale(scale, scale); ctx.rotate(angle / R2D); ctx.translate(-CEN.x, -CEN.y);
+  ctx.fillStyle = '#35547d'; ctx.beginPath(); for (const s of SHAPES) shapePath(s, 5); ctx.fill();
+  ctx.fillStyle = '#0e1a2c'; ctx.beginPath(); for (const s of SHAPES) shapePath(s, 0); ctx.fill();
+  CUPS.forEach((c, k) => {
+    const r = c.read, [bx, by, bw, bh, l1, l2] = bandRect(c, c.band[0], c.band[1]);
+    ctx.fillStyle = 'rgba(120,230,160,.22)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = '#78e6a0'; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (const l of [l1, l2]) { ctx.moveTo(l[0], l[1]); ctx.lineTo(l[2], l[3]); } ctx.stroke();
+    ctx.globalAlpha = 0.5; ctx.strokeStyle = c.color; ctx.lineWidth = 1; ctx.strokeRect(r.x0 - 2, r.y0 - 2, r.x1 - r.x0 + 4, r.y1 - r.y0 + 4); ctx.globalAlpha = 1;
+    if (inBand(k)) {   // the cup is in band: glow it and draw the link to the door it is holding open
+      const col = doorOpen ? '#ffd86b' : '#78e6a0', cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
+      ctx.save(); ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 14; ctx.lineWidth = 2.5;
+      ctx.strokeRect(r.x0 - 5, r.y0 - 5, r.x1 - r.x0 + 10, r.y1 - r.y0 + 10);
+      ctx.setLineDash([3, 6]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(EXIT.x, EXIT.y); ctx.stroke(); ctx.restore();
+    }
+    const v = c.valve, hw = 4;   // housing at the edge the plate slides from, then the plate
+    ctx.fillStyle = c.color;
+    if (v.from === 'left') ctx.fillRect(v.x0 - hw, v.y0 - 2, hw, v.y1 - v.y0 + 4);
+    else if (v.from === 'right') ctx.fillRect(v.x1, v.y0 - 2, hw, v.y1 - v.y0 + 4);
+    else if (v.from === 'top') ctx.fillRect(v.x0 - 2, v.y0 - hw, v.x1 - v.x0 + 4, hw);
+    else ctx.fillRect(v.x0 - 2, v.y1, v.x1 - v.x0 + 4, hw);
+    if (valveC[k] > 0.01) { const p = plates[k]; ctx.fillRect(p.cx - p.hw, p.cy - p.hh, 2 * p.hw, 2 * p.hh); }
+  });
+  ctx.fillStyle = doorOpen ? 'rgba(255,216,107,.25)' : 'rgba(255,110,110,.14)'; ctx.strokeStyle = doorOpen ? '#ffd86b' : '#d86a6a'; ctx.lineWidth = 2;
+  ctx.setLineDash(doorOpen ? [] : [5, 4]);
+  ctx.beginPath(); ctx.arc(EXIT.x, EXIT.y, EXIT.r, 0, 6.2832); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+  if (!doorOpen && bandT > 0) { ctx.strokeStyle = '#78e6a0'; ctx.beginPath(); ctx.arc(EXIT.x, EXIT.y, EXIT.r + 4, -1.5708, -1.5708 + 6.2832 * bandT / HOLD_T); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(70,160,255,.9)'; ctx.beginPath();
+  for (let i = 0; i < N; i++) { ctx.moveTo(PX[i] + 4.2, PY[i]); ctx.arc(PX[i], PY[i], 4.2, 0, 6.2832); }
+  ctx.fill();
+  ctx.fillStyle = '#ffe9a8'; ctx.shadowColor = '#ffc940'; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(bead.x, bead.y, BEAD_R, 0, 6.2832); ctx.fill();
+  ctx.restore();
+}
+
+// § progress
+const SAVE = 'aqueduct.v1';
+let best = {};
+try { best = JSON.parse(localStorage.getItem(SAVE) || '{}').best || {}; } catch (_) { best = {}; }
+function saveBest() { try { localStorage.setItem(SAVE, JSON.stringify({ best })); } catch (_) { /* private mode: progress lasts this visit */ } }
+function unlocked(i) { return i === 0 || best[LEVELS[i - 1].id] !== undefined; }
+const valvesEl = document.getElementById('valves'), menu = document.getElementById('menu'), box = menu.querySelector('.box');
+let menuOn = false, settling = false;
+function onLoad() {   // per-level DOM: one valve button per cup, view size from the vessel's reach around CEN
+  valvesEl.innerHTML = '';
+  CUPS.forEach((c, k) => { const b = document.createElement('button'); b.style.setProperty('--c', c.color); b.textContent = c.name;
+    b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); toggleValve(k); }); valvesEl.appendChild(b); });
+  let R = 0;
+  for (const s of SHAPES) for (const sx of [-1, 1]) for (const sy of [-1, 1]) R = Math.max(R, Math.hypot(s.cx + sx * s.hw - CEN.x, s.cy + sy * s.hh - CEN.y));
+  view = Math.max(440, 2 * R + 10); resize();
+}
+function onWin() {
+  if (settling) return;
+  const id = L.id, s = score();
+  const prev = best[id]; if (prev === undefined || s < prev) { best[id] = s; saveBest(); }
+  try { if (parent !== window) parent.postMessage({ type: 'arcade:result', game: 'aqueduct', outcome: 'win', time: +elapsed.toFixed(1), level: id, score: s }, '*'); } catch (_) { /* no parent */ }
+  setTimeout(() => showMenu('won', s, prev), 500);
+}
+function showMenu(kind, s, prev) {
+  menuOn = true; menu.classList.add('on');
+  let h = '';
+  if (kind === 'won') {
+    h += `<h2>${L.name}: through!</h2><p>Score ${s} (lower is better: degrees turned + ${TAP_COST} per valve tap)${prev !== undefined ? ` · best ${Math.min(s, prev)}` : ''}</p><div class="row">`;
+    h += `<button class="main" data-a="retry">Retry</button>`;
+    if (level + 1 < LEVELS.length) h += `<button class="main" data-a="next">Next level</button>`;
+    h += `</div>`;
+  } else h += `<h2>Aqueduct</h2><p>Turn the vessel to carry the bead to the ring. Score: degrees turned + ${TAP_COST} per valve tap, lower is better.</p>`;
+  h += `<div class="levels">` + LEVELS.map((l, i) => `<button data-l="${i}" ${unlocked(i) ? '' : 'disabled'}>${i}. ${l.name}<small>${best[l.id] !== undefined ? 'best ' + best[l.id] : unlocked(i) ? 'not cleared' : 'clear the level before'}</small></button>`).join('') + `</div>`;
+  if (kind !== 'won') h += `<div class="row" style="margin-top:12px"><button class="main" data-a="close">Back</button></div>`;
+  box.innerHTML = h;
+}
+function hideMenu() { menuOn = false; menu.classList.remove('on'); }
+function start(i) { load(i); settling = true; reset(1); settling = false; hideMenu(); }
+box.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.l !== undefined) start(+b.dataset.l);
+  else if (b.dataset.a === 'retry') start(level);
+  else if (b.dataset.a === 'next') start(level + 1);
+  else if (b.dataset.a === 'close') { if (state === 'won') showMenu('won', score(), best[L.id]); else hideMenu(); }
+});
+document.getElementById('lv').addEventListener('click', () => showMenu('levels'));
+
+// § input
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') { keyDir = -1; mode = 'free'; e.preventDefault(); }
+  else if (e.key === 'ArrowRight') { keyDir = 1; mode = 'free'; e.preventDefault(); }
+  else if (e.key === ' ') { toggleValve(0); e.preventDefault(); }
+  else if (e.key >= '1' && e.key <= '9') toggleValve(+e.key - 1);
+  else if (e.key === 'r' || e.key === 'R') start(level);
+  else if (e.key === 'Escape' || e.key === 'l' || e.key === 'L') { if (menuOn) hideMenu(); else showMenu('levels'); }
+});
+addEventListener('keyup', e => { if ((e.key === 'ArrowLeft' && keyDir < 0) || (e.key === 'ArrowRight' && keyDir > 0)) keyDir = 0; });
+let drag = null;   // grab-and-turn dial (mouse / touch fallback)
+cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect();
+  drag = { a0: Math.atan2(e.clientY - r.top - Hh / 2, e.clientX - r.left - W / 2), t0: angle, id: e.pointerId }; mode = 'free'; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => { if (!drag || drag.id !== e.pointerId || state !== 'playing') return; const r = cv.getBoundingClientRect();
+  let d = Math.atan2(e.clientY - r.top - Hh / 2, e.clientX - r.left - W / 2) - drag.a0; d = Math.atan2(Math.sin(d), Math.cos(d));
+  const prev = drag.last === undefined ? 0 : drag.last; let dd = d - prev; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); drag.last = d;
+  drag.t0 += dd * R2D; angle = drag.t0; });
+cv.addEventListener('pointerup', () => { drag = null; });
+// Phone tilt: gravity vector in screen space (not Euler angles). Android sign convention; iOS is the opposite.
+const tiltBtn = document.getElementById('tilt');
+let tiltOn = false, tiltZero = null;
+function onMotion(e) {
+  const g = e.accelerationIncludingGravity; if (!g || g.x == null || state !== 'playing' || menuOn) return;
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent), s = ios ? -1 : 1;
+  const gx = -g.x * s, gy = g.y * s;
+  if (Math.hypot(gx, gy) < 3) return;                       // phone flat: no screen-space gravity
+  let a = Math.atan2(gx, gy) * R2D;                         // 0 = upright
+  if (tiltZero === null) tiltZero = a;
+  a -= tiltZero; while (a - angle > 180) a -= 360; while (a - angle < -180) a += 360;
+  if (Math.abs(a - angle) > DEAD) { mode = 'free'; angle = a; }
+}
+if (typeof DeviceMotionEvent !== 'undefined' && 'ontouchstart' in window) {
+  tiltBtn.style.display = 'block';
+  tiltBtn.onclick = async () => {
+    try { if (DeviceMotionEvent.requestPermission && await DeviceMotionEvent.requestPermission() !== 'granted') return; } catch (_) { return; }
+    tiltOn = true; tiltBtn.style.display = 'none'; addEventListener('devicemotion', onMotion);
+  };
+}
+addEventListener('message', e => { if (e.data && e.data.type === 'arcade:pause') paused = true; if (e.data && e.data.type === 'arcade:resume') paused = false; });
+
+// § loop
+function lowSide() {   // too little water on the ring side: the bead cannot float down to the ring
+  if (!L.low) return false;
+  let b = 0; for (let i = 0; i < N; i++) if (PX[i] > L.low.x) b++;
+  return b < L.low.n;
+}
+function hint() {
+  if (state === 'won') return `Through the exit! Score ${score()}.`;
+  if (!CUPS.length) return L.goal;
+  const shutInBand = CUPS.length && CUPS.every((c, k) => valveWant[k] && inBand(k));
+  if ((doorOpen || shutInBand) && lowSide()) return L.low.hint;
+  if (doorOpen) return 'Door open. Carry the bead into the gold ring.';
+  const open = CUPS.findIndex((c, k) => inBand(k) && !valveWant[k]);
+  if (open >= 0) return `The ${CUPS[open].name} is in its green band! Shut its valve to keep it.`;
+  const over = CUPS.findIndex((c, k) => fill[k] > c.band[1]);
+  if (over >= 0) return `Too much water in the ${CUPS[over].name}. Open its valve and turn part way back to let some out.`;
+  if (shutInBand) return 'Holding the levels… the door is about to open.';
+  const under = CUPS.findIndex((c, k) => fill[k] < c.band[0]);
+  const started = elapsed > 4 || CUPS.some((c, k) => valveWant[k] || fill[k] > 0.05);
+  if (under >= 0 && started) return `The ${CUPS[under].name} needs water: ${CUPS[under].fill}. Shut its valve once the level is in the green band.`;
+  return L.goal;
+}
+let paused = false, last = 0, acc = 0, fpsEMA = 60, simEMA = 0, shownHint = '';
+function frame(t) {
+  requestAnimationFrame(frame);
+  const dtms = last ? t - last : 16.7; last = t;
+  if (dtms > 0) fpsEMA += (1000 / dtms - fpsEMA) * 0.05;
+  if (paused || menuOn) return;
+  acc = Math.min(acc + dtms / 1000, 2 / 60);   // never more than 2 catch-up steps
+  const t0 = performance.now();
+  while (acc >= 1 / 60) { step(1 / 60); acc -= 1 / 60; }
+  simEMA += (performance.now() - t0 - simEMA) * 0.05;
+  draw();
+  const cups = CUPS.map((c, k) => `${c.name} ${(fill[k] * 100).toFixed(0)}% (${c.band[0] * 100}-${c.band[1] * 100})`).join(' · ');
+  hud.textContent = `${level}. ${L.name}  ·  score ${score()}${best[L.id] !== undefined ? ' · best ' + best[L.id] : ''}  ·  ← → or drag to turn · ${CUPS.length > 1 ? '1 2' : 'Space'} valve${CUPS.length > 1 ? 's' : ''} · R restart\n` +
+    `${(((angle % 360) + 360) % 360).toFixed(0)}°${cups ? ' · ' + cups : ''}${doorOpen ? ' · DOOR OPEN' : ''} · ${fpsEMA.toFixed(0)} fps · sim ${simEMA.toFixed(1)} ms`;
+  [...valvesEl.children].forEach((b, k) => { b.classList.toggle('shut', !!valveWant[k]); b.textContent = `${CUPS[k].name}: ${valveWant[k] ? 'shut' : 'open'}`; });
+  const h = hint(); if (h !== shownHint) { msg.textContent = h; shownHint = h; }
+}
+window.__dbg = { get N() { return N; }, get cups() { return CUPS; }, get fill() { return fill; }, get doorOpen() { return doorOpen; }, step, snap, restore, reset, sdf, get SHAPES() { return SHAPES; }, get EXIT() { return EXIT; }, BEAD_R, PR, TARGET_RATE, H,
+  get px() { return PX; }, get py() { return PY; }, get vx() { return VX; }, get vy() { return VY; },
+  bead, get angle() { return angle; }, get state() { return state; }, get elapsed() { return elapsed; },
+  setTarget(a) { mode = 'target'; target = a; }, setAngle(a) { mode = 'free'; angle = a; },
+  setValve(v, k = 0) { if (!!valveWant[k] !== !!v) toggleValve(k); }, get valve() { return valveWant[0] | 0; }, get valves() { return valveWant; },
+  get score() { return score(); }, get turned() { return turned; }, get taps() { return taps; },
+  setKey(d) { mode = 'free'; keyDir = d; }, get rho0() { return rho0; }, drawNow: draw, load, get level() { return level; }, levels: LEVELS.map(l => l.id) };
+addEventListener('resize', resize); resize();
+const first = Math.max(0, LEVELS.findIndex(l => best[l.id] === undefined));
+if (!/[?&]nostart/.test(location.search)) { start(first < 0 ? 0 : first); requestAnimationFrame(frame); }
+else { load(1); window.__start = (s, lv) => { if (lv !== undefined) load(lv); reset(s || 1); }; }
+})();
+</script>
+</body>
+</html>

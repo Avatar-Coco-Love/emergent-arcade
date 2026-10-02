@@ -38,6 +38,16 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   topology. Search for single-verb wins with an exploring bot, not only a
   greedy one. *When two things always move apart, turning alone can
   separate them.* Bubble Glass. bots.
+- A local verb (a valve) is required only if the goals need disjoint
+  angle ranges: one state must hold only where the other goal can't be
+  reached. Moving the goal is not enough while a current links the two;
+  check both turn directions. *A valve is required only when the goals
+  need disjoint angles.* Aqueduct (prototype). bots.
+- Two locks filled by the same move make their order the puzzle when they
+  drain at different rates: shut the one already in band, let the other
+  drain, then shut it. The reverse order traps the wrong volume. *When one
+  move fills two cups, the lock order is the puzzle.* Aqueduct (prototype).
+  bots.
 - A slow hazard is no threat to a fast move: time the player's exposure,
   and ask what happens if each hazard is triggered first. *A slow hazard is
   no threat to a fast move.* Bubble Glass. bots.
