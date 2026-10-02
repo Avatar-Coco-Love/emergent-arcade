@@ -529,6 +529,16 @@ for (const vp of VIEWPORTS) {
     const lb = await row.locator(".lb-list li").allTextContents();
     assert(lb.length === 3 && lb[1].includes("(you)"), `top 10: ${lb.join(" | ")}`);
     assert(await noHScroll(page), "horizontal scroll");
+    // The name controls work here too, and the open row follows the new name.
+    await page.locator("#recType").click();
+    await page.locator("#recNameInput").fill("Pip");
+    await page.waitForFunction(() => !document.getElementById("recNameSave").disabled);
+    await page.locator("#recNameSave").click();
+    await page.waitForSelector('.rec-row[data-id="pressure-grid"] .lb-list li.me:has-text("Pip ·")');
+    assert((await page.locator("#recHandle").textContent()).startsWith("Pip ·"), "records handle line");
+    assert(await page.locator("#recNameForm").isHidden(), "name form still open");
+    await page.locator("#recRename").click();
+    assert(!(await page.locator("#recHandle").textContent()).includes("·"), "random name didn't clear the typed one");
     await shot("records");
     await page.locator('#recordsFilter [data-mine="1"]').click();
     assert(page.url().endsWith("#/records?mine=1"), page.url());
@@ -545,7 +555,7 @@ for (const vp of VIEWPORTS) {
     await page.evaluate((old) => (old == null ? localStorage.removeItem("arcade.best.pressure-grid") : localStorage.setItem("arcade.best.pressure-grid", old)), saved);
     await page.waitForTimeout(300);
     const gal = rows.slice(n).filter((r) => r.kind === "gallery").map((r) => Object.assign({}, r, r.extra || {}));
-    assert(gal.some((r) => r.action === "records") && gal.some((r) => r.action === "open" && r.from === "records"), `telemetry ${JSON.stringify(gal.map((r) => r.action))}`);
+    assert(gal.some((r) => r.action === "records") && gal.some((r) => r.action === "open" && r.from === "records") && gal.some((r) => r.action === "handle" && r.name === "Pip"), `telemetry ${JSON.stringify(gal.map((r) => r.action))}`);
     return `${scored} rows; ${line}`;
   });
 

@@ -45,6 +45,7 @@ window.ArcadeRecords = (function () {
 
   function hide() {
     shown = false;
+    nameCtl.close();
     $("recordsView").hidden = true;
   }
 
@@ -72,7 +73,7 @@ window.ArcadeRecords = (function () {
     $("recordsNote").textContent = Cabinet.lbNote(data, "");
   }
 
-  // "Your bests: 9 boards in 4 games · 🥇 first on 2 · shown as Amber Otter"
+  // "Your bests: 9 boards in 4 games · 🥇 first on 2", then the name controls.
   function renderSummary(scored) {
     let boards = 0;
     let gamesWith = 0;
@@ -94,12 +95,13 @@ window.ArcadeRecords = (function () {
       if (firsts) parts.push(`🥇 first on ${firsts}`);
     }
     $("recordsSummary").replaceChildren(parts.join(" · "));
-    const who = $("recordsName");
-    who.replaceChildren();
-    if (sending()) who.append("Leaderboards show you as ", el("b", {}, [el("bdi", { textContent: Scores.publicName(data) })]), ". Change it in any game's 🏆 panel.");
-    else if (!Scores.listed()) who.append("You're off the leaderboards (turn it back on in any game's 🏆 panel).");
-    who.hidden = !who.childNodes.length;
+    nameCtl.render(data);
   }
+
+  // The same name controls as the cabinet's 🏆 panel; a change redraws the
+  // rows, since "(you)" and your place follow the name and the opt-out.
+  const nameCtl = window.ArcadeNameCtl.create("rec", { toast: UI.toaster($("galleryToasts"), 3), onChange: render });
+  $("recordsName").replaceChildren(nameCtl.node);
 
   function row(game) {
     const sp = Scores.spec(game);

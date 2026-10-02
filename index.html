@@ -83,7 +83,7 @@
         <h2 id="recordsTitle">Records</h2>
       </div>
       <p id="recordsSummary" class="records-summary"></p>
-      <p id="recordsName" class="muted small records-name" hidden></p>
+      <div id="recordsName" class="records-name"></div>
       <div id="recordsFilter" class="verb-chips" role="group" aria-label="Show">
         <button type="button" class="verb-chip" data-mine="0">All games</button>
         <button type="button" class="verb-chip" data-mine="1">My bests</button>
@@ -267,21 +267,7 @@
                 <ol id="lbList" class="lb-list"></ol>
                 <p id="lbNote" class="muted lb-note"></p>
                 <p class="lb-all"><a href="#/records">Every game's leaderboard &rarr;</a></p>
-                <div class="lb-me">
-                  <label class="check"><input type="checkbox" id="lbListed"><span>Show my best on the leaderboard as <b id="lbHandle"></b></span></label>
-                  <button type="button" class="linkish" id="lbRename">Pick another name</button>
-                  <button type="button" class="linkish" id="lbType" aria-expanded="false" aria-controls="lbNameForm">Type a name</button>
-                </div>
-                <p id="lbNameNote" class="lb-name-note" hidden></p>
-                <form id="lbNameForm" class="lb-name" hidden novalidate>
-                  <label for="lbNameInput">Your name <span class="muted">(3–16 letters, digits or spaces)</span></label>
-                  <div class="lb-name-row">
-                    <input id="lbNameInput" type="text" maxlength="32" autocomplete="nickname" autocapitalize="words" spellcheck="false">
-                    <button type="submit" class="primary" id="lbNameSave">Save</button>
-                    <button type="button" class="secondary" id="lbNameCancel">Cancel</button>
-                  </div>
-                  <p id="lbNameMsg" class="lb-name-msg muted" aria-live="polite"></p>
-                </form>
+                <div id="lbNameCtl"></div>
                 <h3>Achievements</h3>
               </section>
               <p id="achSummary" class="muted"></p>
@@ -328,6 +314,7 @@
 <script src="assets/telemetry.js"></script>
 <script src="assets/thumbs.js"></script>
 <script src="assets/download.js"></script>
+<script src="assets/name-ctl.js"></script>
 <script src="assets/cabinet.js"></script>
 <script src="assets/records.js"></script>
 <script src="assets/gallery.js"></script>

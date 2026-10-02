@@ -23,6 +23,7 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/progress.js` | `ArcadeProgress`: every per-browser key, New/Updated badges, recent games, export/import/reset, telemetry opt-out |
 | `assets/download.js` | `ArcadeDownload`: standalone copy of a game (header comment + shim) |
 | `assets/cabinet.js` | `ArcadeCabinet.open(game)` / `close()`: toolbar, panels, ⋯ menu, toasts, loading/error states, share, download, rating, nudge |
+| `assets/name-ctl.js` | `ArcadeNameCtl.create(prefix, { toast, onChange })`: the leaderboard name controls (show me, pick another name, type a name), used by the 🏆 panel (ids `lb…`) and the Records view (ids `rec…`) |
 | `assets/records.js` | `ArcadeRecords`: the Records view (`#/records`), every game's leaderboard on one page |
 | `assets/gallery.js` | cards, search/sort/verb filter, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
@@ -123,7 +124,8 @@ logs a `share` row with `from: "gallery"`.
   🥇 leader and "You #2 9" (or "Your best 9" when off the leaderboard). A
   row expands to the board picker and the same top 10 as the cabinet
   (`ArcadeCabinet.lbItems`, merge rules in `ArcadeScores.standings`). Top
-  line: your bests across games and how many boards you lead. "My bests"
+  line: your bests across games and how many boards you lead, then the
+  same name controls as the 🏆 panel (`assets/name-ctl.js`). "My bests"
   keeps games you have a best in. Archived games show only once someone has
   a score in them. Phones: search gets its own row, sort and Records share
   the next.

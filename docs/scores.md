@@ -94,7 +94,9 @@ same-origin, so `localStorage` inside a game throws.
 - The gallery's **Records view** (`#/records`) shows every game's board on
   one page: leader, your best and place, expandable top 10, and a "My
   bests" filter ([gallery.md](gallery.md)). `ArcadeScores.standings()`
-  does the merge for both it and the cabinet.
+  does the merge for both it and the cabinet. It has the same name
+  controls as the 🏆 panel (show me, pick another name, type a name), from
+  `assets/name-ctl.js`.
 - Cards show "Your best 40.2 s" (or "3 bests" for games with
   boards): your own best on this browser, not the leaderboard's.
 - Export/import carries bests (the better one per board wins on import);
