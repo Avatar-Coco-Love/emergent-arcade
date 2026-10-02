@@ -264,3 +264,26 @@ it" when the cup reaches the band; "too much water"; "door open, carry the
 bead"), and the cup glows green (gold once the door is open) with a dotted
 link to the exit ring. No sim change, so the bot numbers above still hold.
 If the valve still does not read in a playtest, redesign the lock instead.
+
+## Playtest 1: "not enough water to get the bead into the gold ring" (2026-10-02)
+
+First human feedback on the exit at (100, 0). Cause, from tracing the
+planner's win: the exit is high (y=0), the bead only rides the surface, and
+the planner flips the vessel upside-down to pour *almost all* the water into
+B (577 of 600 particles at the end). At 90 deg most water stays in A (its right
+wall holds it; only the bridge-height row drains), so a person who banks the
+cup and tilts to 90 never gets B deep enough. Nothing on screen said so.
+
+Changes: exit lowered to **(100, 35)**; a hint ("not enough water on the ring
+side... pour most of it across the bridge") when the cup is banked but under
+70% of the loose water is in B.
+
+Bots at (100, 35) (20 seeds; planner 3, DEPTH=14 BEAM=14):
+- idle, sweeper, greedy, novice, timer, keys: all 0%.
+- planner (valve) 3/3 but a long plan: 12 moves, median 11.5 s, 1140 deg.
+  planner-nv 0/3. At (100, 70) the plan is short (4 moves, 4 s) but
+  planner-nv won 1/3, so the valve was not strictly required.
+- Trade-off to revisit: a lower exit is easier to reach but lets the no-valve
+  route in; the valve only forces an order while the exit needs a lot of water
+  in B. A second vial or a valve in the bridge is the better way to force
+  order than raising the ring.

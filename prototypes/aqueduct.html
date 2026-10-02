@@ -38,7 +38,7 @@ const NEG = 0.25;         // share of negative pressure kept (surface tension)
 const VISC = 0.05;        // pair viscosity
 const MAXPUSH = 1.4;      // px, per pair per substep
 const BEAD_R = 10, BEAD_M = 7;   // bead radius; mass in particle masses (water displaced ≈ 14)
-const EXIT = Object.assign({ x: 100, y: 0, r: 18 }, window.__EXIT || null), EXIT_T = 0.4;   // __EXIT: bot harness override   // door: bead must sit here while the lock is open
+const EXIT = Object.assign({ x: 100, y: 35, r: 18 }, window.__EXIT || null), EXIT_T = 0.4;   // __EXIT: bot harness override   // door: bead must sit here while the lock is open
 const BAND = { lo: 0.25, hi: 0.5 }, HOLD_T = 1.0, FILT = 0.3;   // vial target band (fraction of capacity), hold time, reading filter (s)
 const VIAL = { x0: -22, x1: 22, y0: -40, y1: 15 };   // a short wide cup: it spills at about 55 deg   // reading region of the vial under the bridge
 const KEY_W0 = 50, KEY_W1 = 420, KEY_RAMP = 1.1;   // deg/s for ← → (hold = faster = flick)
@@ -315,6 +315,11 @@ addEventListener('message', e => { if (e.data && e.data.type === 'arcade:pause')
 const valveBtn = document.getElementById('valve');
 valveBtn.addEventListener('pointerdown', e => { e.stopPropagation(); valveWant = valveWant ? 0 : 1; e.preventDefault(); });
 // § loop
+function lowB() {   // most of the loose water is still on the left: the bead cannot rise to the ring
+  let b = 0, v = 0;
+  for (let i = 0; i < N; i++) { if (PX[i] > 25) b++; else if (PX[i] > VIAL.x0 && PX[i] < VIAL.x1 && PY[i] > VIAL.y0 && PY[i] < VIAL.y1) v++; }
+  return b < 0.7 * (N - v);
+}
 let paused = false, last = 0, acc = 0, fpsEMA = 60, simEMA = 0;
 function frame(t) {
   requestAnimationFrame(frame);
@@ -330,6 +335,7 @@ function frame(t) {
   valveBtn.textContent = valveWant ? 'Valve: shut' : 'Valve: open'; valveBtn.classList.toggle('shut', !!valveWant);
   let hint;
   if (state === 'won') hint = 'Through the exit! (R to restart)';
+  else if ((doorOpen || (valveWant && fill >= BAND.lo)) && lowB()) hint = 'Not enough water on the ring side. The bead rides the water, so pour most of it across the bridge into the right chamber.';
   else if (doorOpen) hint = 'Door open. Carry the bead into the gold ring.';
   else if (fill >= BAND.lo && fill <= BAND.hi) hint = valveWant ? 'Holding the level… the door is about to open.' : 'In the green band! Shut the valve to keep it.';
   else if (fill > BAND.hi) hint = 'Too much water in the cup. Open the valve and tilt to spill some.';
