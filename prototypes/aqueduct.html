@@ -8,7 +8,7 @@
 html,body{margin:0;height:100%;background:#0b1320;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
 canvas{display:block;width:100vw;height:100vh;height:100dvh}
 #hud{position:fixed;left:8px;top:6px;font:12px/1.4 system-ui,sans-serif;color:#8fa8c8;pointer-events:none;white-space:pre}
-#msg{position:fixed;left:0;right:0;bottom:14px;text-align:center;font:600 15px system-ui,sans-serif;color:#ffd86b;pointer-events:none}
+#msg{position:fixed;left:0;right:0;bottom:104px;padding:0 16px;text-align:center;font:600 15px system-ui,sans-serif;color:#ffd86b;pointer-events:none}
 #valve{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);min-width:130px;height:48px;font:600 15px system-ui,sans-serif;border-radius:10px;border:2px solid #d9a441;background:#2a2112;color:#ffe2a0;touch-action:manipulation}
 #valve.shut{background:#d9a441;color:#1c1405}
 #tilt{position:fixed;left:8px;bottom:50px;font:12px system-ui,sans-serif;padding:6px 10px;border-radius:6px;border:1px solid #38577f;background:#142238;color:#cfe0f5;display:none}
@@ -254,6 +254,13 @@ function draw() {
   ctx.fillStyle = 'rgba(120,230,160,.22)'; ctx.fillRect(VIAL.x0 - 6, yb(BAND.hi), VIAL.x1 - VIAL.x0 + 12, yb(BAND.lo) - yb(BAND.hi));
   ctx.strokeStyle = '#78e6a0'; ctx.lineWidth = 1.5; ctx.beginPath();
   for (const f of [BAND.lo, BAND.hi]) { ctx.moveTo(VIAL.x0 - 6, yb(f)); ctx.lineTo(VIAL.x1 + 6, yb(f)); } ctx.stroke();
+  const inBand = fill >= BAND.lo && fill <= BAND.hi;
+  if (inBand) {   // the cup is in band: glow it and draw the link to the door it is holding open
+    const c = doorOpen ? '#ffd86b' : '#78e6a0', cy = (VIAL.y0 + VIAL.y1) / 2;
+    ctx.save(); ctx.strokeStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 14; ctx.lineWidth = 2.5;
+    ctx.strokeRect(VIAL.x0 - 4, VIAL.y0 - 6, VIAL.x1 - VIAL.x0 + 8, VIAL.y1 - VIAL.y0 + 10);
+    ctx.setLineDash([3, 6]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(VIAL.x1 + 4, cy); ctx.lineTo(EXIT.x - EXIT.r, EXIT.y); ctx.stroke(); ctx.restore();
+  }
   ctx.fillStyle = '#d9a441'; ctx.fillRect(VALVE.x - 4, VALVE.y - VALVE.hh - 2, 4, 2 * VALVE.hh + 4);   // valve housing on the left wall
   if (valveC > 0.01) ctx.fillRect(VALVE.x, VALVE.y - VALVE.hh, VALVE.w * valveC, 2 * VALVE.hh);
   ctx.fillStyle = doorOpen ? 'rgba(255,216,107,.25)' : 'rgba(255,110,110,.14)'; ctx.strokeStyle = doorOpen ? '#ffd86b' : '#d86a6a'; ctx.lineWidth = 2;
@@ -321,7 +328,13 @@ function frame(t) {
   draw();
   hud.textContent = `Aqueduct prototype  ·  ← → or drag to turn  ·  R restart · Space valve\n${fpsEMA.toFixed(0)} fps · sim ${simEMA.toFixed(1)} ms · ${(((angle % 360) + 360) % 360).toFixed(0)}° · vial ${(fill * 100).toFixed(0)}% (${BAND.lo * 100}-${BAND.hi * 100})${doorOpen ? ' · DOOR OPEN' : ''}`;
   valveBtn.textContent = valveWant ? 'Valve: shut' : 'Valve: open'; valveBtn.classList.toggle('shut', !!valveWant);
-  msg.textContent = state === 'won' ? 'Through the exit! (R to restart)' : '';
+  let hint;
+  if (state === 'won') hint = 'Through the exit! (R to restart)';
+  else if (doorOpen) hint = 'Door open. Carry the bead into the gold ring.';
+  else if (fill >= BAND.lo && fill <= BAND.hi) hint = valveWant ? 'Holding the level… the door is about to open.' : 'In the green band! Shut the valve to keep it.';
+  else if (fill > BAND.hi) hint = 'Too much water in the cup. Open the valve and tilt to spill some.';
+  else hint = 'Goal: fill the cup to the green band, shut the valve to keep it, then carry the bead to the exit.';
+  msg.textContent = hint;
 }
 window.__dbg = { N, BAND, VIAL_CAP, get fill() { return fill; }, get doorOpen() { return doorOpen; }, N0: N, step, snap, restore, reset, sdf, SHAPES, EXIT, BEAD_R, PR, TARGET_RATE, H,
   get px() { return PX; }, get py() { return PY; }, get vx() { return VX; }, get vy() { return VY; },

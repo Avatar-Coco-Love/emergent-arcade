@@ -257,3 +257,10 @@ fill is undone by opening and re-filling, so the penalty is time and
 degrees (the future score), not failure. Phone tilt and feel: untested.
 Next: level format with data-driven shapes, a second vial (so the pour/lock
 order matters), the score, levels 0-2.
+
+Readability pass (2026-10-02, after a first look said the valve's purpose was
+unclear): an on-screen hint changes with state (goal; "shut the valve to keep
+it" when the cup reaches the band; "too much water"; "door open, carry the
+bead"), and the cup glows green (gold once the door is open) with a dotted
+link to the exit ring. No sim change, so the bot numbers above still hold.
+If the valve still does not read in a playtest, redesign the lock instead.
