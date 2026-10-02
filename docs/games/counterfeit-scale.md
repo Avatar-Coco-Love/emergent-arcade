@@ -1,6 +1,6 @@
 # Counterfeit Scale: design notes
 
-**v1** (2026-10-02) · playtest: PLAYTEST_LINK (private, republished each push) ·
+**v1** (2026-10-02) · playtest: https://claude.ai/artifact/SYLhAXySXMqp9oH6aC5y5k (private, republished each push) ·
 balance: `node scripts/balance-counterfeit-scale.mjs 400`
 Verbs: **load** (drag), **mark** (tap) and **weigh** (hold), sharing **the coins'
 marks and the weighing budget**. 12 campaign cases (2 per rule), then Endless
