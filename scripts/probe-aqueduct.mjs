@@ -46,7 +46,7 @@ if (mode === 'float') {
     for (let t = 0; t < plan.length * 60 && D.state === 'playing'; t++) {
       if (t % 60 === 0) { D.setTarget(plan[t / 60][0]); const b = plan[t / 60][1]; D.cups.forEach((c, k) => D.setValve(b >> k & 1, k)); }
       D.step(1 / 60);
-      if (t % 15 === 14) out.push(`${(t / 60).toFixed(2)}s ang ${((D.angle % 360 + 360) % 360).toFixed(0)} valves ${D.valves.join('')} fill ${D.fill.map(f => (f * 100).toFixed(0) + '%').join(' ')} door ${D.doorOpen ? 'OPEN' : '-'} bead ${D.bead.x.toFixed(0)},${D.bead.y.toFixed(0)} ${D.state}`); }
+      if (t % 15 === 14) out.push(`${(t / 60).toFixed(2)}s ang ${((D.angle % 360 + 360) % 360).toFixed(0)} valves ${D.valves.join('')} fill ${D.fill.map(f => (f * 100).toFixed(0) + '%').join(' ')} door ${D.doorOpen ? 'OPEN' : '-'} pearls ${D.got.join('')} bead ${D.bead.x.toFixed(0)},${D.bead.y.toFixed(0)} ${D.state}`); }
     return out; }, plan);
   console.log(rows.join('\n'));
 } else if (mode === 'fillmap') {   // each cup's reading vs held angle, valves open: from upright, or after PRE=a (e.g. PRE=180) held 2 s

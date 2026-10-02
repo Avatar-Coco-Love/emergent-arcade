@@ -4,6 +4,40 @@ Superseded design-note text, prototype measurements and playtest logs.
 Current design: `docs/games/aqueduct.md`. Add new entries at the top;
 sessions don't read this file by default.
 
+## Pearl placement (2026-10-02)
+
+Level 2's first draft (B top-right, B bottom-right) gave the direct route
+2/3 pearls for free: tumbling to -150 sweeps the bead along B's right
+wall. Pearls must sit off the solution's lanes (same lesson as the exit).
+The warm-up's free pearl (A top-left at 90°) is kept on purpose: it shows
+what a pearl is. Random play (30 runs, 40 s) passes almost every chamber
+cell, cup interiors never: every chamber spot is reachable, so the only
+question is whether the direct route grazes it.
+
+## Step 4 measurements (moved 2026-10-02)
+
+Open cup hold vs angle (cup full at 180°, then turned, reading after 2-4 s):
+180-135° ~100%; 120° 83%; 105° ~55%; 90° 25-44%; 75° 2-15%; 60° and
+upright 0%. Why the ring at (70, 95) needs it: at |θ| ≤ ~60° (where the bead
+can sit there) an open cup is empty; at -90° B drains through the bridge
+mouth on its left wall, so the bead can't rest near the ring.
+
+Level 1 numbers are identical to step 3 (the refactor kept the sim
+bit-for-bit). Level 2 plan: `[-150,0] [-150,0] [-60,violet] [-30,both]
+[-30,both] [-30,amber]`. Reverse order (shut amber first at -60) traps
+amber at 76% while violet drains to 0%: the lock order is the puzzle.
+Level 1 step-3 detail: the valve is required because the cup holds water
+only past ~90° and the ring is reachable only near upright (finding
+"disjoint angles").
+
+## Step 4 score: degrees turned (replaced 2026-10-02)
+
+Score was degrees turned (all input, dial included) + `TAP_COST` 30 per
+valve tap, lower is better (localStorage `aqueduct.v1`). Planner scores:
+level 0 330, level 1 420, level 2 390. Dropped after the first playtest:
+the user enjoys just watching the water, so turning must not cost anything.
+Replaced by clear + pearls + cup bullseye (higher is better).
+
 ## Step 3: layouts rejected before the inverted cup (2026-10-02)
 
 Moved from the design note when levels became data (step 4).

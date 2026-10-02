@@ -1,7 +1,7 @@
 # Aqueduct: design note (prototype, not registered)
 
 Status: prototype `prototypes/aqueduct.html` (not in `games/`: `validate.mjs`
-requires every file there to be registered), draft PR #59. Id when built:
+requires every file there to be registered). Id when built:
 `aqueduct` (permanent feedback key). Older text, measurements and playtests:
 `docs/history/aqueduct.md`.
 
@@ -20,9 +20,7 @@ volumes are one problem.
 - **Lock**: each cup has a band `[lo, hi]`; the door opens after `HOLD_T` s
   in band and closes when a reading leaves it. Win = bead in the exit ring
   `EXIT_T` s while the door is open. Loss (later): `hopeless()`, offer restart.
-- Design rule (learned, step 3): a local verb is required only if the two
-  goals need **disjoint angle ranges**. Here the cup can hold water only past
-  ~90° and the ring is reachable only near upright, so the order is forced:
+- The valve is required because the goals need disjoint angles (finding):
   fill upside down, shut, come back.
 
 ## Prototype: levels and constants
@@ -44,17 +42,24 @@ code. Vessel frame, y down, angle 0 = upright.
   x 176..182 from the top.
 - Door: every cup in band for `HOLD_T` 1.0 s (filter 0.3 s); bead in the ring
   r 18 for `EXIT_T` 0.4 s. Valve slide `VALVE_T` 0.15 s.
-- **Score** = degrees turned (all input, dial included) + `TAP_COST` 30 per
-  valve tap, lower is better. Best per level and progression in
-  localStorage `aqueduct.v1`; a level unlocks when the one before is cleared.
-  Win posts `arcade:result` with `level` and `score` (when framed).
+- **Score** (higher is better; turning is free by design, the user enjoys
+  watching the water): `CLEAR_PTS` 100 for the win +
+  `PEARL_PTS` 100 per pearl + up to `BULL_PTS` 100 per cup **bullseye**.
+  Bullseye: full within `BULL_TOL` ±2% of the band's centre line (drawn
+  dotted), linear to 0 at the band edge, read at the moment of the win.
+  Max 400 / 500 / 600 (levels 0-2). Bests in localStorage `aqueduct.v2`
+  (`aqueduct.v1` read only as "cleared"). `arcade:result` adds `pearls`.
+- **Pearls**: level data `pearls: [{x, y}]` (3 per level), collected when
+  the bead's centre comes within `PEARL_PICK` 15 px. Corner pearls need the
+  bead in a nearly empty chamber. Data order = the `pearls` bot's order.
+- **Dye** (looks only): each particle is tinted by the half of its start
+  chamber it began in (`DYE` blue / teal). No sim cost.
 - Sim: Clavet double-density, 2 substeps of 1/120 s, SDF walls; bead has
   explicit buoyancy (`LIFT` 3, probe `RING` 6 / `RING_FULL` 19) and drag
   toward local water velocity (`BEAD_DRAG` 8/s). Perf: 0.9 ms sim/frame at
   1x CPU; ~55 fps at 4x throttle, dpr capped 1.25 (headless, not a phone).
-- Input: `← →` ramped turn (50-420 deg/s), drag dial, phone gravity (signs
-  untested on a device), one button per valve (Space = first, `1` `2` per
-  cup), `R` restart, `L`/Esc or the Levels button for level select.
+- Input: `← →` ramped turn (50-420 deg/s), drag dial, phone gravity
+  (untested on a device), valve buttons (Space, `1` `2`), `R`, `L`/Esc.
 
 | level | id | cups | exit | intended solution |
 |---|---|---|---|---|
@@ -62,11 +67,8 @@ code. Vessel frame, y down, angle 0 = upright.
 | 1 The cup | `one-cup` | amber | (70, 95) | tumble to -150, catch ~30% at -120, shut, ease back |
 | 2 Two cups | `two-cups` | amber, violet | (70, 95) | tumble to -150 (both fill), shut violet at -60, let amber drain 69 → 35%, shut it, ease back |
 
-Open cup hold vs angle (cup full at 180°, then turned, reading after 2-4 s):
-180-135° ~100%; 120° 83%; 105° ~55%; 90° 25-44%; 75° 2-15%; 60° and
-upright 0%. Why the ring at (70, 95) needs it: at |θ| ≤ ~60° (where the bead
-can sit there) an open cup is empty; at -90° B drains through the bridge
-mouth on its left wall, so the bead can't rest near the ring.
+Cup hold vs angle (fill map) and why the ring needs the valve: history,
+"Step 4 measurements".
 
 ## Bot results (2026-10-02, levels as data)
 
@@ -74,47 +76,68 @@ mouth on its left wall, so the bead can't rest near the ring.
 
 | level | idle | sweep | greedy | keys | novice | timer | planner (valve) | planner-nv D22 B16 |
 |---|---|---|---|---|---|---|---|---|
-| 0 | 0% | - | 70% | 20% | 40% (10 seeds) | - | 3/3, 4 moves, score 330 | - |
-| 1 | 0% | 0% | 0% | 0% | 5% | 5% | 5/5 (D14 B14), 4.3 s, 5 moves, score 420 | 0/5 |
-| 2 | 0% | 0% | 0% | 0% | 0% | 0% | 3/3 (D14 B14), 5.3 s, 6 moves, score 390 | 0/3 |
+| 0 | 0% | - | 70% | 20% | 40% (10 seeds) | - | 3/3, 4 moves | - |
+| 1 | 0% | 0% | 0% | 0% | 5% | 5% | 5/5 (D14 B14), 4.3 s, 5 moves | 0/5 |
+| 2 | 0% | 0% | 0% | 0% | 0% | 0% | 3/3 (D14 B14), 5.3 s, 6 moves | 0/3 |
 
-Level 1 numbers are identical to step 3 (the refactor kept the sim
-bit-for-bit). Level 2 plan: `[-150,0] [-150,0] [-60,violet] [-30,both]
-[-30,both] [-30,amber]`. Reverse order (shut amber first at -60) traps
-amber at 76% while violet drains to 0%: the lock order is the puzzle.
-Level 1 step-3 detail: the valve is required because the cup holds water
-only past ~90° and the ring is reachable only near upright (finding
-"disjoint angles").
+Pearls and points (the sim is unchanged, so the win rates above stand).
+`planner` = direct route, ignores pearls; `pearls` = visits them in data
+order, then exits (D22 B12, 2 seeds). Score = clear + pearls + bullseye.
+
+| level | pearls at | planner: pearls, score | pearls bot: win, s, moves, score | plan |
+|---|---|---|---|---|
+| 0 | A top-left, A bottom-left, B top-right | 1/3, 200 | 2/2, 5.3 s, 6, 400 | `180 270 90 30 30` |
+| 1 | A top-left, A bottom-left, B bottom-right | 0/3, 169 | 2/2, 6.2 s, 7, 493 | `180 300 210 60 240a 270a 240` |
+| 2 | A top-left, A bottom-right, A bottom-left | 0/3, 172 | 2/2, 7.6 s, 8, 567 | `150a 270 150a 120ab -30ab 30a` |
+
+Pearls sit off the direct route (finding "off the solution's lanes"); the
+warm-up's free pearl at 90° is on purpose. Placement notes: history.
+
+Level 2: the lock order is the puzzle (shut violet first; history,
+"Step 4 measurements").
 
 ## Next (in order)
 
-1. Human playtest of levels 0-2 (Artifact below): is the warm-up too easy
-   (novice 40%)? Does level 2's "which one first" read without the bot plan?
-   Typical human scores to set a par.
-2. More levels until play reaches 10+ minutes (draft ideas below), each
-   gated like level 2. Then register in `games.json` (manifest `score` as
-   lower-is-better, achievements, `howToPlay`).
-3. Phone tilt test after merge (iOS sign flipped, untested), real-phone fps.
-4. Known gap: the door stays open 0.3 s (filter lag) after a cup is
-   reopened; the level-2 planner ends with violet reopened. Harmless now.
+1. **Next PR (agreed with the user, 2026-10-02): items 3, 5, 6** from the
+   "least effort, most reward" list. Discuss each with the user first, then
+   build in one PR:
+   - **3. Water brought home**: at the win, count particles in a marked
+     "home" region (same counting as the cup readings) and add points, so
+     spilling water over the sill costs something. Open: which region per
+     level, points per particle, does it fight the bullseye?
+   - **5. Free pour**: a level with no exit and no cups (pure data, ~10
+     lines), a calm toy for watching the water. Open: menu entry or level
+     -1; never locked; no score or `arcade:result`.
+   - **6. Bead trail**: a fading trail behind the bead (~15 lines), so a
+     pearl run is satisfying to look back on. Open: length, colour by speed?
+   Prompt to start it: "Aqueduct next PR: read `docs/games/aqueduct.md`
+   ('Next' item 1) and discuss items 3, 5 and 6 with me before building:
+   water brought home, a free-pour level, and a bead trail."
+2. Human playtest of levels 0-2 (Artifact below): are pearls visible and
+   wanted? Bullseye line readable? Warm-up too easy (novice 40%)? Does
+   level 2's "which one first" read? Typical human scores for a par.
+3. More levels until play reaches 10+ minutes (draft ideas below), each
+   gated like level 2, each with 3 pearls off the direct route (check with
+   `planner` vs `pearls`). Then register in `games.json` (manifest `score`
+   higher-is-better, achievements, `howToPlay`).
+4. Phone tilt test after merge (iOS sign flipped, untested), real-phone fps.
+5. Known gap: the door stays open 0.3 s (filter lag) after a cup reopens.
 
-Draft level ideas (older table in history):
-siphon, upside-down band, leak, tide room, two beads, seeded free play.
-Achievements draft: First Drop, Banked, Upside Down, Light Touch, One Flick.
-Telemetry: `arcade:result` with level id; pause freezes sim and HOLD timer.
+Level ideas (table in history): siphon, upside-down band, leak, tide
+room, two beads, seeded free play.
+Achievements draft: First Drop, Banked, Upside Down, Light Touch (fewest
+valve taps: an achievement now, not part of the score), One Flick, Pearl
+Diver (all pearls on a level), Bullseye (100 on every cup).
 
 ## Workflow notes
 
-- Planner runs take 2-22 minutes (each valve adds a branch); run levels
-  in parallel (4 CPUs): background them
-  and wait with an until-loop; stop by saved PID, never `pkill -f
-  balance-aqueduct` (matches your own shell).
-- `LEVEL=i` picks the level (default 1), `SRC=file` tries a scratch copy;
-  `probe-aqueduct.mjs fillmap` prints each cup's reading per held angle.
-- `EXIT=x,y` overrides the exit for `balance-aqueduct.mjs` and
-  `probe-aqueduct.mjs trace`; `TRACE=1` prints the planner's plan.
-- Every sim or layout change invalidates bot numbers: rerun planner and
-  planner-nv before claiming anything. Judge feel by probes, not screenshots.
+- Planner runs take 1-22 min; run levels in parallel (4 CPUs) in the
+  background, stop by saved PID, never `pkill -f balance-aqueduct`.
+- Env: `LEVEL=i` (default 1), `SRC=file`, `EXIT=x,y`, `TRACE=1` (plan).
+  `probe-aqueduct.mjs fillmap` = cup reading per held angle; `trace` also
+  prints pearls collected.
+- A sim or layout change invalidates bot numbers: rerun planner,
+  planner-nv and pearls. Judge feel by probes, not screenshots.
 - Playtest Artifact (republish with `url`):
   https://claude.ai/artifact/21dXA2QwrHe2QZqkM5HuZf, upload copy from
   `node scripts/probe-aqueduct.mjs publish-copy OUT.html`.
