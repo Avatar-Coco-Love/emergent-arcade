@@ -17,7 +17,7 @@ volumes are one problem.
 - **Bead** floats at the surface and rides currents: you steer by pouring.
 - **Lock**: each cup has a band `[lo, hi]`; the door opens after `HOLD_T` s
   in band and closes when a reading leaves it. Win = bead in the exit ring
-  `EXIT_T` s while the door is open. Loss (later): `hopeless()`, offer restart.
+  `EXIT_T` s while the door is open. No loss: a stuck vessel offers ↻ (colour, below).
 - The valve is required because the goals need disjoint angles (finding):
   fill upside down, shut, come back.
 
@@ -26,37 +26,43 @@ volumes are one problem.
 Levels are data (`LEVELS` in `§ levels`; fields documented in the comment
 above it). A new level needs no code. Vessel frame, y down, angle 0 = upright.
 - Shared vessel: chambers A and B (150 x 240, centres (∓100, 35)), bridge
-  (124 x 34, centre (0, -62)) over a high sill. 600 particles start in A;
-  bead at A's surface (-100, -10).
-- **Amber cup** (44 x 65, centre (0, -106.5)) hangs from the bridge ceiling,
-  mouth down. Reading y -139..-84, ~78 particles full, band 25-50%. Valve
-  plate y -83..-77 from the left.
-- **Violet cup** (level 2; 65 x 40, centre (202, -40)) on B's right wall,
-  mouth left. Reading x 182..234.5, y -60..-20, band 25-50%. Valve plate
-  x 176..182 from the top.
+  (124 x 34, centre (0, -62)) over a high sill. Levels 0-2: 600 particles
+  in A, bead (-100, -10).
+- **Top cup** (`TOP_CUP`, amber in 1-2; 44 x 65, centre (0, -106.5)) hangs
+  from the bridge ceiling, mouth down, ~78 particles full. **Side cup**
+  (`SIDE_CUP`, violet in 2; 65 x 40, centre (202, -40)) on B's right wall,
+  mouth left, ~67 full. Bands 25-50%; valve plates over the mouths.
 - Door: every cup in band for `HOLD_T` 1.0 s (filter 0.3 s); bead in the ring
   r 18 for `EXIT_T` 0.4 s. Valve slide `VALVE_T` 0.15 s.
-- **Score** (higher is better; turning is free by design, the user enjoys
-  watching the water): `CLEAR_PTS` 100 for the win +
-  `PEARL_PTS` 100 per pearl + up to `BULL_PTS` 100 per cup **bullseye**.
-  Bullseye: full within `BULL_TOL` ±2% of the band's centre line (drawn
-  dotted), linear to 0 at the band edge, read at the moment of the win.
-  Plus water home (above). Max 500 / 600 / 700 (levels 0-2). Bests in
-  localStorage `aqueduct.v3` (`v1`, `v2` read only as "cleared"). `arcade:result` adds `pearls`.
-- **Pearls**: level data `pearls: [{x, y}]` (3 per level), collected when
-  the bead's centre comes within `PEARL_PICK` 15 px. Corner pearls need the
-  bead in a nearly empty chamber. Data order = the `pearls` bot's order.
-- **Water home**: level data `home` {x0, x1, y0, y1, pts} (levels 0-2:
-  chamber B, `HOME_B`). At the win, the share of free water (not in any
-  cup's read region) inside it scores `HOME_PTS` 100 × min(1, share /
-  `HOME_FULL` 0.6). Cup water is excluded, so it never fights the bullseye.
-  It fights the win instead: a full B floats the bead above the low ring
-  (pour everything over and the bead is left behind in A).
-- **Dye** (looks only so far): level data `water[].dye` = `DYE` index
-  (default 0, blue) or `'split'` (left/right half of the start chamber,
-  blue / teal). Levels 0-2 are one colour; the second colour is kept for
-  levels where it means something (colour sorting, below).
-- **Bead trail** (looks only): last `TRAIL_N` 48 frames (0.8 s), fading and
+- **Score** (higher is better; turning is free by design): `CLEAR_PTS`
+  100 + `PEARL_PTS` 100 per pearl + up to `BULL_PTS` 100 per cup
+  **bullseye** (full within `BULL_TOL` ±2% of the band's dotted centre
+  line, 0 at the band edge, read at the win) + `HOME_PTS` 100. Bests in
+  localStorage `aqueduct.v3`. `arcade:result` adds `pearls`.
+- **Pearls** (3 per level): collected within `PEARL_PICK` 15 px of the
+  bead's centre; corner pearls need a nearly empty chamber. Data order =
+  the `pearls` bot's order.
+- **Water home** (levels 0-2: chamber B, `HOME_B`): share of free water (not
+  in a cup) inside it × 100, full at `HOME_FULL` 0.6. It fights the win: a
+  full B floats the bead above the low ring.
+- **Colour** (levels 3-5): `dye` 0 blue / 1 orange (colour-blind safe;
+  was teal). A cup with `dye` counts only its colour toward the band; the
+  door also needs foreign ≤ `PURITY` 20% of its contents (filtered).
+  Bullseye needs a pure cup. Shown by a solid own-colour line in the cup
+  (the water line counts both), a red dashed frame when mixed, and a
+  valve-button gauge (own vs band, foreign striped after it).
+- **Colours layer, they don't blend**: blue poured onto orange stays on
+  top (level 3 pour-first habit: still 10% via upside down). A full spin
+  at 90°/s interleaves them for good (43% foreign at best).
+- **Stuck check** `stuckCup()`: own-colour water in cells ≥ 80% that
+  colour under `MIX_NEED` 2 × the band floor for `HOPE_T` 2 s → hint, ↻
+  pulses. Reachability is unknown, so counts overlap (rescuable 59, lost
+  63); 2× flags a full spin (31), no rescuable state measured. Misses are
+  fine: ↻ (`R`) is always in the toolbar.
+- **Colour homes** (`home` as a list, one region per `dye`, `full` 0.9,
+  sharing `HOME_PTS`): blue in A, orange in B. The bead still needs blue
+  poured across, so it fights the win as before.
+- **Bead trail** (looks only): last `TRAIL_N` 32 frames (0.53 s, user: "a bit less"; was 48), alpha `TRAIL_A` 0.35, fading and
   narrowing. The whole path (a point per `PATH_EVERY` 3 frames, thinned
   past `PATH_MAX` 2400) is drawn at the win with dots on the pearls
   collected; the win card waits 1.2 s and dims less (`#menu.won`).
@@ -70,6 +76,11 @@ above it). A new level needs no code. Vessel frame, y down, angle 0 = upright.
 | 0 Warm-up | `warmup` | none | (100, 120) | pour across the bridge |
 | 1 The cup | `one-cup` | amber | (70, 95) | tumble to -150, catch ~30% at -120, shut, ease back |
 | 2 Two cups | `two-cups` | amber, violet | (70, 95) | tumble to -150 (both fill), shut violet at -60, let amber drain 69 → 35%, shut it, ease back |
+| 3 Second spring | `second-spring` | orange (side) | (70, 95) | tip right ~50° (orange fills first, 37%, 4% blue) or the first moment of a fast 90° pour, shut, then pour the bead across |
+| 4 Wrong way round | `wrong-way` | orange (top) | (70, 95) | level 1's -150 gives 59% blue: tip left -90 (39%, pure) or the bot's full turn over, shut |
+| 5 Sorting | `sorting` | blue (top), orange (side) | (70, 95) | orange at ~50-60 first, shut; blue from A's pour over the bridge |
+
+Levels 3-5 start with 450 blue in A, 250 orange in B, bead in A.
 
 Cup hold vs angle (fill map) and why the ring needs the valve: history,
 "Step 4 measurements".
@@ -90,28 +101,23 @@ warm-up's free pearl at 90° is on purpose. Placement notes: history.
    visible and wanted? Bullseye line readable? Does "water home" read, and
    does the bead-vs-water trade feel fair or fiddly? Warm-up too easy
    (novice 40%)? Does level 2's "which one first" read? Human scores for a par.
-2. More levels until play reaches 10+ minutes (draft ideas below), each
-   gated like level 2, with 3 pearls off the direct route (check with
-   `planner` vs `pearls`) and a `home` region where spilling tempts.
-   **Colour sorting** (user, 2026-10-02): the second dye first appears in
-   the level that uses it; later levels keep the colours apart and fill
-   cups with their own colour. Plan: a cup counts only its own dye, with a
-   purity limit (e.g. ≤15% foreign); mixing can't be undone (same
-   density, no diffusion), so build `hopeless()` + one-key restart first.
-3. Register (move to `games/aqueduct.html`, `validate.mjs` then applies):
-   manifest (`goal`, `howToPlay`, mechanics, `keyboard`, accent), `score`
-   (higher, per-level `boards` + `boardList`, epoch 1), 3+ achievements
-   with `unlock()`; launch at `version` 5 with `changes` (agreed with
-   the user 2026-10-02; dates 10-01, 10-01, 10-02, 10-02, merge date):
-   1 first vessel: one bead, water, turn to pour; 2 cup lock and valve;
-   3 levels, level select, two cups; 4 pearls and cup bullseye score;
-   5 water home, free pour, bead trail (+ any later level batch). Drop the fps/sim
-   debug from the HUD and move in-file instructions to the manifest; point
-   `balance-`/`probe-aqueduct.mjs` at the new path; `smoke-gallery.mjs`.
-4. Phone tilt test after merge (iOS sign flipped, untested), real-phone fps.
-5. Known gap: the door stays open 0.3 s (filter lag) after a cup reopens.
+   Levels 3-5: is the own-colour line / gauge readable? Does level 4's
+   "other way round" land? Is ↻ found when mixed? Trail length now OK?
+2. Register next PR (user, 2026-10-02: deploy once playable; 10+ minutes
+   is not required first, players' feedback from the site is the point).
+   Move to `games/aqueduct.html`; manifest (`goal`, `howToPlay`,
+   `keyboard`, accent), `score` (higher, per-level `boards`, epoch 1), 3+
+   achievements. Launch `version` 5, `changes` (agreed 2026-10-02; dates
+   10-01, 10-01, 10-02, 10-02, merge): 1 first vessel, turn to pour;
+   2 cup lock and valve; 3 levels, two cups; 4 pearls, bullseye; 5 water
+   home, free pour, trail + this batch (colours, levels 3-5, restart). Drop HUD debug; repoint bot scripts; `smoke-gallery.mjs`.
+3. Phone tilt test after merge (iOS sign flipped, untested), real-phone fps.
+4. Known gap: the door stays open 0.3 s (filter lag) after a cup reopens.
 
-Level ideas: history (siphon, leak, tide room, two beads…).
+Level ideas: history (siphon, leak, tide room, two beads…). User,
+2026-10-02: differently shaped and open vessels; a **separator** in the
+middle that splits mixed water, one colour each way, past a one-way line
+it can't fall back over (a later colour level: undoes mixing at a cost).
 Achievements draft: First Drop, Banked, Upside Down, Light Touch (fewest
 valve taps), One Flick, Pearl
 Diver (all pearls on a level), Bullseye (100 on every cup).
@@ -120,9 +126,8 @@ Diver (all pearls on a level), Bullseye (100 on every cup).
 
 - Planner runs take 1-22 min; run levels in parallel (4 CPUs) in the
   background, stop by saved PID, never `pkill -f balance-aqueduct`.
-- Env: `LEVEL=i` (default 1), `SRC=file`, `EXIT=x,y`, `TRACE=1` (plan).
-  `probe-aqueduct.mjs fillmap` = cup reading per held angle; `trace` also
-  prints pearls collected.
+- Env: `LEVEL=i` (default 1), `SRC`, `EXIT=x,y`, `TRACE=1`. Probe
+  `fillmap` / `trace` print cup readings, pearls, colours per chamber.
 - A sim or layout change invalidates bot numbers: rerun planner,
   planner-nv and pearls. Judge feel by probes, not screenshots.
 - Playtest Artifact (republish with `url`):

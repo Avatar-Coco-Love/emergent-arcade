@@ -534,3 +534,20 @@ Check: trace the reverse order explicitly; the score (degrees + taps)
 then rewards finding the right order on the first try.
 
 *Evidence: bots. Provisional.*
+
+## Same-density colours layer, they don't blend
+
+Aqueduct prototype levels 3-5, 2026-10-02 (`docs/games/aqueduct.md`,
+"Colour"). Two water colours (blue, orange) of equal density, no diffusion;
+a cup counts only its own colour and allows ≤ 20% foreign. Expected: any
+wrong pour mixes for good, so the game needs a hopeless check. Measured on
+level 3 (orange cup on B's wall, orange in B, blue in A): pouring blue
+across first (the levels 0-2 habit) makes the cup read 40-60% blue, but a
+2-step angle search still finds a 6-10% fill (upside down: orange is the
+bottom layer). Only spinning interleaves the colours: 2 s at 90°/s gives
+27% at best, 4 s 43%, 8 s never in band. A clean-cell count (18 px cells,
+≥ 80% own colour) can't separate rescuable from lost states (59 vs 63
+clean particles; reachability matters), so the check flags under 2× the
+band floor and the restart button is always visible instead.
+
+*Evidence: bots. Provisional.*
