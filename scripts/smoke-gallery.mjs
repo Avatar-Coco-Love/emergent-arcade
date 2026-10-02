@@ -502,6 +502,53 @@ for (const vp of VIEWPORTS) {
     assert(extra && extra.from === "gallery" && extra.method === "copy", `telemetry row ${JSON.stringify(row)}`);
   });
 
+  await check(tag("records view: every leaderboard, my bests, play and back"), async () => {
+    // A best of 9 in Pressure Grid (the fixture's board: Jade Owl 12, Misty Wren 6).
+    const pg = games.find((g) => g.id === "pressure-grid");
+    const saved = await page.evaluate(([epoch, v]) => {
+      const old = localStorage.getItem("arcade.best.pressure-grid");
+      localStorage.setItem("arcade.best.pressure-grid", JSON.stringify({ [`e${epoch}:main`]: { score: 9, at: "2026-10-01T00:00:00Z", version: v } }));
+      return old;
+    }, [pg.score.epoch || 1, pg.version]);
+    await page.goto(base);
+    await page.waitForSelector(".game-card");
+    const n = rows.length;
+    await page.locator("#recordsLink").click();
+    await page.waitForSelector("#recordsView:not([hidden]) .rec-row");
+    assert(await page.locator("#galleryView").isHidden(), "gallery still shown");
+    const scored = games.filter((g) => g.score && g.status !== "archived").length;
+    assert((await page.locator(".rec-row").count()) === scored, `${await page.locator(".rec-row").count()} rows for ${scored} games`);
+    const row = page.locator('.rec-row[data-id="pressure-grid"]');
+    await page.waitForFunction(() => document.querySelector('.rec-row[data-id="pressure-grid"] .rec-lead').textContent.includes("Jade Owl"));
+    const line = await row.locator(".rec-line").textContent();
+    assert(line.includes("Jade Owl") && line.includes("12") && line.includes("You #2") && line.includes("9"), `row: ${line}`);
+    const sum = await page.locator("#recordsSummary").textContent();
+    assert(sum.includes("1 board in 1 game"), `summary: ${sum}`);
+    await row.locator("summary").click();
+    await row.locator(".lb-list li").first().waitFor();
+    const lb = await row.locator(".lb-list li").allTextContents();
+    assert(lb.length === 3 && lb[1].includes("(you)"), `top 10: ${lb.join(" | ")}`);
+    assert(await noHScroll(page), "horizontal scroll");
+    await shot("records");
+    await page.locator('#recordsFilter [data-mine="1"]').click();
+    assert(page.url().endsWith("#/records?mine=1"), page.url());
+    assert((await page.locator(".rec-row").count()) === 1, "My bests shows other games");
+    await page.locator('.rec-row[data-id="pressure-grid"] .rec-play').click();
+    await page.waitForSelector("#cabinet:not([hidden])");
+    assert((await page.locator("#backLink").getAttribute("href")) === "#/records?mine=1", "back link");
+    await page.locator("#backLink").click();
+    await page.waitForSelector("#recordsView:not([hidden]) .rec-row");
+    assert(await page.evaluate(() => document.activeElement.classList.contains("rec-play")), "focus not back on the row");
+    await page.locator("#recordsBack").click();
+    await page.waitForSelector("#galleryView:not([hidden])");
+    assert(await page.locator("#recordsView").isHidden(), "records still shown");
+    await page.evaluate((old) => (old == null ? localStorage.removeItem("arcade.best.pressure-grid") : localStorage.setItem("arcade.best.pressure-grid", old)), saved);
+    await page.waitForTimeout(300);
+    const gal = rows.slice(n).filter((r) => r.kind === "gallery").map((r) => Object.assign({}, r, r.extra || {}));
+    assert(gal.some((r) => r.action === "records") && gal.some((r) => r.action === "open" && r.from === "records"), `telemetry ${JSON.stringify(gal.map((r) => r.action))}`);
+    return `${scored} rows; ${line}`;
+  });
+
   await check(tag("arcade play total from 250 plays"), async () => {
     // The fixture's 19 plays stay hidden; 249 too, 250 shows (summed over games).
     const total = async (n) => {

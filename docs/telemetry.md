@@ -64,7 +64,7 @@ common columns is in `extra`. One row per action:
 
 | `action` | when | fields |
 |---|---|---|
-| `open` | a cabinet opens a game | `game_id`, `game_version`, `from` (`list`, `continue`, `archive`, `link`), `position` (1-based, for cards), `sort` (`featured` or the sort), `verb` if filtered, `searching` if a search was active |
+| `open` | a cabinet opens a game | `game_id`, `game_version`, `from` (`list`, `continue`, `archive`, `records`, `link`), `position` (1-based, for cards), `sort` (`featured` or the sort), `verb` if filtered, `searching` if a search was active |
 | `share` | Share pressed | `game_id`, `game_version`, `method` (`share` sheet, `copy`, `prompt`), `from` (`toolbar`, `menu`, `about`); the gallery header's share (the whole arcade) has `from: "gallery"` and no game fields |
 | `download` | a standalone copy was saved | `game_id`, `game_version`, `from` |
 | `sort` | the sort changed | `sort` |
@@ -73,6 +73,7 @@ common columns is in `extra`. One row per action:
 | `settings` | a settings action | `setting`: `export`, `import`, `reset_achievements`, `reset_all`, `reset_game_achievements` (with `game_id`), `stats_on` |
 | `nudge` | the "Rate this game?" callout was answered | `game_id`, `game_version`, `result` (`rate`, `dismiss`) |
 | `about_arcade` | the "About the arcade" dialog opened | |
+| `records` | the Records view (`#/records`) opened | `mine` (1 with the "My bests" filter) |
 | `handle` | a public name picked or typed, or the leaderboard toggled, in the Records panel | `handle` and `name` (when listed; `name` only for a typed one), `lb` (1 or 0); `scripts/build-leaderboards.mjs` reads it ([scores.md](scores.md)) |
 
 `node scripts/fetch-telemetry.mjs` reads them too and prints a short

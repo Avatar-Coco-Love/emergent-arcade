@@ -91,6 +91,10 @@ same-origin, so `localStorage` inside a game throws.
   several boards), the top 10 with your row highlighted, and your public
   name. Your own best is merged in at once; the published file catches up
   within the hour.
+- The gallery's **Records view** (`#/records`) shows every game's board on
+  one page: leader, your best and place, expandable top 10, and a "My
+  bests" filter ([gallery.md](gallery.md)). `ArcadeScores.standings()`
+  does the merge for both it and the cabinet.
 - Cards show "Your best 40.2 s" (or "3 bests" for games with
   boards): your own best on this browser, not the leaderboard's.
 - Export/import carries bests (the better one per board wins on import);
@@ -306,7 +310,8 @@ player's random name, since the builder runs every check again.
 
 - Weekly boards next to all-time ones (a fresh chance for new players):
   the builder already has dates; add a `week` board per game.
-- A gallery-wide "Records" view: your bests across every game.
+- ~~A gallery-wide "Records" view~~: done (`#/records`). Next: weekly
+  boards there, and a "your place changed" note since the last visit.
 - Games showing `arcade:best` in their HUD (each game's depth-pass PR;
   Bubble Glass v3 does).
 - Daily seeded challenges share one board per day (`board: "d2026-10-01"`).

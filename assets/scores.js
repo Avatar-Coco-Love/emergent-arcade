@@ -289,9 +289,68 @@ window.ArcadeScores = (function () {
     return entries.filter((e) => e.p !== mine && beats(sp, e.s, value)).length + 1;
   }
 
+  // The boards a game shows in Records, in order: "main" for a one-board
+  // game, the manifest's boardList, boards this browser has a best on, and
+  // (with data) boards someone published a score on.
+  function boardsOf(game, data) {
+    const sp = spec(game);
+    if (!sp) return [];
+    const boards = new Set(sp.boards ? [] : ["main"]);
+    for (const b of (game.score && game.score.boardList) || []) boards.add(b);
+    for (const b of Object.keys(bests(game))) boards.add(b);
+    const g = data && data.games && data.games[game.id];
+    if (g && g.epoch === sp.epoch && g.boards) for (const b of Object.keys(g.boards)) if (BOARD.test(b)) boards.add(b);
+    return [...boards];
+  }
+
+  // The board a game leads with in the gallery's Records view: the one with
+  // the most published scores (ties: list order), else one this browser has
+  // a best on, else the first.
+  function headline(data, game) {
+    const boards = boardsOf(game, data);
+    let pick = null;
+    let most = 0;
+    for (const b of boards) {
+      const n = top(data, game, b).length;
+      if (n > most) { pick = b; most = n; }
+    }
+    if (pick) return pick;
+    const mine = bests(game);
+    return boards.find((b) => mine[b]) || boards[0] || null;
+  }
+
+  // One board's standings: the published entries, with this browser's best
+  // merged in right away (the file only catches up at the next hourly
+  // build). `sending` = listed and play stats on; otherwise this browser's
+  // published row is left as is and nothing is added.
+  // -> { rows: [{ h, s, place, me? }] best first, mine: that row or null }
+  function standings(data, game, board, sending) {
+    const sp = spec(game);
+    const id = me();
+    const published = top(data, game, board);
+    const rows = published.filter((e) => !(sending && e.p === id)).map((e) => ({ h: e.h, s: e.s }));
+    const best = bests(game)[board];
+    const pub = published.find((e) => e.p === id);
+    let mine = null;
+    if (sending && (best || pub)) {
+      const s = best && (!pub || beats(sp, best.score, pub.s)) ? best.score : pub.s;
+      mine = { h: publicName(data), s, me: true };
+      rows.push(mine);
+    }
+    rows.sort((a, b) => (a.s === b.s ? 0 : beats(sp, a.s, b.s) ? -1 : 1));
+    let prev = null;
+    let place = 0;
+    rows.forEach((e, i) => {
+      if (e.s !== prev) place = i + 1;
+      prev = e.s;
+      e.place = place;
+    });
+    return { rows, mine };
+  }
+
   return {
     ADJ, NOUN, hash, defaultHandle, isHandle, spec, fromResult, beats, format, boardName,
     load, bests, record, merge, handle, newHandle, typedName, setTypedName, nameOwner, publicName, nameLists,
-    listed, setListed, me, leaderboards, top, rank, plays, count,
+    listed, setListed, me, leaderboards, top, rank, plays, count, boardsOf, headline, standings,
   };
 })();

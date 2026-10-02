@@ -23,10 +23,11 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/progress.js` | `ArcadeProgress`: every per-browser key, New/Updated badges, recent games, export/import/reset, telemetry opt-out |
 | `assets/download.js` | `ArcadeDownload`: standalone copy of a game (header comment + shim) |
 | `assets/cabinet.js` | `ArcadeCabinet.open(game)` / `close()`: toolbar, panels, ⋯ menu, toasts, loading/error states, share, download, rating, nudge |
+| `assets/records.js` | `ArcadeRecords`: the Records view (`#/records`), every game's leaderboard on one page |
 | `assets/gallery.js` | cards, search/sort/verb filter, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
 Script order in `index.html`: config, ui, wording, feedback, achievements, scores, progress,
-telemetry, thumbs, download, cabinet, gallery.
+telemetry, thumbs, download, cabinet, records, gallery.
 
 ## Tap or click
 
@@ -55,6 +56,8 @@ ideas).
   gallery with its view state. Filter changes use `history.replaceState`,
   so they don't fill the back history. The cabinet's ← goes back to the
   same view. An unknown id shows the gallery with a notice.
+- `#/records` or `#/records?mine=1`: the Records view (below). A cabinet
+  opened from it goes back to it (← and focus on the row's ▶).
 
 ## Per-browser storage
 
@@ -114,6 +117,16 @@ logs a `share` row with `from: "gallery"`.
   toast, and the cabinet posts `arcade:best` to the game on load and after
   a new best ([scores.md](scores.md)). Smoke-tested with a fixture
   `leaderboards.json` served by `smoke-gallery.mjs`.
+- Records view (`#/records`, the "Records" button next to sort; the
+  cabinet's Records panel links to it): one row per scored game with its
+  headline board (most published scores, else one you have a best on), the
+  🥇 leader and "You #2 9" (or "Your best 9" when off the leaderboard). A
+  row expands to the board picker and the same top 10 as the cabinet
+  (`ArcadeCabinet.lbItems`, merge rules in `ArcadeScores.standings`). Top
+  line: your bests across games and how many boards you lead. "My bests"
+  keeps games you have a best in. Archived games show only once someone has
+  a score in them. Phones: search gets its own row, sort and Records share
+  the next.
 - Play counts: the card footer shows "18 plays · 5 on v9" (from the
   first play), the About panel a "Plays by version" table, both from the
   `plays` block of `leaderboards.json` ([scores.md](scores.md#play-counts)).
