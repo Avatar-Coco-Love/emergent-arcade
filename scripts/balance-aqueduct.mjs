@@ -1,6 +1,7 @@
 // Headless bots for the Aqueduct prototype (prototypes/aqueduct.html).
 //
 // Usage: LEVEL=1 node scripts/balance-aqueduct.mjs [runs=10] [bot,bot,...] [DEPTH=14,BEAM=10]
+//   OPENING='[[-90,0],[-90,1]]' plays fixed opening moves before the planners search.
 //   LEVEL picks the level (index into LEVELS, default 1). TRACE=1 prints the planner's chosen
 //   actions [angle, valve bits]. PLAN_RUNS caps planner runs (default 5). Score = 100 clear + 100 per
 //   pearl + up to 100 per cup bullseye (higher is better); `pearls` is the median picked up; + up to 100 for water home;
@@ -19,6 +20,7 @@
 //   planner: beam search over (turn to ±k·30°, hold 1 s) actions by rolling the
 //     sim forward from snapshots, scoring the bead's path distance to the exit
 //     (BFS over the vessel's free space). Open-loop; the plan is then replayed.
+//   (Dyed cups: the planner's cup error adds the foreign share over the 20% purity limit.)
 //   pearls: the planner, but it visits the level's pearls in their listed order
 //     before the exit (a win with pearls left is a dead end). Shows every pearl is
 //     reachable in one run.
@@ -102,11 +104,14 @@ function playInPage({ seed, bot, search, lv }) {
     for (let k = 0; k < HOLD && D.state === 'playing'; k++) { D.step(dt); if (k % 10 === 9) best = Math.min(best, geo()); }
     const g = geo(); best = Math.min(best, g);
     let vs = 0;
-    D.cups.forEach((c, k) => { const f = D.fill[k], e = f < c.band[0] ? c.band[0] - f : f > c.band[1] ? f - c.band[1] : 0;
+    D.cups.forEach((c, k) => { const f = D.fill[k], m = c.dye === undefined ? 0 : Math.max(0, D.mix[k] - 0.2),   // m: foreign share over the purity limit
+      e = (f < c.band[0] ? c.band[0] - f : f > c.band[1] ? f - c.band[1] : 0) + m;
       vs += 80 * e - (D.valves[k] && e === 0 ? 25 : 0); });
     return { snap: D.snap(), score: g + 0.5 * best + vs - (D.doorOpen && NV ? 20 : 0) + (D.state === 'won' ? -1000 : 0), won: D.state === 'won', a, v };
   }
-  let beam = [{ snap: D.snap(), score: geo(), plan: [] }], found = null, expanded = 0;
+  const pre = search.OPENING || [];   // fixed opening moves [angle, valve bits] (1 s each), searched from where they leave off
+  for (const [a, v] of pre) { D.setTarget(a); setBits(v); for (let k = 0; k < HOLD; k++) D.step(dt); }
+  let beam = [{ snap: D.snap(), score: geo(), plan: pre.slice() }], found = null, expanded = 0;
   for (let depth = 0; depth < search.DEPTH && !found; depth++) {
     const next = [], seen = new Set();
     for (const node of beam) {
@@ -147,7 +152,7 @@ async function run(bot, runs, browser, search) {
 
 const BOTS = (process.argv[3] || 'idle,sweeper,greedy,novice,timer,keys,planner,planner-nv').split(',');
 const runsArg = +process.argv[2] || 10;
-const search = { DEPTH: 14, BEAM: 10 };
+const search = { DEPTH: 14, BEAM: 10, OPENING: process.env.OPENING ? JSON.parse(process.env.OPENING) : [] };
 for (const kv of (process.argv[4] || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); search[k] = +v; }
 const browser = await chromium.launch();
 for (const bot of BOTS) {

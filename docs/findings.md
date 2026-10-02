@@ -48,6 +48,12 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   drain, then shut it. The reverse order traps the wrong volume. *When one
   move fills two cups, the lock order is the puzzle.* Aqueduct (prototype).
   bots.
+- Particles of equal density layer instead of blending: a "can't unmix"
+  rule only bites after vigorous motion (a full spin), not a wrong pour.
+  Measure the mixing a real mistake causes before building a fail state
+  around it, and keep a stuck check conservative (a miss costs a ↻, a
+  false alarm costs trust). *Same-density colours layer, they don't
+  blend.* Aqueduct (prototype). bots.
 - A slow hazard is no threat to a fast move: time the player's exposure,
   and ask what happens if each hazard is triggered first. *A slow hazard is
   no threat to a fast move.* Bubble Glass. bots.

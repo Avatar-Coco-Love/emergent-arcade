@@ -7,6 +7,31 @@ sessions don't read this file by default.
 
 
 
+## Bot results, levels 0-2 (2026-10-02, moved from the design note)
+
+`LEVEL=i node scripts/balance-aqueduct.mjs` (20 seeds; planners as noted).
+
+| level | idle | sweep | greedy | keys | novice | timer | planner (valve) | planner-nv D22 B16 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 0% | - | 70% | 20% | 40% (10 seeds) | - | 3/3, 4 moves | - |
+| 1 | 0% | 0% | 0% | 0% | 5% | 5% | 5/5 (D14 B14), 4.3 s, 5 moves | 0/5 |
+| 2 | 0% | 0% | 0% | 0% | 0% | 0% | 3/3 (D14 B14), 5.3 s, 6 moves | 0/3 |
+
+Water home at the win (share of free water in B; before `HOME_FULL`
+scaling, measured 2026-10-02): planner L0 14-28%, L1 8-39%, L2 14-39%
+(3 seeds); pearls bot L0 39-48% (2); greedy L0 24-65% (14 wins). Spread
+well over 20 points, so it scores; nothing passed 65%, hence full at 60%.
+
+Pearl routes and pre-home scores per level (planner 0-1 pearls, pearls bot
+3/3 on every level): history, "Pearl routes".
+
+
+## Free pour (moved from the design note, 2026-10-02)
+
+- **Free pour**: last entry in `LEVELS` (`free: true`, id `free`): no exit,
+  cups, pearls, score or `arcade:result`; split dye; bead in; always
+  unlocked, shown after the numbered levels, never the "Next level".
+
 ## Sim and input (current as of 2026-10-02)
 
 - Sim: Clavet double-density, 2 substeps of 1/120 s, SDF walls; bead has

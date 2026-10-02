@@ -3,6 +3,7 @@
 //   node scripts/probe-aqueduct.mjs trace '[[-120,0],[-180,1]]'   replay a plan [[angle,valve bits],...] (1 s each), print every 0.25 s
 //   LEVEL=i picks the level (default 1); EXIT=x,y overrides its exit.
 //   node scripts/probe-aqueduct.mjs fillmap [-180,...,180]  each cup's reading 3 s after turning to each angle (PRE=a: hold a first)
+//   Both add blue/orange counts per chamber (A, bridge gap, B), each cup's foreign share and stuckCup().
 //   node scripts/probe-aqueduct.mjs publish-copy OUT.html          write the file without <html>/<head>/<body> for the Artifact tool
 import fs from 'fs';
 import path from 'path';
@@ -25,6 +26,11 @@ try { ({ chromium } = await import('playwright')); } catch {
 }
 const b = await chromium.launch(); const p = await b.newPage();
 if (process.env.EXIT) { const [x, y] = process.env.EXIT.split(',').map(Number); await p.addInitScript(e => { window.__EXIT = e; }, { x, y }); }   // same override as balance-aqueduct.mjs
+await p.addInitScript(() => {   // colour summary: blue/orange water in A, the bridge gap and B; each cup's foreign share; a stuck cup
+  window.__col = () => { const D = window.__dbg, n = [[0, 0], [0, 0], [0, 0]];
+    for (let i = 0; i < D.N; i++) n[D.px[i] < -25 ? 0 : D.px[i] > 25 ? 2 : 1][D.col[i]]++;
+    return ` | A ${n[0].join('/')} mid ${n[1].join('/')} B ${n[2].join('/')}` + (D.cups.some(c => c.dye !== undefined) ? ` mix ${D.mix.map(m => (m * 100).toFixed(0) + '%').join(' ')} stuck ${D.stuckCup()}` : ''); };
+});
 await p.goto(pathToFileURL(SRC).href + '?nostart');
 await p.evaluate(l => window.__dbg.load(l), process.env.LEVEL === undefined ? 1 : +process.env.LEVEL);   // LEVEL=i, default 1 (one cup)
 if (mode === 'float') {
@@ -46,7 +52,7 @@ if (mode === 'float') {
     for (let t = 0; t < plan.length * 60 && D.state === 'playing'; t++) {
       if (t % 60 === 0) { D.setTarget(plan[t / 60][0]); const b = plan[t / 60][1]; D.cups.forEach((c, k) => D.setValve(b >> k & 1, k)); }
       D.step(1 / 60);
-      if (t % 15 === 14) out.push(`${(t / 60).toFixed(2)}s ang ${((D.angle % 360 + 360) % 360).toFixed(0)} valves ${D.valves.join('')} fill ${D.fill.map(f => (f * 100).toFixed(0) + '%').join(' ')} door ${D.doorOpen ? 'OPEN' : '-'} pearls ${D.got.join('')} bead ${D.bead.x.toFixed(0)},${D.bead.y.toFixed(0)} ${D.state}`); }
+      if (t % 15 === 14) out.push(`${(t / 60).toFixed(2)}s ang ${((D.angle % 360 + 360) % 360).toFixed(0)} valves ${D.valves.join('')} fill ${D.fill.map(f => (f * 100).toFixed(0) + '%').join(' ')} door ${D.doorOpen ? 'OPEN' : '-'} pearls ${D.got.join('')} bead ${D.bead.x.toFixed(0)},${D.bead.y.toFixed(0)} ${D.state}${window.__col()}`); }
     return out; }, plan);
   console.log(rows.join('\n'));
 } else if (mode === 'fillmap') {   // each cup's reading vs held angle, valves open: from upright, or after PRE=a (e.g. PRE=180) held 2 s
@@ -58,7 +64,7 @@ if (mode === 'float') {
       if (pre !== null) hold(pre, 2);
       hold(a, 3);
       let b = 0; for (let i = 0; i < D.N; i++) if (D.px[i] > 25) b++;
-      out.push(`${pre !== null ? pre + '->' : ''}${a}: ${D.fill.map((f, k) => D.cups[k].name + ' ' + (f * 100).toFixed(0) + '%').join(' ')} | B ${b} | bead ${D.bead.x.toFixed(0)},${D.bead.y.toFixed(0)}`); }
+      out.push(`${pre !== null ? pre + '->' : ''}${a}: ${D.fill.map((f, k) => D.cups[k].name + ' ' + (f * 100).toFixed(0) + '%').join(' ')} | B ${b} | bead ${D.bead.x.toFixed(0)},${D.bead.y.toFixed(0)}${window.__col()}`); }
     return out; }, { pre, list: (arg || '-180,-150,-120,-90,-60,-30,0,30,60,90,120,150,180').split(',').map(Number) });
   console.log(rows.join('\n'));
 } else { console.log('modes: float | trace <plan json> | fillmap [angles] | publish-copy <out.html>'); }
