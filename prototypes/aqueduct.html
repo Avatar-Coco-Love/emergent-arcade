@@ -37,7 +37,8 @@ const KP = 2.5, KN = 1.5;  // double-density stiffness (far, near)
 const NEG = 0.25;         // share of negative pressure kept (surface tension)
 const VISC = 0.05;        // pair viscosity
 const MAXPUSH = 1.4;      // px, per pair per substep
-const BEAD_R = 10, BEAD_M = 7;   // bead radius; mass in particle masses (water displaced ≈ 14)
+const BEAD_R = 10, BEAD_M = 7, BEAD_DRAG = 8;   // drag: per second toward the local water velocity
+const RING = 6, RING_FULL = 19, LIFT = 3;   // LIFT: buoyancy as a multiple of g when fully submerged (net up = (LIFT-1) g)   // buoyancy probe: particles within RING px of the bead's edge; 19 = fully submerged   // bead radius; mass in particle masses (water displaced ≈ 14)
 const EXIT = Object.assign({ x: 100, y: 35, r: 18 }, window.__EXIT || null), EXIT_T = 0.4;   // __EXIT: bot harness override   // door: bead must sit here while the lock is open
 const BAND = { lo: 0.25, hi: 0.5 }, HOLD_T = 1.0, FILT = 0.3;   // vial target band (fraction of capacity), hold time, reading filter (s)
 const VIAL = { x0: -22, x1: 22, y0: -40, y1: 15 };   // a short wide cup: it spills at about 55 deg   // reading region of the vial under the bridge
@@ -157,6 +158,17 @@ function substep(dt) {
   const gx = gv.x * G, gy = gv.y * G;
   for (let i = 0; i < N; i++) { VX[i] += gx * dt; VY[i] += gy * dt; }
   viscosity();
+  {  // buoyancy and current: the bead is half as dense as water. Pressure alone left it hanging mid-water.
+    const rr = (BEAD_R + PR + RING) * (BEAD_R + PR + RING);
+    let n = 0, sx = 0, sy = 0;
+    for (let i = 0; i < N; i++) {
+      const dx = PX[i] - bead.x, dy = PY[i] - bead.y;
+      if (dx * dx + dy * dy < rr) { n++; sx += VX[i]; sy += VY[i]; }
+    }
+    const f = Math.min(1, n / RING_FULL);
+    bead.vx -= gv.x * G * LIFT * f * dt; bead.vy -= gv.y * G * LIFT * f * dt;   // net g * (1 - LIFT*f): rises when under, floats near f = 1/LIFT
+    if (n > 0) { const k = Math.min(1, BEAD_DRAG * f * dt); bead.vx += (sx / n - bead.vx) * k; bead.vy += (sy / n - bead.vy) * k; }
+  }
   bead.vx += gx * dt; bead.vy += gy * dt;
   for (let i = 0; i < N; i++) { OX[i] = PX[i]; OY[i] = PY[i]; PX[i] += VX[i] * dt; PY[i] += VY[i] * dt; }
   bead.ox = bead.x; bead.oy = bead.y; bead.x += bead.vx * dt; bead.y += bead.vy * dt;

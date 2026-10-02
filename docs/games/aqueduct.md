@@ -287,3 +287,36 @@ Bots at (100, 35) (20 seeds; planner 3, DEPTH=14 BEAM=14):
   route in; the valve only forces an order while the exit needs a lot of water
   in B. A second vial or a valve in the bridge is the better way to force
   order than raising the ring.
+
+## Playtest 2: the bead hangs in mid-water (2026-10-02), and what it undid
+
+Feedback: "the bead doesn't always ride the surface and can get stuck in the
+middle." Reproduced: a bead put 55-60 px under the surface at upright did
+not rise at all in 3 s. The earlier claim that it "floats from pressure
+alone" was wrong; it only looked right because it started at the surface.
+Particle pressure is too soft to lift a light body.
+
+Fix: explicit buoyancy and drag in `substep()`. Probe = particles within
+`RING` 6 px of the bead's edge (19 = fully submerged, `RING_FULL`);
+submerged fraction f; net acceleration g(1 - `LIFT` f) with `LIFT` 3, plus
+drag toward the local water velocity (`BEAD_DRAG` 8/s). A bead 60 px deep now
+reaches the surface in about 1 s at every angle tried and stays there.
+
+**This invalidates the "valve is required" results above.** They were
+measured with a bead that could hang mid-water. With the fixed bead
+(planner-nv = planner that never touches the valve, 3 seeds, DEPTH 14 BEAM 10):
+exits (100,35) 3/3, (100,-10) 3/3, (152,-60) 3/3; with a shallower cup
+(spills near 35 deg, band 30-70%): (100,35) 3/3, (152,40) 3/3. So today the
+valve is **optional**: the planner wins by filling the cup last, while the bead
+already waits at the ring. Valve planner at (100,35): 3/3, 4.1 s, 5 moves.
+Dumb bots (20 seeds) at (100,35): idle 0, sweeper 0, greedy 0, novice 5%
+(1/20), timer 0, keys 0.
+
+Lesson (findings candidate): a local verb is only required if the other
+goal can't be reached *after* it. Filling the cup and reaching the exit
+must pull in opposite directions (feed the cup tilting one way, bead exit
+reachable only tilting the other), or a bot just does them in the lucky
+order. Constants (exit height, cup depth) did not fix that; layout will.
+Candidate: exit in chamber A's far wall while the cup is fed by the
+bridge's A-to-B flow, so the tilt that feeds the cup is the one that
+spills it. Second vial or a valve in the bridge are the other options.
