@@ -90,8 +90,8 @@ results, levels 0-2".
 
 Levels 3-5 (2026-10-02): planner 3/3 (6.4 / 5.8 / 6.4 s; 7 / 6 / 7
 moves), L3 planner-nv 0/3; idle, greedy, novice, timer, keys 0/20 each.
-Direct route 0 pearls on each; pearls bot 3/3 pearls on L3 and L5. L4's
-pearls bot mixed the orange away (`OPENING` cup-first rerun pending).
+Direct route 0 pearls on each; pearls bot 3/3 pearls on L3 and L5; L4 only
+cup first (`OPENING` -90 x3, shut: 2/2, 10.3 s; pearls first mixes it).
 
 Pearls sit off the direct route (finding "off the solution's lanes"); the
 warm-up's free pearl at 90° is on purpose. Placement notes: history.
