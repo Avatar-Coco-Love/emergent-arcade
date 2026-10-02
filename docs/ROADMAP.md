@@ -78,19 +78,22 @@ Each revision:
 - Avoids a decay rate that turns the long mode into a tap-speed test
   (findings: "A decay rate turns a puzzle into a speed test").
 
-| Game | Now | Depth direction (a proposal, not a spec) | Status |
-|---|---|---|---|
-| bubble-glass | 5 levels, ~1.5 min for a good player | More boxes from the Evolution list (sand types, second bubble, fixtures), grouped in chapters; score = total time over a chapter | v3: 14 boxes in 3 chapters, chapter time score (PR pending playtest) |
-| ant-trails | 6-day run | Endless days after day 6 with rising twists; score = days survived | |
-| terrace-garden | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run | |
-| pressure-grid | 60 s challenge | Stages with rising targets on new grid shapes; score = eruptions over the run | v8: turn-based levels 1-5 with stars (plan: `docs/games/pressure-grid-plan.md`, 5 levels per PR) |
-| orbit-garden | 1 garden, 40 seeds | Successive gardens, leftover seeds carry over; score = gardens bloomed | |
-| hot-iron | 1 blade | A run of commissions, harder profiles, fuel carried over; score = blades forged | |
-| loom | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held | |
-| murmuration | 5 gates, 1 night | Nights in a row with new gate layouts, the flock carried over | |
-| wildfire-line | 1 fire | Fire seasons with more houses and wind shifts; score = houses saved | |
-| hourglass-delivery | 8 glasses | Endless belt that speeds up by glasses filled, not by time; score = glasses filled | |
-| island-census | 8 seasons | Endless years with new events; score = seasons survived | |
+| Game | Ver | Now | Depth direction (a proposal, not a spec) | Status |
+|---|---|---|---|---|
+| bubble-glass | v4 | 21 boxes in 3 chapters (was 5 levels, ~1.5 min) | More boxes from the Evolution list (sand types, second bubble, fixtures), grouped in chapters; score = total time over a chapter | Depth pass done (v3–v4), chapter time score; awaiting playtest |
+| ant-trails | v5 | 6-day run | Endless days after day 6 with rising twists; score = days survived |  |
+| terrace-garden | v2 | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run |  |
+| pressure-grid | v9 | Levels 1–10 with stars (was a 60 s challenge) | Stages with rising targets on new grid shapes; score = eruptions over the run | In progress: levels 1–5 (v8), 6–10 (v9); plan: `docs/games/pressure-grid-plan.md`, 5 levels per PR |
+| orbit-garden | v6 | 1 garden, 40 seeds | Successive gardens, leftover seeds carry over; score = gardens bloomed |  |
+| hot-iron | v4 | 1 blade | A run of commissions, harder profiles, fuel carried over; score = blades forged |  |
+| loom | v2 | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held |  |
+| murmuration | v4 | 5 gates, 1 night | Nights in a row with new gate layouts, the flock carried over |  |
+| wildfire-line | v3 | 1 fire | Fire seasons with more houses and wind shifts; score = houses saved |  |
+| hourglass-delivery | v3 | 8 glasses | Endless belt that speeds up by glasses filled, not by time; score = glasses filled |  |
+| island-census | v1 | 8 seasons | Endless years with new events; score = seasons survived |  |
+| tidewright | v1 | Endless seasons of 6 waves | Built with depth (endless, score = waves held); revise from playtest | New game |
+| rail-yard | v2 | 10 levels, 2 chapters | Built with depth (score = yard points over the run); more chapters if playtests ask | New game |
+| aqueduct | v6 | Warm-up + 5 levels, free pour | More levels; score = pearls, bullseyes, water brought home | New game (v5); v6 fixes phone tilt |
 
 Order: the games players already stay longest in first (they're closest to
 10 minutes and show what works), then the rest by rating. Revisions from

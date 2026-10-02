@@ -1,6 +1,6 @@
 # Aqueduct: design note
 
-**v5** (2026-10-02, registered) · playtest:
+**v6** (2026-10-02, phone tilt fix; v5 registered) · playtest:
 https://claude.ai/artifact/21dXA2QwrHe2QZqkM5HuZf · balance:
 `LEVEL=i node scripts/balance-aqueduct.mjs`. File `games/aqueduct.html`.
 Older text and measurements: `docs/history/aqueduct.md`.
@@ -113,7 +113,8 @@ warm-up's free pearl at 90° is on purpose. Placement notes: history.
 
 ## Next (in order)
 
-1. Phone tilt test (iOS sign flipped, untested) and real-phone fps.
+1. Real-phone test of v6 tilt (Bubble Glass's model; why: history,
+   "v6 tilt") and real-phone fps.
 2. Read players' feedback and telemetry (`--game aqueduct`): are pearls
    visible and wanted? Bullseye line, water home, own-colour line and
    gauge readable? Warm-up too easy (novice 40%)? Level 4's "other way
