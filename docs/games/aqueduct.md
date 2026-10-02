@@ -1,9 +1,7 @@
 # Aqueduct: design note (prototype, not registered)
 
-Status: prototype `prototypes/aqueduct.html` (not in `games/`: `validate.mjs`
-requires every file there to be registered). Id when built:
-`aqueduct` (permanent feedback key). Older text, measurements and playtests:
-`docs/history/aqueduct.md`.
+Status: prototype `prototypes/aqueduct.html` (unregistered). Id when
+built: `aqueduct`. Older text and measurements: `docs/history/aqueduct.md`.
 
 Pitch: a sealed glass vessel of chambers and channels with a little water and
 a glowing **bead** adrift in it. Turn the whole vessel through **360°** so
@@ -114,17 +112,19 @@ warm-up's free pearl at 90° is on purpose. Placement notes: history.
 3. Register (move to `games/aqueduct.html`, `validate.mjs` then applies):
    manifest (`goal`, `howToPlay`, mechanics, `keyboard`, accent), `score`
    (higher, per-level `boards` + `boardList`, epoch 1), 3+ achievements
-   with `unlock()`, `changes` backfilled v1..vN from the prototype's
-   milestones (git log of `prototypes/aqueduct.html`); drop the fps/sim
+   with `unlock()`; launch at `version` 5 with `changes` (agreed with
+   the user 2026-10-02; dates 10-01, 10-01, 10-02, 10-02, merge date):
+   1 first vessel: one bead, water, turn to pour; 2 cup lock and valve;
+   3 levels, level select, two cups; 4 pearls and cup bullseye score;
+   5 water home, free pour, bead trail (+ any later level batch). Drop the fps/sim
    debug from the HUD and move in-file instructions to the manifest; point
    `balance-`/`probe-aqueduct.mjs` at the new path; `smoke-gallery.mjs`.
 4. Phone tilt test after merge (iOS sign flipped, untested), real-phone fps.
 5. Known gap: the door stays open 0.3 s (filter lag) after a cup reopens.
 
-Level ideas (table in history): siphon, upside-down band, leak, tide
-room, two beads, seeded free play.
+Level ideas: history (siphon, leak, tide room, two beads…).
 Achievements draft: First Drop, Banked, Upside Down, Light Touch (fewest
-valve taps: an achievement now, not part of the score), One Flick, Pearl
+valve taps), One Flick, Pearl
 Diver (all pearls on a level), Bullseye (100 on every cup).
 
 ## Workflow notes
