@@ -39,7 +39,7 @@ round ended.
 | `reason` | why a round was lost (game-defined, e.g. `sun`) | |
 | `stats` | a few game-specific numbers, `k=v k=v` | |
 | `score`, `board`, `score_epoch` | the round's score, if it has one ([scores.md](scores.md)), in `extra` | |
-| `handle`, `lb` | public leaderboard name, and `lb: 0` if the player opted out of the leaderboard, in `extra` | |
+| `handle`, `name`, `lb` | random leaderboard name, the typed name if any, and `lb: 0` if the player opted out of the leaderboard, in `extra` | |
 
 The last five columns are optional and only filled for games that send
 them (see below). Any other field a game adds to `arcade:result` is kept
@@ -73,7 +73,7 @@ common columns is in `extra`. One row per action:
 | `settings` | a settings action | `setting`: `export`, `import`, `reset_achievements`, `reset_all`, `reset_game_achievements` (with `game_id`), `stats_on` |
 | `nudge` | the "Rate this game?" callout was answered | `game_id`, `game_version`, `result` (`rate`, `dismiss`) |
 | `about_arcade` | the "About the arcade" dialog opened | |
-| `handle` | a public name picked, or the leaderboard toggled, in the Records panel | `handle` (when listed), `lb` (1 or 0); `scripts/build-leaderboards.mjs` reads it ([scores.md](scores.md)) |
+| `handle` | a public name picked or typed, or the leaderboard toggled, in the Records panel | `handle` and `name` (when listed; `name` only for a typed one), `lb` (1 or 0); `scripts/build-leaderboards.mjs` reads it ([scores.md](scores.md)) |
 
 `node scripts/fetch-telemetry.mjs` reads them too and prints a short
 `gallery:` section (opens by source and list position, shares by method,

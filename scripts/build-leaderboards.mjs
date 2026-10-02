@@ -4,6 +4,10 @@
 // docs/scores.md), plus the gallery's "handle" events (a name picked or the
 // leaderboard toggled in the Records panel), so renames show without another
 // round. Runs at every deploy and hourly (pages.yml schedule).
+// It is the gate for typed names (docs/scores.md, "Typed names"): it checks
+// each one again with assets/names.js and the word lists, gives a name to the
+// first player who claims it, and applies data/name-takedowns.json. The
+// claims are kept in the file's `names` block, so later builds remember them.
 // It also counts plays (telemetry session rows) per game version for the
 // gallery cards and the About panel ("plays" below, docs/scores.md).
 //
@@ -21,6 +25,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { scores } from "./scores.mjs";
+import { names, lists, takedowns } from "./names.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -119,8 +124,49 @@ async function fetchTab(since, tab, kind) {
   return rows;
 }
 
+// Typed names: { p: { n, r, at } }, the name n player p holds, their random
+// name r (shown instead if the claim goes), and when they claimed it. A name
+// belongs to the first player to claim it; it's freed when they pick another
+// name or a random one, or are taken down.
+function nameBook(prevNames) {
+  const book = {};
+  const owners = new Map(); // name key -> p
+  const isRandom = (n) => scores.isHandle(n);
+  const free = (p) => {
+    const c = book[p];
+    if (c && owners.get(names.key(c.n)) === p) owners.delete(names.key(c.n));
+    delete book[p];
+  };
+  // Previous claims, oldest first, checked again: a list that grew or a
+  // takedown frees names already held.
+  const prev = Object.entries(prevNames || {}).filter(([, c]) => c && typeof c.n === "string" && scores.isHandle(c.r));
+  prev.sort((a, b) => String(a[1].at).localeCompare(String(b[1].at)));
+  let dropped = 0;
+  for (const [p, c] of prev) {
+    const got = names.check(c.n, { lists, isRandom, owner: (k) => owners.get(k) || "", me: p });
+    if (takedowns.has(p) || !got.ok) { dropped++; continue; }
+    book[p] = { n: got.name, r: c.r, at: String(c.at) };
+    owners.set(got.key, p);
+  }
+  // A player's row says which name they want now ("" = their random one).
+  function claim(p, typed, random, at) {
+    const old = book[p];
+    if (!typed || takedowns.has(p)) return free(p);
+    const got = names.check(typed, { lists, isRandom, owner: (k) => owners.get(k) || "", me: p });
+    if (!got.ok) return free(p); // taken or not allowed: their random name shows
+    if (old && names.key(old.n) === got.key) {
+      book[p] = { n: got.name, r: random, at: old.at };
+      return;
+    }
+    free(p);
+    book[p] = { n: got.name, r: random, at };
+    owners.set(got.key, p);
+  }
+  return { book, claim, dropped: () => dropped };
+}
+
 // Merges score rows into { gameId: { epoch, boards: { board: [entry] } } }.
-function merge(prevGames, rows) {
+function merge(prevGames, rows, prevNames) {
   const state = {};
   for (const g of games) {
     const sp = scores.spec(g);
@@ -133,6 +179,7 @@ function merge(prevGames, rows) {
     state[g.id] = { game: g, sp, boards };
   }
   const latest = new Map(); // p -> { handle, lb } from that player's newest row
+  const typed = nameBook(prevNames);
   let used = 0;
   const time = (r) => Date.parse(r.received_at || r.submitted_at || "") || 0;
   for (const r of [...rows].sort((a, b) => time(a) - time(b))) {
@@ -145,12 +192,18 @@ function merge(prevGames, rows) {
       handle: scores.isHandle(r.handle) ? r.handle : known ? known.handle : scores.defaultHandle(r.client_id),
       lb: Number(r.lb) === 0 ? 0 : 1,
     });
+    const seen = () => {
+      const w = who();
+      latest.set(p, w);
+      // An opted-out row carries no name: it leaves the claim as it is.
+      if (w.lb) typed.claim(p, typeof r.name === "string" ? r.name : "", w.handle, new Date(time(r) || Date.now()).toISOString());
+    };
     if (r.kind === "gallery") {
-      if (r.action === "handle") latest.set(p, who());
+      if (r.action === "handle") seen();
       continue;
     }
     if (r.score == null || r.score === "") continue;
-    latest.set(p, who());
+    seen();
     const s = Number(r.score);
     const board = String(r.board || "main");
     const list = st.game.score.boardList;
@@ -172,8 +225,19 @@ function merge(prevGames, rows) {
       for (const e of map.values()) {
         const who = latest.get(e.p);
         if (who && who.lb === 0) continue; // opted out since: drop them
-        if (who) e.h = who.handle;
-        if (!scores.isHandle(e.h)) continue;
+        const c = typed.book[e.p];
+        if (c) {
+          // A typed name always shows with the player's tag: "Coco ·4F2A".
+          e.h = names.display(c.n, e.p);
+          e.r = c.r;
+        } else {
+          // No typed name (any more): their random name. Entries not
+          // re-read this run keep it in `r`.
+          if (who) e.h = who.handle;
+          else if (!scores.isHandle(e.h)) e.h = e.r;
+          delete e.r;
+        }
+        if (!c && !scores.isHandle(e.h)) continue;
         list.push(e);
       }
       // Better score first; a tie goes to whoever got there first.
@@ -182,7 +246,7 @@ function merge(prevGames, rows) {
     }
     result[id] = { epoch: st.sp.epoch, boards };
   }
-  return { games: result, used };
+  return { games: result, used, names: typed.book, dropped: typed.dropped() };
 }
 
 // Play counts: { since, through, recent, games: { id: { version: n } } }.
@@ -236,12 +300,18 @@ let data;
 if (error) {
   console.warn(`leaderboards: ${error}; keeping the previous file`);
   data = prev || { format: FORMAT, version: 1, updated_at: null, through: null, games: {} };
+  if (prev) {
+    // Still apply takedowns and list changes to the names already shown.
+    const { games: kept, names: book } = merge(prev.games, [], prev.names);
+    data = { ...prev, games: kept, names: book };
+  }
 } else {
-  const { games: merged, used } = merge(full || !prev ? {} : prev.games, rows);
+  const { games: merged, used, names: book, dropped } = merge(full || !prev ? {} : prev.games, rows, full || !prev ? {} : prev.names);
   const newest = rows.reduce((m, r) => Math.max(m, Date.parse(r.received_at || "") || 0), 0);
   const through = newest ? new Date(newest).toISOString() : prev && !full ? prev.through : null;
-  data = { format: FORMAT, version: 1, updated_at: new Date().toISOString(), through, games: merged };
+  data = { format: FORMAT, version: 1, updated_at: new Date().toISOString(), through, games: merged, names: book };
   console.log(`leaderboards: ${rows.length} rows read${since ? ` since ${since}` : ""}, ${used} with a score`);
+  console.log(`names: ${Object.keys(book).length} typed name(s) held${dropped ? `, ${dropped} freed (takedown or list)` : ""}`);
 }
 
 // Plays are read on their own: a file from before play counts (no `plays`),

@@ -1,0 +1,29 @@
+{
+  "about": "Words a typed leaderboard name may not contain: slurs, sexual terms, common insults (docs/scores.md, \"Typed names\"). Compared after folding, so list each word once in plain lowercase: accents, look-alike letters and digits (0/o, 1/l/i, 3/e, 4/a, 5/s, 7/t, 8/b), ph/f, spaces and repeated letters are handled by assets/names.js. anywhere: refused inside any name. word: refused only as a whole word or the whole name, for short words that hide in ordinary names (\"ass\" in Glass, \"cock\" in Peacock). A filter misses creative spellings: data/name-takedowns.json is the cleanup. Used by the gallery (instant feedback) and scripts/build-leaderboards.mjs (the gate).",
+  "anywhere": [
+    "fuck", "fck", "fvck", "phuck", "motherf", "shit", "bullsh", "cunt", "bitch", "biatch", "whore",
+    "slut", "skank", "bastard", "asshole", "arsehole", "dumbass", "jackass", "dickhead", "dickface",
+    "cocksuck", "bellend", "wanker", "wank", "bollock", "douche", "scumbag", "shithead", "shithole",
+    "nigger", "nigga", "niggr", "faggot", "fagot", "faggit", "retard", "spastic", "tranny", "shemale",
+    "kike", "gook", "wetback", "beaner", "raghead", "towelhead", "sandnig", "chingchong", "golliwog",
+    "hitler", "swastika", "kkk", "whitepower", "white pride", "siegheil", "rapey", "molest", "paedo",
+    "pedophil", "incest", "bestiality", "necrophil", "lolicon", "porn", "pr0n", "penis", "vagina", "pussy",
+    "dildo", "vibrator", "blowjob", "handjob", "rimjob", "footjob", "cumshot", "creampie", "gangbang",
+    "bukkake", "jizz", "orgasm", "horny", "masturb", "erection", "boner", "testicle", "scrotum", "nutsack",
+    "ballsack", "clitoris", "nipple", "butthole", "buttplug", "analsex", "deepthroat", "fellatio",
+    "cunnilingus", "hentai", "milf", "dilf", "bdsm", "fetish", "bondage", "stripper", "prostitut",
+    "onlyfans", "nudes", "sexy", "xxx", "boobs", "boobies", "titties", "sperm", "smegma", "queef",
+    "fisting", "killyourself", "killurself", "suicide", "idiot", "imbecile", "stupid", "dimwit", "nitwit",
+    "halfwit", "crackhead", "methhead", "junkie", "cripple", "midget"
+  ],
+  "word": [
+    "ass", "arse", "asses", "anal", "anus", "cock", "cocks", "dick", "dicks", "dik", "fuk", "prick",
+    "pricks", "tit", "tits", "titty", "boob", "cum", "cums", "jiz", "sex", "nude", "nsfw", "rape", "raped",
+    "rapist", "pedo", "semen", "orgy", "hooker", "fag", "fags", "hoe", "hoes", "thot", "twat", "spic",
+    "spick", "chink", "coon", "dyke", "jap", "paki", "negro", "nig", "nog", "wop", "dago", "gyp", "homo",
+    "lesbo", "nazi", "heil", "kys", "stfu", "gtfo", "wtf", "slag", "bimbo", "puta", "puto", "pute",
+    "merde", "mierda", "scheisse", "cabron", "pendejo", "joto", "maricon", "puttana", "cazzo", "fotze",
+    "hure", "salope", "connard", "moron", "dumb", "jerk", "loser", "scum", "turd", "crap", "piss",
+    "pissed", "tosser", "knob", "minge", "pube", "pubes"
+  ]
+}

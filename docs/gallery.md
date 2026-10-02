@@ -19,6 +19,7 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/ui.js` | `ArcadeUI`: `el()`, safe `store`, `shortDate`, stacking `toaster`, `trapFocus`, `saveFile`, `share` (share sheet / copy / prompt) |
 | `assets/wording.js` | `ArcadeWording`: tap or click (see below). Also run by the Node scripts through `scripts/wording.mjs` |
 | `assets/scores.js` | `ArcadeScores`: score specs, personal bests, handles, `leaderboards.json` ([scores.md](scores.md)) |
+| `assets/names.js` | `ArcadeNames`: typed leaderboard names (clean, fold, check, tag), with the word lists `assets/name-reserved.json` and `assets/name-blocked.json`. Also run by the builder through `scripts/names.mjs` ([scores.md](scores.md), "Typed names") |
 | `assets/progress.js` | `ArcadeProgress`: every per-browser key, New/Updated badges, recent games, export/import/reset, telemetry opt-out |
 | `assets/download.js` | `ArcadeDownload`: standalone copy of a game (header comment + shim) |
 | `assets/cabinet.js` | `ArcadeCabinet.open(game)` / `close()`: toolbar, panels, ⋯ menu, toasts, loading/error states, share, download, rating, nudge |
@@ -65,7 +66,8 @@ ideas).
 | `arcade.rated.<id>.v<n>` | rated that version |
 | `arcade.nudged.<id>.v<n>` | the "Rate this game?" nudge was shown |
 | `arcade.best.<id>` | best score per board, `{ "e<epoch>:<board>": { score, at, version } }` ([scores.md](scores.md)) |
-| `arcade.handle` | public leaderboard name, if the player picked another one (kept by "Reset everything") |
+| `arcade.handle` | random leaderboard name, if the player picked another one (kept by "Reset everything") |
+| `arcade.name` | typed leaderboard name, if any (kept by "Reset everything") |
 | `arcade.leaderboardOptOut` | `"1"` = stay off leaderboards (kept by "Reset everything") |
 | `arcade.recent` | up to 3 ids, newest first |
 | `arcade.clientId` | anonymous id (kept by "Reset everything"; "New anonymous id" replaces it) |

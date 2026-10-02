@@ -101,21 +101,82 @@ same-origin, so `localStorage` inside a game throws.
 | key | value |
 |---|---|
 | `arcade.best.<id>` | `{ "e<epoch>:<board>": { score, at, version } }` |
-| `arcade.handle` | the public name, if the player picked another one |
+| `arcade.handle` | the random public name, if the player picked another one |
+| `arcade.name` | the typed public name, if any (the random one stays as the fallback) |
 | `arcade.leaderboardOptOut` | `"1"`: scores still go with play stats, with `lb: 0` and no name, and stay off the board |
 
 ## Public names
 
-A handle is two words from fixed lists in `assets/scores.js` ("Amber
-Otter"), 1,024 combinations. The default comes from the browser's anonymous
-client id; "Pick another name" draws a random one. **Players never type
-one**, so there's nothing to moderate and no real names. The builder
-rejects any handle not made of the two lists. Append words to the lists;
-never reorder them (it would rename everyone).
+Every player has a **random name**: two words from fixed lists in
+`assets/scores.js` ("Amber Otter"), 1,024 combinations. The default comes
+from the browser's anonymous client id; "Pick another name" draws a random
+one. The builder rejects any random name not made of the two lists. Append
+words to the lists; never reorder them (it would rename everyone).
+
+A player can also **type a name** in the Records panel ("Type a name").
+It's checked in the gallery for instant feedback, but **the builder is the
+authority**: it checks every typed name again and never trusts the client.
+A typed name that fails there (taken, reserved, blocked, taken down) is
+simply not shown: the player's random name is. "Pick another name" goes
+back to random names and drops the typed one.
 
 The leaderboard never shows the client id: entries carry `p`, a hash of it
 (`ArcadeScores.hash("player:" + id)`), so the gallery can find "you" and
 the builder can keep one entry per player.
+
+### Typed names
+
+Rules in `assets/names.js` (`ArcadeNames`), run by the gallery and by the
+builder (`scripts/names.mjs`); tests: `node scripts/test-names.mjs`
+(also in CI).
+
+- **Characters.** Trimmed, runs of spaces collapsed to one, NFC. Then 3–16
+  characters, only letters, digits 0–9 and single spaces, at least one
+  letter. No emoji or punctuation. Letters of **one script** (Latin,
+  Cyrillic, Greek, Arabic, Hangul, …; Chinese and Japanese Han and kana count
+  as one). No combining marks in Latin, Greek or Cyrillic (stacked accents);
+  accented letters are fine precomposed ("Zoë").
+- **The tag.** A typed name always shows with 4 hex digits from the player
+  hash `p`: **"Coco ·4F2A"** (`ArcadeNames.tag`). Typed names can't hold
+  "·", so nobody can type someone's tag; random names show as before, with
+  no tag. A typed name equal to a random one ("Amber Otter") is refused.
+- **Folding.** Names are compared by their key: lowercase, accents removed
+  (NFKD), look-alikes folded (0/o, 1/l/i, 3/e, 4/a, 5/s, 7/t, 8/b, 2/z, 6
+  and 9/g, ß/ss, ø/o, ł/l, Cyrillic and Greek letters that look Latin), "ph"
+  as f, "vv" as w, spaces removed. "C0co", "co co" and Cyrillic "Сосо" are
+  all "Coco". Kept short on purpose: folding "rn" as m or "ck" as k turns
+  ordinary names ("Fukuda") into list words.
+- **First claim wins.** The builder gives a name (by key) to the first
+  player hash whose row claims it, in received order. A later claimant's
+  rows are shown under their random name; the gallery reads the claims from
+  `leaderboards.json` (`names`), refuses a taken name as it's typed, and if
+  someone got there first says "“Coco” is taken, so the leaderboard shows
+  you as Amber Otter". A name is freed when its holder types another one,
+  picks a random one, or is taken down; opting out keeps it.
+- **Reserved words** (`assets/name-reserved.json`): admin, arcade,
+  official, moderator, staff, system, Claude, Anthropic, owner, support,
+  mod, dev and similar.
+- **Blocklist** (`assets/name-blocked.json`): slurs, sexual terms and
+  common insults, its own data file, read by the gallery (fetched when the
+  form opens) and the builder.
+  Both lists are matched after folding, with spaces removed and repeated
+  letters collapsed ("fuuuck", "a s s"). Each list has two parts:
+  `anywhere` words are refused inside any name ("xadminx"); `word` words,
+  short ones that hide in ordinary names ("ass" in Glass, "mod" in Desmond,
+  "dev" in Devon), only as a whole word or the whole name. Add a word to
+  the list that fits; list it once in plain lowercase (folding covers
+  "5h1t"). A list change applies to names already held at the next build.
+- **Takedowns** (`data/name-takedowns.json`, in the repo, not published):
+  `{ "players": [{ "p": "<hash from leaderboards.json>", "note": "…" }] }`.
+  At the next build those players show under their random name again, their
+  typed name is freed, and their typed names are ignored until the line is
+  removed. Merge to `main` to apply (the hourly build reads `main`).
+- **Known gap.** A word filter misses creative spellings: punctuation
+  can't get past the character rules, but near-misses, sound-alike
+  spellings, words split by other letters and words in other languages
+  can. Takedowns are the cleanup: find the player's `p` in
+  `leaderboards.json`, add it, and, if it's a pattern, add the word to the
+  blocklist so the next attempt is caught too.
 
 ## The leaderboard file
 
@@ -127,8 +188,14 @@ at every deploy, and `.github/workflows/pages.yml` also runs hourly
 { "format": "emergent-arcade-leaderboards", "version": 1,
   "updated_at": "…", "through": "<newest row read>",
   "games": { "bubble-glass": { "epoch": 1,
-    "boards": { "roof": [ { "h": "Jade Owl", "p": "…", "s": 9.4, "at": "2026-10-01", "v": 2 } ] } } } }
+    "boards": { "roof": [ { "h": "Jade Owl", "p": "…", "s": 9.4, "at": "2026-10-01", "v": 2 },
+                          { "h": "Coco ·4F2A", "r": "Amber Otter", "p": "…", "s": 9.1, … } ] } } },
+  "names": { "<p>": { "n": "Coco", "r": "Amber Otter", "at": "<first claimed>" } } }
 ```
+
+`h` is what the board shows; an entry with a typed name also keeps the
+random one in `r`, so a takedown can fall back without new rows. `names`
+holds the typed-name claims between builds (first claim wins, above).
 
 How it stays cheap as the arcade grows:
 
@@ -140,13 +207,15 @@ How it stays cheap as the arcade grows:
   per player (their best). The file grows with the number of games, not
   players or rounds.
 - **Never wiped by an outage.** If the read fails or the secret is missing,
-  the live file is republished unchanged.
+  the live file is republished with its scores unchanged (takedowns and
+  list changes still apply to the names shown).
 - **Opt-outs and renames.** A player's newest row decides: `lb: 0` removes
-  them from every board, a new handle renames every entry. Picking a name
-  or toggling the leaderboard in the Records panel sends a `handle` gallery
-  event (`kind = gallery`, `action = handle`, with `handle` and `lb`), which
-  the builder reads from the `events` tab, so a rename shows at the next
-  hourly build without playing another round. (Someone who opted out and
+  them from every board, a new name renames every entry. Picking or typing
+  a name or toggling the leaderboard in the Records panel sends a `handle`
+  gallery event (`kind = gallery`, `action = handle`, with `handle` (the
+  random name), `name` (the typed one, if any) and `lb`), which the builder
+  reads from the `events` tab, so a rename shows at the next hourly build
+  without playing another round. Round rows carry the same fields. (Someone who opted out and
   back in reappears with their next scored round: their old entries were
   dropped.)
 - `--full` rebuilds from every row (after changing the rules).
@@ -221,8 +290,14 @@ backend's `BLOCKED_CLIENTS` script property (no redeploy) to drop a
 spammer's rows. If it ever matters, the next step is plausibility checks
 per game in the builder (e.g. a time score must equal the row's `seconds`).
 Play counts can be inflated the same way; `BLOCKED_CLIENTS` covers it.
+Typed names are never trusted: a forged row with a bad name only shows the
+player's random name, since the builder runs every check again.
 
 ## Open ideas
+
+- `names` grows with players who typed a name (about 80 bytes each), not
+  with games. If it ever matters, free the claims of players who are on no
+  board and haven't played for months.
 
 - Weekly boards next to all-time ones (a fresh chance for new players):
   the builder already has dates; add a `week` board per game.

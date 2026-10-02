@@ -71,6 +71,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ format: "emergent-arcade-leaderboards", version: 1, updated_at: "2026-09-30T12:00:00Z", through: null,
       games: { "pressure-grid": { epoch: 2, boards: { main: [{ h: "Jade Owl", p: "x", s: 12, at: "2026-10-01", v: 8 }, { h: "Misty Wren", p: "y", s: 6, at: "2026-10-01", v: 8 }] } } },
+      names: { x: { n: "Coco", r: "Jade Owl", at: "2026-10-01T00:00:00.000Z" } },
       plays: PLAYS }));
     return;
   }
@@ -405,6 +406,36 @@ for (const vp of VIEWPORTS) {
       await page.locator("#lbListed").uncheck();
       assert(!(await page.locator("#lbList li.me").count()), "still listed after opting out");
       await page.locator("#lbListed").check();
+      // Typed name: instant checks, then saved and sent in the handle event.
+      await page.locator("#lbType").click();
+      const typeName = async (text) => {
+        await page.locator("#lbNameInput").fill(text);
+        await page.waitForFunction((t) => document.getElementById("lbNameInput").value === t && document.getElementById("lbNameMsg").textContent !== "", text);
+        await page.waitForTimeout(50);
+        return { msg: await page.locator("#lbNameMsg").textContent(), off: await page.locator("#lbNameSave").isDisabled() };
+      };
+      for (const [text, want] of [["Adm1n", "reserved"], ["Sh1t", "allowed"], ["C0co", "taken"], ["Co😀", "letters"]]) {
+        const got = await typeName(text);
+        assert(got.off && got.msg.includes(want), `${text}: ${got.msg}`);
+      }
+      await shot("records-name");
+      const handleRows = () => rows.filter((r) => r.kind === "gallery" && r.action === "handle");
+      const nextHandleRow = async (n) => {
+        for (let i = 0; i < 60 && handleRows().length <= n; i++) await page.waitForTimeout(50);
+        return handleRows()[n];
+      };
+      const good = await typeName("Kiko");
+      assert(!good.off && /Shows as Kiko ·[0-9A-F]{4}/.test(good.msg), good.msg);
+      let n = handleRows().length;
+      await page.locator("#lbNameSave").click();
+      const sent = await nextHandleRow(n);
+      assert(sent && sent.name === "Kiko" && /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(sent.handle) && sent.lb === 1, JSON.stringify(sent));
+      await page.waitForSelector("#lbList li.me:has-text('Kiko ·')");
+      assert((await page.locator("#lbHandle").textContent()).startsWith("Kiko ·"), "handle line");
+      n = handleRows().length;
+      await page.locator("#lbRename").click();
+      const back = await nextHandleRow(n);
+      assert(back && !back.name && !(await page.locator("#lbHandle").textContent()).includes("·"), "random name didn't clear the typed one");
       await page.keyboard.press("Escape");
       return lb.join(" | ");
     });

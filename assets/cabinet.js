@@ -196,6 +196,7 @@ window.ArcadeCabinet = (function () {
     for (const body of panel.querySelectorAll("[data-body]")) body.hidden = body.dataset.body !== name;
     syncToolbar();
     if (name === "achievements") {
+      closeNameForm();
       renderRecords();
       renderAchievements();
       hideResetConfirm();
@@ -531,7 +532,7 @@ window.ArcadeCabinet = (function () {
   // Sent with the telemetry round row; scripts/build-leaderboards.mjs reads them.
   function scoreFields(sc) {
     const out = { score: sc.value, board: sc.board, score_epoch: Scores.spec(current).epoch, lb: Scores.listed() ? 1 : 0 };
-    if (Scores.listed()) out.handle = Scores.handle();
+    if (Scores.listed()) Object.assign(out, nameFields());
     return out;
   }
 
@@ -591,11 +592,13 @@ window.ArcadeCabinet = (function () {
     );
     const listed = Scores.listed();
     $("lbListed").checked = listed;
-    $("lbHandle").textContent = Scores.handle();
+    $("lbHandle").textContent = Scores.publicName(null);
+    $("lbNameNote").hidden = true;
     $("lbList").replaceChildren(el("li", { className: "gap", textContent: "Loading…" }));
     Scores.leaderboards().then((data) => {
       if (current !== game) return;
       renderBoard(game, sp, data, best);
+      renderName(data);
     });
   }
 
@@ -609,7 +612,7 @@ window.ArcadeCabinet = (function () {
     let mine = null;
     if (sending && (best || published)) {
       const s = best && (!published || Scores.beats(sp, best.score, published.s)) ? best.score : published.s;
-      mine = { h: Scores.handle(), s, me: true };
+      mine = { h: Scores.publicName(data), s, me: true };
     }
     if (mine) rows.push(mine);
     rows.sort((a, b) => (a.s === b.s ? 0 : Scores.beats(sp, a.s, b.s) ? -1 : 1));
@@ -637,7 +640,7 @@ window.ArcadeCabinet = (function () {
   function lbRow(sp, e) {
     return el("li", { className: e.me ? "me" : "" }, [
       el("span", { className: "rank", textContent: `#${e.place}` }),
-      el("span", { textContent: e.me ? `${e.h} (you)` : e.h }),
+      el("span", {}, [el("bdi", { textContent: e.h }), e.me ? " (you)" : ""]),
       el("span", { className: "val", textContent: Scores.format(sp, e.s) }),
     ]);
   }
@@ -646,17 +649,93 @@ window.ArcadeCabinet = (function () {
     recordsBoard = $("boardPick").value;
     renderRecords();
   });
+  // The public name in a telemetry row: the random handle, and the typed
+  // name if any. The builder checks the typed one again and shows the
+  // random one when it's taken or not allowed (docs/scores.md).
+  function nameFields() {
+    const name = Scores.typedName();
+    return name ? { handle: Scores.handle(), name } : { handle: Scores.handle() };
+  }
+
   // A name change or opt-out reaches the leaderboard at the next hourly
   // build, without another round (scripts/build-leaderboards.mjs reads it).
   function sendHandle() {
-    telemetry.event("handle", Scores.listed() ? { handle: Scores.handle(), lb: 1 } : { lb: 0 });
+    telemetry.event("handle", Scores.listed() ? Object.assign(nameFields(), { lb: 1 }) : { lb: 0 });
   }
+
+  // The published file says who holds each typed name: if another player
+  // claimed ours first, say so (the leaderboard shows our random name).
+  function renderName(data) {
+    const name = Scores.typedName();
+    $("lbHandle").textContent = Scores.publicName(data);
+    const owner = name && Scores.nameOwner(data, Names.key(name));
+    const note = $("lbNameNote");
+    note.hidden = !(owner && owner !== Scores.me());
+    if (!note.hidden) note.textContent = `“${name}” is taken, so the leaderboard shows you as ${Scores.handle()}. Type another name.`;
+  }
+
+  // ---------- typed name ----------
+  // Checked here for instant feedback, with the same rules and word lists
+  // the builder uses; the builder has the last word.
+
+  const Names = window.ArcadeNames;
+  let nameCheck = null;
+
+  function closeNameForm() {
+    $("lbNameForm").hidden = true;
+    $("lbType").setAttribute("aria-expanded", "false");
+  }
+
+  async function checkTypedName() {
+    const input = $("lbNameInput");
+    const text = input.value;
+    const [lists, data] = await Promise.all([Scores.nameLists(), Scores.leaderboards()]);
+    if (input.value !== text) return nameCheck; // typed on meanwhile
+    nameCheck = Names.check(text, {
+      lists, isRandom: Scores.isHandle, owner: (k) => Scores.nameOwner(data, k), me: Scores.me(),
+    });
+    const msg = $("lbNameMsg");
+    const quiet = nameCheck.reason === "empty" || (nameCheck.reason === "length" && Array.from(nameCheck.name).length < Names.MIN);
+    msg.classList.toggle("bad", !nameCheck.ok && !quiet);
+    msg.textContent = nameCheck.ok ? `Shows as ${Names.display(nameCheck.name, Scores.me())}` : quiet ? `${Names.MIN} to ${Names.MAX} characters.` : nameCheck.message;
+    $("lbNameSave").disabled = !nameCheck.ok;
+    return nameCheck;
+  }
+
+  $("lbType").addEventListener("click", () => {
+    const form = $("lbNameForm");
+    if (!form.hidden) return closeNameForm();
+    form.hidden = false;
+    $("lbType").setAttribute("aria-expanded", "true");
+    $("lbNameInput").value = Scores.typedName();
+    $("lbNameSave").disabled = true;
+    checkTypedName();
+    $("lbNameInput").focus();
+  });
+  $("lbNameInput").addEventListener("input", checkTypedName);
+  $("lbNameCancel").addEventListener("click", () => {
+    closeNameForm();
+    $("lbType").focus();
+  });
+  $("lbNameForm").addEventListener("submit", async (evt) => {
+    evt.preventDefault();
+    const got = await checkTypedName();
+    if (!got || !got.ok) return;
+    Scores.setTypedName(got.name);
+    if (!Scores.listed()) Scores.setListed(true);
+    sendHandle();
+    closeNameForm();
+    renderRecords();
+    const shown = Names.display(got.name, Scores.me());
+    toast(telemetry.active() ? `Saved. The leaderboard shows ${shown} within the hour.` : `Saved as ${shown}. Play stats are off, so it stays in this browser.`, { ms: 4000 });
+  });
   $("lbListed").addEventListener("change", () => {
     Scores.setListed($("lbListed").checked);
     sendHandle();
     renderRecords();
   });
   $("lbRename").addEventListener("click", () => {
+    closeNameForm();
     Scores.newHandle();
     sendHandle();
     renderRecords();

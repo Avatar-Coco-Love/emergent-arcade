@@ -27,6 +27,8 @@ jobs:
         run: node scripts/validate.mjs
       - name: Test the Apps Script backend
         run: node scripts/test-apps-script.mjs
+      - name: Test typed leaderboard names
+        run: node scripts/test-names.mjs
       - name: Assemble site
         # Only the public files are published; docs, scripts and the Apps
         # Script source stay in the repo.
