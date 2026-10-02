@@ -134,7 +134,7 @@ const LEVELS = [
     goal: 'Both cups must sit in their green bands at once. Each has its own valve, and which one you shut first matters.' },
   { id: 'second-spring', name: 'Second spring', shapes: [...CHAMBERS, SIDE_SHAPE], water: [{ shape: 0, n: 450 }, { shape: 1, n: 250, dye: 1 }],
     bead: { x: -100, y: 40 }, exit: { x: 70, y: 95, r: 18 }, cen: { x: 20, y: 35 }, low: LOW_B, home: HOMES,
-    cups: [dyeCup(SIDE_CUP, 1, 'tip the right chamber over it, before any blue water gets across')], pearls: [{ x: -150, y: -65 }, { x: -145, y: 125 }, { x: 150, y: 125 }],
+    cups: [dyeCup(SIDE_CUP, 1, 'tip the right chamber over it, before any blue water gets across')], pearls: [{ x: -40, y: 125 }, { x: -145, y: 125 }, { x: 150, y: 125 }],
     goal: 'A second spring: orange water. The orange cup counts only orange, and it may hold at most 20% blue. Colours never separate once mixed, so fill it before the blue comes across.' },
   { id: 'wrong-way', name: 'Wrong way round', shapes: [...CHAMBERS, TOP_SHAPE], water: [{ shape: 0, n: 450 }, { shape: 1, n: 250, dye: 1 }],
     bead: { x: -100, y: 40 }, exit: { x: 70, y: 95, r: 18 }, cen: { x: 0, y: 35 }, low: LOW_B, home: HOMES,
