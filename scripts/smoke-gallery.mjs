@@ -502,6 +502,32 @@ for (const vp of VIEWPORTS) {
     assert(extra && extra.from === "gallery" && extra.method === "copy", `telemetry row ${JSON.stringify(row)}`);
   });
 
+  await check(tag("arcade play total from 250 plays"), async () => {
+    // The fixture's 19 plays stay hidden; 249 too, 250 shows (summed over games).
+    const total = async (n) => {
+      if (n !== null) {
+        await page.route("**/leaderboards.json", (route) => route.fulfill({ json: { format: "emergent-arcade-leaderboards", version: 1, games: {},
+          plays: { since: "2026-09-27", recent: {}, games: { [games[0].id]: { [games[0].version]: n - 10 }, [games.at(-1).id]: { 1: 10 } } } } }));
+      }
+      await page.goto("about:blank");
+      await page.goto(base);
+      await page.waitForFunction(() => document.querySelector(".game-card .card-plays:not([hidden])"));
+      const line = page.locator("#playTotal");
+      const text = (await line.isHidden()) ? null : await line.textContent();
+      await page.unroute("**/leaderboards.json");
+      return text;
+    };
+    const fixture = await total(null);
+    assert(fixture === null, `shown at 19 plays: ${fixture}`);
+    const below = await total(249);
+    assert(below === null, `shown at 249 plays: ${below}`);
+    const at = await total(250);
+    assert(at === "250 games played", `at 250: ${at}`);
+    assert(await noHScroll(page), "horizontal scroll");
+    await shot("play-total");
+    return `"${at}"`;
+  });
+
   await check(tag("settings: export, reset, import"), async () => {
     await page.goto(base);
     await page.waitForSelector(".game-card");

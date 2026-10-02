@@ -117,6 +117,8 @@ logs a `share` row with `from: "gallery"`.
 - Play counts: the card footer shows "18 plays · 5 on v9" (from the
   first play), the About panel a "Plays by version" table, both from the
   `plays` block of `leaderboards.json` ([scores.md](scores.md#play-counts)).
+- Arcade total: "1,240 games played" under the tagline once all games
+  together reach 250 plays (hidden before; [scores.md](scores.md#play-counts)).
 - Toasts stack (max 3). Callouts are toasts with buttons: what's new (12 s)
   and the rate nudge (after the 3rd `arcade:result` in a cabinet visit, once
   per game version, not if already rated).

@@ -150,6 +150,17 @@
     span.hidden = !span.textContent;
   }
 
+  // "1,240 games played" under the tagline: every game's plays, archived ones
+  // too, shown only from PLAY_TOTAL_MIN so a young arcade doesn't look empty
+  // (docs/scores.md, "Play counts").
+  const PLAY_TOTAL_MIN = 250;
+  function fillPlayTotal() {
+    const total = games.reduce((sum, g) => sum + ((Scores.plays(boards, g) || {}).total || 0), 0);
+    const line = $("playTotal");
+    line.textContent = total >= PLAY_TOTAL_MIN ? `${Scores.count(total)} games played` : "";
+    line.hidden = !line.textContent;
+  }
+
   function card(game, from, index) {
     const chips = game.mechanics.map((m) =>
       el("span", { className: "chip" }, [el("b", { textContent: m.name }), ` · ${Wording.verb(m.verb)}`])
@@ -494,6 +505,7 @@
           const game = games.find((g) => g.id === span.closest(".game-card").dataset.id);
           if (game) fillPlays(span, game);
         }
+        fillPlayTotal();
       });
     })
     .catch((err) => {

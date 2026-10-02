@@ -267,6 +267,11 @@ sees a different rule and recounts every session row:
   newest first, with a bar. Versions from before counting began (no plays,
   released on or before `since`) fold into one "v1–v5 · before counting"
   row. Telemetry started 2026-09-27, so older versions have no counts.
+- **Arcade total** (`assets/gallery.js`, `PLAY_TOTAL_MIN`): "1,240 games
+  played" under the header tagline, summed over every game in the manifest
+  (archived ones too) from the same block. Hidden below 250 plays so a young
+  arcade doesn't look empty; it counts plays, not visitors (no unique-person
+  count is kept, and opted-out players are missing).
 - **Never double-counted.** Counting isn't idempotent like bests, so
   `recent` keeps hashed ids of the sessions in the 10-minute overlap
   window and skips them when they are read again. Tested: an incremental
