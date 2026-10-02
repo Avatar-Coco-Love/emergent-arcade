@@ -148,3 +148,8 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   it, with rules (which piece, which strand), not sizes. A penalty that
   relieves the constraint doesn't teach. *A general trick beats a set of
   levels; break it with rules, not sizes.* Loom. feedback + bots.
+- Optional collectibles only add a route if the direct solution misses
+  them: run the shortest-route bot and count what it picks up by accident,
+  then move those (a sweep along one wall took 2 of 3). One free pickup on
+  the first level teaches what they are. *A collectible must sit off the
+  solution's lanes.* Aqueduct (prototype). bots.
