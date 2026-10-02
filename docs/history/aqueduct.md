@@ -26,6 +26,12 @@ Pearl routes and pre-home scores per level (planner 0-1 pearls, pearls bot
 3/3 on every level): history, "Pearl routes".
 
 
+## Free pour (moved from the design note, 2026-10-02)
+
+- **Free pour**: last entry in `LEVELS` (`free: true`, id `free`): no exit,
+  cups, pearls, score or `arcade:result`; split dye; bead in; always
+  unlocked, shown after the numbered levels, never the "Next level".
+
 ## Sim and input (current as of 2026-10-02)
 
 - Sim: Clavet double-density, 2 substeps of 1/120 s, SDF walls; bead has

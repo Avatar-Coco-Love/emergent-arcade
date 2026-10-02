@@ -65,9 +65,7 @@ above it). A new level needs no code. Vessel frame, y down, angle 0 = upright.
   narrowing. The whole path (a point per `PATH_EVERY` 3 frames, thinned
   past `PATH_MAX` 2400) is drawn at the win with dots on the pearls
   collected; the win card waits 1.2 s and dims less (`#menu.won`).
-- **Free pour**: last entry in `LEVELS` (`free: true`, id `free`): no exit,
-  cups, pearls, score or `arcade:result`; split dye; bead in; always
-  unlocked, shown after the numbered levels, never the "Next level".
+- **Free pour**: last in `LEVELS`, a toy (no exit or score); history.
 - Sim, perf and input details: history, "Sim and input".
 
 | level | id | cups | exit | intended solution |
@@ -81,8 +79,7 @@ above it). A new level needs no code. Vessel frame, y down, angle 0 = upright.
 
 Levels 3-5 start with 450 blue in A, 250 orange in B, bead in A.
 
-Cup hold vs angle (fill map) and why the ring needs the valve: history,
-"Step 4 measurements".
+Fill maps, why the valve is needed: history, "Step 4 measurements".
 
 ## Bot results
 
@@ -123,8 +120,8 @@ Level ideas: history (siphon, leak, tide room…). User,
 middle that splits mixed water, one colour each way, past a one-way line
 it can't fall back over (a later colour level: undoes mixing at a cost).
 Achievements draft: First Drop, Banked, Upside Down, Light Touch (fewest
-valve taps), One Flick, Pearl
-Diver (all pearls on a level), Bullseye (100 on every cup).
+valve taps), One Flick, Pearl Diver (all pearls on a level), Bullseye
+(100 on every cup), Sorted (a colour level with both homes full).
 
 ## Workflow notes
 
