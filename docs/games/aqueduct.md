@@ -300,7 +300,8 @@ Fix: explicit buoyancy and drag in `substep()`. Probe = particles within
 `RING` 6 px of the bead's edge (19 = fully submerged, `RING_FULL`);
 submerged fraction f; net acceleration g(1 - `LIFT` f) with `LIFT` 3, plus
 drag toward the local water velocity (`BEAD_DRAG` 8/s). A bead 60 px deep now
-reaches the surface in about 1 s at every angle tried and stays there.
+reaches the surface in 1-2 s at every angle tried and stays there
+(`node scripts/probe-aqueduct.mjs float`).
 
 **This invalidates the "valve is required" results above.** They were
 measured with a bead that could hang mid-water. With the fixed bead
@@ -320,3 +321,37 @@ order. Constants (exit height, cup depth) did not fix that; layout will.
 Candidate: exit in chamber A's far wall while the cup is fed by the
 bridge's A-to-B flow, so the tilt that feeds the cup is the one that
 spills it. Second vial or a valve in the bridge are the other options.
+
+## Handoff for the next session (2026-10-02)
+
+State: draft PR #59 (branch `ccr-919a22bc-mf1990`), prototype only, nothing in
+`games/` or `games.json`. Private playtest Artifact (republish with `url`):
+https://claude.ai/artifact/21dXA2QwrHe2QZqkM5HuZf (make the upload copy with
+`node scripts/probe-aqueduct.mjs publish-copy OUT.html`).
+
+Owner's direction: wants this to grow into complicated, intricate puzzles;
+accepted my step order. Cannot test phone tilt until the PR merges (the
+artifact sandbox), so tilt direction (Android signs; iOS flipped) is
+**untested**. Feedback so far: flow looks great; valve purpose unclear (hints
+added); ring unreachable (exit lowered to (100,35)); bead hung mid-water
+(real buoyancy added).
+
+Open, in order:
+1. **The valve is optional** (planner-nv wins 3/3 with the fixed bead). Find a
+   layout where it is required: filling the cup and reaching the exit must pull
+   opposite ways. Candidate: exit on A's far wall, cup fed by the A-to-B
+   bridge flow. Gate: planner-nv 0/N at DEPTH 22 BEAM 16, planner 3/3, novice
+   under 30%, timer ~0. Do this before anything else.
+2. Level format (data-driven shapes, vials, valves, exit), a second vial so the
+   pour/lock order matters, score (degrees turned + valve taps), levels 0-2,
+   then register in `games.json`. Do not register before it can carry a few
+   levels; depth target is 10+ minutes (`docs/ROADMAP.md`).
+3. Band readability (cup band is a ~14 px strip), valve housing is tiny,
+   phone tilt test after merge, real-phone fps (4x CPU slowdown held ~55 fps).
+
+Workflow gotchas learned: planner runs take 1-11 minutes (valve doubles the
+branching), run them in the background and poll with an until-loop; never
+`pkill -f balance-aqueduct` (the pattern matches your own shell, run it by saved
+PID); every sim change invalidates bot numbers and exit tuning, rerun
+planner and planner-nv before claiming anything; judge "feel" claims by
+probing (float, trace), not by what a screenshot looks like.
