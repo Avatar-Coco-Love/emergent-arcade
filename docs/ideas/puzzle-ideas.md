@@ -44,4 +44,4 @@ before coding, as CLAUDE.md requires.
 
 ## Open question
 
-Which one to prototype first, or whether to reshape one before building.
+Counterfeit Scale is chosen and has a full brief (`counterfeit-scale.md`), ready for implementation in a fresh session.
