@@ -1259,6 +1259,80 @@
           "sorting"
         ]
       }
+    },
+    {
+      "id": "counterfeit-scale",
+      "title": "Counterfeit Scale",
+      "file": "counterfeit-scale.html",
+      "version": 1,
+      "added": "2026-10-02",
+      "updated": "2026-10-02",
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-10-02",
+          "text": "New game: twelve cases that break the thirds trick one rule at a time, then Endless until three strikes."
+        }
+      ],
+      "blurb": "One coin is fake. Weigh, mark what you learn, and prove which one before the weighings run out.",
+      "goal": "Crack as many cases as you can in one run. A case is cracked when you accuse the fake and the weighings prove it; a wrong coin, a lucky guess or running out of weighings is a strike (the first loss on each of the 12 campaign cases is a free retry). Three strikes end the run.",
+      "howToPlay": "{Swipe} coins from the tray onto the pans, then {hold} the beam (or press Weigh) to spend a weighing. The heavier pan tips down and the coins stay put so you can read the result; every weighing spends one of the dots at the top. {Tap} a coin to mark what you know about it: ? unknown, H could be heavy, L could be light, ✓ genuine. The game never fills marks in, and the log only keeps counts, so your marks are your memory. When you are sure, {tap} Accuse and {tap} the fake (two coins when there are two fakes). New rules arrive case by case: fakes that may be lighter, pans that hold only a few coins, two fakes, and a spring scale that shows grams (genuine 10 g, fake ±1 g) instead of tipping. Hint (once per case) shows the counts for the best next weighing.",
+      "keyboard": "Arrows or 1-9 pick a coin, L / R load it, T back to tray, M mark, Space weigh, A accuse, H hint, Esc clear",
+      "mechanics": [
+        {
+          "name": "load",
+          "verb": "drag",
+          "description": "Drag a coin onto the left or right pan, or back to the tray. Known-genuine coins make fair counterweights."
+        },
+        {
+          "name": "mark",
+          "verb": "tap",
+          "description": "{Tap} a coin to cycle its note: ? unknown, H maybe heavy, L maybe light, ✓ genuine. Your only memory of past weighings."
+        },
+        {
+          "name": "weigh",
+          "verb": "hold",
+          "description": "{Hold} the beam (or the spring) to release it and spend a weighing: the heavier pan tips, or the spring scale shows grams."
+        }
+      ],
+      "sharedState": "The coins' marks and the weighing budget. Weigh writes a result about the coins on the pans; Mark records it on the coins; Load reads the marks (only ✓ coins are fair ballast, only suspects are worth weighing) and the budget decides how big each split must be.",
+      "accent": "#e2b34a",
+      "achievements": [
+        {
+          "id": "perfect-thirds",
+          "title": "Perfect Thirds",
+          "description": "Crack a nine-coin case in exactly two weighings."
+        },
+        {
+          "id": "reference-coin",
+          "title": "Reference Coin",
+          "description": "On a heavier-or-lighter case, weigh with a coin you marked ✓ that really is genuine."
+        },
+        {
+          "id": "halving",
+          "title": "Halving",
+          "description": "Crack a spring-scale case in no more weighings than halving would take."
+        },
+        {
+          "id": "under-par",
+          "title": "Under Par",
+          "description": "Crack a case with a weighing to spare, without the hint."
+        },
+        {
+          "id": "cold-case",
+          "title": "Cold Case",
+          "description": "Crack 10 cases in one run."
+        }
+      ],
+      "score": {
+        "label": "Cases cracked",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 500,
+        "epoch": 1
+      }
     }
   ]
 }

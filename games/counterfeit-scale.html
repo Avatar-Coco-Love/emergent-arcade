@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Counterfeit Scale</title>
+<style>
+  :root {
+    --bg: #0d0c10; --panel: #18171d; --line: #2c2a34; --text: #ece9e2; --muted: #9c98a3;
+    --accent: #e2b34a; --heavy: #e8743b; --light: #5aa0e8; --good: #5fcf80; --bad: #ff5a5a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 8px 10px; padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    user-select: none; -webkit-user-select: none;
+  }
+  #top { flex: none; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 0.85rem; }
+  #top .rule { color: var(--accent); font-weight: 600; }
+  #top .side { color: var(--muted); white-space: nowrap; }
+  #top .pips { letter-spacing: 2px; color: var(--accent); }
+  #boardWrap { flex: 1; min-height: 0; position: relative; }
+  #board { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  /* Hint and messages get their own strips, never over the board; fixed height so it doesn't jump.
+     Under the board: the cabinet's toasts cover the top of the game. */
+  .strip { flex: none; min-height: 2.5em; display: flex; align-items: center; justify-content: center;
+    text-align: center; font-size: 0.86rem; line-height: 1.25; }
+  #hint { color: var(--muted); font-size: 0.8rem; min-height: 2.4em; }
+  #msg b { color: var(--accent); }
+  #msg .win { color: var(--good); font-weight: 600; }
+  #msg .loss { color: var(--bad); font-weight: 600; }
+  .bar { flex: none; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+  button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 12px; font-size: 0.9rem; cursor: pointer; font-family: inherit; }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.35; cursor: default; transform: none; }
+  button.primary { border-color: var(--accent); background: #3a2d10; color: #fff; }
+  button.on { border-color: var(--bad); background: #3a1414; }
+  @media (max-height: 420px) {
+    body { gap: 2px; padding-top: 4px; }
+    .strip { min-height: 2.3em; font-size: 0.8rem; }
+    #hint { min-height: 2.3em; font-size: 0.74rem; }
+    button { padding: 5px 10px; font-size: 0.82rem; }
+  }
+</style>
+</head>
+<body>
+  <div id="top"><div><span id="caseName"></span> · <span class="rule" id="rule"></span></div>
+    <div class="side"><span class="pips" id="pips"></span> <span id="score"></span></div></div>
+  <div id="boardWrap"><canvas id="board" aria-label="Counterfeit Scale: drag coins onto the pans, hold the beam to weigh, tap coins to mark them, accuse the fake."></canvas></div>
+  <div class="strip" id="hint"></div>
+  <div class="strip" id="msg"></div>
+  <div class="bar">
+    <button id="weighBtn" class="primary">Weigh</button>
+    <button id="clearBtn">Clear pans</button>
+    <button id="accuseBtn">Accuse</button>
+    <button id="hintBtn">Hint</button>
+    <button id="nextBtn" class="primary" hidden>Next case</button>
+  </div>
+
+<script>
+(function() {
+  const GAME_ID = 'counterfeit-scale';
+  const TIP_MS = 900;            // the beam swings before the result shows
+  const END_LOCK_MS = 1000;      // input ignored after a case ends
+  const DRAG_PX = 8;             // movement before a press becomes a drag
+  const HOLD_MS = 450;           // hold the beam this long to weigh (a stray tap can't spend a weighing)
+  const STRIKES = 3;
+  // § sim: cases, weighing and the solver. Pure functions, no DOM: scripts/balance-counterfeit-scale.mjs
+  // A case: n coins, rules { fakes: 1|2, dir: 'heavy'|'either', scale: 'balance'|'spring',
+  // cap: coins per pan (0 = no limit) }, budget = par + slack. The game tracks the truth as
+  // a list of hypotheses ({ f: [fake coins], s: +1 heavy / -1 light }) filtered by each
+  // weighing; the solver works on counts, so it is instant.
+  const COIN_G = 10;             // a genuine coin's weight (spring scale reading); a fake is ±1 g
+  const MAX_K = 8;               // the solver never looks deeper than this
+
+  function rng(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function allHyps(c) {
+    const out = [];
+    if (c.fakes === 2) {
+      for (let i = 0; i < c.n; i++) for (let j = i + 1; j < c.n; j++) out.push({ f: [i, j], s: 1 });
+    } else {
+      for (let i = 0; i < c.n; i++) {
+        out.push({ f: [i], s: 1 });
+        if (c.dir === 'either') out.push({ f: [i], s: -1 });
+      }
+    }
+    return out;
+  }
+
+  // Outcome of a weighing if hypothesis h is true. Balance: 1 = left pan heavier, -1 = right
+  // heavier, 0 = level. Spring (left pan only): grams above or below the genuine weight.
+  function predict(c, h, side) {
+    let dl = 0, dr = 0;
+    for (const f of h.f) { if (side[f] === 1) dl += h.s; else if (side[f] === 2) dr += h.s; }
+    return c.scale === 'spring' ? dl : Math.sign(dl - dr);
+  }
+  const sideOf = (n, L, R) => { const s = new Uint8Array(n); for (const i of L) s[i] = 1; for (const i of R) s[i] = 2; return s; };
+
+  // spec: { n, fakes, dir, scale, cap, slack, name }. The fake(s) come from the seed.
+  function makeCase(spec, seed) {
+    const r = rng(seed);
+    const c = Object.assign({ fakes: 1, dir: 'heavy', scale: 'balance', cap: 0, slack: 0 }, spec);
+    c.seed = seed;
+    c.fake = [];
+    while (c.fake.length < c.fakes) { const i = Math.floor(r() * c.n); if (!c.fake.includes(i)) c.fake.push(i); }
+    c.fake.sort((a, b) => a - b);
+    c.sign = c.dir === 'either' ? (r() < 0.5 ? 1 : -1) : 1;
+    c.truth = { f: c.fake, s: c.sign };
+    c.hyps = allHyps(c);
+    c.sig = Array(c.n).fill('');
+    c.log = [];
+    c.par = parOfSpec(c);
+    c.budget = c.par + c.slack;
+    return c;
+  }
+
+  // '' when the pans can be weighed, else why not.
+  function weighError(c, L, R) {
+    if (c.log.length >= c.budget) return 'No weighings left: accuse a coin.';
+    if (c.scale === 'spring') {
+      if (!L.length) return 'Load the pan first.';
+      if (c.cap && L.length > c.cap) return 'The pan holds ' + c.cap + ' coins.';
+      return '';
+    }
+    if (!L.length || !R.length) return 'Load both pans first.';
+    if (L.length !== R.length) return 'Both pans need the same number of coins (' + L.length + ' vs ' + R.length + ').';
+    if (c.cap && L.length > c.cap) return 'Each pan holds ' + c.cap + ' coins.';
+    return '';
+  }
+
+  // Weigh (assumes weighError is ''): returns the outcome and filters the hypotheses.
+  function weigh(c, L, R) {
+    const side = sideOf(c.n, L, R);
+    const out = predict(c, c.truth, side);
+    c.hyps = c.hyps.filter(h => predict(c, h, side) === out);
+    for (let i = 0; i < c.n; i++) c.sig[i] += side[i];
+    c.log.push({ L: L.slice(), R: R.slice(), out });
+    return out;
+  }
+  // Hypotheses left by only some of the weighings (a player who forgot the rest).
+  function hypsFrom(c, logs) {
+    let hs = allHyps(c);
+    for (const w of logs) { const side = sideOf(c.n, w.L, w.R); hs = hs.filter(h => predict(c, h, side) === w.out); }
+    return hs;
+  }
+  function candidates(hyps, n) { const m = new Uint8Array(n); for (const h of hyps) for (const f of h.f) m[f] = 1; return m; }
+  const solvedBy = hyps => hyps.length > 0 && hyps.every(h => h.f.join() === hyps[0].f.join());
+  const isRight = (c, picks) => picks.length === c.fakes && picks.slice().sort((a, b) => a - b).join() === c.fake.join();
+
+  // § solver: minimax over count states. One fake: (u unknown, h maybe heavy, l maybe light,
+  // g known good). Two fakes: groups of coins that are interchangeable (same pans in every
+  // weighing) and the list of ways the 2 fakes can be spread over the groups.
+  const memo = new Map();
+
+  function moves1(st, c) {
+    const { u, h, l, g } = st, out = [], cap = c.cap || 99, n = u + h + l;
+    const spring = c.scale === 'spring';
+    for (let u1 = 0; u1 <= u; u1++) for (let h1 = 0; h1 <= h; h1++) for (let l1 = 0; l1 <= l; l1++) {
+      const n1 = u1 + h1 + l1;
+      if (n1 > cap) continue;
+      if (spring) {
+        if (!n1) continue;
+        out.push({ L: [u1, h1, l1, 0], R: [0, 0, 0, 0], kids: [
+          [u - u1, h - h1, l - l1, g + n1], [0, u1 + h1, 0, g + n - u1 - h1], [0, 0, u1 + l1, g + n - u1 - l1]] });
+        continue;
+      }
+      for (let u2 = 0; u2 <= u - u1; u2++) for (let h2 = 0; h2 <= h - h1; h2++) for (let l2 = 0; l2 <= l - l1; l2++) {
+        const n2 = u2 + h2 + l2;
+        if (n2 > cap || n1 + n2 === 0) continue;
+        // mirror symmetry: keep the left pan's (u, h, l) >= the right pan's
+        if (u1 < u2 || (u1 === u2 && (h1 < h2 || (h1 === h2 && l1 < l2)))) continue;
+        const d = Math.abs(n1 - n2);
+        if (d > g) continue;
+        const on = n1 + n2;
+        out.push({ L: [u1, h1, l1, n1 < n2 ? d : 0], R: [u2, h2, l2, n2 < n1 ? d : 0], kids: [
+          [u - u1 - u2, h - h1 - h2, l - l1 - l2, g + on],
+          [0, u1 + h1, u2 + l2, g + n - u1 - h1 - u2 - l2],
+          [0, u2 + h2, u1 + l1, g + n - u2 - h2 - u1 - l1]] });
+      }
+    }
+    return out;
+  }
+  function ok1(st, k, c) {
+    const n = st.u + st.h + st.l;
+    if (n <= 1) return true;
+    if (k <= 0 || n > Math.pow(3, k)) return false;
+    const g = Math.min(st.g, n);
+    const key = '1' + c.scale + c.cap + ':' + st.u + ',' + st.h + ',' + st.l + ',' + g + ':' + k;
+    if (memo.has(key)) return memo.get(key);
+    const lim = Math.pow(3, k - 1);
+    const ms = moves1({ u: st.u, h: st.h, l: st.l, g }, c)
+      .filter(m => m.kids.every(q => q[0] + q[1] + q[2] <= lim))
+      .sort((a, b) => Math.max(...a.kids.map(q => q[0] + q[1] + q[2])) - Math.max(...b.kids.map(q => q[0] + q[1] + q[2])));
+    let res = false;
+    for (const m of ms) if (m.kids.every(q => ok1({ u: q[0], h: q[1], l: q[2], g: q[3] }, k - 1, c))) { res = true; break; }
+    memo.set(key, res);
+    return res;
+  }
+
+  // Two fakes: st = { size: [group sizes], D: [[fakes per group], ...], g }.
+  const binom = (n, k) => k < 0 || k > n ? 0 : k === 0 || k === n ? 1 : k === 1 ? n : n * (n - 1) / 2;
+  const pairsOf = st => st.D.reduce((a, d) => a + d.reduce((p, k, i) => p * binom(st.size[i], k), 1), 0);
+  function norm2(size, D, g) {
+    // drop groups that are empty or can hold no fake (those coins are known good)
+    const keep = [];
+    for (let i = 0; i < size.length; i++) {
+      if (!size[i]) continue;
+      if (D.every(d => d[i] === 0)) { g += size[i]; continue; }
+      keep.push(i);
+    }
+    const s2 = keep.map(i => size[i]);
+    const seen = new Set(), D2 = [];
+    for (const d of D) { const r = keep.map(i => d[i]); const k = r.join(); if (!seen.has(k)) { seen.add(k); D2.push(r); } }
+    return { size: s2, D: D2, g };
+  }
+  function key2(st, k, c) {
+    const cols = st.size.map((s, i) => ({ s, col: st.D.map(d => d[i]).sort().join(''), i }));
+    cols.sort((a, b) => a.s - b.s || (a.col < b.col ? -1 : a.col > b.col ? 1 : 0));
+    const rows = st.D.map(d => cols.map(x => d[x.i]).join('')).sort();
+    const n = st.size.reduce((a, b) => a + b, 0);
+    return '2' + c.scale + c.cap + ':' + cols.map(x => x.s).join(',') + '|' + rows.join('.') + '|' + Math.min(st.g, n) + ':' + k;
+  }
+  // Every way to spread the fakes of distribution d over the pans: [x (left), y (right)] per group.
+  function spreads(d, a, b, size) {
+    let acc = [[0, 0, []]];
+    for (let i = 0; i < d.length; i++) {
+      const next = [];
+      for (const [sx, sy, parts] of acc)
+        for (let x = 0; x <= Math.min(d[i], a[i]); x++) for (let y = 0; y <= Math.min(d[i] - x, b[i]); y++) {
+          if (d[i] - x - y > size[i] - a[i] - b[i]) continue;
+          next.push([sx + x, sy + y, parts.concat([[x, y, d[i] - x - y]])]);
+        }
+      acc = next;
+    }
+    return acc;
+  }
+  function kids2(st, a, b, c) {
+    const spring = c.scale === 'spring', byOut = new Map();
+    for (const d of st.D) for (const [sx, sy, parts] of spreads(d, a, b, st.size)) {
+      const o = spring ? sx : Math.sign(sx - sy);
+      if (!byOut.has(o)) byOut.set(o, []);
+      byOut.get(o).push(parts.flat());
+    }
+    const size = [];
+    st.size.forEach((s, i) => size.push(a[i], b[i], s - a[i] - b[i]));
+    return [...byOut.values()].map(D => norm2(size, D, st.g));
+  }
+  function moves2(st, c) {
+    const cap = c.cap || 99, spring = c.scale === 'spring', out = [];
+    const m = st.size.length, a = Array(m).fill(0), b = Array(m).fill(0);
+    const total = st.size.reduce((x, y) => x + y, 0) + st.g;
+    const rec = (i, na, nb) => {
+      if (na > cap || nb > cap) return;
+      if (i === m) {
+        if (spring) { if (na) out.push({ a: a.slice(), b: b.slice(), ga: 0, gb: 0 }); return; }
+        if (na + nb === 0) return;
+        const d = Math.abs(na - nb);
+        if (d > st.g || Math.max(na, nb) > cap) return;
+        if (a.join() < b.join()) return;       // mirror symmetry
+        out.push({ a: a.slice(), b: b.slice(), ga: na < nb ? d : 0, gb: nb < na ? d : 0 });
+        return;
+      }
+      for (let x = 0; x <= st.size[i]; x++) for (let y = 0; y <= (spring ? 0 : st.size[i] - x); y++) {
+        a[i] = x; b[i] = y; rec(i + 1, na + x, nb + y);
+      }
+      a[i] = 0; b[i] = 0;
+    };
+    rec(0, 0, 0);
+    void total;
+    return out;
+  }
+  function ok2(st, k, c) {
+    const p = pairsOf(st);
+    if (p <= 1) return true;
+    if (k <= 0 || p > Math.pow(3, k)) return false;
+    const key = key2(st, k, c);
+    if (memo.has(key)) return memo.get(key);
+    const lim = Math.pow(3, k - 1);
+    let res = false;
+    const ms = moves2(st, c).map(mv => ({ mv, kids: kids2(st, mv.a, mv.b, c) }))
+      .filter(x => x.kids.every(q => pairsOf(q) <= lim))
+      .sort((x, y) => Math.max(...x.kids.map(pairsOf)) - Math.max(...y.kids.map(pairsOf)));
+    for (const x of ms) if (x.kids.every(q => ok2(q, k - 1, c))) { res = true; break; }
+    memo.set(key, res);
+    return res;
+  }
+
+  // The count state for a list of hypotheses (the truth, or what a player remembers).
+  function countState(c, hyps) {
+    if (c.fakes === 1) {
+      const plus = new Uint8Array(c.n), minus = new Uint8Array(c.n);
+      for (const h of hyps) (h.s > 0 ? plus : minus)[h.f[0]] = 1;
+      const cls = [];
+      let u = 0, h = 0, l = 0;
+      for (let i = 0; i < c.n; i++) {
+        const k = plus[i] && minus[i] ? 'u' : plus[i] ? 'h' : minus[i] ? 'l' : 'g';
+        cls.push(k);
+        if (k === 'u') u++; else if (k === 'h') h++; else if (k === 'l') l++;
+      }
+      return { kind: 1, u, h, l, g: c.n - u - h - l, cls };
+    }
+    // two fakes: coins with the same pans in every weighing are interchangeable
+    const cand = candidates(hyps, c.n), gi = new Map(), members = [], sig = c.sig || [];
+    let g = 0;
+    for (let i = 0; i < c.n; i++) {
+      if (!cand[i]) { g++; continue; }
+      const k = sig[i] || '';
+      if (!gi.has(k)) { gi.set(k, members.length); members.push([]); }
+      members[gi.get(k)].push(i);
+    }
+    const seen = new Set(), D = [];
+    for (const h of hyps) {
+      const d = members.map(() => 0);
+      for (const f of h.f) d[gi.get(sig[f] || '')]++;
+      const k = d.join(); if (!seen.has(k)) { seen.add(k); D.push(d); }
+    }
+    return { kind: 2, size: members.map(x => x.length), D, g, members };
+  }
+  const okState = (st, k, c) => st.kind === 1 ? ok1(st, k, c) : ok2(st, k, c);
+  function parOf(st, c) { for (let k = 0; k <= MAX_K; k++) if (okState(st, k, c)) return k; return MAX_K + 1; }
+  function parOfSpec(c) { return parOf(countState(c, allHyps(c)), c); }
+
+  // A best next weighing within k: counts per class for each pan, or null.
+  // One fake: { L: [u, h, l, good], R: [...] }; two fakes: { a: [per group], b: [...], ga, gb }.
+  function bestMove(st, k, c) {
+    if (st.kind === 1) {
+      const ms = moves1(st, c).sort((x, y) => Math.max(...x.kids.map(q => q[0] + q[1] + q[2])) - Math.max(...y.kids.map(q => q[0] + q[1] + q[2])));
+      for (const m of ms) if (m.kids.every(q => ok1({ u: q[0], h: q[1], l: q[2], g: q[3] }, k - 1, c))) return m;
+      return null;
+    }
+    const ms = moves2(st, c).map(mv => Object.assign(mv, { kids: kids2(st, mv.a, mv.b, c) }))
+      .sort((x, y) => Math.max(...x.kids.map(pairsOf)) - Math.max(...y.kids.map(pairsOf)));
+    for (const m of ms) if (m.kids.every(q => ok2(q, k - 1, c))) return m;
+    return null;
+  }
+  // Turn a count move into coins (prefers coins already on that pan, so fewer drags).
+  function moveCoins(st, m, c, onPan) {
+    const pick = (pool, n, pan, taken) => {
+      const free = pool.filter(i => !taken.has(i)).sort((x, y) => (onPan[y] === pan) - (onPan[x] === pan));
+      const got = free.slice(0, n); got.forEach(i => taken.add(i)); return got;
+    };
+    const taken = new Set(), L = [], R = [];
+    if (st.kind === 1) {
+      const pools = ['u', 'h', 'l', 'g'].map(k => st.cls.map((x, i) => x === k ? i : -1).filter(i => i >= 0));
+      for (let j = 0; j < 4; j++) { L.push(...pick(pools[j], m.L[j], 1, taken)); R.push(...pick(pools[j], m.R[j], 2, taken)); }
+    } else {
+      const goods = []; const inG = new Set(st.members.flat());
+      for (let i = 0; i < c.n; i++) if (!inG.has(i)) goods.push(i);
+      st.members.forEach((pool, j) => { L.push(...pick(pool, m.a[j], 1, taken)); R.push(...pick(pool, m.b[j], 2, taken)); });
+      L.push(...pick(goods, m.ga, 1, taken)); R.push(...pick(goods, m.gb, 2, taken));
+    }
+    return { L, R };
+  }
+
+  // § cases: the campaign (2 per rule) then endless mixes at slack 0.
+  const RULE_TEXT = {
+    heavy: 'One fake, heavier',
+    either: 'One fake, heavier or lighter',
+    two: 'Two fakes, both heavier',
+  };
+  const CAMPAIGN = [
+    { name: 'First weighing', n: 3, slack: 1, tip: 'The heavier side tips down. Drag a coin onto each pan, then hold the beam (or press Weigh).' },
+    { name: 'Nine coins', n: 9, slack: 1, tip: '{Tap} a coin to mark it: H could be the fake, OK is genuine. Your marks are your memory.' },
+    { name: 'Light or heavy', n: 3, dir: 'either', slack: 1, tip: 'The fake may be lighter. A coin you know is genuine (OK) makes a fair counterweight.' },
+    { name: 'The twelve', n: 12, dir: 'either', slack: 1, tip: 'Mark H or L on the coins that tipped: a coin that went down can only be heavy.' },
+    { name: 'Small pans', n: 9, cap: 4, slack: 0, tip: 'Each pan holds 4 coins, and no spare weighing now. Full pans are not always best.' },
+    { name: 'Two per pan', n: 8, dir: 'either', cap: 2, slack: 0, tip: 'Two coins per pan, heavier or lighter. Genuine coins can fill a pan.' },
+    { name: 'A pair', n: 4, fakes: 2, slack: 0, tip: 'Two fakes, both heavier. Accuse both: pick two coins.' },
+    { name: 'Two of seven', n: 7, fakes: 2, slack: 0, tip: 'A level beam can hide one fake on each side.' },
+    { name: 'Spring scale', n: 8, scale: 'spring', slack: 0, tip: 'One pan. Genuine coins weigh 10 g, a fake 11 g: the reading says if the fake is on it.' },
+    { name: 'Sixteen grams', n: 16, scale: 'spring', slack: 0, tip: 'Yes or no each time: count how many suspects each answer leaves.' },
+    { name: 'Tight twelve', n: 12, dir: 'either', cap: 3, slack: 0, tip: 'Rules mix from here.' },
+    { name: 'Spring pair', n: 7, fakes: 2, scale: 'spring', slack: 0, tip: 'The reading counts the fakes on the pan: 0, 1 or 2 extra grams.' },
+  ];
+  // Endless case i (0-based): a random rule mix; sizes grow with i, capped so the tray fits a phone.
+  function endlessSpec(i, seed) {
+    const r = rng(seed * 7919 + i * 104729 + 17);
+    const pick = a => a[Math.floor(r() * a.length)];
+    const grow = Math.min(1, i / 12);
+    const kind = pick(['heavy', 'either', 'either', 'two', 'spring', 'springEither', 'springTwo']);
+    const spec = { name: 'Endless ' + (i + 1), slack: 0 };
+    if (kind === 'heavy') Object.assign(spec, { n: 10 + Math.floor(r() * (8 + 9 * grow)) });
+    if (kind === 'either') Object.assign(spec, { dir: 'either', n: 6 + Math.floor(r() * (6 + 14 * grow)) });
+    if (kind === 'two') Object.assign(spec, { fakes: 2, n: 5 + Math.floor(r() * (2 + 2 * grow)) });
+    if (kind === 'spring') Object.assign(spec, { scale: 'spring', n: 6 + Math.floor(r() * (8 + 12 * grow)) });
+    if (kind === 'springEither') Object.assign(spec, { scale: 'spring', dir: 'either', n: 6 + Math.floor(r() * (6 + 14 * grow)) });
+    if (kind === 'springTwo') Object.assign(spec, { scale: 'spring', fakes: 2, n: 5 + Math.floor(r() * (2 + 2 * grow)) });
+    if (r() < 0.25 + 0.35 * grow && spec.n >= 6) spec.cap = Math.max(2, Math.floor(spec.n / (3 + Math.floor(r() * 3))));
+    return spec;
+  }
+  function ruleLine(c) {
+    const parts = [c.fakes === 2 ? RULE_TEXT.two : RULE_TEXT[c.dir]];
+    if (c.scale === 'spring') parts.push('spring scale');
+    if (c.cap) parts.push('pans hold ' + c.cap);
+    return parts.join(' · ');
+  }
+  // § end sim
+
+  // § words: the gallery fills {tap} in the manifest; the game does its own.
+  const COARSE = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  const words = s => s.replace(/\{Tap\}/g, COARSE ? 'Tap' : 'Click').replace(/\{tap\}/g, COARSE ? 'tap' : 'click');
+
+  // § messaging: achievements, results, pause, bests from the gallery.
+  const embedded = () => window.parent !== window;
+  const unlocked = new Set();
+  function unlock(id) {
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (embedded()) window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+  }
+  let paused = false, bestShown = 0;
+  window.addEventListener('message', evt => {
+    const d = evt.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'arcade:pause') { paused = true; gesture = null; }
+    if (d.type === 'arcade:resume') paused = false;
+    if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {
+      const b = Number(d.bests.main); if (b > 0 && b < 1e4) { bestShown = Math.round(b); renderUI(); }
+    }
+  });
+  const RUN_ID = () => Math.random().toString(36).slice(2, 10) || 'run';
+
+  // § state: the run (strikes, cracked) and the case on the table.
+  let run, c, where, panOrder, mark, phase, result, tipT, picks, caseMs, counts, endAt, hintUsed, revealed;
+  function newRun() {
+    run = { id: RUN_ID(), seed: (Math.random() * 1e9) >>> 0, idx: 0, strikes: 0, cracked: 0, attempt: 1,
+      free: CAMPAIGN.map(() => true) };
+    startCase();
+  }
+  const inCampaign = () => run.idx < CAMPAIGN.length;
+  function startCase() {
+    const spec = inCampaign() ? CAMPAIGN[run.idx] : endlessSpec(run.idx - CAMPAIGN.length, run.seed);
+    c = makeCase(spec, (run.seed + run.idx * 7919 + run.attempt * 104729) >>> 0);
+    where = new Uint8Array(c.n); panOrder = [[], [], []];
+    const cyc = c.fakes === 2 || c.dir === 'heavy' ? ['?', 'H', 'OK'] : ['?', 'H', 'L', 'OK'];
+    mark = Array(c.n).fill(0); mark.cyc = cyc;
+    phase = 'load'; result = null; tipT = 0; picks = []; caseMs = 0; endAt = 0; hintUsed = false; revealed = null;
+    counts = { loads: 0, marks: 0 };
+    layout(); renderUI();
+    say(`${inCampaign() ? 'Case ' + (run.idx + 1) + ' of ' + CAMPAIGN.length : 'Endless'}: ${c.n} coins, ` +
+      `<b>${c.budget}</b> weighing${c.budget > 1 ? 's' : ''}. Find the fake${c.fakes > 1 ? 's' : ''}.`);
+    hint(spec.tip ? words(spec.tip) : 'Endless: no spare weighings. Score: cases cracked this run.');
+  }
+  const left = () => c.budget - c.log.length;
+  const pans = () => [panOrder[1], panOrder[2]];
+
+  // § actions: load (drag), mark (tap), weigh, accuse.
+  function place(i, to) {
+    if (phase !== 'load' || where[i] === to) return;
+    if (c.scale === 'spring' && to === 2) to = 1;
+    if (to && c.cap && panOrder[to].length >= c.cap) { say(`That pan holds <b>${c.cap}</b> coins.`); return; }
+    panOrder[where[i]] = panOrder[where[i]].filter(x => x !== i);
+    where[i] = to; panOrder[to].push(i);
+    counts.loads++;
+    if (result) { result = null; }
+    renderUI();
+  }
+  function clearPans() { for (const p of [1, 2]) for (const i of panOrder[p].slice()) place(i, 0); }
+  function cycleMark(i) {
+    if (phase !== 'load') return;
+    mark[i] = (mark[i] + 1) % mark.cyc.length; counts.marks++;
+  }
+  function doWeigh() {
+    if (phase !== 'load') return;
+    const [L, R] = pans(), err = weighError(c, L, R);
+    if (err) { say(err); return; }
+    if (c.dir === 'either' && c.fakes === 1) {
+      const st = countState(c, c.hyps);
+      if (L.concat(R).some(i => mark.cyc[mark[i]] === 'OK' && st.cls[i] === 'g')) unlock('reference-coin');
+    }
+    const out = weigh(c, L, R);
+    result = { out, n: L.length };
+    phase = 'tip'; tipT = 0;
+    say('Weighing…');
+    renderUI();
+  }
+  function afterTip() {
+    phase = 'load';
+    const n = c.log.length, rest = left();
+    let txt;
+    if (c.scale === 'spring') {
+      const g = result.n * COIN_G + result.out;
+      txt = `Reads <b>${g} g</b> for ${result.n} coin${result.n > 1 ? 's' : ''}: ` +
+        (result.out === 0 ? 'all genuine.' : (result.out > 0 ? result.out + ' g over.' : -result.out + ' g under.'));
+    } else txt = result.out === 0 ? 'The pans <b>balance</b>.' : `The <b>${result.out > 0 ? 'left' : 'right'}</b> pan is heavier.`;
+    if (!rest && !solvedBy(c.hyps)) { say(txt); setTimeout(() => endCase(false, 'budget'), 700); phase = 'wait'; renderUI(); return; }
+    say(`Weighing ${n}: ${txt} ` + (rest ? `${rest} left.` : 'None left: accuse.'));
+    renderUI();
+  }
+  function toggleAccuse() {
+    if (phase === 'accuse') { phase = 'load'; picks = []; say('Accusation withdrawn.'); renderUI(); return; }
+    if (phase !== 'load') return;
+    if (!c.log.length) { say('Weigh at least once before you accuse.'); return; }
+    phase = 'accuse'; picks = [];
+    say(c.fakes > 1 ? 'Pick the <b>two</b> fakes.' : 'Pick the <b>fake</b> coin.');
+    renderUI();
+  }
+  function pick(i) {
+    if (picks.includes(i)) { picks = picks.filter(x => x !== i); return; }
+    picks.push(i);
+    if (picks.length < c.fakes) { say('One more.'); return; }
+    const right = isRight(c, picks), proven = solvedBy(c.hyps);
+    endCase(right && proven, right ? 'guess' : 'wrong');
+  }
+  function endCase(won, reason) {
+    phase = 'over'; endAt = performance.now();
+    const fakes = c.fake.map(i => i + 1).join(' and ');
+    const cand = candidates(c.hyps, c.n), fits = [...cand.keys()].filter(i => cand[i]);
+    revealed = { fakes: c.fake, fits };
+    const struck = !won && !(inCampaign() && run.free[run.idx]);
+    if (won) run.cracked++;
+    else if (struck) run.strikes++;
+    else run.free[run.idx] = false;
+    const others = fits.filter(i => !c.fake.includes(i)).map(i => i + 1);
+    const why = won ? `<span class="win">Cracked!</span> Coin${c.fakes > 1 ? 's' : ''} ${fakes}, in ${c.log.length} of ${c.budget}.`
+      : reason === 'budget' ? `<span class="loss">Out of weighings.</span> Coin${others.length > 1 ? 's' : ''} ${others.join(', ')} still fit; the fake${c.fakes > 1 ? 's were' : ' was'} ${fakes}.`
+      : reason === 'guess' ? `<span class="loss">Right coin, no proof:</span> ${others.join(', ')} still fit the weighings.`
+      : `<span class="loss">Wrong ${c.fakes > 1 ? 'pair' : 'coin'}.</span> The fake${c.fakes > 1 ? 's were' : ' was'} ${fakes}.`;
+    const tail = won ? '' : struck ? ` Strike ${run.strikes} of ${STRIKES}.` : ' Free retry, new coins.';
+    say(why + tail);
+    postResult(won, reason);
+    if (won) {
+      if (c.n === 9 && c.fakes === 1 && c.dir === 'heavy' && c.scale === 'balance' && c.log.length === 2) unlock('perfect-thirds');
+      if (c.scale === 'spring' && c.fakes === 1 && c.dir === 'heavy' && c.log.length <= Math.ceil(Math.log2(c.n))) unlock('halving');
+      if (run.cracked >= 10) unlock('cold-case');
+      if (left() > 0 && !hintUsed) unlock('under-par');
+    }
+    renderUI();
+  }
+  function next() {
+    if (phase !== 'over' || performance.now() - endAt < END_LOCK_MS) return;
+    if (run.strikes >= STRIKES) { newRun(); return; }
+    if (run.lastWon || !inCampaign()) { run.idx++; run.attempt = 1; } else run.attempt++;
+    startCase();
+  }
+  function postResult(won, reason) {
+    run.lastWon = won;
+    if (!embedded()) return;
+    const msg = { type: 'arcade:result', game: GAME_ID, outcome: won ? 'win' : 'loss',
+      time: Math.round(caseMs / 100) / 10, level: run.idx + 1, run: run.id, attempt: run.attempt, score: run.cracked,
+      stats: { weighings: c.log.length, par: c.par, budget: c.budget, coins: c.n, marks: counts.marks,
+        loads: counts.loads, cases: run.cracked, strikes: run.strikes, hint: hintUsed ? 1 : 0 } };
+    if (!won) msg.reason = reason;
+    window.parent.postMessage(msg, '*');
+  }
+  function showHint() {
+    if (phase !== 'load' || hintUsed) return;
+    hintUsed = true;
+    if (solvedBy(c.hyps)) { hint('Hint: the weighings already prove it. Accuse.'); renderUI(); return; }
+    const st = countState(c, c.hyps);
+    const k = parOf(st, c), m = bestMove(st, k, c);   // the best split, even with weighings to spare
+    const plural = (x, w) => x + ' ' + w + (x > 1 && w === 'suspect' ? 's' : '');
+    const fmt = (arr, good) => {
+      const names = ['unknown', c.dir === 'heavy' ? 'suspect' : 'H', 'L', 'OK'];
+      const sus = st.kind === 2 ? arr.reduce((a, b) => a + b, 0) : 0;
+      const parts = st.kind === 1 ? arr.map((x, j) => x ? plural(x, names[j]) : '').filter(Boolean)
+        : [sus ? plural(sus, 'suspect') : '', good ? good + ' OK' : ''].filter(Boolean);
+      return parts.join(' + ') || 'nothing';
+    };
+    const L = st.kind === 1 ? fmt(m.L) : fmt(m.a, m.ga), R = st.kind === 1 ? fmt(m.R) : fmt(m.b, m.gb);
+    const where2 = c.scale === 'spring' ? `Weigh ${L}` : `Left: ${L} · right: ${R}`;
+    hint(`Hint: ${where2}.` + (k > left() ? ' (No sure win is left.)' : ''));
+    renderUI();
+  }
+
+  // § ui: top line, message and hint strips, buttons.
+  const $ = id => document.getElementById(id);
+  const msgEl = $('msg'), hintEl = $('hint');
+  const say = html => { msgEl.innerHTML = '<span>' + html + '</span>'; };
+  const hint = txt => { hintEl.textContent = txt; };
+  function renderUI() {
+    if (!c) return;
+    $('caseName').textContent = inCampaign() ? `Case ${run.idx + 1}` : `Endless ${run.idx - CAMPAIGN.length + 1}`;
+    $('rule').textContent = ruleLine(c);
+    $('pips').textContent = '●'.repeat(Math.max(0, left())) + '○'.repeat(c.log.length);
+    $('pips').title = left() + ' weighings left';
+    $('score').textContent = `✓${run.cracked} ` + '✕'.repeat(run.strikes) + '·'.repeat(STRIKES - run.strikes) + (bestShown ? ` best ${bestShown}` : '');
+    const over = phase === 'over';
+    $('weighBtn').hidden = over; $('clearBtn').hidden = over; $('accuseBtn').hidden = over; $('hintBtn').hidden = over;
+    $('nextBtn').hidden = !over;
+    $('weighBtn').textContent = `Weigh (${left()})`;
+    $('weighBtn').disabled = phase !== 'load' || !left();
+    $('clearBtn').disabled = phase !== 'load' || !(panOrder[1].length + panOrder[2].length);
+    $('accuseBtn').disabled = !(phase === 'load' || phase === 'accuse') || !c.log.length;
+    $('accuseBtn').classList.toggle('on', phase === 'accuse');
+    $('accuseBtn').textContent = phase === 'accuse' ? 'Cancel' : 'Accuse';
+    $('hintBtn').disabled = phase !== 'load' || hintUsed;
+    $('nextBtn').textContent = run.strikes >= STRIKES ? `New run (${run.cracked} cracked)` : run.lastWon ? 'Next case' : inCampaign() ? 'Try again' : 'Next case';
+  }
+  $('weighBtn').onclick = doWeigh;
+  $('clearBtn').onclick = () => { clearPans(); };
+  $('accuseBtn').onclick = toggleAccuse;
+  $('hintBtn').onclick = showHint;
+  $('nextBtn').onclick = next;
+
+  // § layout: scale region + tray region, coin radius to fit both (refit on every case and resize).
+  const canvas = $('board'), ctx = canvas.getContext('2d'), wrap = $('boardWrap');
+  let W = 300, H = 300, G = null;
+  function trayFit(n, w, h) {
+    let best = { r: 0 };
+    for (let cols = 1; cols <= n; cols++) {
+      const rows = Math.ceil(n / cols), r = Math.min(w / (cols * 2.3), h / (rows * 2.3));
+      if (r > best.r) best = { r, cols, rows };
+    }
+    return best;
+  }
+  function panFit(P, pw, ph) {
+    for (let r = 30; r > 4; r -= 0.5) { const cols = Math.floor(pw / (2.2 * r)); if (cols && Math.ceil(P / cols) * 2.1 * r <= ph) return r; }
+    return 4;
+  }
+  function layout() {
+    W = wrap.clientWidth || 300; H = wrap.clientHeight || 300;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (!c) return;
+    const spring = c.scale === 'spring', P = c.cap || (spring ? c.n : Math.ceil(c.n / 2) + 1);
+    let best = null;
+    for (const side of [false, true]) for (const f of [0.45, 0.5, 0.55, 0.6, 0.65]) {
+      const s = side ? { x: 0, y: 0, w: W * f, h: H } : { x: 0, y: 0, w: W, h: H * f };
+      const t = side ? { x: W * f, y: 0, w: W * (1 - f), h: H } : { x: 0, y: H * f, w: W, h: H * (1 - f) };
+      const amp = Math.min(s.h * 0.07, 18), top = 18 + amp, hang = s.h - top - amp - 12;
+      const bl = spring ? 0 : Math.min(s.w * 0.27, s.h * 0.9);
+      const pw = spring ? Math.min(s.w * 0.5, s.h) : Math.min(2 * bl * 0.88, s.w * 0.44);
+      const ph = hang - (spring ? 34 : 16);
+      const tf = trayFit(c.n, t.w - 8, t.h - 6);
+      const r = Math.min(tf.r, panFit(P, pw - 6, ph), 26);
+      if (!best || r > best.r + 0.01) best = { r, s, t, tf, amp, top, hang, bl, pw, ph };
+    }
+    G = best;
+    const { s, t, tf, r } = G;
+    G.cx = s.x + s.w / 2; G.beamY = s.y + G.top; G.dishY = G.beamY + G.hang;
+    if (spring) G.dishY = s.y + s.h - G.amp - 14;
+    G.home = [];
+    const d = 2.3 * r, gx = t.x + (t.w - tf.cols * d) / 2 + d / 2, gy = t.y + (t.h - tf.rows * d) / 2 + d / 2;
+    for (let i = 0; i < c.n; i++) G.home.push({ x: gx + (i % tf.cols) * d, y: gy + Math.floor(i / tf.cols) * d });
+  }
+  const tiltNow = () => !result ? 0 : c.scale === 'spring' ? 0 : phase === 'tip' ? result.out * Math.min(1, tipT / 500) * (1 + 0.25 * Math.sin(tipT / 60) * Math.max(0, 1 - tipT / TIP_MS)) : result.out;
+  let tiltShown = 0;
+  function panCenter(p) {
+    if (c.scale === 'spring') return { x: G.cx, y: G.dishY };
+    const dir = p === 1 ? -1 : 1;
+    return { x: G.cx + dir * G.bl, y: G.dishY + (p === 1 ? 1 : -1) * tiltShown * G.amp };
+  }
+  function panSlot(p, j) {
+    const pc = panCenter(p), r = G.r, d = 2.2 * r, cols = Math.max(1, Math.floor((G.pw - 6) / d));
+    const row = Math.floor(j / cols), inRow = Math.min(cols, Math.max(panOrder[p].length, c.cap || 0) - row * cols);
+    const col = j % cols;
+    return { x: pc.x - (Math.max(1, inRow) - 1) * d / 2 + col * d, y: pc.y - r - 3 - row * d * 0.95 };
+  }
+  function coinPos(i) { return where[i] ? panSlot(where[i], panOrder[where[i]].indexOf(i)) : G.home[i]; }
+  function panHit(x, y) {
+    const s = G.s;
+    if (x < s.x || x > s.x + s.w || y < s.y || y > s.y + s.h) return 0;
+    if (c.scale === 'spring') return 1;
+    return x < G.cx ? 1 : 2;
+  }
+  function weighHit(x, y) {
+    if (c.scale === 'spring') return Math.abs(x - G.cx) < 26 && y > G.beamY - 16 && y < G.dishY - G.ph;
+    return Math.abs(x - G.cx) < Math.max(22, G.r * 1.4) && y > G.beamY - 16 && y < G.dishY + 10;
+  }
+
+  // § drawing
+  const FILL = { '?': '#c9a542', H: '#e8743b', L: '#5aa0e8', OK: '#5fcf80' };
+  function drawCoin(i, x, y, r, lift) {
+    const m = mark.cyc[mark[i]];
+    ctx.save();
+    if (lift) { ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 10; }
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
+    ctx.fillStyle = FILL[m]; ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = Math.max(1, r * 0.12); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, r * 0.78, 0, 7); ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#1a1408'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.round(r * (m === '?' ? 0.9 : 1.0))}px sans-serif`;
+    ctx.fillText(m === '?' ? String(i + 1) : m === 'OK' ? '✓' : m, x, y + 1);
+    if (picks.includes(i)) { ctx.beginPath(); ctx.arc(x, y, r + 4, 0, 7); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke(); }
+    if (revealed) {
+      const fake = revealed.fakes.includes(i), fits = revealed.fits.includes(i);
+      if (fake || fits) { ctx.beginPath(); ctx.arc(x, y, r + 5, 0, 7); ctx.strokeStyle = fake ? '#ff5a5a' : 'rgba(255,90,90,.45)'; ctx.setLineDash(fake ? [] : [3, 3]); ctx.lineWidth = 3; ctx.stroke(); ctx.setLineDash([]); }
+    }
+    if (kbd && i === cursor && phase !== 'over') { ctx.beginPath(); ctx.arc(x, y, r + 7, 0, 7); ctx.strokeStyle = '#e2b34a'; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.restore();
+  }
+  function drawScale() {
+    const { s, r } = G, metal = '#8a8494';
+    ctx.lineCap = 'round';
+    // log chips: counts only (the coins' identities live in your marks)
+    ctx.font = '11px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = '#9c98a3';
+    const chips = c.log.map((w, k) => (k + 1) + ') ' + (c.scale === 'spring' ? w.L.length + ' → ' + (w.L.length * COIN_G + w.out) + 'g'
+      : w.L.length + '|' + w.R.length + ' ' + (w.out > 0 ? 'L↓' : w.out < 0 ? 'R↓' : '='))).join('   ');
+    ctx.fillText(chips, s.x + 4, s.y + 2);
+    if (c.scale === 'spring') {
+      const pc = panCenter(1), top = G.beamY - 8, stretch = result && phase !== 'tip' ? 6 : 0;
+      ctx.strokeStyle = metal; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(G.cx - 30, top); ctx.lineTo(G.cx + 30, top); ctx.stroke();
+      const sy0 = top, sy1 = pc.y - G.ph - 4 + stretch, coils = 9;
+      ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(G.cx, sy0);
+      for (let k = 1; k <= coils * 2; k++) ctx.lineTo(G.cx + (k % 2 ? 9 : -9), sy0 + (sy1 - sy0) * k / (coils * 2 + 1));
+      ctx.lineTo(G.cx, sy1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(G.cx, sy1); ctx.lineTo(pc.x - G.pw / 2, pc.y); ctx.moveTo(G.cx, sy1); ctx.lineTo(pc.x + G.pw / 2, pc.y); ctx.lineWidth = 1; ctx.stroke();
+      drawDish(pc);
+      // dial: the reading, and what genuine coins would weigh
+      const n = panOrder[1].length, dx = Math.min(G.cx + G.pw / 2 + 8, s.x + s.w - 74), dy = s.y + 18;
+      ctx.fillStyle = '#18171d'; ctx.strokeStyle = '#2c2a34'; ctx.lineWidth = 1;
+      ctx.fillRect(dx, dy, 70, 40); ctx.strokeRect(dx, dy, 70, 40);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#e2b34a'; ctx.font = '700 16px sans-serif';
+      const shown = result && phase !== 'tip' ? (result.n * COIN_G + result.out) + ' g' : '— g';
+      ctx.fillText(shown, dx + 35, dy + 4);
+      ctx.fillStyle = '#9c98a3'; ctx.font = '10px sans-serif';
+      ctx.fillText(n + ' × 10 = ' + n * COIN_G, dx + 35, dy + 25);
+      return;
+    }
+    // stand and beam
+    ctx.strokeStyle = metal; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(G.cx, G.beamY); ctx.lineTo(G.cx, s.y + s.h - 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(G.cx - 26, s.y + s.h - 6); ctx.lineTo(G.cx + 26, s.y + s.h - 6); ctx.stroke();
+    const dyL = tiltShown * G.amp, ends = [[G.cx - G.bl, G.beamY + dyL], [G.cx + G.bl, G.beamY - dyL]];
+    ctx.lineWidth = 4; ctx.strokeStyle = '#b8b0c4';
+    ctx.beginPath(); ctx.moveTo(ends[0][0], ends[0][1]); ctx.lineTo(ends[1][0], ends[1][1]); ctx.stroke();
+    ctx.fillStyle = phase === 'load' && left() ? '#e2b34a' : metal;
+    ctx.beginPath(); ctx.moveTo(G.cx, G.beamY - 9); ctx.lineTo(G.cx - 9, G.beamY + 7); ctx.lineTo(G.cx + 9, G.beamY + 7); ctx.fill();
+    for (const p of [1, 2]) {
+      const pc = panCenter(p), e = ends[p - 1];
+      ctx.strokeStyle = '#6b6575'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(e[0], e[1]); ctx.lineTo(pc.x - G.pw / 2 + 4, pc.y); ctx.moveTo(e[0], e[1]); ctx.lineTo(pc.x + G.pw / 2 - 4, pc.y); ctx.stroke();
+      drawDish(pc);
+    }
+  }
+  function drawDish(pc) {
+    ctx.fillStyle = '#4a4552'; ctx.beginPath();
+    ctx.ellipse(pc.x, pc.y + 2, G.pw / 2, 6, 0, 0, Math.PI); ctx.fill();
+    ctx.strokeStyle = '#8a8494'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pc.x - G.pw / 2, pc.y + 2); ctx.lineTo(pc.x + G.pw / 2, pc.y + 2); ctx.stroke();
+  }
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    if (!G) return;
+    drawScale();
+    // capacity slots, so the limit shows where you load
+    if (c.cap) for (const p of (c.scale === 'spring' ? [1] : [1, 2])) {
+      const save = panOrder[p].length;
+      for (let j = save; j < c.cap; j++) { const q = panSlot(p, j); ctx.beginPath(); ctx.arc(q.x, q.y, G.r, 0, 7); ctx.strokeStyle = 'rgba(226,179,74,.35)'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
+    }
+    // empty home slots
+    for (let i = 0; i < c.n; i++) if (where[i]) { const h = G.home[i]; ctx.beginPath(); ctx.arc(h.x, h.y, G.r * 0.9, 0, 7); ctx.strokeStyle = '#2c2a34'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = '#4a4552'; ctx.font = `${Math.round(G.r * 0.7)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(i + 1, h.x, h.y); }
+    for (let i = 0; i < c.n; i++) { if (gesture && gesture.moved && gesture.coin === i) continue; const q = coinPos(i); drawCoin(i, q.x, q.y, G.r); }
+    if (gesture && gesture.moved) drawCoin(gesture.coin, gesture.x, gesture.y, G.r * 1.15, true);
+    if (gesture && gesture.weigh) { ctx.beginPath(); ctx.arc(G.cx, G.beamY, 16, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * gesture.t / HOLD_MS); ctx.strokeStyle = '#e2b34a'; ctx.lineWidth = 4; ctx.stroke(); }
+  }
+
+  // § input: drag = load, tap a coin = mark (or pick, while accusing), tap the beam = weigh.
+  let gesture = null, kbd = false, cursor = 0;
+  function pt(e) { const b = canvas.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; }
+  function coinAt(x, y) {
+    let best = -1, bd = (G.r * 1.25) ** 2;
+    for (let i = 0; i < c.n; i++) { const q = coinPos(i), d = (q.x - x) ** 2 + (q.y - y) ** 2; if (d < bd) { bd = d; best = i; } }
+    return best;
+  }
+  const locked = () => paused || !c || phase === 'tip' || phase === 'wait';
+  canvas.addEventListener('pointerdown', e => {
+    if (locked()) return;
+    kbd = false;
+    const p = pt(e);
+    if (phase === 'over') { next(); return; }
+    const i = coinAt(p.x, p.y);
+    if (i >= 0) { gesture = { coin: i, x0: p.x, y0: p.y, x: p.x, y: p.y, moved: false }; canvas.setPointerCapture(e.pointerId); }
+    else if (weighHit(p.x, p.y) && phase === 'load') gesture = { weigh: true, t: 0 };
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!gesture || gesture.weigh) return;
+    const p = pt(e);
+    gesture.x = p.x; gesture.y = p.y;
+    if (!gesture.moved && Math.hypot(p.x - gesture.x0, p.y - gesture.y0) > DRAG_PX && phase === 'load') gesture.moved = true;
+  });
+  function endGesture(e, cancel) {
+    const g = gesture; gesture = null;
+    if (!g || cancel || locked()) return;
+    if (g.weigh) { say('<b>Hold</b> the beam to weigh.'); return; }
+    if (g.moved) { place(g.coin, panHit(g.x, g.y)); return; }
+    if (phase === 'accuse') pick(g.coin); else cycleMark(g.coin);
+  }
+  canvas.addEventListener('pointerup', e => endGesture(e, false));
+  canvas.addEventListener('pointercancel', e => endGesture(e, true));
+  window.addEventListener('keydown', e => {
+    if (locked() || e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key, cols = G ? G.tf.cols : 1;
+    const go = i => { kbd = true; cursor = Math.max(0, Math.min(c.n - 1, i)); };
+    if (phase === 'over') { if (k === 'Enter' || k === ' ' || k === 'n' || k === 'N') { next(); e.preventDefault(); } return; }
+    if (k === 'ArrowLeft') go(cursor - 1); else if (k === 'ArrowRight') go(cursor + 1);
+    else if (k === 'ArrowUp') go(cursor - cols); else if (k === 'ArrowDown') go(cursor + cols);
+    else if (/^[0-9]$/.test(k)) go(k === '0' ? 9 : +k - 1);
+    else if (k === 'l' || k === 'L') { kbd = true; place(cursor, where[cursor] === 1 ? 0 : 1); }
+    else if (k === 'r' || k === 'R') { kbd = true; place(cursor, where[cursor] === 2 ? 0 : 2); }
+    else if (k === 't' || k === 'T' || k === 'Backspace') place(cursor, 0);
+    else if (k === 'm' || k === 'M') { kbd = true; cycleMark(cursor); }
+    else if (k === 'a' || k === 'A') toggleAccuse();
+    else if (k === 'Escape') { if (phase === 'accuse') toggleAccuse(); else clearPans(); }
+    else if (k === 'h' || k === 'H') showHint();
+    else if (k === ' ' || k === 'Enter' || k === 'w' || k === 'W') { if (phase === 'accuse') { kbd = true; pick(cursor); renderUI(); } else doWeigh(); }
+    else return;
+    e.preventDefault();
+  });
+
+  // § clock: animation and unpaused case time (for telemetry)
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(100, now - last); last = now;
+    if (!paused && c) {
+      if (phase !== 'over') caseMs += dt;
+      if (phase === 'tip') { tipT += dt; if (tipT >= TIP_MS) afterTip(); }
+      if (gesture && gesture.weigh && (gesture.t += dt) >= HOLD_MS) { gesture = null; doWeigh(); }
+      const target = tiltNow();
+      tiltShown += (target - tiltShown) * Math.min(1, dt / 90);
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+  new ResizeObserver(() => { layout(); }).observe(wrap);
+  window.addEventListener('resize', layout);
+  // read-only peek for scripts/ tests (screenshots, playthroughs)
+  window.__cs = () => ({ c, where, phase, G, pos: coinPos, run, jump: i => { run.idx = i; startCase(); } });
+  newRun();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
