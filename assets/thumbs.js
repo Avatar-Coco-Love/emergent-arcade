@@ -267,5 +267,18 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct };
+  function counterfeitScale() {
+    let body = `<rect width="72" height="72" fill="#0d0c10"/>`;
+    // A balance tipped left, a heavy coin on the low pan, marked coins in the tray.
+    body += `<path d="M 36 14 V 50 M 26 50 H 46" stroke="#8a8494" stroke-width="3" stroke-linecap="round"/>`;
+    body += `<path d="M 14 21 L 58 13" stroke="#b8b0c4" stroke-width="2.5" stroke-linecap="round"/><path d="M 36 10 L 32 18 H 40 Z" fill="#e2b34a"/>`;
+    body += `<path d="M 14 21 L 6 38 M 14 21 L 22 38 M 58 13 L 50 30 M 58 13 L 66 30" stroke="#6b6575" stroke-width="0.8"/>`;
+    body += `<path d="M 5 38 H 23 M 49 30 H 67" stroke="#8a8494" stroke-width="2" stroke-linecap="round"/>`;
+    body += `<circle cx="14" cy="33" r="4.5" fill="#e8743b"/><circle cx="58" cy="25" r="4.5" fill="#c9a542"/>`;
+    const tray = ["#c9a542", "#5fcf80", "#5aa0e8", "#c9a542", "#5fcf80"];
+    tray.forEach((f, i) => { body += `<circle cx="${12 + i * 12}" cy="61" r="4.5" fill="${f}" stroke="rgba(0,0,0,.35)"/>`; });
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale };
 })();

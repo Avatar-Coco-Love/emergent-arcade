@@ -44,4 +44,4 @@ before coding, as CLAUDE.md requires.
 
 ## Open question
 
-Counterfeit Scale is chosen and has a full brief (`counterfeit-scale.md`), ready for implementation in a fresh session.
+Counterfeit Scale is built (v1, 2026-10-02): notes in `docs/games/counterfeit-scale.md`.
