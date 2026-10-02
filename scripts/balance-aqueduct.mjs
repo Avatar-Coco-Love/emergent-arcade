@@ -19,6 +19,7 @@
 //   planner: beam search over (turn to ±k·30°, hold 1 s) actions by rolling the
 //     sim forward from snapshots, scoring the bead's path distance to the exit
 //     (BFS over the vessel's free space). Open-loop; the plan is then replayed.
+//   (Dyed cups: the planner's cup error adds the foreign share over the 20% purity limit.)
 //   pearls: the planner, but it visits the level's pearls in their listed order
 //     before the exit (a win with pearls left is a dead end). Shows every pearl is
 //     reachable in one run.
@@ -102,7 +103,8 @@ function playInPage({ seed, bot, search, lv }) {
     for (let k = 0; k < HOLD && D.state === 'playing'; k++) { D.step(dt); if (k % 10 === 9) best = Math.min(best, geo()); }
     const g = geo(); best = Math.min(best, g);
     let vs = 0;
-    D.cups.forEach((c, k) => { const f = D.fill[k], e = f < c.band[0] ? c.band[0] - f : f > c.band[1] ? f - c.band[1] : 0;
+    D.cups.forEach((c, k) => { const f = D.fill[k], m = c.dye === undefined ? 0 : Math.max(0, D.mix[k] - 0.2),   // m: foreign share over the purity limit
+      e = (f < c.band[0] ? c.band[0] - f : f > c.band[1] ? f - c.band[1] : 0) + m;
       vs += 80 * e - (D.valves[k] && e === 0 ? 25 : 0); });
     return { snap: D.snap(), score: g + 0.5 * best + vs - (D.doorOpen && NV ? 20 : 0) + (D.state === 'won' ? -1000 : 0), won: D.state === 'won', a, v };
   }
