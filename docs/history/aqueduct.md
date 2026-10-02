@@ -4,6 +4,53 @@ Superseded design-note text, prototype measurements and playtest logs.
 Current design: `docs/games/aqueduct.md`. Add new entries at the top;
 sessions don't read this file by default.
 
+
+
+
+## Sim and input (current as of 2026-10-02)
+
+- Sim: Clavet double-density, 2 substeps of 1/120 s, SDF walls; bead has
+  explicit buoyancy (`LIFT` 3, probe `RING` 6 / `RING_FULL` 19) and drag
+  toward local water velocity (`BEAD_DRAG` 8/s). Perf: 0.9 ms sim/frame at
+  1x CPU; ~55 fps at 4x throttle, dpr capped 1.25 (headless, not a phone).
+- Input: `← →` ramped turn (50-420 deg/s), drag dial, phone gravity
+  (untested on a device), valve buttons (Space, `1` `2`), `R`, `L`/Esc.
+
+## Pearl routes (2026-10-02, before water home scored)
+
+`planner` = direct route, ignores pearls; `pearls` = visits them in data
+order, then exits (D22 B12, 2 seeds). Score = clear + pearls + bullseye.
+
+| level | pearls at | planner: pearls, score | pearls bot: win, s, moves, score | plan |
+|---|---|---|---|---|
+| 0 | A top-left, A bottom-left, B top-right | 1/3, 200 | 2/2, 5.3 s, 6, 400 | `180 270 90 30 30` |
+| 1 | A top-left, A bottom-left, B bottom-right | 0/3, 169 | 2/2, 6.2 s, 7, 493 | `180 300 210 60 240a 270a 240` |
+| 2 | A top-left, A bottom-right, A bottom-left | 0/3, 172 | 2/2, 7.6 s, 8, 567 | `150a 270 150a 120ab -30ab 30a` |
+
+
+## Plan for the trail / free pour / water-home PR (done 2026-10-02)
+
+Agreed then: dye as level data (levels 0-2 one colour); home scored only if
+bots spread over 20 points (they did); free pour as a separate menu entry,
+same vessel, bead in; short live trail + whole path at the win. The plan as
+written before:
+
+1. **Next PR (agreed with the user, 2026-10-02): items 3, 5, 6** from the
+   "least effort, most reward" list. Discuss each with the user first, then
+   build in one PR:
+   - **3. Water brought home**: at the win, count particles in a marked
+     "home" region (same counting as the cup readings) and add points, so
+     spilling water over the sill costs something. Open: which region per
+     level, points per particle, does it fight the bullseye?
+   - **5. Free pour**: a level with no exit and no cups (pure data, ~10
+     lines), a calm toy for watching the water. Open: menu entry or level
+     -1; never locked; no score or `arcade:result`.
+   - **6. Bead trail**: a fading trail behind the bead (~15 lines), so a
+     pearl run is satisfying to look back on. Open: length, colour by speed?
+   Prompt to start it: "Aqueduct next PR: read `docs/games/aqueduct.md`
+   ('Next' item 1) and discuss items 3, 5 and 6 with me before building:
+   water brought home, a free-pour level, and a bead trail."
+
 ## Pearl placement (2026-10-02)
 
 Level 2's first draft (B top-right, B bottom-right) gave the direct route

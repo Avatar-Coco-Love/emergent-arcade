@@ -3,7 +3,7 @@
 // Usage: LEVEL=1 node scripts/balance-aqueduct.mjs [runs=10] [bot,bot,...] [DEPTH=14,BEAM=10]
 //   LEVEL picks the level (index into LEVELS, default 1). TRACE=1 prints the planner's chosen
 //   actions [angle, valve bits]. PLAN_RUNS caps planner runs (default 5). Score = 100 clear + 100 per
-//   pearl + up to 100 per cup bullseye (higher is better); `pearls` is the median picked up;
+//   pearl + up to 100 per cup bullseye (higher is better); `pearls` is the median picked up; + up to 100 for water home;
 //   `home` the range of the share of free water in the level's home region at the win.
 //
 // The prototype exposes window.__dbg (seeded rng, step(dt), snapshot/restore),

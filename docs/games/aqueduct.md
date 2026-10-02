@@ -25,12 +25,8 @@ volumes are one problem.
 
 ## Prototype: levels and constants
 
-Levels are data (`LEVELS` in `§ levels`): `shapes` (rounded boxes),
-`water` [{shape, n}], `bead`, `exit`, `cen` (drawing only), `cups` [{name,
-color, read region, `mouth` up/down/left/right, `band` [lo, hi], `valve`
-plate {x0, y0, x1, y1, from}, fill hint}], `low` (too little water on the
-ring side), `goal` text. No cups = door always open. A new level needs no
-code. Vessel frame, y down, angle 0 = upright.
+Levels are data (`LEVELS` in `§ levels`; fields documented in the comment
+above it). A new level needs no code. Vessel frame, y down, angle 0 = upright.
 - Shared vessel: chambers A and B (150 x 240, centres (∓100, 35)), bridge
   (124 x 34, centre (0, -62)) over a high sill. 600 particles start in A;
   bead at A's surface (-100, -10).
@@ -47,19 +43,29 @@ code. Vessel frame, y down, angle 0 = upright.
   `PEARL_PTS` 100 per pearl + up to `BULL_PTS` 100 per cup **bullseye**.
   Bullseye: full within `BULL_TOL` ±2% of the band's centre line (drawn
   dotted), linear to 0 at the band edge, read at the moment of the win.
-  Max 400 / 500 / 600 (levels 0-2). Bests in localStorage `aqueduct.v2`
-  (`aqueduct.v1` read only as "cleared"). `arcade:result` adds `pearls`.
+  Plus water home (above). Max 500 / 600 / 700 (levels 0-2). Bests in
+  localStorage `aqueduct.v3` (`v1`, `v2` read only as "cleared"). `arcade:result` adds `pearls`.
 - **Pearls**: level data `pearls: [{x, y}]` (3 per level), collected when
   the bead's centre comes within `PEARL_PICK` 15 px. Corner pearls need the
   bead in a nearly empty chamber. Data order = the `pearls` bot's order.
-- **Dye** (looks only): each particle is tinted by the half of its start
-  chamber it began in (`DYE` blue / teal). No sim cost.
-- Sim: Clavet double-density, 2 substeps of 1/120 s, SDF walls; bead has
-  explicit buoyancy (`LIFT` 3, probe `RING` 6 / `RING_FULL` 19) and drag
-  toward local water velocity (`BEAD_DRAG` 8/s). Perf: 0.9 ms sim/frame at
-  1x CPU; ~55 fps at 4x throttle, dpr capped 1.25 (headless, not a phone).
-- Input: `← →` ramped turn (50-420 deg/s), drag dial, phone gravity
-  (untested on a device), valve buttons (Space, `1` `2`), `R`, `L`/Esc.
+- **Water home**: level data `home` {x0, x1, y0, y1, pts} (levels 0-2:
+  chamber B, `HOME_B`). At the win, the share of free water (not in any
+  cup's read region) inside it scores `HOME_PTS` 100 × min(1, share /
+  `HOME_FULL` 0.6). Cup water is excluded, so it never fights the bullseye.
+  It fights the win instead: a full B floats the bead above the low ring
+  (pour everything over and the bead is left behind in A).
+- **Dye** (looks only so far): level data `water[].dye` = `DYE` index
+  (default 0, blue) or `'split'` (left/right half of the start chamber,
+  blue / teal). Levels 0-2 are one colour; the second colour is kept for
+  levels where it means something (colour sorting, below).
+- **Bead trail** (looks only): last `TRAIL_N` 48 frames (0.8 s), fading and
+  narrowing. The whole path (a point per `PATH_EVERY` 3 frames, thinned
+  past `PATH_MAX` 2400) is drawn at the win with dots on the pearls
+  collected; the win card waits 1.2 s and dims less (`#menu.won`).
+- **Free pour**: last entry in `LEVELS` (`free: true`, id `free`): no exit,
+  cups, pearls, score or `arcade:result`; split dye; bead in; always
+  unlocked, shown after the numbered levels, never the "Next level".
+- Sim, perf and input details: history, "Sim and input".
 
 | level | id | cups | exit | intended solution |
 |---|---|---|---|---|
@@ -80,46 +86,38 @@ Cup hold vs angle (fill map) and why the ring needs the valve: history,
 | 1 | 0% | 0% | 0% | 0% | 5% | 5% | 5/5 (D14 B14), 4.3 s, 5 moves | 0/5 |
 | 2 | 0% | 0% | 0% | 0% | 0% | 0% | 3/3 (D14 B14), 5.3 s, 6 moves | 0/3 |
 
-Pearls and points (the sim is unchanged, so the win rates above stand).
-`planner` = direct route, ignores pearls; `pearls` = visits them in data
-order, then exits (D22 B12, 2 seeds). Score = clear + pearls + bullseye.
+Water home at the win (share of free water in B; before `HOME_FULL`
+scaling, measured 2026-10-02): planner L0 14-28%, L1 8-39%, L2 14-39%
+(3 seeds); pearls bot L0 39-48% (2); greedy L0 24-65% (14 wins). Spread
+well over 20 points, so it scores; nothing passed 65%, hence full at 60%.
 
-| level | pearls at | planner: pearls, score | pearls bot: win, s, moves, score | plan |
-|---|---|---|---|---|
-| 0 | A top-left, A bottom-left, B top-right | 1/3, 200 | 2/2, 5.3 s, 6, 400 | `180 270 90 30 30` |
-| 1 | A top-left, A bottom-left, B bottom-right | 0/3, 169 | 2/2, 6.2 s, 7, 493 | `180 300 210 60 240a 270a 240` |
-| 2 | A top-left, A bottom-right, A bottom-left | 0/3, 172 | 2/2, 7.6 s, 8, 567 | `150a 270 150a 120ab -30ab 30a` |
+Pearl routes and pre-home scores per level (planner 0-1 pearls, pearls bot
+3/3 on every level): history, "Pearl routes".
 
 Pearls sit off the direct route (finding "off the solution's lanes"); the
 warm-up's free pearl at 90° is on purpose. Placement notes: history.
 
-Level 2: the lock order is the puzzle (shut violet first; history,
-"Step 4 measurements").
-
 ## Next (in order)
 
-1. **Next PR (agreed with the user, 2026-10-02): items 3, 5, 6** from the
-   "least effort, most reward" list. Discuss each with the user first, then
-   build in one PR:
-   - **3. Water brought home**: at the win, count particles in a marked
-     "home" region (same counting as the cup readings) and add points, so
-     spilling water over the sill costs something. Open: which region per
-     level, points per particle, does it fight the bullseye?
-   - **5. Free pour**: a level with no exit and no cups (pure data, ~10
-     lines), a calm toy for watching the water. Open: menu entry or level
-     -1; never locked; no score or `arcade:result`.
-   - **6. Bead trail**: a fading trail behind the bead (~15 lines), so a
-     pearl run is satisfying to look back on. Open: length, colour by speed?
-   Prompt to start it: "Aqueduct next PR: read `docs/games/aqueduct.md`
-   ('Next' item 1) and discuss items 3, 5 and 6 with me before building:
-   water brought home, a free-pour level, and a bead trail."
-2. Human playtest of levels 0-2 (Artifact below): are pearls visible and
-   wanted? Bullseye line readable? Warm-up too easy (novice 40%)? Does
-   level 2's "which one first" read? Typical human scores for a par.
-3. More levels until play reaches 10+ minutes (draft ideas below), each
-   gated like level 2, each with 3 pearls off the direct route (check with
-   `planner` vs `pearls`). Then register in `games.json` (manifest `score`
-   higher-is-better, achievements, `howToPlay`).
+1. Human playtest of levels 0-2 and free pour (Artifact below): are pearls
+   visible and wanted? Bullseye line readable? Does "water home" read, and
+   does the bead-vs-water trade feel fair or fiddly? Warm-up too easy
+   (novice 40%)? Does level 2's "which one first" read? Human scores for a par.
+2. More levels until play reaches 10+ minutes (draft ideas below), each
+   gated like level 2, with 3 pearls off the direct route (check with
+   `planner` vs `pearls`) and a `home` region where spilling tempts.
+   **Colour sorting** (user, 2026-10-02): the second dye first appears in
+   the level that uses it; later levels keep the colours apart and fill
+   cups with their own colour. Plan: a cup counts only its own dye, with a
+   purity limit (e.g. ≤15% foreign); mixing can't be undone (same
+   density, no diffusion), so build `hopeless()` + one-key restart first.
+3. Register (move to `games/aqueduct.html`, `validate.mjs` then applies):
+   manifest (`goal`, `howToPlay`, mechanics, `keyboard`, accent), `score`
+   (higher, per-level `boards` + `boardList`, epoch 1), 3+ achievements
+   with `unlock()`, `changes` backfilled v1..vN from the prototype's
+   milestones (git log of `prototypes/aqueduct.html`); drop the fps/sim
+   debug from the HUD and move in-file instructions to the manifest; point
+   `balance-`/`probe-aqueduct.mjs` at the new path; `smoke-gallery.mjs`.
 4. Phone tilt test after merge (iOS sign flipped, untested), real-phone fps.
 5. Known gap: the door stays open 0.3 s (filter lag) after a cup reopens.
 
