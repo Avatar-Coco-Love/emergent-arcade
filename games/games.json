@@ -1518,7 +1518,7 @@
       "id": "lighthouse-keeper",
       "title": "Lighthouse Keeper",
       "file": "lighthouse-keeper.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-10-03",
       "updated": "2026-10-03",
       "blurb": "Turn the lighthouse beam through the fog so ships can see the rocks, and ration the oil to last the night.",
@@ -1559,7 +1559,7 @@
         {
           "id": "starburst",
           "title": "Starburst",
-          "description": "Light 4 ships with one flare."
+          "description": "Fire one flare that gives sight back to 5 ships sailing blind."
         },
         {
           "id": "thrifty-keeper",
@@ -1587,6 +1587,11 @@
         "epoch": 1
       },
       "changes": [
+        {
+          "version": 2,
+          "date": "2026-10-03",
+          "text": "Convoys now arrive together, spread wide, with reefs ahead of every ship: one flare beats sweeping. Faster ships and shorter nights (~1 min). Gentler nights 3-5. Fixes: a drag from the lighthouse aims, ships from the right sail in, reefs clear of arrivals, smoother fog."
+        },
         {
           "version": 1,
           "date": "2026-10-03",
