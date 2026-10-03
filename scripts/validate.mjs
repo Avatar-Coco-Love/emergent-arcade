@@ -7,6 +7,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { selfContainedProblems } from "./self-contained.mjs";
 import { wording } from "./wording.mjs";
+import { topics } from "./topics.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const gamesDir = join(root, "games");
@@ -52,6 +53,7 @@ for (const [i, g] of games.entries()) {
   checkChanges(where, g);
   checkWording(where, g);
   checkScore(where, g);
+  checkTopics(where, g);
 
   // Design rule: 2-3 core mechanics, each a distinct verb.
   const mechs = Array.isArray(g.mechanics) ? g.mechanics : [];
@@ -150,6 +152,19 @@ function checkWording(where, g) {
   }
 }
 
+// Optional "topics": 1-3 ids from the fixed list in assets/topics.js, so
+// tags never drift into free-form near-duplicates. A new tag goes in that
+// list first (docs/adding-a-game.md, "Topics").
+function checkTopics(where, g) {
+  if (g.topics === undefined) return;
+  const t = g.topics;
+  if (!Array.isArray(t) || t.length < 1 || t.length > 3) return fail(`${where}: "topics" must be a list of 1-3 topic ids`);
+  if (new Set(t).size !== t.length) fail(`${where}: "topics" lists a tag twice`);
+  for (const id of t) {
+    if (!topics.get(id)) fail(`${where}: unknown topic "${id}" (known: ${topics.LIST.map((x) => x.id).join(", ")}; add new ones to assets/topics.js)`);
+  }
+}
+
 // Platform rule: every game declares 3+ achievements in the manifest and
 // announces each one from the game file (see docs/adding-a-game.md).
 function checkAchievements(where, g, html) {
@@ -197,6 +212,15 @@ function checkScore(where, g) {
 // assets (rules in scripts/self-contained.mjs).
 function checkSelfContained(file, html) {
   for (const problem of selfContainedProblems(html)) fail(`games/${file}: ${problem}`);
+}
+
+// The topic list itself: kebab-case ids, a known kind, no duplicate labels,
+// and every tag used by a game unless it's marked "planned".
+if (new Set(topics.LIST.map((t) => t.label)).size !== topics.LIST.length) fail("assets/topics.js: two topics share a label");
+for (const t of topics.LIST) {
+  if (!/^[a-z]+(-[a-z]+)*$/.test(t.id)) fail(`assets/topics.js: topic id "${t.id}" must be lowercase words joined by dashes`);
+  if (!topics.KINDS.includes(t.kind)) fail(`assets/topics.js: topic "${t.id}" needs a kind (${topics.KINDS.join(" or ")})`);
+  if (!t.planned && !games.some((g) => Array.isArray(g.topics) && g.topics.includes(t.id))) warnings.push(`topic "${t.id}" (assets/topics.js) is used by no game: tag one or remove it`);
 }
 
 for (const w of warnings) console.warn(`warning: ${w}`);

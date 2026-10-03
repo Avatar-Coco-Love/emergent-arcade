@@ -1,9 +1,10 @@
-// The gallery: the catalog of cards (search, sort, verb filter, continue
+// The gallery: the catalog of cards (search, sort, verb and topic filters, continue
 // playing, archive), the site header (achievement total, settings, about the
 // arcade) and routing. The cabinet itself is assets/cabinet.js.
 //
 // Routes:  #/play/<id>                     a game's cabinet (shareable)
 //          #/?sort=updated&verb=drag&q=ant  the gallery, with its view state
+//          #/?topic=fluid-dynamics          (topics: assets/topics.js)
 //          #/records, #/records?mine=1     every game's leaderboard (assets/records.js)
 (function () {
   const UI = window.ArcadeUI;
@@ -17,6 +18,7 @@
   const Cabinet = window.ArcadeCabinet;
   const Wording = window.ArcadeWording;
   const Records = window.ArcadeRecords;
+  const Topics = window.ArcadeTopics;
 
   const galleryView = $("galleryView");
   const gameList = $("gameList");
@@ -27,7 +29,7 @@
   const SORTS = ["new", "updated", "title", "left"];
 
   let games = [];
-  let state = { q: "", sort: "", verb: "" };
+  let state = { q: "", sort: "", verb: "", topic: "" };
   let galleryHash = "#/";
   let listHash = "#/"; // where the cabinet's ← goes: the gallery or Records
   let galleryScroll = 0;
@@ -48,13 +50,15 @@
     const i = hash.indexOf("?");
     const p = new URLSearchParams(i >= 0 ? hash.slice(i + 1) : "");
     const sort = p.get("sort") || "";
-    return { q: (p.get("q") || "").slice(0, 60), sort: SORTS.includes(sort) ? sort : "", verb: p.get("verb") || "" };
+    const topic = p.get("topic") || "";
+    return { q: (p.get("q") || "").slice(0, 60), sort: SORTS.includes(sort) ? sort : "", verb: p.get("verb") || "", topic: Topics.get(topic) ? topic : "" };
   }
 
   function stateHash() {
     const p = new URLSearchParams();
     if (state.sort) p.set("sort", state.sort);
     if (state.verb) p.set("verb", state.verb);
+    if (state.topic) p.set("topic", state.topic);
     if (state.q) p.set("q", state.q);
     const s = p.toString();
     return s ? `#/?${s}` : "#/";
@@ -68,12 +72,13 @@
     renderGallery();
   }
 
-  const filtering = () => !!(state.q || state.verb);
+  const filtering = () => !!(state.q || state.verb || state.topic);
 
   function matches(g) {
     if (state.verb && !g.mechanics.some((m) => m.verb === state.verb)) return false;
+    if (state.topic && !(g.topics || []).includes(state.topic)) return false;
     if (!state.q) return true;
-    const hay = [g.title, g.blurb, ...g.mechanics.flatMap((m) => [m.name, m.verb, Wording.verb(m.verb)])].join(" ").toLowerCase();
+    const hay = [g.title, g.blurb, ...g.mechanics.flatMap((m) => [m.name, m.verb, Wording.verb(m.verb)]), ...Topics.of(g).map((t) => t.label)].join(" ").toLowerCase();
     return state.q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w));
   }
 
@@ -226,6 +231,38 @@
       return btn;
     };
     $("verbChips").replaceChildren(chip("", "All verbs"), ...verbs.map((v) => chip(v, Wording.verb(v))));
+    renderTopicChips();
+  }
+
+  // Topic chips: subjects, then skills, each kind under a small label. Only
+  // tags some game uses (a "planned" tag stays hidden until its game ships).
+  function renderTopicChips() {
+    const used = Topics.LIST.filter((t) => games.some((g) => (g.topics || []).includes(t.id)));
+    const chip = (id, label, about) => {
+      const btn = el("button", { type: "button", className: "topic-chip", textContent: label });
+      if (about) btn.title = about;
+      if (id) btn.dataset.topic = id;
+      btn.setAttribute("aria-pressed", String(state.topic === id));
+      btn.addEventListener("click", () => {
+        state.topic = state.topic === id ? "" : id;
+        commitState();
+        telemetry.event("filter", { topic: state.topic || "all" });
+        const again = $("topicChips").querySelector(id ? `[data-topic="${id}"]` : ".topic-chip:not([data-topic])");
+        if (again) again.focus();
+      });
+      return btn;
+    };
+    const kinds = Topics.KINDS.flatMap((k) => {
+      const list = used.filter((t) => t.kind === k);
+      return list.length ? [el("span", { className: "topic-kind", textContent: k === "subject" ? "Subjects" : "Skills" }), ...list.map((t) => chip(t.id, t.label, t.about))] : [];
+    });
+    $("topicChips").replaceChildren(chip("", "All topics"), ...kinds);
+    $("topicChips").hidden = !used.length;
+    // Phones scroll this row sideways: bring the pressed chip into view
+    // (past the faded right edge) only if it's out of view.
+    const row = $("topicChips");
+    const on = row.querySelector('[aria-pressed="true"][data-topic]');
+    if (on && on.offsetLeft + on.offsetWidth > row.clientWidth - 28) row.scrollLeft = on.offsetLeft + on.offsetWidth - row.clientWidth + 40;
   }
 
   function renderHeader() {
@@ -255,7 +292,7 @@
     } else if (!shown) {
       const clear = el("button", { type: "button", className: "linkish", textContent: "Show all games" });
       clear.addEventListener("click", () => {
-        state = { q: "", sort: state.sort, verb: "" };
+        state = { q: "", sort: state.sort, verb: "", topic: "" };
         commitState();
         search.focus();
       });
@@ -311,6 +348,7 @@
         const row = { game_id: game.id, game_version: game.version, from: src.from, sort: state.sort || "featured" };
         if (src.position) row.position = src.position;
         if (state.verb) row.verb = state.verb;
+        if (state.topic) row.topic = state.topic;
         if (state.q) row.searching = true;
         telemetry.event("open", row);
       }

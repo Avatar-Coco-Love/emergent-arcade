@@ -40,6 +40,7 @@ const { chromium } = await loadPlaywright();
 
 const manifest = JSON.parse(readFileSync(join(root, "games/games.json"), "utf8"));
 const { WORDS } = (await import("./wording.mjs")).wording;
+const Topics = (await import("./topics.mjs")).topics;
 const games = manifest.games;
 const rows = []; // everything the gallery sent to the (fake) endpoint
 
@@ -474,6 +475,54 @@ for (const vp of VIEWPORTS) {
     await page.locator("#galleryStatus button").click();
     assert(await noHScroll(page), "horizontal scroll");
     return `${n} hold games`;
+  });
+
+  // Topic tags (assets/topics.js): ?topic= in the hash, chips, search, the
+  // ⓘ panel's links back to the filtered gallery. Phones scroll the chip row
+  // sideways, so the page itself never does.
+  await check(tag("topic filter, search and ⓘ links"), async () => {
+    const tagged = (id) => games.filter((g) => (g.topics || []).includes(id) && g.status !== "archived").length;
+    const used = [...new Set(games.flatMap((g) => g.topics || []))];
+    assert(used.length, "no game has topics");
+    const first = used[0];
+    await page.goto(`${base}#/?topic=${first}`);
+    await page.waitForSelector(".game-card");
+    assert((await page.locator("#gameList .game-card").count()) === tagged(first), `?topic=${first} shows the wrong games`);
+    assert((await page.locator(".topic-chip[aria-pressed=\"true\"]").getAttribute("data-topic")) === first, "chip not pressed from the hash");
+    const chips = await page.locator(".topic-chip[data-topic]").evaluateAll((bs) => bs.map((b) => [b.dataset.topic, b.offsetHeight]));
+    assert(chips.length === used.length, `${chips.length} chips for ${used.length} used topics`);
+    assert(chips.every(([, h]) => h >= (coarse ? 44 : 34)), "topic chip too small");
+    // Press another (scrolled into view on phones), then clear it.
+    const other = used.find((t) => t !== first);
+    await page.locator(`.topic-chip[data-topic="${other}"]`).click();
+    let hash = await page.evaluate(() => location.hash);
+    assert(hash.includes(`topic=${other}`) && !hash.includes(`topic=${first}`), hash);
+    assert((await page.locator("#gameList .game-card").count()) === tagged(other), "chip didn't filter");
+    assert(await noHScroll(page), "horizontal scroll");
+    await shot("topics");
+    await page.locator(".topic-chip:not([data-topic])").click();
+    hash = await page.evaluate(() => location.hash);
+    assert(!hash.includes("topic="), `not cleared: ${hash}`);
+    // Search finds a game by its topic label; an unknown topic is ignored.
+    const g = games.find((x) => (x.topics || []).length && x.status !== "archived");
+    const label = Topics.get(g.topics[0]).label;
+    await page.fill("#search", label);
+    const found = await page.locator("#gameList h3 > span:first-child").allTextContents();
+    assert(found.includes(g.title), `search "${label}" missed ${g.title}`);
+    await page.goto(`${base}#/?topic=no-such-topic`);
+    await page.waitForSelector(".game-card");
+    assert((await page.locator("#gameList .game-card").count()) === games.filter((x) => x.status !== "archived").length, "unknown topic filtered");
+    // The ⓘ panel lists the game's topics; each links to the filtered gallery.
+    await page.goto(`${base}#/play/${g.id}`);
+    await waitGame(page);
+    if (!(await page.locator("#aboutTopics").isVisible())) await page.locator('[data-panel="about"]').first().click();
+    const links = await page.locator("#aboutTopics .topic-link").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+    assert(links.join() === g.topics.map((t) => `#/?topic=${t}`).join(), `ⓘ topics: ${links.join(", ")}`);
+    await page.locator("#aboutTopics .topic-link").first().click();
+    await page.waitForSelector("#galleryView:not([hidden])");
+    assert((await page.locator("#gameList .game-card").count()) === tagged(g.topics[0]), "ⓘ link didn't filter");
+    assert(await noHScroll(page), "horizontal scroll after the ⓘ link");
+    return `${used.length} topics, ${tagged(first)} ${first}`;
   });
 
   await check(tag("header share copies the arcade link"), async () => {

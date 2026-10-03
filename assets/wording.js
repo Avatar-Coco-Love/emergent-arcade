@@ -23,7 +23,7 @@ window.ArcadeWording = (function () {
     swiped: ["swiped", "dragged"],
   };
   // Manifest fields that are keys or data, never shown as prose.
-  const RAW = new Set(["id", "file", "verb", "added", "updated", "accent", "status", "version", "date"]);
+  const RAW = new Set(["id", "file", "verb", "added", "updated", "accent", "status", "version", "date", "topics"]);
   const PLACEHOLDER = /\{([^{}]*)\}/g;
 
   const coarse = () => !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);

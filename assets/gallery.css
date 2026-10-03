@@ -132,13 +132,37 @@ button.linkish {
   .catalog-controls select { flex: 1 1 0; min-width: 0; max-width: none; }
 }
 .verb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
-.verb-chip {
+.verb-chip, .topic-chip {
   min-height: var(--tap); padding: 0 16px;
   font: inherit; font-size: 0.9rem; color: var(--text);
   background: var(--panel); border: 1px solid var(--border); border-radius: 999px;
   cursor: pointer;
 }
-.verb-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.verb-chip[aria-pressed="true"], .topic-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+/* Topic chips (assets/topics.js): a second row under the verbs, with a small
+   label before the subjects and before the skills. */
+.topic-chips { position: relative; align-items: center; }
+.verb-chips + .topic-chips { margin-top: -6px; }
+.topic-chip { flex: none; }
+.topic-kind {
+  flex: none; margin: 0 2px 0 6px;
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+}
+/* A mouse needs no 44 px target: smaller topic chips keep the row short. */
+@media (pointer: fine) {
+  .topic-chip { min-height: 34px; padding: 0 12px; font-size: 0.85rem; }
+}
+/* Phones: one row that scrolls sideways (a dozen topics would otherwise
+   push the games below the fold); the right edge fades to show there's more. */
+@media (max-width: 480px) {
+  .topic-chips {
+    flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    padding-right: 28px;
+  }
+  .topic-chips::-webkit-scrollbar { display: none; }
+}
 .gallery-status { margin: 12px 0; }
 .gallery-status:empty { display: none; }
 
@@ -447,6 +471,16 @@ body.playing .site-header, body.playing .site-footer { display: none; }
 .verb-row.keys .verb-tag { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
 .verb-row b { display: block; font-size: 0.95rem; }
 .verb-row .desc { display: block; font-size: 0.86rem; color: var(--muted); line-height: 1.35; }
+/* Topics in the ⓘ panel: links back to the gallery filtered by that topic. */
+.about-topics { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.about-topics .label { font-size: 0.86rem; color: var(--muted); margin-right: 2px; }
+.topic-link {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px;
+  font-size: 0.86rem; color: var(--text); text-decoration: none;
+  border: 1px solid var(--border); border-radius: 999px;
+}
+.topic-link:hover, .topic-link:focus-visible { border-color: var(--game-accent, var(--accent)); }
+.topic-link .kind { color: var(--muted); font-size: 0.75rem; margin-left: 6px; }
 /* The Play button stays in view while the details below it scroll. */
 .play-bar {
   position: sticky; bottom: -20px; z-index: 1;

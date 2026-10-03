@@ -72,6 +72,8 @@ published from a branch.
      under "What's new" (with a "Show all N versions" toggle for the rest), and the first time a browser opens a version newer
      than the one it last saw, a one-time callout shows the newest line.
      Versions are 1..`version`, one entry each.
+   - `topics`: 1–3 tag ids from the fixed list in `assets/topics.js`, e.g.
+     `["fluid-dynamics", "planning"]`. See "Topics" below.
    - `status`: `"active"` (the default) or `"archived"`. Archived games stay
      playable and keep their link, but the gallery lists them in a separate
      Archive section with a badge. Retire a game this way; never delete it.
@@ -172,6 +174,40 @@ published from a branch.
 
 A revision that changes the core mechanics enough to be a different game
 should be a new `id` instead.
+
+## Topics
+
+The optional `topics` field tags a game for the gallery's topic chips
+(`#/?topic=<id>`), search and the ⓘ panel. Tags come from one fixed list,
+`assets/topics.js`, so there are no free-form tags or near-duplicates
+(`validate.mjs` rejects any id not on it). Two kinds:
+
+- **subject**: the field the game's rules come from (mechanics, fluid
+  dynamics, ecology, information theory…).
+- **skill**: what the game is about doing (planning, deduction, timing,
+  spatial reasoning…). Describe a skill as what the game asks of the
+  player, never as training it.
+
+Tag only what the core mechanics really use: the shared state or the main
+decision has to *be* that subject or skill, not resemble it. Planning means
+moves worked out ahead under a budget (Pressure Grid's par, Island
+Census's two moves a season); a game where you react as things happen
+doesn't get it. Each entry's `about` line is the test. Fewer, sure tags
+beat three loose ones; base them on `docs/games/<id>.md` and the
+manifest's mechanics. Bump nothing for a tag change: it's catalog data,
+not gameplay.
+
+**Adding a tag to the list.** Only when a game needs one and no existing
+tag fits (check for a near-duplicate first: "fluids" is `fluid-dynamics`).
+Add `{ id, kind, label, about }` to `LIST` in `assets/topics.js`, in its
+kind's section: `id` is lowercase words joined by dashes and is a
+permanent key (links, telemetry), `label` is what the chip says,
+`about` one sentence saying what a game must do to earn it. Tag at least
+one game in the same PR: `validate.mjs` warns about a tag no game uses,
+unless it's marked `planned: true` (a tag for the next planned game, like
+`working-memory`), and the gallery hides chips with no games.
+`node scripts/mechanic-map.mjs` shows verbs × topics, so untried
+combinations stand out.
 
 ## Notes files
 
