@@ -1428,6 +1428,86 @@
         "max": 2000,
         "epoch": 1
       }
+    },
+    {
+      "id": "mycelium",
+      "title": "Mycelium",
+      "file": "mycelium.html",
+      "version": 1,
+      "added": "2026-10-03",
+      "updated": "2026-10-03",
+      "blurb": "Grow a fungal network through the soil to reach food, keep its far threads fed, and fruit mushrooms before the frost.",
+      "goal": "Grow each season's mushrooms before the frost. Your nutrient pool carries over; after 8 seasons the seasons keep coming, leaner each time. Score: mushrooms over the run.",
+      "howToPlay": "The glowing spore in the middle is your network's heart. Drag from it (or from any knot of your network) to a leaf patch to grow a thread there; each new knot costs nutrient from your pool, and every knot costs a little upkeep each second (shown next to the pool). A patch your thread reaches feeds the pool until it is used up. {Tap} a knot to pulse: a surge of nutrient leaves the pool and runs out along the thread, refilling every knot on the way; what reaches a patch grows a mushroom there, and what reaches any other knot is spilled. Knots more than 3 threads from the spore or a feeding patch slowly fade: pulse them, or they starve, and a thread that starves while attached rots back toward the spore. {Hold} a knot to cut the thread into it: everything beyond withers harmlessly and stops costing upkeep, and growing into it again reconnects it. When the pool is empty the network eats its own farthest tips. Later seasons bring an old log far out, dry soil (4× upkeep), rival moulds racing you to food ({hold} a rival knot to cut it), stones and patches that fall mid-season.",
+      "keyboard": "Arrows move the cursor, Enter marks a knot then Enter grows to the cursor, Space pulses, X cuts",
+      "mechanics": [
+        {
+          "name": "grow",
+          "verb": "drag",
+          "description": "Drag from a knot of your network to open soil to grow a thread there, one knot at a time, paid from the pool."
+        },
+        {
+          "name": "pulse",
+          "verb": "tap",
+          "description": "{Tap} a knot to send a surge of nutrient from the pool along the thread to it: it refills fading knots on the way and grows a mushroom if it ends on a patch."
+        },
+        {
+          "name": "prune",
+          "verb": "hold",
+          "description": "{Hold} a knot to cut the thread into it: the branch beyond withers without rotting and stops costing upkeep. Also cuts rival mould."
+        }
+      ],
+      "sharedState": "One nutrient pool and the sap in each knot. Growing and pulsing spend the pool; connected patches fill it; every knot draws upkeep from it. Pulses refill sap along a thread; knots too far from a feeding patch lose sap and, starving, rot back. Cutting stops a branch's upkeep and its rot.",
+      "topics": ["ecology", "planning"],
+      "accent": "#e8b04f",
+      "achievements": [
+        {
+          "id": "first-flush",
+          "title": "First Flush",
+          "description": "Grow your first mushroom."
+        },
+        {
+          "id": "long-reach",
+          "title": "Long Reach",
+          "description": "Fruit a mushroom 8 or more knots from the spore."
+        },
+        {
+          "id": "clean-cut",
+          "title": "Clean Cut",
+          "description": "Cut a rival mould off a patch it was eating."
+        },
+        {
+          "id": "lean-season",
+          "title": "Lean Season",
+          "description": "Win a season from season 4 on without a single knot starving."
+        },
+        {
+          "id": "fairy-ring",
+          "title": "Fairy Ring",
+          "description": "Grow 12 mushrooms in one season."
+        },
+        {
+          "id": "old-growth",
+          "title": "Old Growth",
+          "description": "Win season 8, First frost."
+        }
+      ],
+      "score": {
+        "label": "Mushrooms",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 2000,
+        "epoch": 1
+      },
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-10-03",
+          "text": "First version."
+        }
+      ]
     }
   ]
 }
