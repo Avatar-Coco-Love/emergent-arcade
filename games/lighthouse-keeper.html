@@ -137,8 +137,8 @@
     { name: 'Calm night', fog: 0.45, ships: 5, every: 6, reefs: 2 },
     { name: 'Sea mist', fog: 0.6, ships: 6, every: 5.4, reefs: 3 },
     { name: 'Fog bank', fog: 0.5, ships: 6, every: 8.4, reefs: 3, banks: 2, group: 2 },
-    { name: 'Two lanes', fog: 0.6, ships: 8, every: 9.6, reefs: 4, side: 0.35, group: 2 },
-    { name: 'Heavy cargo', fog: 0.55, ships: 8, every: 10.8, reefs: 4, big: 0.3, group: 2 },
+    { name: 'Two lanes', fog: 0.55, ships: 6, every: 10.8, reefs: 3, side: 0.35, group: 2 },
+    { name: 'Heavy cargo', fog: 0.5, ships: 6, every: 10.8, reefs: 3, big: 0.3, group: 2 },
     { name: 'Thick night', fog: 0.75, ships: 9, every: 10.8, reefs: 4, regrow: 1.5, group: 3 },
     { name: 'Convoy', fog: 0.65, ships: 12, every: 13.2, reefs: 5, group: 4, side: 0.3 },
     { name: 'Storm', fog: 0.7, ships: 10, every: 9.6, reefs: 5, banks: 2, side: 0.35, big: 0.25, group: 3 },
@@ -258,10 +258,10 @@
     const r = FLARE_R0 + (FLARE_R1 - FLARE_R0) * c;
     // The flare bursts above the beam's path, halfway out.
     const fx0 = LH.x + Math.cos(beam) * r * 0.9, fy0 = LH.y + Math.sin(beam) * r * 0.9;
-    // Starburst: one flare gives sight back to 5 ships that were sailing blind.
+    // Starburst: one flare gives sight back to 6 ships that were sailing blind.
     let n = 0;
     for (const s of ships) if (!s.done && !canSee(s) && Math.hypot(s.x - fx0, s.y - fy0) < r) n++;
-    if (n >= 5) unlock('starburst');
+    if (n >= 6) unlock('starburst');
     for (let cy = 0; cy < GY; cy++) for (let cx = 0; cx < GX; cx++) {
       const d = Math.hypot((cx + 0.5) * CELL - fx0, (cy + 0.5) * CELL - fy0);
       if (d < r) fog[cy * GX + cx] = Math.min(fog[cy * GX + cx], -FLARE_CLEAR * (1 - 0.5 * d / r));
