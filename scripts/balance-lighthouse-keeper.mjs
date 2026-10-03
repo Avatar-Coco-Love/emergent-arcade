@@ -35,6 +35,7 @@ const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/li
 //     within 8 s outside the beam (oil above 25).
 //   noshutter / noflare: skilled without that verb.
 //   flarespam: skilled that also fires a full flare whenever the oil allows.
+//   flareonly: never aims at a ship; only turns to fire skilled's flares (how much a flare alone saves).
 //   novice: a first-time player. Reads for 3 s, then every 1.5-3 s turns the
 //     beam toward a ship (a fogged one 60% of the time) with a 0.6 s lag, flips
 //     the shutter by mistake now and then (and notices 3-6 s later), shutters
@@ -49,6 +50,7 @@ const BOTS = {
   noflare: { plan: true, shutter: true },
   flarespam: { plan: true, shutter: true, flare: true, spam: true },
   novice: { novice: true },
+  flareonly: { plan: true, flare: true, noaim: true },
 };
 
 function buildDebug(overrides) {
@@ -184,7 +186,7 @@ function playInPage({ seed, bot, retries, act }) {
               const pick = urgent[0] || scored[0];
               if (pick && pick.s !== target) { target = pick.s; nextAct = D.t + act; }
             }
-            if (target && !target.done) D.setAim(angTo(target));
+            if (target && !target.done && !bot.noaim) D.setAim(angTo(target));
             if (bot.shutter && D.t >= nextAct) {
               const want = urgent.length > 0;
               if (want !== D.open && (D.open || D.oil > 2)) { D.toggleShutter(); nextAct = D.t + act; }
