@@ -32,7 +32,8 @@ const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/li
 //   skilled: reads fog, oil and courses: lights the fogged ship whose course hits
 //     rock soonest, shutters when no fogged ship hits rock within 12 s, flares
 //     (aimed between them, the smallest size whose ring covers them) when 2+ fogged ships hit rock
-//     within 8 s outside the beam (oil above 25).
+//     within 5 s outside the beam (oil above 25). Earlier (8 s) wastes it: the patch fades before
+//     the ships are close enough to see their reefs.
 //   noshutter / noflare: skilled without that verb.
 //   flarespam: skilled that also fires a full flare whenever the oil allows.
 //   flareonly: never aims at a ship; only turns to fire skilled's flares (how much a flare alone saves).
@@ -192,7 +193,7 @@ function playInPage({ seed, bot, retries, act }) {
               if (want !== D.open && (D.open || D.oil > 2)) { D.toggleShutter(); nextAct = D.t + act; }
             } else if (!bot.shutter && !D.open) D.toggleShutter();
             if (bot.flare && D.t >= nextAct) {
-              const hot = urgent.filter(x => x.d < 8 && !D.inBeam(x.s.x, x.s.y));
+              const hot = urgent.filter(x => x.d < 5 && !D.inBeam(x.s.x, x.s.y));
               if ((hot.length >= 2 && D.oil > 25) || (bot.spam && D.oil > D.FLARE_MAX + 5)) {
                 const set = hot.length ? hot : urgent;
                 if (set.length) {
