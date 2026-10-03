@@ -1,6 +1,6 @@
 # Bubble Glass: design notes
 
-**v3** (2026-09-30) · playtest: https://claude.ai/artifact/BXC2MQc3e4rf6x2wPUxZVR ·
+**v5** (2026-10-03; levels 13, 14, 16 revised, `score.epoch` 3) · playtest: https://claude.ai/artifact/BXC2MQc3e4rf6x2wPUxZVR ·
 balance: `node scripts/balance-bubble-glass.mjs 8 [bots] [levels]`
 Liquid-motion sand toy in a sealed box. Verbs: **turn** (drag, tilt opt-in, ← →),
 **melt** ({hold} sand into glass), **shatter** ({tap} glass). 21 levels, 3 chapters.
@@ -72,11 +72,17 @@ Format: # id (verbs, heat): note. "all" = turn+melt+shatter.
 10 sump (all, 60): grate tube, 2-cell sumps; lid keeps one full.
 11 sand-timer (all, 60): hourglass with dust.
 12 quicksand (all, 70): lid dust shafts, wet last stretch, grate sump; lid, hold tilt, flip.
-13 twins (all, 40): two bubbles, wide vent. 14 mud-twins (all, 40): over wet beds.
-15 narrow-door (all, 40): 4-cell tube, free one at a time. 16 dust-door (all, 40).
+13 twins (all, 40): two bubbles, wide vent, second shelf with 3-char side gaps (v5: up the sides, then across). 14 mud-twins (all, 40): wet piles on shelf 1 plus wet beds (v5).
+15 narrow-door (all, 40): 4-cell tube, free one at a time. 16 dust-door (all, 40): tube plus two rows of dust on shelf 1 and dust beds (v5; melt now helps, reader 7 s).
 17 shared-sand (all, 40): grated tubes, two small sumps.
 18 upstairs (all, 40): the-plug plus bubble above it. 19 two-plugs (all, 40).
 20 convoy (all, 70): roof, two bubbles, lid-first. 21 last-box (all, 70): level 4 with two bubbles.
+
+## v5 balance (levels 13, 14, 16; 4 runs, reader vs hinted)
+
+13 twins: 100/14 s vs 75/44 s. 14 mud-twins: 100/12 s vs 75/58 s. 16 dust-door: 100/7 s vs 50/38 s
+(was 5 s / 20 s). Melt is still unused on 13 and 14; reader finishes them in 12-14 s. Level 16 pitfall:
+a map must be exactly 24 rows (validate.mjs does not check), a 25-row draft was unwinnable.
 
 ## Telemetry
 
@@ -88,18 +94,11 @@ chapter's last win adds `score` and `board`.
 
 ## Balance (v3)
 
-Per-level v3 table (reader vs hinted, 8 runs): `docs/history/bubble-glass.md`. Reader wins
-~100% in 4-12 s; hinted is 38-100%, 11-47 s (level 21: 38%).
-
-10-minute check (`CAMPAIGN=1 ... 16 hinted,reader`): hinted 88% all won, **10:39**
-median (IQR 9:17–11:28; ch 2:14/2:39/5:09); reader 100%, 3:36. Melt matters on
-roof, lid-and-plug, hourglass, dust-shafts, convoy; shatter required at plugs.
+Per-level table and 10-minute check (hinted 10:39 median, reader 3:36): history.
 
 ## Player data
 
-2026-09-30 (v2 replay, 2 players, phone/tilt): 14 rounds, 14 wins, all first try;
-one full run (~75 s of play), longest player 7:55 total. Levels 3–5 won faster than
-`hinted`. v1's roof 0/2 became 2/2. v3 not yet played by humans.
+v2 replay (2 players): 14/14 wins, ~75 s of play; v3+ not yet played by humans. Detail: history.
 
 ## Achievements
 
@@ -125,4 +124,4 @@ big-bubble (merged bubble leaves, v3); clockwork (chapter finished on the clock,
 
 History (older versions, balance tables, playtests): `docs/history/bubble-glass.md`
 
-Playtest (v4, private): https://claude.ai/artifact/KjMpw8w6HrZVR5VGRzr9oc
+Playtest (v5, private): https://claude.ai/artifact/EeiVKc5BhJGeHqSRnF5gBG
