@@ -123,7 +123,7 @@
   const LOOK = 85;                   // how far ahead a seeing ship watches for reefs
   const WRECK_MAX = 2;               // a night is lost at the third wreck
   const CONVOY_GAP = 0.25;           // s between the ships of a convoy
-  const PACE = 1;
+  const PACE = 1, REEF_U = 0.35;
 
   // Input
   const HOLD_MS = 260, LAMP_R = 34, TAP_MS = 450, DRAG_PX = 10;
@@ -385,20 +385,32 @@
         const side = Math.random() < spec.side && (n === 1 || g === n - 1);
         const x = n === 1 ? 60 + Math.random() * (W - 80) : 40 + (x0 + g * slot + (Math.random() - 0.5) * slot * 0.4) % (W - 80);
         const p = side ? { x: W + 10, y: 90 + Math.random() * 220 } : { x, y: -12 };
-        schedule.push({ at: at + g * CONVOY_GAP, x: p.x, y: p.y, big: Math.random() < spec.big });
+        schedule.push({ at: at + g * CONVOY_GAP, x: p.x, y: p.y, big: Math.random() < spec.big, c: n > 1 ? k - g : -1 });
       }
       at += spec.every * PACE * (0.8 + Math.random() * 0.4);
     }
     // Reefs sit across the ships' courses, clear of the harbour and the lamp.
     reefs = [];
+    const fits = (x, y, r) => !(Math.hypot(x - PORT.x, y - PORT.y) < 90 || Math.hypot(x - LH.x, y - LH.y) < 70 || y > COAST - 40 || x < 20 || x > W - 20 ||
+      reefs.some(q => Math.hypot(q.x - x, q.y - y) < q.r + r + 26) || schedule.some(q => Math.hypot(q.x - x, q.y - y) < r + 70));
+    // Convoy nights: a reef ahead of each ship of a convoy, the same way along each course, so they all need light at once.
+    const convoys = [...new Set(schedule.filter(p => p.c >= 0).map(p => p.c))].sort(() => Math.random() - 0.5);
+    for (const c of convoys) {
+      const u = REEF_U + Math.random() * 0.15;
+      for (const p of schedule.filter(q => q.c === c)) {
+        if (reefs.length >= spec.reefs) break;
+        for (let tries = 0; tries < 20; tries++) {
+          const x = p.x + (PORT.x - p.x) * u + (Math.random() - 0.5) * 20, y = p.y + (PORT.y - p.y) * u + (Math.random() - 0.5) * 20, r = 14 + Math.random() * 10;
+          if (fits(x, y, r)) { reefs.push({ x, y, r }); break; }
+        }
+      }
+    }
     for (let tries = 0; reefs.length < spec.reefs && tries < 400; tries++) {
       const p = schedule[ri(schedule.length)], u = 0.3 + Math.random() * 0.45;
       const x = p.x + (PORT.x - p.x) * u + (Math.random() - 0.5) * 50, y = Math.max(60, p.y + (PORT.y - p.y) * u + (Math.random() - 0.5) * 50);
       const r = 14 + Math.random() * 10;
-      if (Math.hypot(x - PORT.x, y - PORT.y) < 90 || Math.hypot(x - LH.x, y - LH.y) < 70 || y > COAST - 40 || x < 20 || x > W - 20) continue;
-      if (reefs.some(q => Math.hypot(q.x - x, q.y - y) < q.r + r + 26)) continue;
-      // Not on top of an arrival point: every ship gets a few seconds of open water first.
-      if (schedule.some(q => Math.hypot(q.x - x, q.y - y) < r + 70)) continue;
+      // Clear of the harbour, the lamp, other reefs and the arrival points (every ship gets some open water first).
+      if (!fits(x, y, r)) continue;
       reefs.push({ x, y, r });
     }
     banks = [];
