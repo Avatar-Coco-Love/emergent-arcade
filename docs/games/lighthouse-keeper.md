@@ -1,6 +1,6 @@
 # Lighthouse Keeper: design notes
 
-**v1** (2026-10-03) · playtest: PLAYTEST_LINK ·
+**v1** (2026-10-03) · playtest: https://claude.ai/artifact/KcKMZ1aX9ZqmRBDhqpCQmT ·
 balance: `node scripts/balance-lighthouse-keeper.mjs 50`
 Verbs: **turn** (drag), **shutter** (tap the lighthouse), **flare** (hold the
 lighthouse), sharing **fog per cell** and **the lamp's oil**. A run of
