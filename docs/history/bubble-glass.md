@@ -4,6 +4,11 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/bubble-glass.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## v4 levels 13, 14, 16 (replaced in v5)
+
+Plain two-shelf box, vent top centre, beds only (sand/wet/dust). Reader 5 s on all three, hinted 33 s,
+45 s, 20 s (1st try 100/100/50%). v5 added the second shelf (13, 14) and shelf piles (14, 16).
+
 ## v3 per-level balance table
 
 Per level first-try win % / median time, reader vs hinted (8 runs; full table,
