@@ -270,7 +270,7 @@ function report(name, rs) {
   console.log(`${name.padEnd(9)} won n1-8 ${[1, 2, 3, 4, 5, 6, 7, 8].map(won).join('/')}% | nights ${med(rs.map(r => r.last - 1))}` +
     ` | run ${mins(med(rs.map(r => r.runT)))} min, 1st loss ${mins(med(rs.map(r => r.firstLossT)))} min (n${med(rs.map(r => r.firstLossN))})` +
     ` | n8 by ${saw.length ? mins(med(saw.map(r => r.sawAll))) : '-'} min | score ${med(rs.map(r => r.score))} max ${Math.max(...rs.map(r => r.score))}` +
-    ` | per night: wrecks ${m('wrecks')} dark ${m('dark')}s shut ${m('shut')}s flares ${m('flares')} dry ${m('dry')}s oil ${m('oil')}` +
+    ` | per night: ${m('t')}s, wrecks ${m('wrecks')} dark ${m('dark')}s shut ${m('shut')}s flares ${m('flares')} dry ${m('dry')}s oil ${m('oil')}` +
     `${rs.some(r => r.capped) ? ' | CAPPED ' + pct(rs.filter(r => r.capped).length, rs.length) + '%' : ''} || ${achs}`);
 }
 
