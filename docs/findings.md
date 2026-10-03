@@ -154,6 +154,10 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   it, with rules (which piece, which strand), not sizes. A penalty that
   relieves the constraint doesn't teach. *A general trick beats a set of
   levels; break it with rules, not sizes.* Loom. feedback + bots.
+- In a memory game, a load of k + 1 is solved by elimination (and one peek
+  settles k + 2): a rule can't break a k-coat habit until load ≥ k + 3, so
+  shifts below that are tutorials whatever their rule. *Memory load at most
+  k + 1 is solved by elimination.* Coat Check (pre-build). bots.
 - Optional collectibles only add a route if the direct solution misses
   them: run the shortest-route bot and count what it picks up by accident,
   then move those (a sweep along one wall took 2 of 3). One free pickup on
