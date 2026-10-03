@@ -71,6 +71,8 @@ window.__seed = s => { __s = s; };
     get ships() { return ships; }, get reefs() { return reefs; }, get oil() { return oil; }, get open() { return open; },
     get beam() { return beam; }, get aim() { return aim; }, get t() { return t; }, get spec() { return spec; },
     get night() { return night; }, get state() { return state; }, get total() { return total; }, get st() { return st; },
+    get fog() { return fog; }, get banks() { return banks; }, get schedule() { return schedule; }, get fx() { return fx; },
+    get flareFx() { return flareFx; }, get charging() { return charging; }, get attempt() { return attempt; },
     earned: runEarned, LH, PORT, COAST, SPEED, BIG_SPEED, SEE, TURN, FLARE_MIN, FLARE_MAX, OIL_MAX,
     fogAt, inBeam, canSee, setAim, toggleShutter, flare, step, newRun, nextNight, retryNight,
   };
@@ -79,6 +81,59 @@ window.__seed = s => { __s = s; };
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lhk-')), 'debug.html');
   fs.writeFileSync(out, html);
   return out;
+}
+
+// Runs inside the page: cheap regression checks, one line of failures.
+function selfTest() {
+  const D = window.__dbg, bad = [], hyp = Math.hypot;
+  const state = () => JSON.stringify([D.reefs, D.banks, D.schedule, Array.from(D.fog, x => x.toFixed(4))]);
+  // Random play: aims anywhere, shutters, flares; ends when the night does (or 400 s).
+  const play = (maxT = 400, onShip) => {
+    let n = 0;
+    while (D.state === 'playing' && D.t < maxT) {
+      if (n++ % 30 === 0) {
+        D.setAim(-Math.PI * Math.random());
+        if (Math.random() < 0.1) D.toggleShutter();
+        if (Math.random() < 0.05) D.flare(Math.random());
+      }
+      D.step(1 / 60);
+      if (onShip) for (const s of D.ships) onShip(s);
+    }
+  };
+  // 1. A retry restores the night's start (reefs, banks, fog, arrivals, oil + RETRY) and leaves nothing over.
+  for (const target of [3, 4, 5, 7, 8, 9, 12]) {
+    let lost = false;
+    for (let seed = 1; seed < 20 && !lost; seed++) {
+      window.__seed(100 * target + seed); D.newRun();
+      while (D.night < target) D.nextNight();
+      const s0 = state(), oil0 = D.oil;
+      play();
+      if (D.state !== 'lost') continue;
+      lost = true;
+      D.retryNight();
+      if (state() !== s0) bad.push(`retry n${target}: state differs from the night's start`);
+      if (Math.abs(D.oil - Math.min(D.OIL_MAX, oil0 + 15)) > 1e-6) bad.push(`retry n${target}: oil ${D.oil} vs ${oil0}+15`);
+      if (D.ships.length || D.fx.length || D.flareFx || D.t !== 0 || D.charging !== -1 || !D.open || D.st.home || D.st.wrecks || D.st.flares)
+        bad.push(`retry n${target}: leftovers`);
+    }
+    if (!lost) bad.push(`retry n${target}: never lost`);
+  }
+  // 2. Every ship ends its voyage (home, reef or shore) within 200 s, arrivals are clear of reefs,
+  //    and every night ends.
+  for (let seed = 1; seed <= 6; seed++) {
+    window.__seed(seed); D.newRun();
+    for (let n = 1; n <= 12; n++) {
+      for (const p of D.schedule) for (const r of D.reefs) if (hyp(p.x - r.x, p.y - r.y) < r.r + 60) bad.push(`n${n}: reef on an arrival point`);
+      const born = new Map();
+      play(1200, s => {
+        if (!born.has(s)) born.set(s, D.t);
+        if (!s.done && D.t - born.get(s) > 200) { bad.push(`n${n} seed ${seed}: ship at sea 200 s (${s.x | 0},${s.y | 0})`); s.done = 'wreck'; }
+      });
+      if (D.state === 'playing') { bad.push(`n${n} seed ${seed}: night never ended`); break; }
+      D.nextNight();
+    }
+  }
+  return [...new Set(bad)];
 }
 
 // Runs inside the page: one whole run.
@@ -230,6 +285,14 @@ for (const kv of (process.argv[4] || '').split(',').filter(Boolean)) {
 }
 const file = buildDebug(overrides);
 const browser = await chromium.launch();
+{
+  const page = await browser.newPage();
+  page.on('pageerror', e => console.log('ERR', e.message));
+  await page.goto(pathToFileURL(file).href);
+  const bad = await page.evaluate(selfTest);
+  console.log(bad.length ? 'SELFTEST FAIL ' + bad.join('; ') : 'selftest ok (retry restores nights 3-5, 7-9, 12; every ship ends its voyage; reefs clear of arrivals)');
+  await page.close();
+}
 for (const n of names) {
   if (n.startsWith('dbg:')) { report(n, await run({ ...BOTS[n.slice(4)], dbg: true }, runs, file, browser, opts)); continue; }
   if (!BOTS_ALL[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
