@@ -94,6 +94,24 @@ chapter's last win adds `score` and `board`.
 
 ## Balance (v3)
 
+Per-level table and the 10-minute check (hinted 10:39 median, reader 3:36): history.
+
+## v5 balance (levels 13, 14, 16; 4 runs, reader vs hinted)
+
+13 twins: 100/14 s vs 75/44 s. 14 mud-twins: 100/12 s vs 75/58 s. 16 dust-door: 100/7 s vs 50/38 s
+(was 5 s / 20 s). Melt is still unused on 13 and 14; reader finishes them in 12-14 s. Level 16 pitfall:
+a map must be exactly 24 rows (validate.mjs does not check), a 25-row draft was unwinnable.
+
+## Telemetry
+
+Per level `arcade:result`: `outcome` (loss `reason` `restart`/`switch`), `time`,
+`level`, `level_id`, `run`, `attempt`; stats `turns`, `deg`, `melted`, `glass`,
+`shattered`, `heat_left`, `stuck_s`, `hints`, `warns`, `first_input` (1 turn, 2 melt,
+3 shatter, 4 nothing), `tilt`, `buried_s`, `out`, `merged`, `ch_t`, `chapter`; a
+chapter's last win adds `score` and `board`.
+
+## Balance (v3)
+
 Per-level v3 table (reader vs hinted, 8 runs): `docs/history/bubble-glass.md`. Reader wins
 ~100% in 4-12 s; hinted is 38-100%, 11-47 s (level 21: 38%).
 
@@ -103,9 +121,7 @@ roof, lid-and-plug, hourglass, dust-shafts, convoy; shatter required at plugs.
 
 ## Player data
 
-2026-09-30 (v2 replay, 2 players, phone/tilt): 14 rounds, 14 wins, all first try;
-one full run (~75 s of play), longest player 7:55 total. Levels 3–5 won faster than
-`hinted`. v1's roof 0/2 became 2/2. v3 not yet played by humans.
+v2 replay (2 players): 14/14 wins, ~75 s of play; v3+ not yet played by humans. Detail: history.
 
 ## Achievements
 

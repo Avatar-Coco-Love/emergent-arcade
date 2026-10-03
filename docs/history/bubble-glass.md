@@ -4,6 +4,12 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/bubble-glass.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## Player data
+
+2026-09-30 (v2 replay, 2 players, phone/tilt): 14 rounds, 14 wins, all first try;
+one full run (~75 s of play), longest player 7:55 total. Levels 3–5 won faster than
+`hinted`. v1's roof 0/2 became 2/2. v3 not yet played by humans.
+
 ## v4 levels 13, 14, 16 (replaced in v5)
 
 Plain two-shelf box, vent top centre, beds only (sand/wet/dust). Reader 5 s on all three, hinted 33 s,
