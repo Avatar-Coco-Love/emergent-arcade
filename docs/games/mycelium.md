@@ -1,6 +1,6 @@
 # Mycelium: design notes
 
-**v1** (2026-10-03) · playtest: PLAYTEST_LINK ·
+**v1** (2026-10-03) · playtest: https://claude.ai/artifact/JtevwSxyXLnDnbA9AeVd6e ·
 balance: `node scripts/balance-mycelium.mjs 100`
 Verbs: **grow** (drag), **pulse** (tap), **prune** (hold), sharing **one
 nutrient pool** and **sap per knot**. A run of seasons: 8 campaign seasons,
