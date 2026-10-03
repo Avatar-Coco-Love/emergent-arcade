@@ -624,3 +624,18 @@ gone. Check: for a resource game, find a state where income is zero and
 spending is blocked, and make sure the passive rules leave it.
 
 *Evidence: bots. Provisional.*
+
+## A sweep plays itself when the effect outlasts the sweep
+
+Lighthouse Keeper v1, 2026-10-03. The beam burns fog where it points and
+the fog drifts back. With fog returning at 10% of the gap per second and a
+1.5/s burn, a bot that swung the beam end to end without looking at a ship
+won the last campaign night 56% of runs: each pass burned more than came
+back before the next one, so the whole sea stayed clear. A linear return
+(0.2/s), a slower burn (0.9/s) and a slower lamp (1.0 rad/s) made a pass
+burn less than returns between passes; the sweep bot then lost at night 2-3
+while the skilled bot, which holds the beam on the ship in danger, still won
+night 8 ~80%. Check: for an aim verb, compare the effect's lifetime with the
+time a blind sweep takes to come back, and run the sweep as a bot.
+
+*Evidence: bots. Provisional.*

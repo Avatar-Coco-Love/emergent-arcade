@@ -75,6 +75,10 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   blocked (a stalled build, upkeep above the trickle): that state is a still
   screen. *A budget that can hit zero with no income source freezes the
   round.* Mycelium. bots.
+- An aim verb (a beam, a hose) is only read if what it does fades before
+  a blind sweep comes back: test a bot that sweeps end to end without
+  looking. *A sweep plays itself when the effect outlasts the sweep.*
+  Lighthouse Keeper. bots.
 - A two-way verb (a valve, a door) forgives its own misuse: what it let in
   it lets back out. Check that misusing it costs more than using it well
   saves, from round 1, and test "must read the value" with a bot that runs

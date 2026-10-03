@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lighthouse Keeper</title>
+<style>
+  :root {
+    --bg: #0b1420;
+    --panel: #172433;
+    --text: #e9eef2;
+    --muted: #9aaab8;
+    --accent: #ffd27a;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given; the sea scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  /* Messages get their own strip, never drawn over the sea (findings: Rail Yard). */
+  #msg {
+    flex: none; margin: 0; min-height: 2.6em; display: flex; align-items: center; justify-content: center;
+    text-align: center; font-size: 0.85rem; line-height: 1.3;
+  }
+  #msg.warn { color: #ffb48a; font-weight: 600; }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #sea { display: block; width: 100%; height: 100%; touch-action: none; border-radius: 10px; }
+  #endCard {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+    width: min(88%, 310px); padding: 16px; border-radius: 12px;
+    background: rgba(18, 30, 44, 0.96); border: 1px solid #3c5670; text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.25rem; }
+  #endCard h2.won { color: #ffd27a; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #d4dde5; font-size: 0.88rem; }
+  #endCard button { margin-top: 10px; width: 100%; font-weight: 600; }
+  #endCard button:disabled { opacity: 0.4; }
+  #endCard button[hidden] { display: none; }
+  .bar {
+    flex: none; display: flex; align-items: center; justify-content: center;
+    gap: 6px 12px; flex-wrap: wrap; font-size: 0.82rem; color: var(--muted);
+  }
+  .bar b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .meter {
+    display: inline-block; width: 60px; height: 8px; border-radius: 4px;
+    background: #24364a; vertical-align: middle; overflow: hidden;
+  }
+  .meter span { display: block; height: 100%; background: var(--accent); }
+  button {
+    background: var(--panel); color: var(--text); border: 1px solid #3c5670;
+    border-radius: 6px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <p id="msg" role="status"></p>
+  <div id="field">
+    <div id="stage">
+      <canvas id="sea" aria-label="Lighthouse Keeper. Drag across the sea to turn the beam, tap the lighthouse to open or shutter the lamp, hold it to charge a flare."></canvas>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="mainBtn"></button>
+        <button id="altBtn">New run</button>
+      </div>
+    </div>
+  </div>
+  <div class="bar">
+    <span><b id="hudNight"></b></span>
+    <span>Home <b id="hudHome"></b></span>
+    <span>Wrecks <b id="hudWreck"></b></span>
+    <span>Oil <span class="meter"><span id="oilFill"></span></span> <b id="hudOil"></b></span>
+    <span>Score <b id="hudScore"></b><span id="hudBest"></span></span>
+    <button id="resetBtn">New run</button>
+  </div>
+
+<script>
+(function() {
+  // § constants
+  const GAME_ID = 'lighthouse-keeper';
+  const W = 400, H = 560;            // game units (canvas scales to fit)
+  const COAST = 505;                 // the shore line: below it is land
+  const LH = { x: 230, y: 522 };     // the lamp
+  const PORT = { x: 92, y: 500, r: 20 }; // harbour mouth
+  const CELL = 20, GX = W / CELL, GY = Math.ceil(COAST / CELL); // fog grid
+
+  // Light, fog and oil (the shared state)
+  const HALF = 0.15;                 // beam half-width (rad)
+  const RANGE = 470;                 // beam reach (px)
+  const BURN = 0.9;                  // fog burned per s at the lamp, falling to 30% at full range
+  const REGROW = 0.2;                // fog returns toward the night's density by this much per s
+  const SEE = 0.35;                  // a ship in fog thinner than this sees the reefs
+  const TURN = 1.0;                  // beam turn rate (rad/s)
+  const OIL0 = 70, OIL_MAX = 120;    // oil at the start of a run, tank size
+  const LAMP = 1.0;                  // oil per s with the lamp open
+  const DOCK_OIL = 6;                // oil a ship brings home
+  const DAWN_OIL = 35;               // oil delivered between nights
+  const RETRY_OIL = 15;              // extra oil per retry of a night
+  const FLARE_MIN = 10, FLARE_MAX = 34; // oil for the smallest / biggest flare
+  const FLARE_R0 = 70, FLARE_R1 = 230;  // flare radius, smallest / biggest
+  const FLARE_S = 1.2;               // hold this long for the biggest flare
+  const FLARE_CLEAR = 0.8;           // a flare leaves the air this much clearer than clear at its centre (fog goes below 0)
+
+  // Ships
+  const SPEED = 13, BIG_SPEED = 9;   // px/s
+  const STEER = 0.7, BIG_STEER = 0.35; // turn rate when the ship can see (rad/s)
+  const WANDER = 0.25;               // blind ships' heading drift (rad/s, random walk)
+  const LOOK = 85;                   // how far ahead a seeing ship watches for reefs
+  const WRECK_MAX = 2;               // a night is lost at the third wreck
+
+  // Input
+  const HOLD_MS = 260, LAMP_R = 34, TAP_MS = 450;
+  const END_LOCK_MS = 1000;
+  const STEP = 1 / 60;
+
+  // § nights
+  // fog: base density; ships: count, s between arrivals; reefs; banks: drifting fog banks;
+  // side: share of ships from the right-hand side; big: share of heavy ships; group: ships per arrival.
+  const NIGHTS = [
+    { name: 'Calm night', fog: 0.45, ships: 5, every: 10, reefs: 2 },
+    { name: 'Sea mist', fog: 0.6, ships: 6, every: 9, reefs: 3 },
+    { name: 'Fog bank', fog: 0.55, ships: 7, every: 9, reefs: 3, banks: 2 },
+    { name: 'Two lanes', fog: 0.6, ships: 8, every: 8, reefs: 4, side: 0.45 },
+    { name: 'Heavy cargo', fog: 0.6, ships: 8, every: 9, reefs: 4, big: 0.35 },
+    { name: 'Thick night', fog: 0.75, ships: 8, every: 9, reefs: 4, regrow: 1.5 },
+    { name: 'Convoy', fog: 0.65, ships: 9, every: 13, reefs: 4, group: 3, side: 0.3 },
+    { name: 'Storm', fog: 0.7, ships: 10, every: 8, reefs: 5, banks: 2, side: 0.35, big: 0.25 },
+  ];
+  function nightSpec(n) {
+    if (n <= NIGHTS.length) return Object.assign({ banks: 0, side: 0, big: 0, group: 1, regrow: 1 }, NIGHTS[n - 1]);
+    const e = n - NIGHTS.length;
+    return { name: 'Night ' + n, fog: Math.min(0.9, 0.68 + 0.02 * e), ships: 10 + e, every: Math.max(5.5, 8 - 0.25 * e),
+      reefs: 5 + (e >> 1), banks: 1 + (e % 2), side: 0.35, big: 0.25, group: e % 3 === 0 ? 2 : 1, regrow: 1 + 0.06 * e };
+  }
+
+  const canvas = document.getElementById('sea');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+  const touchy = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  const TAP = touchy ? 'Tap' : 'Click', HOLD = touchy ? 'Hold' : 'Click and hold', DRAG = 'Drag';
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded.
+  const unlocked = new Set();
+  function unlock(id) {
+    runEarned.add(id); roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Night results for play telemetry (docs/telemetry.md); keys in docs/games/lighthouse-keeper.md.
+  function report(won) {
+    if (window.parent === window) return;
+    const r1 = v => Math.round(v * 10) / 10;
+    const msg = { type: 'arcade:result', game: GAME_ID, outcome: won ? 'win' : 'loss',
+      time: r1(t), level: night, run: runId, attempt, score: total,
+      stats: { home: st.home, wrecks: st.wrecks, ships: spec.ships, oil: r1(oil), dark_s: r1(st.darkS), shut_s: r1(st.shutS),
+        flares: st.flares, flare_oil: r1(st.flareOil), lit_s: r1(st.litS), blind_s: r1(st.blindS), first_input: r1(st.firstInput) } };
+    if (!won) msg.reason = st.dryS > 5 ? 'oil' : 'wrecks';
+    window.parent.postMessage(msg, '*');
+  }
+
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitSea() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(80, Math.floor(W * scale)), h = Math.max(110, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitSea).observe(field);
+  window.addEventListener('resize', fitSea);
+  fitSea();
+
+  let paused = false, best = 0;
+  window.addEventListener('message', evt => {
+    const d = evt.data;
+    if (!d) return;
+    if (d.type === 'arcade:pause') { paused = true; press = null; charging = -1; }
+    if (d.type === 'arcade:resume') paused = false;
+    if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {
+      const b = Number(d.bests.main); if (b > 0 && b < 1e5) best = Math.round(b);
+    }
+  });
+
+  const endCard = document.getElementById('endCard');
+  const mainBtn = document.getElementById('mainBtn');
+  const altBtn = document.getElementById('altBtn');
+
+  // § state
+  const fog = new Float32Array(GX * GY);
+  const fogCanvas = document.createElement('canvas');
+  fogCanvas.width = GX; fogCanvas.height = GY;
+  const fogCtx = fogCanvas.getContext('2d');
+  let night, spec, t, oil, total, state, runId, attempt, snap, st, lockUntil = 0, tnow = 0;
+  let beam = -Math.PI / 2, aim = -Math.PI / 2, open = true, charging = -1, flareFx = null;
+  let ships = [], reefs = [], banks = [], schedule = [], fx = [], hinted = {}, kbUsed = false;
+  const runEarned = new Set(), roundEarned = new Set();
+
+  function ri(n) { return Math.floor(Math.random() * n); }
+  function fogAt(x, y) {
+    const cx = Math.max(0, Math.min(GX - 1, Math.floor(x / CELL))), cy = Math.max(0, Math.min(GY - 1, Math.floor(y / CELL)));
+    return fog[cy * GX + cx];
+  }
+  function baseFog(x, y) {
+    let f = spec.fog;
+    for (const b of banks) { const d = Math.hypot(x - b.x, y - b.y); if (d < b.r) f += 0.45 * (1 - d / b.r); }
+    return Math.min(1, f);
+  }
+  // Is a point inside the open beam?
+  function inBeam(x, y) {
+    if (!open || oil <= 0) return false;
+    const dx = x - LH.x, dy = y - LH.y, d = Math.hypot(dx, dy);
+    if (d > RANGE || d < 1) return d < 1;
+    let a = Math.atan2(dy, dx) - beam;
+    a = Math.atan2(Math.sin(a), Math.cos(a));
+    return Math.abs(a) < HALF + 8 / d;
+  }
+  function canSee(s) { return fogAt(s.x, s.y) < SEE || inBeam(s.x, s.y); }
+
+  // § verbs
+  function setAim(a) { aim = Math.max(-Math.PI + 0.12, Math.min(-0.12, a)); touch(); }
+  function toggleShutter() {
+    if (state !== 'playing') return;
+    touch();
+    if (!open || oil > 0) open = !open;
+    if (!open && !hinted.shut) { hinted.shut = 1; say(`Shuttered: no oil burns, but the sea goes dark. ${TAP} the lighthouse to open it again.`, 5); }
+  }
+  function flare(c) {
+    if (state !== 'playing') return false;
+    touch();
+    c = Math.max(0, Math.min(1, c));
+    const cost = FLARE_MIN + (FLARE_MAX - FLARE_MIN) * c;
+    if (oil < cost) { say(`Not enough oil for that flare (${Math.round(cost)}).`, 3, true); return false; }
+    oil -= cost; st.flares++; st.flareOil += cost;
+    const r = FLARE_R0 + (FLARE_R1 - FLARE_R0) * c;
+    // The flare bursts above the beam's path, halfway out.
+    const fx0 = LH.x + Math.cos(beam) * r * 0.9, fy0 = LH.y + Math.sin(beam) * r * 0.9;
+    for (let cy = 0; cy < GY; cy++) for (let cx = 0; cx < GX; cx++) {
+      const d = Math.hypot((cx + 0.5) * CELL - fx0, (cy + 0.5) * CELL - fy0);
+      if (d < r) fog[cy * GX + cx] = Math.min(fog[cy * GX + cx], -FLARE_CLEAR * (1 - 0.5 * d / r));
+    }
+    let n = 0;
+    for (const s of ships) if (Math.hypot(s.x - fx0, s.y - fy0) < r) n++;
+    if (n >= 4) unlock('starburst');
+    flareFx = { x: fx0, y: fy0, r, t: 0 };
+    return true;
+  }
+  function touch() { if (st.firstInput < 0) st.firstInput = t; }
+
+  // § simulation
+  function step(dt) {
+    t += dt;
+    // Ships arrive on schedule.
+    while (schedule.length && schedule[0].at <= t) spawn(schedule.shift());
+    for (const b of banks) { b.x += b.vx * dt; if (b.x < -b.r) b.x = W + b.r; if (b.x > W + b.r) b.x = -b.r; }
+    // The lamp turns toward the aim at TURN rad/s and burns oil while open.
+    const da = Math.atan2(Math.sin(aim - beam), Math.cos(aim - beam));
+    beam += Math.max(-TURN * dt, Math.min(TURN * dt, da));
+    if (open) {
+      oil -= LAMP * dt;
+      if (oil <= 0) { oil = 0; st.dryS += dt; if (!hinted.dry) { hinted.dry = 1; say('Out of oil: the lamp is dark until a ship brings more home.', 5, true); } }
+    } else st.shutS += dt;
+    if (!open || oil <= 0) st.darkS += dt;
+    // Fog drifts back toward the night's density; the beam burns it away where it points.
+    const rg = REGROW * spec.regrow * dt;
+    for (let cy = 0; cy < GY; cy++) for (let cx = 0; cx < GX; cx++) {
+      const k = cy * GX + cx, x = (cx + 0.5) * CELL, y = (cy + 0.5) * CELL;
+      const b = baseFog(x, y);
+      fog[k] = fog[k] < b ? Math.min(b, fog[k] + rg) : Math.max(b, fog[k] - rg);
+      if (inBeam(x, y)) {
+        const d = Math.hypot(x - LH.x, y - LH.y);
+        if (fog[k] > 0) fog[k] = Math.max(0, fog[k] - BURN * (1 - 0.7 * d / RANGE) * dt);
+      }
+    }
+    // Ships: a ship that can see steers home around the reefs; a blind one holds on, drifting.
+    for (const s of ships) {
+      if (s.done) continue;
+      const see = canSee(s);
+      if (see) st.litS += dt; else st.blindS += dt;
+      if (see) {
+        let dx = PORT.x - s.x, dy = PORT.y - 8 - s.y;
+        const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+        for (const r of reefs) {
+          const rx = r.x - s.x, ry = r.y - s.y, along = rx * Math.cos(s.h) + ry * Math.sin(s.h);
+          const dist = Math.hypot(rx, ry);
+          if (along > -10 && dist < LOOK + r.r) {
+            const w = Math.max(0, 1 - (dist - r.r) / LOOK) * 2.2;
+            dx -= rx / dist * w; dy -= ry / dist * w;
+          }
+        }
+        const want = Math.atan2(dy, dx), turn = Math.atan2(Math.sin(want - s.h), Math.cos(want - s.h));
+        const rate = s.big ? BIG_STEER : STEER;
+        s.h += Math.max(-rate * dt, Math.min(rate * dt, turn));
+      } else {
+        // Blind: hold the course it had when the fog closed in, with a slow wobble.
+        if (s.saw) { s.hb = s.h; s.saw = false; }
+        s.drift += ((Math.random() * 2 - 1) * WANDER * 12 - s.drift) * dt;
+        s.h = s.hb + s.drift;
+        // Ships always make some way toward the coast, so every ship ends its voyage.
+        if (Math.sin(s.h) < 0.3) s.h = Math.atan2(0.3, Math.cos(s.h) >= 0 ? 0.95 : -0.95);
+      }
+      if (see) s.saw = true;
+      const v = s.big ? BIG_SPEED : SPEED;
+      s.x += Math.cos(s.h) * v * dt; s.y += Math.sin(s.h) * v * dt;
+      if (s.x < 8 || s.x > W - 8) { s.x = Math.max(8, Math.min(W - 8, s.x)); s.h = Math.PI - s.h; s.hb = Math.PI - s.hb; }
+      if (s.y < -30) s.y = -30;
+      // Home, or aground.
+      if (Math.hypot(s.x - PORT.x, s.y - PORT.y) < PORT.r) { dock(s); continue; }
+      for (const r of reefs) if (Math.hypot(s.x - r.x, s.y - r.y) < r.r) { wreck(s); break; }
+      if (!s.done && s.y > COAST - 4) wreck(s);
+    }
+    ships = ships.filter(s => !s.done || s.fade < 1.5);
+    for (const s of ships) if (s.done) s.fade += dt;
+    if (!hinted.aim && t > 6 && ships.some(s => !s.done && !canSee(s))) {
+      hinted.aim = 1; say(`Ships in thick fog sail blind and drift. ${DRAG} across the sea to turn the beam onto them.`, 6);
+    }
+    if (!hinted.flare && night >= 3 && t > 12) {
+      hinted.flare = 1; say(`${HOLD} the lighthouse to charge a flare: it clears a wide patch of fog where the beam points. Bigger flares cost more oil.`, 7);
+    }
+    if (!hinted.shutHint && t > 15 && open && !ships.some(s => !s.done && !canSee(s))) {
+      hinted.shutHint = 1; say(`Every ship can see. ${TAP} the lighthouse to shutter the lamp and save oil.`, 5);
+    }
+    if (st.wrecks > WRECK_MAX) endNight(false);
+    else if (!schedule.length && ships.every(s => s.done)) endNight(true);
+  }
+  function spawn(p) {
+    const s = { x: p.x, y: p.y, h: 0, hb: 0, drift: 0, saw: false, big: p.big, done: false, fade: 0 };
+    s.h = s.hb = Math.atan2(PORT.y - s.y, PORT.x - s.x) + (Math.random() - 0.5) * 0.25;
+    ships.push(s);
+  }
+  function dock(s) {
+    s.done = 'home'; st.home++; total++;
+    oil = Math.min(OIL_MAX, oil + DOCK_OIL);
+    fx.push({ kind: 'home', x: s.x, y: s.y, t: 0 });
+    unlock('safe-harbour');
+    if (oil - DOCK_OIL < 3) unlock('last-drop');
+  }
+  function wreck(s) {
+    s.done = 'wreck'; st.wrecks++;
+    fx.push({ kind: 'wreck', x: s.x, y: s.y, t: 0 });
+    if (!hinted.wreck) { hinted.wreck = 1; say(`A ship hit the rocks. ${WRECK_MAX + 1} wrecks lose the night.`, 4, true); }
+  }
+
+  // § nights and runs
+  function newRun() {
+    night = 1; total = 0; attempt = 1; oil = OIL0;
+    runId = Math.random().toString(36).slice(2, 10) || 'run';
+    runEarned.clear(); hinted = {};
+    beginNight();
+    say(`Ships are heading for the harbour (left). ${DRAG} across the sea to turn the beam: ships it lights can see the rocks.`, 8);
+  }
+  function setupNight() {
+    spec = nightSpec(night);
+    // Arrivals: from the top edge, or (two lanes) from the right-hand side.
+    schedule = [];
+    let at = 3;
+    for (let k = 0; k < spec.ships;) {
+      for (let g = 0; g < spec.group && k < spec.ships; g++, k++) {
+        const side = Math.random() < spec.side;
+        const p = side ? { x: W + 10, y: 90 + Math.random() * 220 } : { x: 60 + Math.random() * (W - 80), y: -12 };
+        schedule.push({ at: at + g * 0.8, x: p.x, y: p.y, big: Math.random() < spec.big });
+      }
+      at += spec.every * (0.8 + Math.random() * 0.4);
+    }
+    // Reefs sit across the ships' courses, clear of the harbour and the lamp.
+    reefs = [];
+    for (let tries = 0; reefs.length < spec.reefs && tries < 400; tries++) {
+      const p = schedule[ri(schedule.length)], u = 0.3 + Math.random() * 0.45;
+      const x = p.x + (PORT.x - p.x) * u + (Math.random() - 0.5) * 50, y = Math.max(60, p.y + (PORT.y - p.y) * u + (Math.random() - 0.5) * 50);
+      const r = 14 + Math.random() * 10;
+      if (Math.hypot(x - PORT.x, y - PORT.y) < 90 || Math.hypot(x - LH.x, y - LH.y) < 70 || y > COAST - 40 || x < 20 || x > W - 20) continue;
+      if (reefs.some(q => Math.hypot(q.x - x, q.y - y) < q.r + r + 26)) continue;
+      reefs.push({ x, y, r });
+    }
+    banks = [];
+    for (let k = 0; k < spec.banks; k++) banks.push({ x: Math.random() * W, y: 80 + Math.random() * 300, r: 80 + Math.random() * 40, vx: (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 6) });
+    for (let cy = 0; cy < GY; cy++) for (let cx = 0; cx < GX; cx++) fog[cy * GX + cx] = baseFog((cx + 0.5) * CELL, (cy + 0.5) * CELL);
+  }
+  function saveSnap() {
+    return { oil, total, spec, schedule: JSON.stringify(schedule), reefs: JSON.stringify(reefs), banks: JSON.stringify(banks) };
+  }
+  function beginNight() {
+    setupNight();
+    snap = saveSnap();
+    startPlay();
+  }
+  function startPlay() {
+    t = 0; ships = []; fx = []; flareFx = null; open = true; charging = -1;
+    beam = aim = -Math.PI / 2;
+    for (let cy = 0; cy < GY; cy++) for (let cx = 0; cx < GX; cx++) fog[cy * GX + cx] = baseFog((cx + 0.5) * CELL, (cy + 0.5) * CELL);
+    st = { home: 0, wrecks: 0, darkS: 0, shutS: 0, dryS: 0, flares: 0, flareOil: 0, litS: 0, blindS: 0, firstInput: -1 };
+    roundEarned.clear();
+    state = 'playing';
+    endCard.hidden = true;
+    const tw = [];
+    if (spec.banks) tw.push('fog banks drift across');
+    if (spec.side) tw.push('ships also come from the right');
+    if (spec.big) tw.push('heavy ships turn slowly');
+    if (spec.group > 1) tw.push('ships come in convoys');
+    if (spec.regrow > 1.2) tw.push('the fog closes in fast');
+    if (night > 1) say(`Night ${night}: ${spec.name}. ${spec.ships} ships${tw.length ? '; ' + tw.join(', ') : ''}.`, 6);
+  }
+  function retryNight() {
+    attempt++;
+    spec = snap.spec; total = snap.total;
+    oil = Math.min(OIL_MAX, snap.oil + RETRY_OIL * (attempt - 1));
+    schedule = JSON.parse(snap.schedule); reefs = JSON.parse(snap.reefs); banks = JSON.parse(snap.banks);
+    startPlay();
+  }
+  function nextNight() {
+    night++; attempt = 1;
+    oil = Math.min(OIL_MAX, oil + DAWN_OIL);
+    beginNight();
+  }
+  function endNight(won) {
+    state = won ? 'night' : 'lost';
+    if (won) {
+      if (st.wrecks === 0 && night >= 3) unlock('clear-passage');
+      if (st.shutS >= t / 3) unlock('thrifty-keeper');
+      if (night >= NIGHTS.length) unlock('storm-keeper');
+    }
+    report(won);
+    showCard(won);
+  }
+
+  const NAMES = { 'safe-harbour': 'Safe Harbour', 'clear-passage': 'Clear Passage', starburst: 'Starburst',
+    'thrifty-keeper': 'Thrifty Keeper', 'last-drop': 'Last Drop', 'storm-keeper': 'Storm Keeper' };
+  function showCard(won) {
+    const el = document.getElementById('endTitle');
+    el.textContent = won ? `Dawn after night ${night}` : 'Too many wrecks';
+    el.className = won ? 'won' : 'lost';
+    document.getElementById('endDetail').textContent = won
+      ? `${st.home} of ${spec.ships} ships home, ${st.wrecks} wrecked. Score ${total}. ${Math.round(oil)} oil left, +${DAWN_OIL} at dawn.`
+      : `${st.wrecks} ships on the rocks${st.dryS > 5 ? ' (the lamp ran dry)' : ''}. Score ${total}.`;
+    const got = [...roundEarned].map(id => NAMES[id]);
+    document.getElementById('endAch').textContent = got.length ? 'Earned: ' + got.join(', ') : '';
+    mainBtn.textContent = won ? 'Next night' : `Retry night ${night}`;
+    altBtn.hidden = won;
+    endCard.hidden = false;
+    lockUntil = performance.now() + END_LOCK_MS;
+    mainBtn.disabled = altBtn.disabled = true;
+    setTimeout(() => { mainBtn.disabled = altBtn.disabled = false; }, END_LOCK_MS);
+  }
+
+  // § messages
+  let msgUntil = 0, msgMin = 0, queued = null;
+  function say(text, secs, warn) {
+    if (tnow < msgMin && !warn) { queued = [text, secs]; return; }
+    msgEl.textContent = text;
+    msgEl.className = warn ? 'warn' : '';
+    msgMin = tnow + Math.min(secs, 3);
+    msgUntil = tnow + secs;
+  }
+  function tickMsg() {
+    if (queued && tnow >= msgMin) { const q = queued; queued = null; say(q[0], q[1]); }
+    else if (msgEl.textContent && tnow >= msgUntil) msgEl.textContent = '';
+  }
+  function hud() {
+    document.getElementById('hudNight').textContent = `Night ${night}`;
+    document.getElementById('hudHome').textContent = `${st.home}/${spec.ships}`;
+    document.getElementById('hudWreck').textContent = `${st.wrecks}/${WRECK_MAX + 1}`;
+    document.getElementById('hudOil').textContent = Math.floor(oil);
+    document.getElementById('oilFill').style.width = (100 * oil / OIL_MAX).toFixed(0) + '%';
+    document.getElementById('hudScore').textContent = total;
+    document.getElementById('hudBest').textContent = best ? ` (best ${best})` : '';
+  }
+
+  // § drawing
+  function draw() {
+    const sc = canvas.width / W;
+    ctx.setTransform(sc, 0, 0, sc, 0, 0);
+    const g = ctx.createLinearGradient(0, 0, 0, COAST);
+    g.addColorStop(0, '#08111d'); g.addColorStop(1, '#10243a');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // Swell
+    ctx.strokeStyle = 'rgba(120,170,210,0.08)'; ctx.lineWidth = 1;
+    for (let y = 20; y < COAST; y += 26) {
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 20) ctx.lineTo(x, y + Math.sin(x * 0.05 + tnow * 0.8 + y) * 2);
+      ctx.stroke();
+    }
+    // Reefs
+    for (const r of reefs) {
+      ctx.fillStyle = '#2d3238'; ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 7); ctx.fill();
+      ctx.fillStyle = '#454c54'; ctx.beginPath(); ctx.arc(r.x - r.r * 0.3, r.y - r.r * 0.3, r.r * 0.5, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(220,235,245,0.35)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r + 3 + Math.sin(tnow * 2 + r.x) * 1.2, 0, 7); ctx.stroke();
+    }
+    // Ships
+    for (const s of ships) {
+      const a = s.done ? Math.max(0, 1 - s.fade / 1.5) : 1, see = !s.done && canSee(s);
+      ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.h); ctx.globalAlpha = a;
+      const L = s.big ? 15 : 10, Wd = s.big ? 6 : 4.5;
+      ctx.fillStyle = s.done === 'wreck' ? '#7a4a3a' : s.big ? '#c9b48a' : '#e8e2d2';
+      ctx.beginPath(); ctx.moveTo(L, 0); ctx.lineTo(-L * 0.7, Wd); ctx.lineTo(-L, 0); ctx.lineTo(-L * 0.7, -Wd); ctx.closePath(); ctx.fill();
+      ctx.restore(); ctx.globalAlpha = 1;
+    }
+    // Fog: one pixel per cell on a small canvas, scaled up smoothly.
+    const img = fogCtx.createImageData(GX, GY);
+    for (let k = 0; k < GX * GY; k++) {
+      img.data[k * 4] = 178; img.data[k * 4 + 1] = 192; img.data[k * 4 + 2] = 206;
+      img.data[k * 4 + 3] = Math.round(255 * Math.max(0, Math.min(1, fog[k])) * 0.8);
+    }
+    fogCtx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(fogCanvas, 0, 0, GX, GY, 0, 0, W, GY * CELL);
+    // Above the fog: the surf on the reefs and the ships' mast lights.
+    for (const r of reefs) {
+      ctx.strokeStyle = 'rgba(230,240,248,0.28)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r + 3 + Math.sin(tnow * 2 + r.x) * 1.2, 0, 7); ctx.stroke();
+    }
+    for (const s of ships) {
+      if (s.done) continue;
+      const see = canSee(s);
+      ctx.fillStyle = see ? '#7dffb0' : Math.sin(tnow * 8) > 0 ? '#ff5a4a' : '#7a2a24';
+      ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, 7); ctx.fill();
+    }
+    // Beam
+    if (open && oil > 0) {
+      const bg = ctx.createRadialGradient(LH.x, LH.y, 4, LH.x, LH.y, RANGE);
+      bg.addColorStop(0, 'rgba(255,226,150,0.55)'); bg.addColorStop(1, 'rgba(255,226,150,0)');
+      ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.moveTo(LH.x, LH.y); ctx.arc(LH.x, LH.y, RANGE, beam - HALF, beam + HALF); ctx.closePath(); ctx.fill();
+    } else {
+      ctx.strokeStyle = 'rgba(255,226,150,0.25)'; ctx.setLineDash([4, 6]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(LH.x, LH.y); ctx.lineTo(LH.x + Math.cos(beam) * 120, LH.y + Math.sin(beam) * 120); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (Math.abs(aim - beam) > 0.05) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(LH.x + Math.cos(aim) * 40, LH.y + Math.sin(aim) * 40); ctx.lineTo(LH.x + Math.cos(aim) * 70, LH.y + Math.sin(aim) * 70); ctx.stroke();
+    }
+    // Flare
+    if (flareFx && flareFx.t < 1.2) {
+      const a = 1 - flareFx.t / 1.2;
+      ctx.fillStyle = `rgba(255,240,200,${0.35 * a})`;
+      ctx.beginPath(); ctx.arc(flareFx.x, flareFx.y, flareFx.r * Math.min(1, flareFx.t * 4), 0, 7); ctx.fill();
+    }
+    if (charging >= 0) {
+      const c = Math.min(1, (tnow - charging) / FLARE_S), r = FLARE_R0 + (FLARE_R1 - FLARE_R0) * c;
+      const x = LH.x + Math.cos(beam) * r * 0.9, y = LH.y + Math.sin(beam) * r * 0.9;
+      const cost = FLARE_MIN + (FLARE_MAX - FLARE_MIN) * c;
+      ctx.strokeStyle = cost <= oil ? 'rgba(255,240,200,0.7)' : 'rgba(255,130,110,0.8)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = ctx.strokeStyle; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(`${Math.round(cost)} oil`, x, y);
+    }
+    for (const e of fx) {
+      const a = 1 - e.t / 1.2;
+      ctx.strokeStyle = e.kind === 'home' ? `rgba(125,255,176,${a})` : `rgba(255,110,90,${a})`;
+      ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, 6 + e.t * 26, 0, 7); ctx.stroke();
+    }
+    // Land, harbour, lighthouse
+    ctx.fillStyle = '#1b1f17';
+    ctx.beginPath(); ctx.moveTo(0, COAST); ctx.lineTo(PORT.x - PORT.r - 6, COAST);
+    ctx.lineTo(PORT.x - PORT.r, COAST + 18); ctx.lineTo(PORT.x + PORT.r, COAST + 18); ctx.lineTo(PORT.x + PORT.r + 6, COAST);
+    ctx.lineTo(W, COAST); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#10243a'; ctx.fillRect(PORT.x - PORT.r, COAST - 1, PORT.r * 2, 18);
+    ctx.strokeStyle = '#7dffb0'; ctx.lineWidth = 2; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(PORT.x, PORT.y, PORT.r, Math.PI, 0); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#9aaab8'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('harbour', PORT.x, COAST + 32);
+    ctx.fillStyle = '#d9d4c7'; ctx.fillRect(LH.x - 6, LH.y - 2, 12, 32);
+    ctx.fillStyle = '#b5413a'; ctx.fillRect(LH.x - 6, LH.y + 8, 12, 6);
+    ctx.fillStyle = open && oil > 0 ? '#ffe39a' : '#3a4048';
+    ctx.beginPath(); ctx.arc(LH.x, LH.y - 4, 7, 0, 7); ctx.fill();
+    if (!open) { ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(LH.x, LH.y - 4, 11, 0, 7); ctx.stroke(); }
+    if (press && press.mode === 'lamp') {
+      const u = Math.min(1, (performance.now() - press.t0) / HOLD_MS);
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(LH.x, LH.y - 4, 16, -Math.PI / 2, -Math.PI / 2 + u * 2 * Math.PI); ctx.stroke();
+    }
+  }
+
+  // § input
+  // A press on the lighthouse: let go quickly to open or shutter the lamp
+  // (tap); keep pressing to charge a flare, which fires on release (hold).
+  // A press anywhere else aims the beam at the pointer and follows it (drag).
+  let press = null;
+  function toSea(evt) {
+    const r = canvas.getBoundingClientRect();
+    return [(evt.clientX - r.left) * W / r.width, (evt.clientY - r.top) * H / r.height];
+  }
+  function aimAt(p) { setAim(Math.atan2(Math.min(p[1], LH.y - 10) - LH.y, p[0] - LH.x)); }
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    if (state !== 'playing' || paused || press) return;
+    canvas.setPointerCapture(evt.pointerId);
+    const p = toSea(evt);
+    if (Math.hypot(p[0] - LH.x, p[1] - (LH.y - 4)) < LAMP_R) press = { id: evt.pointerId, mode: 'lamp', t0: performance.now() };
+    else { press = { id: evt.pointerId, mode: 'aim' }; aimAt(p); }
+  });
+  canvas.addEventListener('pointermove', evt => {
+    if (!press || evt.pointerId !== press.id || state !== 'playing' || paused) return;
+    if (press.mode === 'aim') aimAt(toSea(evt));
+  });
+  canvas.addEventListener('pointerup', evt => {
+    const a = press;
+    if (!a || evt.pointerId !== a.id) return;
+    press = null;
+    if (state !== 'playing' || paused) { charging = -1; return; }
+    if (a.mode === 'lamp') {
+      if (charging >= 0) { flare((tnow - charging) / FLARE_S); charging = -1; }
+      else if (performance.now() - a.t0 < TAP_MS) toggleShutter();
+    }
+  });
+  canvas.addEventListener('pointercancel', evt => { if (press && evt.pointerId === press.id) { press = null; charging = -1; } });
+  function checkHold() {
+    if (press && press.mode === 'lamp' && charging < 0 && performance.now() - press.t0 >= HOLD_MS) charging = tnow;
+  }
+
+  // Keyboard: ← → turn the beam, S shutters, hold Space to charge a flare.
+  let keyTurn = 0, spaceAt = -1;
+  window.addEventListener('keydown', evt => {
+    if (state !== 'playing' || paused) return;
+    const k = evt.key;
+    if (k === 'ArrowLeft' || k === 'ArrowRight') { kbUsed = true; keyTurn = k === 'ArrowLeft' ? -1 : 1; evt.preventDefault(); }
+    else if (k === 's' || k === 'S') { kbUsed = true; toggleShutter(); }
+    else if (k === ' ') { kbUsed = true; if (charging < 0) charging = tnow; evt.preventDefault(); }
+  });
+  window.addEventListener('keyup', evt => {
+    if (evt.key === 'ArrowLeft' || evt.key === 'ArrowRight') keyTurn = 0;
+    if (evt.key === ' ' && charging >= 0) { if (state === 'playing' && !paused) flare((tnow - charging) / FLARE_S); charging = -1; }
+  });
+
+  function onMain() {
+    if (performance.now() < lockUntil) return;
+    if (state === 'night') nextNight(); else if (state === 'lost') retryNight();
+  }
+  mainBtn.addEventListener('click', onMain);
+  altBtn.addEventListener('click', () => { if (performance.now() >= lockUntil) newRun(); });
+  document.getElementById('resetBtn').addEventListener('click', newRun);
+
+  // § loop
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    const d = Math.min((now - last) / 1000, 0.1);
+    last = now;
+    if (!paused) {
+      acc += d; tnow += d;
+      if (state === 'playing') { checkHold(); if (keyTurn) setAim(aim + keyTurn * TURN * d); }
+      for (const e of fx) e.t += d;
+      fx = fx.filter(e => e.t < 1.2);
+      if (flareFx) flareFx.t += d;
+    }
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) step(STEP);
+      acc -= STEP;
+    }
+    tickMsg();
+    hud();
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  newRun();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
