@@ -31,7 +31,8 @@ const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/li
 //   nearest: holds the beam on the ship nearest the lamp; never shutters or flares.
 //   skilled: reads fog, oil and courses: lights the fogged ship whose course hits
 //     rock soonest, shutters when no fogged ship hits rock within 12 s, flares
-//     (aimed between them) when 2+ fogged ships hit rock within 8 s outside the beam (oil above 25).
+//     (aimed between them, the smallest size whose ring covers them) when 2+ fogged ships hit rock
+//     within 8 s outside the beam (oil above 25).
 //   noshutter / noflare: skilled without that verb.
 //   flarespam: skilled that also fires a full flare whenever the oil allows.
 //   novice: a first-time player. Reads for 3 s, then every 1.5-3 s turns the
@@ -73,7 +74,7 @@ window.__seed = s => { __s = s; };
     get night() { return night; }, get state() { return state; }, get total() { return total; }, get st() { return st; },
     get fog() { return fog; }, get banks() { return banks; }, get schedule() { return schedule; }, get fx() { return fx; },
     get flareFx() { return flareFx; }, get charging() { return charging; }, get attempt() { return attempt; },
-    earned: runEarned, LH, PORT, COAST, SPEED, BIG_SPEED, SEE, TURN, FLARE_MIN, FLARE_MAX, OIL_MAX,
+    earned: runEarned, LH, PORT, COAST, SPEED, BIG_SPEED, SEE, TURN, FLARE_MIN, FLARE_MAX, FLARE_R0, FLARE_R1, OIL_MAX,
     fogAt, inBeam, canSee, setAim, toggleShutter, flare, step, newRun, nextNight, retryNight,
   };
   newRun();
@@ -197,7 +198,13 @@ function playInPage({ seed, bot, retries, act }) {
                   D.setAim(mid);
                   // Let the lamp swing round, then fire.
                   for (let k = 0; k < 30 && Math.abs(D.beam - D.aim) > 0.05 && D.state === 'playing'; k++) { D.step(dt); runT += dt; }
-                  if (D.state === 'playing') D.flare(D.oil > 55 ? 1 : 0.5);
+                  // Like a player reading the preview ring: the smallest flare whose ring covers them all.
+                  let c = 0;
+                  for (; c < 1; c += 0.05) {
+                    const r = D.FLARE_R0 + (D.FLARE_R1 - D.FLARE_R0) * c, cx = D.LH.x + Math.cos(D.beam) * r * 0.9, cy = D.LH.y + Math.sin(D.beam) * r * 0.9;
+                    if (set.every(x => hyp(x.s.x - cx, x.s.y - cy) < r - 10)) break;
+                  }
+                  if (D.state === 'playing' && D.FLARE_MIN + (D.FLARE_MAX - D.FLARE_MIN) * Math.min(1, c) <= D.oil - 5) D.flare(Math.min(1, c));
                   nextAct = D.t + act;
                 }
               }
