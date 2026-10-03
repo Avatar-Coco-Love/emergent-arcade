@@ -4,6 +4,9 @@ window.ARCADE_CONFIG = {
   // for the "Source on GitHub" footer link.
   repo: "Avatar-Coco-Love/emergent-arcade",
 
+  // "Support this arcade" link in the gallery footer. Leave empty to hide it.
+  supportUrl: "https://cash.app/$InnerTemple92",
+
   // Where the site is published. Link previews (Facebook, Messenger) need
   // absolute URLs, and on this host the share button hands out
   // <siteUrl>play/<id>/, a page with that game's preview card that forwards
