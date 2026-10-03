@@ -2,6 +2,8 @@
 
 Index of six generated-puzzle ideas, one file each. None is built or
 approved. Format follows `docs/ideas/tidewright.md` (a brief, not a spec).
+Other briefs (e.g. `coat-check.md`, a working-memory game) are listed in
+`README.md`.
 
 ## Why discrete, generated puzzles
 
