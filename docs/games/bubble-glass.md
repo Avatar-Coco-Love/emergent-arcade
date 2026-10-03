@@ -124,4 +124,4 @@ big-bubble (merged bubble leaves, v3); clockwork (chapter finished on the clock,
 
 History (older versions, balance tables, playtests): `docs/history/bubble-glass.md`
 
-Playtest (v4, private): https://claude.ai/artifact/KjMpw8w6HrZVR5VGRzr9oc
+Playtest (v5, private): https://claude.ai/artifact/EeiVKc5BhJGeHqSRnF5gBG
