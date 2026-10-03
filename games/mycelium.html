@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mycelium</title>
+<style>
+  :root {
+    --bg: #17110c;
+    --panel: #2b2018;
+    --text: #f3ead2;
+    --muted: #b9a993;
+    --accent: #e8b04f;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given; the soil scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  /* Messages get their own strip, never drawn over the soil (findings: Rail Yard). */
+  #msg {
+    flex: none; margin: 0; min-height: 2.6em; display: flex; align-items: center; justify-content: center;
+    text-align: center; font-size: 0.85rem; line-height: 1.3; color: var(--text);
+  }
+  #msg.warn { color: #ffb48a; font-weight: 600; }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #soil { display: block; width: 100%; height: 100%; touch-action: none; border-radius: 10px; }
+  #endCard {
+    position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%);
+    width: min(88%, 310px); padding: 16px; border-radius: 12px;
+    background: rgba(36, 26, 18, 0.96); border: 1px solid #6a5238; text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.25rem; }
+  #endCard h2.won { color: #f2d58a; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #e6dac4; font-size: 0.88rem; }
+  #endCard button { margin-top: 10px; width: 100%; font-weight: 600; }
+  #endCard button:disabled { opacity: 0.4; }
+  #endCard button[hidden] { display: none; }
+  .bar {
+    flex: none; display: flex; align-items: center; justify-content: center;
+    gap: 6px 12px; flex-wrap: wrap; font-size: 0.82rem; color: var(--muted);
+  }
+  .bar b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .meter {
+    display: inline-block; width: 56px; height: 8px; border-radius: 4px;
+    background: #3a2c20; vertical-align: middle; overflow: hidden;
+  }
+  .meter span { display: block; height: 100%; }
+  #poolFill { background: var(--accent); }
+  #frostFill { background: #9cc8e8; }
+  button {
+    background: var(--panel); color: var(--text); border: 1px solid #6a5238;
+    border-radius: 6px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <p id="msg" role="status"></p>
+  <div id="field">
+    <div id="stage">
+      <canvas id="soil" aria-label="Mycelium. Drag from a knot to grow a thread, tap a knot to pulse nutrient to it, hold a knot to cut the thread there."></canvas>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="mainBtn"></button>
+        <button id="altBtn">New run</button>
+      </div>
+    </div>
+  </div>
+  <div class="bar">
+    <span><b id="hudSeason"></b></span>
+    <span>Mushrooms <b id="hudFruit"></b></span>
+    <span>Pool <span class="meter"><span id="poolFill"></span></span> <b id="hudPool"></b> <span id="hudUpkeep"></span></span>
+    <span>Frost <span class="meter"><span id="frostFill"></span></span></span>
+    <span>Score <b id="hudScore"></b><span id="hudBest"></span></span>
+    <button id="resetBtn">New run</button>
+  </div>
+
+<script>
+(function() {
+  // § constants
+  const GAME_ID = 'mycelium';
+  const W = 400, H = 540;            // game units (canvas scales to fit)
+  const S = 36, SY = 31, MX = 20, MY = 22, ROWS = 17; // hex lattice of knot sites
+  const JIT = 4;                     // site jitter (px)
+
+  // Sap and the pool (the shared state)
+  const K = 3;                       // knots within K threads of the spore or a feeding patch are fed
+  const DECAY = 1 / 12;              // sap lost per s by an unfed knot (12 s from full to dead)
+  const REFILL = 0.6;                // sap gained per s by a fed knot
+  const HUNGER_T = 1.5;              // s between tips withering while the pool can't pay upkeep
+  const ROT = 0.4;                   // sap lost per s by a rotting knot, fed or not
+  const SAPN = 2;                    // nutrient to refill one knot from empty
+  const UPKEEP = 0.12;               // nutrient per knot per s
+  const DRY_U = 4;                   // upkeep multiplier in dry soil
+  const GROW_C = 3, GROW_V = 2.5;    // nutrient per new knot, knots grown per s
+  const PULSE = 20;                  // nutrient a pulse carries out of the pool
+  const FRUIT = 30;                  // nutrient that grows one mushroom
+  const POOL0 = 40, POOL_MAX = 150;
+  const FOOD = 1.4;                    // scales every patch's food
+  const INCOME = 2;                  // nutrient per s from a connected patch
+  const SPORE_INC = 1.0;             // the spore's own trickle into the pool, per s
+  const RETRY_GIFT = 15;             // extra nutrient for each retry of a season
+  const SPRING = 25;                 // nutrient added to the pool at the start of each season after the first
+  const RIVAL_T = 1.4, RIVAL_EAT = 4, RIVAL_WAIT = 5; // rival mould: s per knot, food eaten per s on a patch, s it rests after a cut
+  const FROST_LEFT = 8;              // s left once every patch is used up
+  const ENDLESS_UP = 0.08, ENDLESS_FOOD = 0.93; // per endless season: upkeep up, food down
+
+  // Input
+  const HOLD_MS = 450, DRAG_PX = 12, HIT_R = 22, TAP_MS = 450;
+  const END_LOCK_MS = 1000;
+  const STEP = 1 / 60;
+
+  // § seasons
+  // patches: [count, food, nearest, farthest] (threads from the spore, through open soil).
+  // log: one big patch [food, income, near, far]. late: patches that appear mid-season [at s, food].
+  const SEASONS = [
+    { name: 'First spores', T: 60, goal: 2, patches: [[2, 50, 3, 4]] },
+    { name: 'Leaf litter', T: 70, goal: 3, patches: [[4, 45, 3, 6]] },
+    { name: 'Old log', T: 75, goal: 3, patches: [[1, 60, 3, 4]], log: [170, 3, 6, 8] },
+    { name: 'Dry spell', T: 75, goal: 4, patches: [[5, 60, 4, 7]], dry: 1 },
+    { name: 'Rival mould', T: 80, goal: 4, patches: [[5, 60, 4, 7]], rivals: 1 },
+    { name: 'Stony ground', T: 80, goal: 5, patches: [[4, 55, 4, 8]], rocks: 25, late: [[25, 50], [45, 50]] },
+    { name: 'Two moulds', T: 80, goal: 5, patches: [[6, 55, 4, 8]], rivals: 2 },
+    { name: 'First frost', T: 80, goal: 6, patches: [[6, 55, 5, 9]], dry: 1, rivals: 1, rocks: 15 },
+  ];
+  function seasonSpec(n) {
+    if (n <= SEASONS.length) return Object.assign({ up: 1, food: 1 }, SEASONS[n - 1]);
+    const e = n - SEASONS.length;
+    const twists = ['dry', 'rivals', 'rocks', 'late'].sort(() => Math.random() - 0.5).slice(0, 2);
+    const sp = { name: 'Endless ' + e, T: 80, goal: 6 + e, patches: [[6, 55, 4, 9]],
+      up: Math.pow(1 + ENDLESS_UP, e), food: Math.pow(ENDLESS_FOOD, e) };
+    for (const tw of twists) {
+      if (tw === 'dry') sp.dry = 2;
+      if (tw === 'rivals') sp.rivals = e >= 4 ? 2 : 1;
+      if (tw === 'rocks') sp.rocks = 25;
+      if (tw === 'late') sp.late = [[25, 50], [45, 50]];
+    }
+    return sp;
+  }
+
+  const canvas = document.getElementById('soil');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+  const touchy = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  const TAP = touchy ? 'Tap' : 'Click', HOLD = touchy ? 'Hold' : 'Click and hold';
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded.
+  const unlocked = new Set();
+  function unlock(id) {
+    runEarned.add(id); roundEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Season results for play telemetry (docs/telemetry.md); keys in docs/games/mycelium.md.
+  function report(won) {
+    if (window.parent === window) return;
+    const r1 = v => Math.round(v * 10) / 10;
+    const msg = { type: 'arcade:result', game: GAME_ID, outcome: won ? 'win' : 'loss',
+      time: r1(t), level: season, run: runId, attempt, score: total,
+      stats: { fruit: mushrooms, goal: spec.goal, pulses: st.pulses, spilled: r1(st.spilled), grown: st.grown,
+        pruned: st.pruned, starved: st.starved, withered: st.withered, rotted: st.rotted, hungry_s: r1(st.hungryS), pool: r1(pool), knots: countMine(),
+        rival_cut: st.rivalCut, first_input: r1(st.firstInput) } };
+    if (!won) msg.reason = st.hungryS > 10 ? 'hunger' : 'frost';
+    window.parent.postMessage(msg, '*');
+  }
+
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitSoil() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(80, Math.floor(W * scale)), h = Math.max(110, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitSoil).observe(field);
+  window.addEventListener('resize', fitSoil);
+  fitSoil();
+
+  let paused = false, best = 0;
+  window.addEventListener('message', evt => {
+    const d = evt.data;
+    if (!d) return;
+    if (d.type === 'arcade:pause') { paused = true; press = null; }
+    if (d.type === 'arcade:resume') paused = false;
+    if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {
+      const b = Number(d.bests.main); if (b > 0 && b < 1e5) best = Math.round(b);
+    }
+  });
+
+  const endCard = document.getElementById('endCard');
+  const mainBtn = document.getElementById('mainBtn');
+  const altBtn = document.getElementById('altBtn');
+
+  // § state
+  const P = [];                      // knot sites {x, y, nb: [indices]}
+  let N = 0, core = 0;
+  let own, par, sap, rot, conn, dc, dh, dry, patchAt, rpar, rown, head, nxt, queue, dcore;
+  let patches = [], rivals = [], jobs = [], fx = [], decor = [];
+  let frostEarly = false, endT = 0, hungerAcc = 0;
+  let season, spec, t, pool, mushrooms, total, state, runId, attempt, snap, st, lockUntil = 0, tnow = 0;
+  let hinted = {}, cursor = 0, kbFrom = -1;
+  const runEarned = new Set(), roundEarned = new Set();
+
+  function ri(n) { return Math.floor(Math.random() * n); }
+  function buildLattice() {
+    P.length = 0;
+    for (let r = 0; r < ROWS; r++) {
+      const odd = r % 2, cols = odd ? 10 : 11;
+      for (let c = 0; c < cols; c++) {
+        P.push({ x: MX + c * S + (odd ? S / 2 : 0) + (Math.random() * 2 - 1) * JIT,
+          y: MY + r * SY + (Math.random() * 2 - 1) * JIT, nb: [] });
+      }
+    }
+    N = P.length;
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+      if (Math.hypot(P[i].x - P[j].x, P[i].y - P[j].y) < S * 1.3) { P[i].nb.push(j); P[j].nb.push(i); }
+    }
+    own = new Int8Array(N);          // 0 open soil, 1 mine, 2 rival, 3 stone
+    par = new Int16Array(N).fill(-1); sap = new Float32Array(N); rot = new Uint8Array(N);
+    conn = new Uint8Array(N); dc = new Int16Array(N); dh = new Int16Array(N);
+    dry = new Uint8Array(N); patchAt = new Int16Array(N).fill(-1);
+    rpar = new Int16Array(N).fill(-1); rown = new Int8Array(N).fill(-1);
+    head = new Int16Array(N); nxt = new Int16Array(N); queue = new Int16Array(N); dcore = new Int16Array(N);
+    let bd = 1e9;
+    P.forEach((p, i) => { const d = Math.hypot(p.x - W / 2, p.y - H / 2); if (d < bd) { bd = d; core = i; } });
+    decor = Array.from({ length: 70 }, () => [Math.random() * W, Math.random() * H, 0.6 + Math.random() * 1.8]);
+  }
+
+  // § network
+  // The network is a tree rooted at the spore: par[i] is the knot a thread
+  // came from. Knots whose chain to the spore is cut are stranded.
+  function topo() {
+    head.fill(-1); conn.fill(0); dc.fill(-1); dh.fill(99);
+    for (let i = 0; i < N; i++) if (own[i] === 1 && par[i] >= 0) { nxt[i] = head[par[i]]; head[par[i]] = i; }
+    let qh = 0, qt = 0;
+    conn[core] = 1; dc[core] = 0; queue[qt++] = core;
+    while (qh < qt) {
+      const u = queue[qh++];
+      for (let c = head[u]; c >= 0; c = nxt[c]) { conn[c] = 1; dc[c] = dc[u] + 1; queue[qt++] = c; }
+    }
+    // Feed distance: threads to the spore or the nearest connected patch with food.
+    qh = qt = 0;
+    dh[core] = 0; queue[qt++] = core;
+    for (const p of patches) if (p.on && p.food > 0 && own[p.i] === 1 && conn[p.i]) { dh[p.i] = 0; queue[qt++] = p.i; }
+    while (qh < qt) {
+      const u = queue[qh++];
+      const visit = v => { if (v >= 0 && own[v] === 1 && conn[v] && dh[v] > dh[u] + 1) { dh[v] = dh[u] + 1; queue[qt++] = v; } };
+      visit(par[u]);
+      for (let c = head[u]; c >= 0; c = nxt[c]) visit(c);
+    }
+  }
+  function countMine() { let n = 0; for (let i = 0; i < N; i++) if (own[i] === 1) n++; return n; }
+  function subtree(i) { const out = [i]; for (let k = 0; k < out.length; k++) for (let c = head[out[k]]; c >= 0; c = nxt[c]) out.push(c); return out; }
+  function pathToCore(i) { const out = []; for (let a = i; a >= 0; a = par[a]) out.push(a); return out.reverse(); }
+  function upkeepOf(i) { return UPKEEP * spec.up * (dry[i] ? DRY_U : 1); }
+  function upkeepRate() { let u = 0; for (let i = 0; i < N; i++) if (own[i] === 1 && conn[i] && i !== core) u += upkeepOf(i); return u; }
+
+  // Shortest route through open soil from a knot of mine to a site (which may
+  // be a stranded knot of mine: growing into it reconnects its branch).
+  function route(from, to) {
+    if (from === to || own[to] === 3 || own[to] === 2) return null;
+    if (own[to] === 1 && conn[to]) return null;
+    const prev = new Int16Array(N).fill(-2);
+    prev[from] = -1;
+    let qh = 0, qt = 0;
+    queue[qt++] = from;
+    while (qh < qt) {
+      const u = queue[qh++];
+      if (u === to) break;
+      for (const v of P[u].nb) {
+        if (prev[v] !== -2) continue;
+        if (v !== to && own[v] !== 0) continue;
+        prev[v] = u; queue[qt++] = v;
+      }
+    }
+    if (prev[to] === -2) return null;
+    const path = [];
+    for (let a = to; a !== -1; a = prev[a]) path.push(a);
+    return path.reverse();
+  }
+
+  // § verbs
+  function grow(from, to) {
+    if (state !== 'playing' || own[from] !== 1 || !conn[from]) return false;
+    const path = route(from, to);
+    if (!path) return false;
+    touch();
+    jobs = jobs.filter(j => j.path[j.path.length - 1] !== to);
+    jobs.push({ path, k: 1, acc: 0 });
+    if (jobs.length > 3) jobs.shift();
+    return true;
+  }
+  function pulse(i) {
+    if (state !== 'playing' || own[i] !== 1 || !conn[i]) return false;
+    touch();
+    const pk = Math.min(pool, PULSE);
+    if (pk < 0.5) { say('The pool is empty: a pulse needs nutrient from it.', 3, true); return false; }
+    pool -= pk; st.pulses++;
+    let left = pk;
+    const path = pathToCore(i);
+    for (const a of path) {
+      if (a === core) continue;
+      const take = Math.min(left, (1 - sap[a]) * SAPN);
+      sap[a] += take / SAPN; left -= take;
+    }
+    const p = patchAt[i] >= 0 ? patches[patchAt[i]] : null;
+    if (p && p.on) {
+      p.fruit += left;
+      while (p.fruit >= FRUIT) {
+        p.fruit -= FRUIT; p.caps++; mushrooms++; total++;
+        unlock('first-flush');
+        if (dc[i] >= 8) unlock('long-reach');
+        if (mushrooms >= 12) unlock('fairy-ring');
+        fx.push({ kind: 'pop', x: P[i].x, y: P[i].y, t: 0 });
+        if (!hinted.score && mushrooms === 1) { hinted.score = 1; say(`A mushroom! Grow ${spec.goal} before the frost. Pulses that reach a patch feed its next one.`, 5); }
+      }
+    } else st.spilled += left;
+    fx.push({ kind: 'surge', path: path.map(a => [P[a].x, P[a].y]), t: 0, spill: !(p && p.on) && left > 1 });
+    return true;
+  }
+  function prune(i) {
+    if (state !== 'playing') return false;
+    if (own[i] === 2) { touch(); cutRival(i); return true; }
+    if (own[i] !== 1 || i === core || par[i] < 0) return false;
+    touch();
+    par[i] = -1; st.pruned++;
+    fx.push({ kind: 'cut', x: P[i].x, y: P[i].y, t: 0 });
+    topo();
+    return true;
+  }
+  function cutRival(i) {
+    const rv = rivals[rown[i]];
+    if (!rv) return;
+    const gone = [i];
+    if (i === rv.root) { gone.length = 0; for (let j = 0; j < N; j++) if (rown[j] === rown[i] && rpar[j] === i) gone.push(j); }
+    let ateFood = false;
+    for (let k = 0; k < gone.length; k++) {
+      const a = gone[k];
+      for (let j = 0; j < N; j++) if (own[j] === 2 && rpar[j] === a && rown[j] === rown[a]) gone.push(j);
+    }
+    for (const a of gone) {
+      if (patchAt[a] >= 0 && patches[patchAt[a]].food > 0) ateFood = true;
+      own[a] = 0; rpar[a] = -1; rown[a] = -1;
+    }
+    if (gone.length) { rv.acc = -RIVAL_WAIT; st.rivalCut++; fx.push({ kind: 'cut', x: P[i].x, y: P[i].y, t: 0 }); }
+    if (ateFood) unlock('clean-cut');
+  }
+  function touch() { if (st.firstInput < 0) st.firstInput = t; }
+
+  // A knot that dies while attached rots the knot it grew from; a cut-off one withers harmlessly.
+  function kill(i) {
+    if (conn[i] && par[i] >= 0 && par[i] !== core && own[par[i]] === 1) {
+      if (!rot[par[i]]) { rot[par[i]] = 1; st.rotted++; }
+      if (!hinted.rot) { hinted.rot = 1; say(`Rot! A thread that starves while attached rots back toward the spore. ${HOLD} a rotting knot to cut it loose.`, 7, true); }
+    }
+    own[i] = 0; par[i] = -1; sap[i] = 0; rot[i] = 0;
+    for (let j = 0; j < N; j++) if (own[j] === 1 && par[j] === i) par[j] = -1;
+    fx.push({ kind: 'wither', x: P[i].x, y: P[i].y, t: 0 });
+  }
+
+  // § simulation
+  function step(dt) {
+    t += dt;
+    for (const p of patches) if (!p.on && t >= p.at) {
+      p.on = true; fx.push({ kind: 'pop', x: P[p.i].x, y: P[p.i].y, t: 0 });
+      if (!hinted.late) { hinted.late = 1; say('A fresh patch fell into the soil.', 3); }
+    }
+    // Growing threads extend one knot at a time, paid from the pool as they go.
+    for (const j of jobs) {
+      j.acc = Math.min(1.5, j.acc + GROW_V * dt);
+      while (j.acc >= 1 && j.k < j.path.length) {
+        const prev = j.path[j.k - 1], q = j.path[j.k];
+        if (own[prev] !== 1 || !conn[prev]) { j.k = j.path.length; break; }
+        if (pool < GROW_C) {
+          if (!j.wait && !hinted.wait) { hinted.wait = 1; say('Growth waits for the pool: each new knot costs ' + GROW_C + '.', 4); }
+          j.wait = true; break;
+        }
+        j.wait = false;
+        if (own[q] === 0) {
+          pool -= GROW_C; own[q] = 1; par[q] = prev; sap[q] = 1; conn[q] = 1; dc[q] = dc[prev] + 1; st.grown++;
+        } else if (own[q] === 1 && !conn[q]) {
+          pool -= GROW_C;
+          let a = q, p = prev;
+          while (a >= 0) { const nx = par[a]; par[a] = p; p = a; a = nx; }
+          topo(); j.k = j.path.length; break;
+        } else { j.k = j.path.length; break; }
+        j.k++; j.acc -= 1;
+      }
+    }
+    jobs = jobs.filter(j => j.k < j.path.length);
+    stepRivals(dt);
+    topo();
+
+    // Upkeep: every connected knot draws on the pool. What the pool can't pay, the threads go without.
+    const need = upkeepRate() * dt;
+    let f = 1;
+    if (pool >= need) pool -= need;
+    else {
+      f = need > 0 ? pool / need : 1; pool = 0; st.hungryS += dt;
+      // The network eats its own tips: the farthest one withers (harmlessly) every HUNGER_T s.
+      hungerAcc += dt;
+      if (hungerAcc >= HUNGER_T) {
+        hungerAcc = 0;
+        let tip = -1;
+        for (let i = 0; i < N; i++) if (own[i] === 1 && conn[i] && i !== core && head[i] < 0 && (tip < 0 || dc[i] > dc[tip])) tip = i;
+        if (tip >= 0) { st.withered++; own[tip] = 0; par[tip] = -1; sap[tip] = 0; rot[tip] = 0; fx.push({ kind: 'wither', x: P[tip].x, y: P[tip].y, t: 0 }); topo(); }
+      }
+    }
+    if (f >= 1) hungerAcc = 0;
+    let starving = false;
+    for (let i = 0; i < N; i++) {
+      if (own[i] !== 1) continue;
+      if (i === core) { sap[i] = 1; continue; }
+      if (rot[i]) sap[i] -= ROT * dt;
+      else if (conn[i] && dh[i] <= K) sap[i] = Math.min(1, sap[i] + REFILL * f * dt); // a hungry network stops refilling
+      else sap[i] -= DECAY * dt;
+      if (sap[i] < 0.35 && conn[i]) starving = true;
+      if (sap[i] <= 0) { if (conn[i]) st.starved++; kill(i); }
+    }
+    pool = Math.min(POOL_MAX, pool + SPORE_INC * dt);
+    // Connected patches feed the pool until they are used up.
+    for (const p of patches) {
+      if (!p.on || p.food <= 0) continue;
+      if (own[p.i] === 1 && conn[p.i]) {
+        const g = Math.min(p.food, p.inc * dt);
+        p.food -= g; pool = Math.min(POOL_MAX, pool + g);
+        if (p.food <= 0 && !hinted.spent) { hinted.spent = 1; say(`That patch is used up, but its thread still costs upkeep. ${HOLD} a knot to cut a branch you no longer need.`, 6); }
+      } else if (own[p.i] === 2) p.food = Math.max(0, p.food - RIVAL_EAT * dt);
+    }
+    if (!hinted.connect && patches.some(p => own[p.i] === 1 && conn[p.i])) {
+      hinted.connect = 1;
+      say(`The patch feeds your pool. ${TAP} its knot to pulse nutrient out to it: enough grows a mushroom.`, 6);
+    }
+    if (starving && !hinted.fade) {
+      hinted.fade = 1;
+      say(`Threads more than ${K} knots from the spore or a feeding patch fade. ${TAP} a fading tip to pulse sap out to it.`, 6, true);
+    }
+    if (f < 1 && !hinted.hungry && t > 3) {
+      hinted.hungry = 1;
+      say(`Pool empty: the network eats its own tips to pay its upkeep. ${HOLD} a knot to cut a branch you don't need.`, 6, true);
+    }
+    // Nothing left to harvest: the frost comes early, after a few seconds to spend the pool.
+    if (!frostEarly && t > 5 && patches.every(p => p.on ? p.food <= 0 : false) && !patches.some(p => !p.on)) {
+      frostEarly = true;
+      if (spec.T - t > FROST_LEFT) { endT = t + FROST_LEFT; say(`The soil is spent: frost in ${FROST_LEFT} s. Pulse what's left in the pool into mushrooms.`, 5); }
+    }
+    if (t >= endT) endSeason();
+  }
+
+  function stepRivals(dt) {
+    rivals.forEach((rv, r) => {
+      rv.acc += dt;
+      // A rival on a patch eats; otherwise it reaches for the nearest patch with food.
+      if (rv.acc < RIVAL_T) return;
+      rv.acc = 0;
+      if (own[rv.root] !== 2) { if (own[rv.root] === 0) { own[rv.root] = 2; rown[rv.root] = r; rpar[rv.root] = -1; } else return; }
+      const prev = new Int16Array(N).fill(-2);
+      let qh = 0, qt = 0;
+      for (let i = 0; i < N; i++) if (own[i] === 2 && rown[i] === r) { prev[i] = -1; queue[qt++] = i; }
+      let goal = -1;
+      while (qh < qt) {
+        const u = queue[qh++];
+        const pi = patchAt[u];
+        if (prev[u] !== -1 && pi >= 0 && patches[pi].on && patches[pi].food > 0) { goal = u; break; }
+        for (const v of P[u].nb) if (prev[v] === -2 && own[v] === 0) { prev[v] = u; queue[qt++] = v; }
+      }
+      if (goal < 0) return;
+      let a = goal;
+      while (prev[prev[a]] !== -1) a = prev[a];
+      own[a] = 2; rown[a] = r; rpar[a] = prev[a];
+      if (!hinted.rival) { hinted.rival = 1; say(`A rival mould is racing you to the food. ${HOLD} one of its knots to cut it off.`, 6, true); }
+    });
+  }
+
+  // § run
+  function newRun() {
+    buildLattice();
+    season = 1; total = 0; attempt = 1; pool = POOL0;
+    runId = Math.random().toString(36).slice(2, 10) || 'run';
+    own[core] = 1; sap[core] = 1;
+    runEarned.clear();
+    hinted = {};
+    cursor = core; kbFrom = -1;
+    beginSeason(true);
+    say(`Drag from the glowing spore to a leaf patch to grow a thread toward it.`, 8);
+  }
+  function setupSeason() {
+    spec = seasonSpec(season);
+    patches = []; rivals = [];
+    for (let i = 0; i < N; i++) {
+      if (own[i] === 2 || own[i] === 3) own[i] = 0;
+      rpar[i] = -1; rown[i] = -1; patchAt[i] = -1; dry[i] = 0;
+      if (own[i] === 1 && par[i] < 0 && i !== core) { own[i] = 0; sap[i] = 0; } // stranded threads rot over winter
+      if (own[i] === 1) sap[i] = 1;
+      rot[i] = 0;
+    }
+    // Winter: threads more than K knots from the spore die back harmlessly (no patch feeds them now).
+    for (let pass = 0; pass < 2; pass++) {
+      topo();
+      for (let i = 0; i < N; i++) if (own[i] === 1 && i !== core && (!conn[i] || dc[i] > K)) { own[i] = 0; par[i] = -1; sap[i] = 0; }
+    }
+    topo();
+    // Threads from the spore through open soil, and from my network.
+    const dnet = bfsDist(i => own[i] === 1, () => true);
+    const place = (food, lo, hi, inc, at) => {
+      dcore.set(bfsDist(i => i === core, i => own[i] !== 3));
+      const ok = i => own[i] === 0 && patchAt[i] < 0 && P[i].nb.every(v => patchAt[v] < 0) && dnet[i] >= 2 &&
+        P[i].x > 30 && P[i].x < W - 30 && P[i].y > 30 && P[i].y < H - 30;
+      for (let widen = 0; widen < 6; widen++) {
+        const c = [];
+        for (let i = 0; i < N; i++) if (ok(i) && dcore[i] >= lo - widen && dcore[i] <= hi + widen) c.push(i);
+        if (c.length) {
+          const i = c[ri(c.length)];
+          patchAt[i] = patches.length;
+          patches.push({ i, food: food * FOOD * spec.food, max: food * FOOD * spec.food, inc, fruit: 0, caps: 0, on: at == null, at: at || 0, big: inc > INCOME });
+          return i;
+        }
+      }
+      return -1;
+    };
+    if (spec.rocks) {
+      let n = 0, tries = 0;
+      while (n < spec.rocks && tries++ < 500) {
+        const i = ri(N);
+        if (own[i] === 0 && Math.hypot(P[i].x - P[core].x, P[i].y - P[core].y) > S * 2.2) { own[i] = 3; n++; }
+      }
+    }
+    if (spec.log) place(spec.log[0], spec.log[2], spec.log[3], spec.log[1]);
+    for (const [n, food, lo, hi] of spec.patches) for (let k = 0; k < n; k++) place(food, lo, hi, INCOME);
+    if (spec.late) for (const [at, food] of spec.late) place(food, 3, 8, INCOME, at);
+    if (spec.dry) {
+      // Dry soil lands on the network you carried over (or near the spore in a fresh run).
+      const mine = []; for (let i = 0; i < N; i++) if (own[i] === 1 && i !== core && dc[i] >= 2) mine.push(i);
+      for (let k = 0; k < spec.dry; k++) {
+        const c = mine.length && Math.random() < 0.7 ? P[mine[ri(mine.length)]] : { x: 60 + Math.random() * (W - 120), y: 60 + Math.random() * (H - 120) };
+        const r = 62;
+        for (let i = 0; i < N; i++) if (i !== core && Math.hypot(P[i].x - c.x, P[i].y - c.y) < r) dry[i] = 1;
+      }
+    }
+    for (let r = 0; r < (spec.rivals || 0); r++) {
+      const edge = [];
+      for (let i = 0; i < N; i++) if (own[i] === 0 && patchAt[i] < 0 && (P[i].x < 30 || P[i].x > W - 30 || P[i].y < 30 || P[i].y > H - 30)) edge.push(i);
+      // Corners first: one rival from a top corner, the next from a bottom one.
+      edge.sort((a, b) => Math.hypot(P[a].x - (r % 2 ? W : 0), P[a].y - (r % 2 ? H : 0)) - Math.hypot(P[b].x - (r % 2 ? W : 0), P[b].y - (r % 2 ? H : 0)));
+      const root = edge[ri(Math.min(4, edge.length))];
+      if (root == null) continue;
+      own[root] = 2; rown[root] = r;
+      rivals.push({ root, acc: -4 });
+    }
+    topo();
+  }
+  function bfsDist(src, pass) {
+    const d = new Int16Array(N).fill(99);
+    let qh = 0, qt = 0;
+    for (let i = 0; i < N; i++) if (src(i)) { d[i] = 0; queue[qt++] = i; }
+    while (qh < qt) {
+      const u = queue[qh++];
+      for (const v of P[u].nb) if (d[v] > d[u] + 1 && pass(v)) { d[v] = d[u] + 1; queue[qt++] = v; }
+    }
+    return d;
+  }
+  function saveSnap() {
+    return { own: Int8Array.from(own), rot: Uint8Array.from(rot), par: Int16Array.from(par), sap: Float32Array.from(sap), patchAt: Int16Array.from(patchAt),
+      dry: Uint8Array.from(dry), rown: Int8Array.from(rown), patches: JSON.stringify(patches), rivals: JSON.stringify(rivals), pool, total, spec };
+  }
+  function beginSeason(fresh) {
+    if (fresh) setupSeason();
+    snap = saveSnap();
+    startPlay();
+  }
+  function startPlay() {
+    t = 0; mushrooms = 0; jobs = []; fx = []; frostEarly = false; endT = spec.T;
+    st = { pulses: 0, spilled: 0, grown: 0, pruned: 0, starved: 0, withered: 0, rotted: 0, hungryS: 0, rivalCut: 0, firstInput: -1 };
+    roundEarned.clear();
+    state = 'playing';
+    endCard.hidden = true;
+    const tw = [];
+    if (spec.dry) tw.push(`dry soil (pale): threads there cost ${DRY_U}× upkeep`);
+    if (spec.rivals) tw.push(spec.rivals > 1 ? 'two rival moulds' : 'a rival mould');
+    if (spec.rocks) tw.push('stones in the soil');
+    if (spec.late) tw.push('fresh patches fall mid-season');
+    if (spec.log) tw.push('an old log, far out');
+    if (season > 1) say(`Season ${season}: ${spec.name}. Grow ${spec.goal} mushrooms${tw.length ? '; ' + tw.join(', ') : ''}.`, 6);
+    topo();
+  }
+  function retrySeason() {
+    own.set(snap.own); rot.set(snap.rot); par.set(snap.par); sap.set(snap.sap); patchAt.set(snap.patchAt); dry.set(snap.dry); rown.set(snap.rown);
+    rpar.fill(-1);
+    patches = JSON.parse(snap.patches); rivals = JSON.parse(snap.rivals);
+    attempt++;
+    pool = Math.min(POOL_MAX, snap.pool + RETRY_GIFT * (attempt - 1)); total = snap.total; spec = snap.spec;
+    startPlay();
+  }
+  function nextSeason() {
+    season++; attempt = 1;
+    pool = Math.min(POOL_MAX, pool + SPRING);
+    beginSeason(true);
+  }
+  function endSeason() {
+    const won = mushrooms >= spec.goal;
+    state = won ? 'season' : 'lost';
+    jobs = [];
+    if (won) {
+      if (season >= 4 && st.starved === 0) unlock('lean-season');
+      if (season >= SEASONS.length) unlock('old-growth');
+    }
+    report(won);
+    showCard(won);
+  }
+
+  const NAMES = { 'first-flush': 'First Flush', 'long-reach': 'Long Reach', 'clean-cut': 'Clean Cut',
+    'lean-season': 'Lean Season', 'fairy-ring': 'Fairy Ring', 'old-growth': 'Old Growth' };
+  function showCard(won) {
+    const el = document.getElementById('endTitle');
+    el.textContent = won ? `Season ${season} fruited` : 'Frost came too soon';
+    el.className = won ? 'won' : 'lost';
+    const why = st.hungryS > 10 ? `The pool ran dry for ${Math.round(st.hungryS)} s: the network ate its own tips.` :
+      `${mushrooms} of ${spec.goal} mushrooms by the frost.`;
+    document.getElementById('endDetail').textContent = won
+      ? `${mushrooms} mushrooms (goal ${spec.goal}). Score ${total}. Your network and ${Math.round(pool)} nutrient carry over.`
+      : `${why} Score ${total}.`;
+    const got = [...roundEarned].map(id => NAMES[id]);
+    document.getElementById('endAch').textContent = got.length ? 'Earned: ' + got.join(', ') : '';
+    mainBtn.textContent = won ? 'Next season' : `Retry season ${season}`;
+    altBtn.hidden = won;
+    endCard.hidden = false;
+    lockUntil = performance.now() + END_LOCK_MS;
+    mainBtn.disabled = altBtn.disabled = true;
+    setTimeout(() => { mainBtn.disabled = altBtn.disabled = false; }, END_LOCK_MS);
+  }
+
+  // § messages
+  let msgUntil = 0, msgMin = 0, queued = null;
+  function say(text, secs, warn) {
+    if (tnow < msgMin && !warn) { queued = [text, secs]; return; }
+    msgEl.textContent = text;
+    msgEl.className = warn ? 'warn' : '';
+    msgMin = tnow + Math.min(secs, 3);
+    msgUntil = tnow + secs;
+  }
+  function tickMsg() {
+    if (queued && tnow >= msgMin) { const q = queued; queued = null; say(q[0], q[1]); }
+    else if (msgEl.textContent && tnow >= msgUntil) msgEl.textContent = '';
+  }
+  function hud() {
+    document.getElementById('hudSeason').textContent = `Season ${season}`;
+    document.getElementById('hudFruit').textContent = `${mushrooms}/${spec.goal}`;
+    document.getElementById('hudPool').textContent = Math.floor(pool);
+    const u = state === 'playing' ? upkeepRate() : 0;
+    document.getElementById('hudUpkeep').textContent = u >= 0.05 ? `−${u.toFixed(1)}/s` : '';
+    document.getElementById('poolFill').style.width = (100 * pool / POOL_MAX).toFixed(0) + '%';
+    document.getElementById('frostFill').style.width = Math.min(100, 100 * t / endT).toFixed(0) + '%';
+    document.getElementById('hudScore').textContent = total;
+    document.getElementById('hudBest').textContent = best ? ` (best ${best})` : '';
+  }
+
+  // § drawing
+  function sapColor(s, a) {
+    const r = Math.round(150 + 93 * s), g = Math.round(90 + 144 * s), b = Math.round(70 + 140 * s);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  function draw() {
+    const sc = canvas.width / W;
+    ctx.setTransform(sc, 0, 0, sc, 0, 0);
+    const bg = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, H * 0.7);
+    bg.addColorStop(0, '#2c2016'); bg.addColorStop(1, '#17100b');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255,230,200,0.05)';
+    for (const [x, y, r] of decor) { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+    // Dry soil
+    ctx.fillStyle = 'rgba(226,196,140,0.13)';
+    for (let i = 0; i < N; i++) if (dry[i]) { ctx.beginPath(); ctx.arc(P[i].x, P[i].y, S * 0.62, 0, 7); ctx.fill(); }
+    // Sites
+    ctx.fillStyle = 'rgba(255,240,220,0.09)';
+    for (let i = 0; i < N; i++) if (own[i] === 0) { ctx.beginPath(); ctx.arc(P[i].x, P[i].y, 1.6, 0, 7); ctx.fill(); }
+    // Stones
+    for (let i = 0; i < N; i++) if (own[i] === 3) {
+      ctx.fillStyle = '#5b5550'; ctx.beginPath(); ctx.ellipse(P[i].x, P[i].y, 13, 10, (i % 5) * 0.6, 0, 7); ctx.fill();
+      ctx.fillStyle = '#77706a'; ctx.beginPath(); ctx.ellipse(P[i].x - 3, P[i].y - 3, 6, 4, 0.4, 0, 7); ctx.fill();
+    }
+    // Patches
+    for (const p of patches) {
+      if (!p.on) continue;
+      const { x, y } = P[p.i], f = p.food / (p.max || 1);
+      if (p.big) {
+        ctx.fillStyle = f > 0 ? '#7a4f2a' : '#3e2e20';
+        ctx.save(); ctx.translate(x, y); ctx.rotate(-0.4);
+        ctx.beginPath(); ctx.roundRect(-24, -9, 48, 18, 8); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(19, 0, 4, 7, 0, 0, 7); ctx.stroke();
+        ctx.restore();
+      } else {
+        const r = 6 + 9 * Math.sqrt(f);
+        ctx.fillStyle = f > 0 ? '#8d5d2c' : '#3e2e20';
+        ctx.beginPath(); ctx.arc(x, y, Math.max(7, r), 0, 7); ctx.fill();
+        if (f > 0) {
+          ctx.fillStyle = '#b8783a';
+          for (let k = 0; k < 4; k++) { const a = k * 1.7 + p.i; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.45, y + Math.sin(a) * r * 0.45, r * 0.45, r * 0.22, a, 0, 7); ctx.fill(); }
+        }
+      }
+      // Fruit progress, then the mushrooms grown here.
+      if (p.fruit > 0.5) {
+        ctx.strokeStyle = '#f2d58a'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x, y, 19, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * p.fruit / FRUIT); ctx.stroke();
+      }
+      for (let k = 0; k < Math.min(p.caps, 10); k++) {
+        const a = -Math.PI / 2 + (k - (Math.min(p.caps, 10) - 1) / 2) * 0.55, mx = x + Math.cos(a) * 24, my = y + Math.sin(a) * 24;
+        ctx.fillStyle = '#efe3c8'; ctx.fillRect(mx - 1.5, my - 1, 3, 7);
+        ctx.fillStyle = '#d0563c'; ctx.beginPath(); ctx.arc(mx, my, 6, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = '#fff4e0'; ctx.beginPath(); ctx.arc(mx - 2, my - 3, 1.2, 0, 7); ctx.fill();
+      }
+      if (p.caps > 10) { ctx.fillStyle = '#f2d58a'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('×' + p.caps, x, y - 32); }
+    }
+    // Rival mould
+    ctx.lineWidth = 3;
+    for (let i = 0; i < N; i++) if (own[i] === 2 && rpar[i] >= 0) {
+      ctx.strokeStyle = '#a65ccf'; ctx.beginPath(); ctx.moveTo(P[rpar[i]].x, P[rpar[i]].y); ctx.lineTo(P[i].x, P[i].y); ctx.stroke();
+    }
+    for (let i = 0; i < N; i++) if (own[i] === 2) {
+      const root = rivals.some(r => r.root === i);
+      ctx.fillStyle = root ? '#5a2b74' : '#c27ae6'; ctx.beginPath(); ctx.arc(P[i].x, P[i].y, root ? 9 : 4.5, 0, 7); ctx.fill();
+    }
+    // Planned growth
+    ctx.setLineDash([4, 5]); ctx.lineWidth = 2;
+    for (const j of jobs) {
+      ctx.strokeStyle = j.wait ? 'rgba(255,150,120,0.6)' : 'rgba(243,234,210,0.45)';
+      ctx.beginPath(); ctx.moveTo(P[j.path[j.k - 1]].x, P[j.path[j.k - 1]].y);
+      for (let k = j.k; k < j.path.length; k++) ctx.lineTo(P[j.path[k]].x, P[j.path[k]].y);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    // My threads: bright when full of sap, dim and red as they starve; stranded ones dashed.
+    for (let i = 0; i < N; i++) if (own[i] === 1 && par[i] >= 0) {
+      const s = Math.max(0, sap[i]);
+      ctx.strokeStyle = rot[i] ? '#7d4a6c' : sapColor(s, 0.35 + 0.65 * s);
+      ctx.lineWidth = conn[i] ? 3.2 : 2;
+      if (!conn[i]) ctx.setLineDash([3, 4]);
+      ctx.beginPath(); ctx.moveTo(P[par[i]].x, P[par[i]].y); ctx.lineTo(P[i].x, P[i].y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    for (let i = 0; i < N; i++) if (own[i] === 1 && i !== core) {
+      const s = Math.max(0, sap[i]), blink = s < 0.35 && Math.sin(tnow * 10) > 0;
+      if (rot[i]) {
+        ctx.fillStyle = '#6b3f5e'; ctx.beginPath(); ctx.arc(P[i].x, P[i].y, 7, 0, 7); ctx.fill();
+        ctx.fillStyle = '#c9a0b8'; ctx.beginPath(); ctx.arc(P[i].x - 2, P[i].y - 1, 1.6, 0, 7); ctx.arc(P[i].x + 2.5, P[i].y + 2, 1.2, 0, 7); ctx.fill();
+        continue;
+      }
+      ctx.fillStyle = blink ? '#ff8a5c' : sapColor(s, conn[i] ? 1 : 0.5);
+      ctx.beginPath(); ctx.arc(P[i].x, P[i].y, head[i] < 0 ? 5.5 : 4.2, 0, 7); ctx.fill();
+    }
+    // A starving branch would also lose this one: also draw its own par for stranded roots
+    for (let i = 0; i < N; i++) if (own[i] === 1 && i !== core && par[i] < 0) {
+      ctx.strokeStyle = 'rgba(255,138,92,0.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(P[i].x, P[i].y, 8, 0, 7); ctx.stroke();
+    }
+    // The spore
+    const c = P[core], gl = 14 + Math.sin(tnow * 2.5) * 2;
+    const g = ctx.createRadialGradient(c.x, c.y, 2, c.x, c.y, gl * 1.8);
+    g.addColorStop(0, 'rgba(255,240,200,0.9)'); g.addColorStop(1, 'rgba(255,220,150,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, gl * 1.8, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff3d6'; ctx.beginPath(); ctx.arc(c.x, c.y, 8, 0, 7); ctx.fill();
+    // Effects
+    for (const e of fx) {
+      if (e.kind === 'surge') {
+        const pts = e.path, n = pts.length - 1, u = Math.min(1, e.t / 0.45) * n, k = Math.min(n - 1, Math.floor(u)), fr = u - k;
+        if (n < 1) continue;
+        const x = pts[k][0] + (pts[k + 1][0] - pts[k][0]) * fr, y = pts[k][1] + (pts[k + 1][1] - pts[k][1]) * fr;
+        ctx.fillStyle = `rgba(255,214,120,${1 - Math.max(0, e.t - 0.45) * 3})`;
+        ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fill();
+        if (e.spill && e.t > 0.45) {
+          ctx.strokeStyle = `rgba(255,214,120,${1 - (e.t - 0.45) * 3})`; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(x, y, 6 + (e.t - 0.45) * 50, 0, 7); ctx.stroke();
+        }
+      } else {
+        const a = 1 - e.t / 0.7;
+        ctx.strokeStyle = e.kind === 'pop' ? `rgba(242,213,138,${a})` : e.kind === 'cut' ? `rgba(255,255,255,${a})` : `rgba(255,120,90,${a})`;
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, 6 + e.t * 30, 0, 7); ctx.stroke();
+      }
+    }
+    // Input feedback: the drag preview, the hold ring, the keyboard cursor.
+    if (press && press.mode === 'drag' && press.route) {
+      const r = press.route, cost = (r.length - 1) * GROW_C;
+      ctx.strokeStyle = cost <= pool ? 'rgba(243,234,210,0.8)' : 'rgba(255,140,110,0.85)';
+      ctx.setLineDash([5, 4]); ctx.lineWidth = 2.5;
+      ctx.beginPath(); r.forEach((a, k) => k ? ctx.lineTo(P[a].x, P[a].y) : ctx.moveTo(P[a].x, P[a].y)); ctx.stroke();
+      ctx.setLineDash([]);
+      const e = P[r[r.length - 1]];
+      ctx.fillStyle = ctx.strokeStyle; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(String(cost), e.x, e.y - 14);
+    }
+    if (press && press.mode === 'pending' && press.node >= 0) {
+      const u = Math.min(1, (performance.now() - press.t0) / HOLD_MS);
+      if (u > 0.2) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(P[press.node].x, P[press.node].y, 15, -Math.PI / 2, -Math.PI / 2 + u * 2 * Math.PI); ctx.stroke();
+      }
+    }
+    if (kbUsed) {
+      ctx.strokeStyle = '#9cc8e8'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(P[cursor].x, P[cursor].y, 13, 0, 7); ctx.stroke();
+      if (kbFrom >= 0) { ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(P[kbFrom].x, P[kbFrom].y, 16, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+    }
+  }
+
+  // § input
+  // Press on a knot of mine: move away to grow (drag), let go quickly to
+  // pulse (tap), keep still for HOLD_MS to cut the thread into it (hold).
+  // Rival knots can only be cut.
+  let press = null, kbUsed = false;
+  function toSoil(evt) {
+    const r = canvas.getBoundingClientRect();
+    return [(evt.clientX - r.left) * W / r.width, (evt.clientY - r.top) * H / r.height];
+  }
+  function nearest(x, y, test, maxD) {
+    let b = -1, bd = maxD;
+    for (let i = 0; i < N; i++) if (test(i)) { const d = Math.hypot(P[i].x - x, P[i].y - y); if (d < bd) { bd = d; b = i; } }
+    return b;
+  }
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    if (state !== 'playing' || paused || press) return;
+    canvas.setPointerCapture(evt.pointerId);
+    const p = toSoil(evt);
+    const node = nearest(p[0], p[1], i => own[i] === 1 || own[i] === 2, HIT_R);
+    press = { id: evt.pointerId, start: p, last: p, t0: performance.now(), node, mode: 'pending', route: null };
+  });
+  canvas.addEventListener('pointermove', evt => {
+    const a = press;
+    if (!a || evt.pointerId !== a.id || state !== 'playing' || paused) return;
+    a.last = toSoil(evt);
+    if (a.mode === 'pending' && Math.hypot(a.last[0] - a.start[0], a.last[1] - a.start[1]) >= DRAG_PX) {
+      a.mode = a.node >= 0 && own[a.node] === 1 && conn[a.node] ? 'drag' : 'none';
+      if (a.mode === 'none' && !hinted.dragHelp) { hinted.dragHelp = 1; say('Start a drag on a knot of your network (the spore at first) to grow from it.', 4); }
+    }
+    if (a.mode === 'drag') {
+      const to = nearest(a.last[0], a.last[1], i => own[i] === 0 || (own[i] === 1 && !conn[i]), S);
+      a.route = to >= 0 ? route(a.node, to) : null;
+    }
+  });
+  canvas.addEventListener('pointerup', evt => {
+    const a = press;
+    if (!a || evt.pointerId !== a.id) return;
+    press = null;
+    if (state !== 'playing' || paused) return;
+    if (a.mode === 'drag') {
+      if (a.route) grow(a.node, a.route[a.route.length - 1]);
+    } else if (a.mode === 'pending' && a.node >= 0 && performance.now() - a.t0 < TAP_MS) {
+      if (own[a.node] === 1) { if (!pulse(a.node) && !conn[a.node]) say('That branch is cut off: grow a thread into it to reconnect it.', 3); }
+      else if (!hinted.rivalTap) { hinted.rivalTap = 1; say(`${HOLD} a rival knot to cut it.`, 3); }
+    }
+  });
+  canvas.addEventListener('pointercancel', evt => { if (press && evt.pointerId === press.id) press = null; });
+  function checkHold() {
+    const a = press;
+    if (a && a.mode === 'pending' && a.node >= 0 && performance.now() - a.t0 >= HOLD_MS) {
+      a.mode = 'done';
+      if (!prune(a.node) && a.node === core) say('The spore can\'t be cut.', 2);
+    }
+  }
+
+  // Keyboard: arrows move a cursor between sites; Enter marks a knot to grow
+  // from, then Enter again grows to the cursor; Space pulses; X cuts.
+  function moveCursor(dx, dy) {
+    let b = -1, bs = 1e9;
+    for (const v of P[cursor].nb) {
+      const ux = P[v].x - P[cursor].x, uy = P[v].y - P[cursor].y, d = Math.hypot(ux, uy);
+      const along = (ux * dx + uy * dy) / d;
+      if (along < 0.45) continue;
+      const s = d * (2 - along);
+      if (s < bs) { bs = s; b = v; }
+    }
+    if (b >= 0) cursor = b;
+  }
+  window.addEventListener('keydown', evt => {
+    if (state !== 'playing' || paused) return;
+    const k = evt.key;
+    const dirs = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (dirs[k]) { kbUsed = true; moveCursor(...dirs[k]); evt.preventDefault(); return; }
+    if (k === 'Enter') {
+      kbUsed = true;
+      if (kbFrom >= 0 && kbFrom !== cursor) { if (!grow(kbFrom, cursor)) say('No open route there.', 2); kbFrom = -1; }
+      else if (own[cursor] === 1 && conn[cursor]) kbFrom = cursor;
+      evt.preventDefault();
+    } else if (k === ' ') { kbUsed = true; pulse(cursor); evt.preventDefault(); }
+    else if (k === 'x' || k === 'X' || k === 'Delete' || k === 'Backspace') { kbUsed = true; prune(cursor); evt.preventDefault(); }
+    else if (k === 'Escape') kbFrom = -1;
+  });
+
+  function onMain() {
+    if (performance.now() < lockUntil) return;
+    if (state === 'season') nextSeason(); else if (state === 'lost') retrySeason();
+  }
+  mainBtn.addEventListener('click', onMain);
+  altBtn.addEventListener('click', () => { if (performance.now() >= lockUntil) newRun(); });
+  document.getElementById('resetBtn').addEventListener('click', newRun);
+
+  // § loop
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    const d = Math.min((now - last) / 1000, 0.1);
+    last = now;
+    if (!paused) {
+      acc += d; tnow += d;
+      if (state === 'playing') checkHold();
+      for (const e of fx) e.t += d;
+      fx = fx.filter(e => e.t < 0.8);
+    }
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) step(STEP);
+      acc -= STEP;
+    }
+    tickMsg();
+    hud();
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  newRun();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -67,6 +67,14 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   the goal by following links (couplings, trailing moves): start routes
   set wrong and prove it with a bot that never uses it. *A route verb is
   only needed where the other verb can't follow a chain.* Rail Yard. bots.
+- A cleanup verb (prune, cut) is optional if the mess clears itself: run
+  a bot that never uses it, and give leaving the mess a cost that spreads
+  (rot climbing back). *A branch that dies by itself makes the cut verb
+  optional.* Mycelium. bots.
+- In a budget game, check that income can't reach zero while spending is
+  blocked (a stalled build, upkeep above the trickle): that state is a still
+  screen. *A budget that can hit zero with no income source freezes the
+  round.* Mycelium. bots.
 - An aim verb (a beam, a hose) is only read if what it does fades before
   a blind sweep comes back: test a bot that sweeps end to end without
   looking. *A sweep plays itself when the effect outlasts the sweep.*
@@ -96,6 +104,10 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   should matter more than speed. An action budget doesn't fix it while a
   passive system undoes actions over time. *A decay rate turns a puzzle into
   a speed test.* Orbit Garden, Pressure Grid. bots; players (n=1) agree.
+- Sweep the action rate even when every verb costs a resource: anything
+  that regrows on a clock (a rival right after a cut) makes it a race; give
+  it a rest after each setback. *A real-time rival turns a budget game into a
+  speed test.* Mycelium. bots.
 - For hold verbs, sweep reaction lag separately from think time, and keep
   the held value's rate of change slow next to a ~0.3 s human reaction.
   Keep every warning-to-failure delay above reaction time. *Sweep reaction

@@ -298,5 +298,21 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale, "coat-check": coatCheck };
+  function mycelium() {
+    let body = `<rect width="72" height="72" fill="#1f1610"/>`;
+    // Threads from the glowing spore out to two leaf patches, one fruiting, one branch rotting.
+    const th = (d, c) => { body += `<path d="${d}" stroke="${c}" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`; };
+    th("M 36 38 L 28 30 L 20 26 L 14 16", "#f3ead2");
+    th("M 36 38 L 46 44 L 52 54 L 58 58", "#f3ead2");
+    th("M 36 38 L 34 50 L 26 58", "#a67a63");
+    body += `<circle cx="14" cy="16" r="8" fill="#8d5d2c"/><circle cx="58" cy="58" r="7" fill="#8d5d2c"/>`;
+    body += `<rect x="12.8" y="5" width="2.4" height="5" fill="#efe3c8"/><path d="M 9 6 A 5 5 0 0 1 19 6 Z" fill="#d0563c"/>`;
+    body += `<rect x="22" y="8" width="2" height="4" fill="#efe3c8"/><path d="M 19 9 A 4 4 0 0 1 27 9 Z" fill="#d0563c"/>`;
+    body += `<circle cx="26" cy="58" r="3.5" fill="#6b3f5e"/>`;
+    for (const [x, y] of [[28, 30], [20, 26], [46, 44], [52, 54], [34, 50]]) body += `<circle cx="${x}" cy="${y}" r="2" fill="#f3ead2"/>`;
+    body += `<circle cx="36" cy="38" r="9" fill="#fff3d6" opacity="0.25"/><circle cx="36" cy="38" r="4.5" fill="#fff3d6"/>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale, "coat-check": coatCheck, mycelium };
 })();
