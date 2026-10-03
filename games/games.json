@@ -904,9 +904,9 @@
       "id": "bubble-glass",
       "title": "Bubble Glass",
       "file": "bubble-glass.html",
-      "version": 4,
+      "version": 5,
       "added": "2026-09-29",
-      "updated": "2026-09-30",
+      "updated": "2026-10-03",
       "changes": [
         {
           "version": 3,
@@ -992,7 +992,7 @@
           "wet-and-dry",
           "two-bubbles"
         ],
-        "epoch": 2
+        "epoch": 3
       }
     },
     {
