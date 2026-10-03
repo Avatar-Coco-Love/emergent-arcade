@@ -44,6 +44,11 @@
     $("findingsLink").href = `${repo}/blob/main/docs/findings.md`;
   }
 
+  if (config.supportUrl) {
+    $("supportLink").href = config.supportUrl;
+    $("supportWrap").hidden = false;
+  }
+
   // ---------- view state (lives in the hash) ----------
 
   function parseState(hash) {

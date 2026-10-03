@@ -215,3 +215,8 @@ playable), `topics` (above).
 - Highest-rated sort once ratings are readable client-side (they aren't:
   reads need the secret key).
 - Import currently merges only; a "replace" option if players ask.
+
+## Support link
+
+`supportUrl` in `assets/config.js` adds a "Support this arcade" link to the
+gallery footer (Cash App). Empty string hides it.
