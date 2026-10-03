@@ -1,7 +1,9 @@
 # Coat Check: design brief for implementation
 
 Status: idea, written on paper (this brief), not built, not yet approved by
-the maintainer. `id`: `coat-check` (permanent feedback key). Category: a
+the maintainer. Go/no-go harness built and run 2026-10-03:
+`scripts/balance-coat-check.mjs`, results and recommended changes in
+`docs/games/coat-check.md`. `id`: `coat-check` (permanent feedback key). Category: a
 working-memory game with a seeded guest stream. It would be the first game
 with the `working-memory` topic (marked `planned` in `assets/topics.js`).
 Read first: `docs/PROJECT_BRIEF.md`, `docs/findings.md` (every rule applies),

@@ -551,3 +551,20 @@ clean particles; reachability matters), so the check flags under 2× the
 band floor and the restart button is always visible instead.
 
 *Evidence: bots. Provisional.*
+
+## Memory load at most k + 1 is solved by elimination
+
+Coat Check go/no-go harness, 2026-10-03 (`docs/games/coat-check.md`, before
+any game file). The brief wanted each new rule (shifts 2-8) to break the
+shift-1 habit ("colour row, left to right"), written as a bot with memory
+k = 4. Shift 2 (load 4) and shift 3 (load 6) never did: habit won 100% and
+95%. Even at 10 guests and load 5, habit kept winning 100%. A bot that remembers k coats knows the
+(k+1)th door by elimination, and with k + 2 coats one peek settles it, so a
+rule only bites once load stays at k + 3 or more. Shifts 4-8 (load 7-8)
+gave 44-56%, and 27-37% with load + 1. A side result: random placement scores ~75 on
+the brief's `purity` stat (few coats per row agree by chance), so 75 is the
+"no scheme" baseline, not 0.
+Check: for a memory game, compare each shift's sustained load with the k
+you expect players to have before claiming a rule breaks a habit.
+
+*Evidence: bots. Provisional.*
