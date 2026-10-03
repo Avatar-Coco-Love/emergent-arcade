@@ -10,6 +10,15 @@ top of the relevant section; sessions don't read this file by default.
 one full run (~75 s of play), longest player 7:55 total. Levels 3–5 won faster than
 `hinted`. v1's roof 0/2 became 2/2. v3 not yet played by humans.
 
+## Balance (v3)
+
+Per-level v3 table (reader vs hinted, 8 runs): `docs/history/bubble-glass.md`. Reader wins
+~100% in 4-12 s; hinted is 38-100%, 11-47 s (level 21: 38%).
+
+10-minute check (`CAMPAIGN=1 ... 16 hinted,reader`): hinted 88% all won, **10:39**
+median (IQR 9:17–11:28; ch 2:14/2:39/5:09); reader 100%, 3:36. Melt matters on
+roof, lid-and-plug, hourglass, dust-shafts, convoy; shatter required at plugs.
+
 ## v4 levels 13, 14, 16 (replaced in v5)
 
 Plain two-shelf box, vent top centre, beds only (sand/wet/dust). Reader 5 s on all three, hinted 33 s,
