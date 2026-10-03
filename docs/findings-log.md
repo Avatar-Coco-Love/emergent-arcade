@@ -666,3 +666,30 @@ bot at 21%. Check: before adding a floor, gift or refund to a budget, run
 the bot that wastes that budget and see who gains most.
 
 *Evidence: bots. Provisional.*
+
+## A spotlight serves a crowd one by one when one look is enough
+
+Lighthouse Keeper v2, 2026-10-03. Flare (clear a wide patch of fog for
+~5 s) was meant to beat the beam on convoys. Tighter convoys (0.25 s
+apart, spread across the sea) and bigger ones (3-4 ships) left the
+never-flare bot at 92-114% of skilled: a lit ship turns for the harbour
+and holds that course blind, so each ship needs well under a second of
+beam near its own reef, and the beam visits them in turn. Reefs set the
+same way along every convoy ship's course (so they all need light at
+once) helped; a slower ship turn rate and a slower lamp did not separate
+the bots. Check: time how long one target needs the aim verb, not only
+how many targets there are.
+
+*Evidence: bots. Provisional.*
+
+## A burst verb fired too early looks useless
+
+Lighthouse Keeper v2, 2026-10-03. The skilled bot flared when two ships
+were within 8 s of their reefs; the patch faded (~4-6 s) before the ships
+were close enough (~5 s) to see the reef, and flared ships still wrecked.
+Firing at 5 s took skilled from 48 to 66 ships against never-flare's 56;
+at 4 s it was too late (53). Making the patch last longer did nothing.
+Before calling a burst verb weak, sweep *when* the bot fires it against
+the window in which its effect is useful; that window is the decision.
+
+*Evidence: bots. Provisional.*

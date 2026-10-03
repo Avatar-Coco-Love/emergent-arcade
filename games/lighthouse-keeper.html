@@ -107,7 +107,7 @@
   const SEE = 0.35;                  // a ship in fog thinner than this sees the reefs
   const TURN = 1.0;                  // beam turn rate (rad/s)
   const OIL0 = 70, OIL_MAX = 120;    // oil at the start of a run, tank size
-  const LAMP = 1.0;                  // oil per s with the lamp open
+  const LAMP = 1.4;                  // oil per s with the lamp open
   const DOCK_OIL = 6;                // oil a ship brings home
   const DAWN_OIL = 35;               // oil delivered between nights
   const RETRY_OIL = 15;              // extra oil per retry of a night
@@ -117,14 +117,16 @@
   const FLARE_CLEAR = 0.8;           // a flare leaves the air this much clearer than clear at its centre (fog goes below 0)
 
   // Ships
-  const SPEED = 13, BIG_SPEED = 9;   // px/s
+  const SPEED = 16, BIG_SPEED = 11;   // px/s
   const STEER = 0.7, BIG_STEER = 0.35; // turn rate when the ship can see (rad/s)
   const WANDER = 0.25;               // blind ships' heading drift (rad/s, random walk)
   const LOOK = 85;                   // how far ahead a seeing ship watches for reefs
   const WRECK_MAX = 2;               // a night is lost at the third wreck
+  const CONVOY_GAP = 0.25;           // s between the ships of a convoy
+  const REEF_U = 0.35;                // convoy reefs sit this far (+0–0.15) along each ship's course
 
   // Input
-  const HOLD_MS = 260, LAMP_R = 34, TAP_MS = 450;
+  const HOLD_MS = 260, LAMP_R = 34, TAP_MS = 450, DRAG_PX = 10;
   const END_LOCK_MS = 1000;
   const STEP = 1 / 60;
 
@@ -132,20 +134,20 @@
   // fog: base density; ships: count, s between arrivals; reefs; banks: drifting fog banks;
   // side: share of ships from the right-hand side; big: share of heavy ships; group: ships per arrival.
   const NIGHTS = [
-    { name: 'Calm night', fog: 0.45, ships: 5, every: 10, reefs: 2 },
-    { name: 'Sea mist', fog: 0.6, ships: 6, every: 9, reefs: 3 },
-    { name: 'Fog bank', fog: 0.55, ships: 7, every: 9, reefs: 3, banks: 2 },
-    { name: 'Two lanes', fog: 0.6, ships: 8, every: 8, reefs: 4, side: 0.45 },
-    { name: 'Heavy cargo', fog: 0.6, ships: 8, every: 9, reefs: 4, big: 0.35 },
-    { name: 'Thick night', fog: 0.75, ships: 8, every: 9, reefs: 4, regrow: 1.5 },
-    { name: 'Convoy', fog: 0.65, ships: 9, every: 13, reefs: 4, group: 3, side: 0.3 },
-    { name: 'Storm', fog: 0.7, ships: 10, every: 8, reefs: 5, banks: 2, side: 0.35, big: 0.25 },
+    { name: 'Calm night', fog: 0.45, ships: 5, every: 6, reefs: 2 },
+    { name: 'Sea mist', fog: 0.6, ships: 6, every: 5.4, reefs: 3 },
+    { name: 'Fog bank', fog: 0.5, ships: 6, every: 8.4, reefs: 3, banks: 2, group: 2 },
+    { name: 'Two lanes', fog: 0.55, ships: 6, every: 10.8, reefs: 3, side: 0.35, group: 2 },
+    { name: 'Heavy cargo', fog: 0.5, ships: 6, every: 10.8, reefs: 3, big: 0.3, group: 2 },
+    { name: 'Thick night', fog: 0.75, ships: 9, every: 10.8, reefs: 4, regrow: 1.5, group: 3 },
+    { name: 'Convoy', fog: 0.65, ships: 12, every: 13.2, reefs: 5, group: 4, side: 0.3 },
+    { name: 'Storm', fog: 0.7, ships: 10, every: 9.6, reefs: 5, banks: 2, side: 0.35, big: 0.25, group: 3 },
   ];
   function nightSpec(n) {
     if (n <= NIGHTS.length) return Object.assign({ banks: 0, side: 0, big: 0, group: 1, regrow: 1 }, NIGHTS[n - 1]);
-    const e = n - NIGHTS.length;
-    return { name: 'Night ' + n, fog: Math.min(0.9, 0.68 + 0.02 * e), ships: 10 + e, every: Math.max(5.5, 8 - 0.25 * e),
-      reefs: 5 + (e >> 1), banks: 1 + (e % 2), side: 0.35, big: 0.25, group: e % 3 === 0 ? 2 : 1, regrow: 1 + 0.06 * e };
+    const e = n - NIGHTS.length, group = 3 + (e % 2);
+    return { name: 'Night ' + n, fog: Math.min(0.9, 0.68 + 0.02 * e), ships: 10 + e, every: Math.max(3.3, 4.8 - 0.15 * e) * group * 0.75,
+      reefs: 5 + (e >> 1), banks: 1 + (e % 2), side: 0.35, big: 0.25, group, regrow: 1 + 0.06 * e };
   }
 
   const canvas = document.getElementById('sea');
@@ -196,7 +198,7 @@
   window.addEventListener('message', evt => {
     const d = evt.data;
     if (!d) return;
-    if (d.type === 'arcade:pause') { paused = true; press = null; charging = -1; }
+    if (d.type === 'arcade:pause') { paused = true; press = null; charging = -1; spaceStale = spaceDown; }
     if (d.type === 'arcade:resume') paused = false;
     if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {
       const b = Number(d.bests.main); if (b > 0 && b < 1e5) best = Math.round(b);
@@ -214,7 +216,7 @@
   const fogCtx = fogCanvas.getContext('2d');
   let night, spec, t, oil, total, state, runId, attempt, snap, st, lockUntil = 0, tnow = 0;
   let beam = -Math.PI / 2, aim = -Math.PI / 2, open = true, charging = -1, flareFx = null;
-  let ships = [], reefs = [], banks = [], schedule = [], fx = [], hinted = {}, kbUsed = false;
+  let ships = [], reefs = [], banks = [], schedule = [], fx = [], hinted = {};
   const runEarned = new Set(), roundEarned = new Set();
 
   function ri(n) { return Math.floor(Math.random() * n); }
@@ -256,13 +258,14 @@
     const r = FLARE_R0 + (FLARE_R1 - FLARE_R0) * c;
     // The flare bursts above the beam's path, halfway out.
     const fx0 = LH.x + Math.cos(beam) * r * 0.9, fy0 = LH.y + Math.sin(beam) * r * 0.9;
+    // Starburst: one flare gives sight back to 6 ships that were sailing blind.
+    let n = 0;
+    for (const s of ships) if (!s.done && !canSee(s) && Math.hypot(s.x - fx0, s.y - fy0) < r) n++;
+    if (n >= 6) unlock('starburst');
     for (let cy = 0; cy < GY; cy++) for (let cx = 0; cx < GX; cx++) {
       const d = Math.hypot((cx + 0.5) * CELL - fx0, (cy + 0.5) * CELL - fy0);
       if (d < r) fog[cy * GX + cx] = Math.min(fog[cy * GX + cx], -FLARE_CLEAR * (1 - 0.5 * d / r));
     }
-    let n = 0;
-    for (const s of ships) if (Math.hypot(s.x - fx0, s.y - fy0) < r) n++;
-    if (n >= 4) unlock('starburst');
     flareFx = { x: fx0, y: fy0, r, t: 0 };
     return true;
   }
@@ -323,7 +326,7 @@
       if (see) s.saw = true;
       const v = s.big ? BIG_SPEED : SPEED;
       s.x += Math.cos(s.h) * v * dt; s.y += Math.sin(s.h) * v * dt;
-      if (s.x < 8 || s.x > W - 8) { s.x = Math.max(8, Math.min(W - 8, s.x)); s.h = Math.PI - s.h; s.hb = Math.PI - s.hb; }
+      if ((s.x < 8 && Math.cos(s.h) < 0) || (s.x > W - 8 && Math.cos(s.h) > 0)) { s.x = Math.max(8, Math.min(W - 8, s.x)); s.h = Math.PI - s.h; s.hb = Math.PI - s.hb; s.drift = -s.drift; }
       if (s.y < -30) s.y = -30;
       // Home, or aground.
       if (Math.hypot(s.x - PORT.x, s.y - PORT.y) < PORT.r) { dock(s); continue; }
@@ -376,21 +379,38 @@
     schedule = [];
     let at = 3;
     for (let k = 0; k < spec.ships;) {
-      for (let g = 0; g < spec.group && k < spec.ships; g++, k++) {
-        const side = Math.random() < spec.side;
-        const p = side ? { x: W + 10, y: 90 + Math.random() * 220 } : { x: 60 + Math.random() * (W - 80), y: -12 };
-        schedule.push({ at: at + g * 0.8, x: p.x, y: p.y, big: Math.random() < spec.big });
+      // A convoy arrives together, spread across the sea (one slot each), so one beam can't light it all.
+      const n = Math.min(spec.group, spec.ships - k), slot = (W - 80) / n, x0 = Math.random() * slot;
+      for (let g = 0; g < n; g++, k++) {
+        const side = Math.random() < spec.side && (n === 1 || g === n - 1);
+        const x = n === 1 ? 60 + Math.random() * (W - 80) : 40 + (x0 + g * slot + (Math.random() - 0.5) * slot * 0.4) % (W - 80);
+        const p = side ? { x: W + 10, y: 90 + Math.random() * 220 } : { x, y: -12 };
+        schedule.push({ at: at + g * CONVOY_GAP, x: p.x, y: p.y, big: Math.random() < spec.big, c: n > 1 ? k - g : -1 });
       }
       at += spec.every * (0.8 + Math.random() * 0.4);
     }
     // Reefs sit across the ships' courses, clear of the harbour and the lamp.
     reefs = [];
+    const fits = (x, y, r) => !(Math.hypot(x - PORT.x, y - PORT.y) < 90 || Math.hypot(x - LH.x, y - LH.y) < 70 || y > COAST - 40 || x < 20 || x > W - 20 ||
+      reefs.some(q => Math.hypot(q.x - x, q.y - y) < q.r + r + 26) || schedule.some(q => Math.hypot(q.x - x, q.y - y) < r + 70));
+    // Convoy nights: a reef ahead of each ship of a convoy, the same way along each course, so they all need light at once.
+    const convoys = [...new Set(schedule.filter(p => p.c >= 0).map(p => p.c))].sort(() => Math.random() - 0.5);
+    for (const c of convoys) {
+      const u = REEF_U + Math.random() * 0.15;
+      for (const p of schedule.filter(q => q.c === c)) {
+        if (reefs.length >= spec.reefs) break;
+        for (let tries = 0; tries < 20; tries++) {
+          const x = p.x + (PORT.x - p.x) * u + (Math.random() - 0.5) * 20, y = p.y + (PORT.y - p.y) * u + (Math.random() - 0.5) * 20, r = 14 + Math.random() * 10;
+          if (fits(x, y, r)) { reefs.push({ x, y, r }); break; }
+        }
+      }
+    }
     for (let tries = 0; reefs.length < spec.reefs && tries < 400; tries++) {
       const p = schedule[ri(schedule.length)], u = 0.3 + Math.random() * 0.45;
       const x = p.x + (PORT.x - p.x) * u + (Math.random() - 0.5) * 50, y = Math.max(60, p.y + (PORT.y - p.y) * u + (Math.random() - 0.5) * 50);
       const r = 14 + Math.random() * 10;
-      if (Math.hypot(x - PORT.x, y - PORT.y) < 90 || Math.hypot(x - LH.x, y - LH.y) < 70 || y > COAST - 40 || x < 20 || x > W - 20) continue;
-      if (reefs.some(q => Math.hypot(q.x - x, q.y - y) < q.r + r + 26)) continue;
+      // Clear of the harbour, the lamp, other reefs and the arrival points (every ship gets some open water first).
+      if (!fits(x, y, r)) continue;
       reefs.push({ x, y, r });
     }
     banks = [];
@@ -518,12 +538,19 @@
     }
     // Fog: one pixel per cell on a small canvas, scaled up smoothly.
     const img = fogCtx.createImageData(GX, GY);
-    for (let k = 0; k < GX * GY; k++) {
+    // A 3×3 blur (display only) so the cells don't show as blocks once scaled up.
+    for (let cy = 0; cy < GY; cy++) for (let cx = 0; cx < GX; cx++) {
+      let sum = 0, wt = 0;
+      for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+        const x = Math.max(0, Math.min(GX - 1, cx + ox)), y = Math.max(0, Math.min(GY - 1, cy + oy)), w = (2 - Math.abs(ox)) * (2 - Math.abs(oy));
+        sum += w * Math.max(0, Math.min(1, fog[y * GX + x])); wt += w;
+      }
+      const k = cy * GX + cx;
       img.data[k * 4] = 178; img.data[k * 4 + 1] = 192; img.data[k * 4 + 2] = 206;
-      img.data[k * 4 + 3] = Math.round(255 * Math.max(0, Math.min(1, fog[k])) * 0.8);
+      img.data[k * 4 + 3] = Math.round(255 * sum / wt * 0.8);
     }
     fogCtx.putImageData(img, 0, 0);
-    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(fogCanvas, 0, 0, GX, GY, 0, 0, W, GY * CELL);
     // Above the fog: the surf on the reefs and the ships' mast lights.
     for (const r of reefs) {
@@ -600,18 +627,26 @@
     const r = canvas.getBoundingClientRect();
     return [(evt.clientX - r.left) * W / r.width, (evt.clientY - r.top) * H / r.height];
   }
-  function aimAt(p) { setAim(Math.atan2(Math.min(p[1], LH.y - 10) - LH.y, p[0] - LH.x)); }
+  // Below the lamp's horizon the pointer only picks a side: the beam lies along the coast that way.
+  function aimAt(p) {
+    const dx = p[0] - LH.x, dy = p[1] - LH.y;
+    if (dy > -10 && Math.abs(dx) < 8) return;
+    setAim(Math.atan2(Math.min(dy, -Math.min(10, Math.abs(dx) * 0.1)), dx));
+  }
   canvas.addEventListener('pointerdown', evt => {
     evt.preventDefault();
     if (state !== 'playing' || paused || press) return;
     canvas.setPointerCapture(evt.pointerId);
     const p = toSea(evt);
-    if (Math.hypot(p[0] - LH.x, p[1] - (LH.y - 4)) < LAMP_R) press = { id: evt.pointerId, mode: 'lamp', t0: performance.now() };
+    if (Math.hypot(p[0] - LH.x, p[1] - (LH.y - 4)) < LAMP_R) press = { id: evt.pointerId, mode: 'lamp', t0: performance.now(), x: p[0], y: p[1] };
     else { press = { id: evt.pointerId, mode: 'aim' }; aimAt(p); }
   });
   canvas.addEventListener('pointermove', evt => {
     if (!press || evt.pointerId !== press.id || state !== 'playing' || paused) return;
-    if (press.mode === 'aim') aimAt(toSea(evt));
+    const p = toSea(evt);
+    // A drag that starts on the lighthouse aims (before the flare starts charging).
+    if (press.mode === 'lamp' && charging < 0 && Math.hypot(p[0] - press.x, p[1] - press.y) > DRAG_PX) press.mode = 'aim';
+    if (press.mode === 'aim') aimAt(p);
   });
   canvas.addEventListener('pointerup', evt => {
     const a = press;
@@ -629,16 +664,19 @@
   }
 
   // Keyboard: ← → turn the beam, S shutters, hold Space to charge a flare.
-  let keyTurn = 0, spaceAt = -1;
+  let keyTurn = 0, spaceDown = false, spaceStale = false;
   window.addEventListener('keydown', evt => {
+    if (evt.key === ' ') { if (state !== 'playing' && !spaceDown) spaceStale = true; spaceDown = true; }
     if (state !== 'playing' || paused) return;
     const k = evt.key;
-    if (k === 'ArrowLeft' || k === 'ArrowRight') { kbUsed = true; keyTurn = k === 'ArrowLeft' ? -1 : 1; evt.preventDefault(); }
-    else if (k === 's' || k === 'S') { kbUsed = true; toggleShutter(); }
-    else if (k === ' ') { kbUsed = true; if (charging < 0) charging = tnow; evt.preventDefault(); }
+    if (k === 'ArrowLeft' || k === 'ArrowRight') { keyTurn = k === 'ArrowLeft' ? -1 : 1; evt.preventDefault(); }
+    else if ((k === 's' || k === 'S') && !evt.repeat) toggleShutter();
+    // A Space held through a pause (or a card) must be let go before it charges again.
+    else if (k === ' ') { evt.preventDefault(); if (charging < 0 && !spaceStale && !evt.repeat) charging = tnow; }
   });
   window.addEventListener('keyup', evt => {
     if (evt.key === 'ArrowLeft' || evt.key === 'ArrowRight') keyTurn = 0;
+    if (evt.key === ' ') spaceDown = spaceStale = false;
     if (evt.key === ' ' && charging >= 0) { if (state === 'playing' && !paused) flare((tnow - charging) / FLARE_S); charging = -1; }
   });
 

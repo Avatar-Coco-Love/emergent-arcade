@@ -31,9 +31,12 @@ const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/li
 //   nearest: holds the beam on the ship nearest the lamp; never shutters or flares.
 //   skilled: reads fog, oil and courses: lights the fogged ship whose course hits
 //     rock soonest, shutters when no fogged ship hits rock within 12 s, flares
-//     (aimed between them) when 2+ fogged ships hit rock within 8 s outside the beam (oil above 25).
+//     (aimed between them, the smallest size whose ring covers them) when 2+ fogged ships hit rock
+//     within 5 s outside the beam (oil above 25). Earlier (8 s) wastes it: the patch fades before
+//     the ships are close enough to see their reefs.
 //   noshutter / noflare: skilled without that verb.
 //   flarespam: skilled that also fires a full flare whenever the oil allows.
+//   flareonly: never aims at a ship; only turns to fire skilled's flares (how much a flare alone saves).
 //   novice: a first-time player. Reads for 3 s, then every 1.5-3 s turns the
 //     beam toward a ship (a fogged one 60% of the time) with a 0.6 s lag, flips
 //     the shutter by mistake now and then (and notices 3-6 s later), shutters
@@ -48,6 +51,7 @@ const BOTS = {
   noflare: { plan: true, shutter: true },
   flarespam: { plan: true, shutter: true, flare: true, spam: true },
   novice: { novice: true },
+  flareonly: { plan: true, flare: true, noaim: true },
 };
 
 function buildDebug(overrides) {
@@ -71,7 +75,9 @@ window.__seed = s => { __s = s; };
     get ships() { return ships; }, get reefs() { return reefs; }, get oil() { return oil; }, get open() { return open; },
     get beam() { return beam; }, get aim() { return aim; }, get t() { return t; }, get spec() { return spec; },
     get night() { return night; }, get state() { return state; }, get total() { return total; }, get st() { return st; },
-    earned: runEarned, LH, PORT, COAST, SPEED, BIG_SPEED, SEE, TURN, FLARE_MIN, FLARE_MAX, OIL_MAX,
+    get fog() { return fog; }, get banks() { return banks; }, get schedule() { return schedule; }, get fx() { return fx; },
+    get flareFx() { return flareFx; }, get charging() { return charging; }, get attempt() { return attempt; },
+    earned: runEarned, LH, PORT, COAST, SPEED, BIG_SPEED, SEE, TURN, FLARE_MIN, FLARE_MAX, FLARE_R0, FLARE_R1, OIL_MAX,
     fogAt, inBeam, canSee, setAim, toggleShutter, flare, step, newRun, nextNight, retryNight,
   };
   newRun();
@@ -79,6 +85,59 @@ window.__seed = s => { __s = s; };
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lhk-')), 'debug.html');
   fs.writeFileSync(out, html);
   return out;
+}
+
+// Runs inside the page: cheap regression checks, one line of failures.
+function selfTest() {
+  const D = window.__dbg, bad = [], hyp = Math.hypot;
+  const state = () => JSON.stringify([D.reefs, D.banks, D.schedule, Array.from(D.fog, x => x.toFixed(4))]);
+  // Random play: aims anywhere, shutters, flares; ends when the night does (or 400 s).
+  const play = (maxT = 400, onShip) => {
+    let n = 0;
+    while (D.state === 'playing' && D.t < maxT) {
+      if (n++ % 30 === 0) {
+        D.setAim(-Math.PI * Math.random());
+        if (Math.random() < 0.1) D.toggleShutter();
+        if (Math.random() < 0.05) D.flare(Math.random());
+      }
+      D.step(1 / 60);
+      if (onShip) for (const s of D.ships) onShip(s);
+    }
+  };
+  // 1. A retry restores the night's start (reefs, banks, fog, arrivals, oil + RETRY) and leaves nothing over.
+  for (const target of [3, 4, 5, 7, 8, 9, 12]) {
+    let lost = false;
+    for (let seed = 1; seed < 20 && !lost; seed++) {
+      window.__seed(100 * target + seed); D.newRun();
+      while (D.night < target) D.nextNight();
+      const s0 = state(), oil0 = D.oil;
+      play();
+      if (D.state !== 'lost') continue;
+      lost = true;
+      D.retryNight();
+      if (state() !== s0) bad.push(`retry n${target}: state differs from the night's start`);
+      if (Math.abs(D.oil - Math.min(D.OIL_MAX, oil0 + 15)) > 1e-6) bad.push(`retry n${target}: oil ${D.oil} vs ${oil0}+15`);
+      if (D.ships.length || D.fx.length || D.flareFx || D.t !== 0 || D.charging !== -1 || !D.open || D.st.home || D.st.wrecks || D.st.flares)
+        bad.push(`retry n${target}: leftovers`);
+    }
+    if (!lost) bad.push(`retry n${target}: never lost`);
+  }
+  // 2. Every ship ends its voyage (home, reef or shore) within 200 s, arrivals are clear of reefs,
+  //    and every night ends.
+  for (let seed = 1; seed <= 6; seed++) {
+    window.__seed(seed); D.newRun();
+    for (let n = 1; n <= 12; n++) {
+      for (const p of D.schedule) for (const r of D.reefs) if (hyp(p.x - r.x, p.y - r.y) < r.r + 60) bad.push(`n${n}: reef on an arrival point`);
+      const born = new Map();
+      play(1200, s => {
+        if (!born.has(s)) born.set(s, D.t);
+        if (!s.done && D.t - born.get(s) > 200) { bad.push(`n${n} seed ${seed}: ship at sea 200 s (${s.x | 0},${s.y | 0})`); s.done = 'wreck'; }
+      });
+      if (D.state === 'playing') { bad.push(`n${n} seed ${seed}: night never ended`); break; }
+      D.nextNight();
+    }
+  }
+  return [...new Set(bad)];
 }
 
 // Runs inside the page: one whole run.
@@ -128,13 +187,13 @@ function playInPage({ seed, bot, retries, act }) {
               const pick = urgent[0] || scored[0];
               if (pick && pick.s !== target) { target = pick.s; nextAct = D.t + act; }
             }
-            if (target && !target.done) D.setAim(angTo(target));
+            if (target && !target.done && !bot.noaim) D.setAim(angTo(target));
             if (bot.shutter && D.t >= nextAct) {
               const want = urgent.length > 0;
               if (want !== D.open && (D.open || D.oil > 2)) { D.toggleShutter(); nextAct = D.t + act; }
             } else if (!bot.shutter && !D.open) D.toggleShutter();
             if (bot.flare && D.t >= nextAct) {
-              const hot = urgent.filter(x => x.d < 8 && !D.inBeam(x.s.x, x.s.y));
+              const hot = urgent.filter(x => x.d < 5 && !D.inBeam(x.s.x, x.s.y));
               if ((hot.length >= 2 && D.oil > 25) || (bot.spam && D.oil > D.FLARE_MAX + 5)) {
                 const set = hot.length ? hot : urgent;
                 if (set.length) {
@@ -142,7 +201,13 @@ function playInPage({ seed, bot, retries, act }) {
                   D.setAim(mid);
                   // Let the lamp swing round, then fire.
                   for (let k = 0; k < 30 && Math.abs(D.beam - D.aim) > 0.05 && D.state === 'playing'; k++) { D.step(dt); runT += dt; }
-                  if (D.state === 'playing') D.flare(D.oil > 55 ? 1 : 0.5);
+                  // Like a player reading the preview ring: the smallest flare whose ring covers them all.
+                  let c = 0;
+                  for (; c < 1; c += 0.05) {
+                    const r = D.FLARE_R0 + (D.FLARE_R1 - D.FLARE_R0) * c, cx = D.LH.x + Math.cos(D.beam) * r * 0.9, cy = D.LH.y + Math.sin(D.beam) * r * 0.9;
+                    if (set.every(x => hyp(x.s.x - cx, x.s.y - cy) < r - 10)) break;
+                  }
+                  if (D.state === 'playing' && D.FLARE_MIN + (D.FLARE_MAX - D.FLARE_MIN) * Math.min(1, c) <= D.oil - 5) D.flare(Math.min(1, c));
                   nextAct = D.t + act;
                 }
               }
@@ -215,7 +280,7 @@ function report(name, rs) {
   console.log(`${name.padEnd(9)} won n1-8 ${[1, 2, 3, 4, 5, 6, 7, 8].map(won).join('/')}% | nights ${med(rs.map(r => r.last - 1))}` +
     ` | run ${mins(med(rs.map(r => r.runT)))} min, 1st loss ${mins(med(rs.map(r => r.firstLossT)))} min (n${med(rs.map(r => r.firstLossN))})` +
     ` | n8 by ${saw.length ? mins(med(saw.map(r => r.sawAll))) : '-'} min | score ${med(rs.map(r => r.score))} max ${Math.max(...rs.map(r => r.score))}` +
-    ` | per night: wrecks ${m('wrecks')} dark ${m('dark')}s shut ${m('shut')}s flares ${m('flares')} dry ${m('dry')}s oil ${m('oil')}` +
+    ` | per night: ${m('t')}s, wrecks ${m('wrecks')} dark ${m('dark')}s shut ${m('shut')}s flares ${m('flares')} dry ${m('dry')}s oil ${m('oil')}` +
     `${rs.some(r => r.capped) ? ' | CAPPED ' + pct(rs.filter(r => r.capped).length, rs.length) + '%' : ''} || ${achs}`);
 }
 
@@ -230,6 +295,14 @@ for (const kv of (process.argv[4] || '').split(',').filter(Boolean)) {
 }
 const file = buildDebug(overrides);
 const browser = await chromium.launch();
+{
+  const page = await browser.newPage();
+  page.on('pageerror', e => console.log('ERR', e.message));
+  await page.goto(pathToFileURL(file).href);
+  const bad = await page.evaluate(selfTest);
+  console.log(bad.length ? 'SELFTEST FAIL ' + bad.join('; ') : 'selftest ok (retry restores nights 3-5, 7-9, 12; every ship ends its voyage; reefs clear of arrivals)');
+  await page.close();
+}
 for (const n of names) {
   if (n.startsWith('dbg:')) { report(n, await run({ ...BOTS[n.slice(4)], dbg: true }, runs, file, browser, opts)); continue; }
   if (!BOTS_ALL[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
