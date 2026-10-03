@@ -127,8 +127,8 @@ None yet.
   It pays only on convoy nights, and only fired ~5 s before the reefs;
   most nights skilled fires none. Tried and not enough: tighter/wider
   convoys, a slower lamp, slower ship turns, longer patches, more oil
-  pressure. Next lever: blind ships that drift off course over time, so
-  one look no longer fixes a ship for good.
+  pressure. Next steps and a ready v3 prompt:
+  `docs/ideas/lighthouse-keeper-v3.md` (phone playtest first).
 - The lit-once rule is why the beam can serve a crowd: a ship that saw holds
   its course blind (findings: *A spotlight serves a crowd one by one*).
   Stronger flare levers if needed: blind ships that drift off course over
