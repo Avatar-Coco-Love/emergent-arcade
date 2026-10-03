@@ -568,3 +568,16 @@ Check: for a memory game, compare each shift's sustained load with the k
 you expect players to have before claiming a rule breaks a habit.
 
 *Evidence: bots. Provisional.*
+
+## An achievement can ask for a state the generator never makes
+
+Coat Check v1, 2026-10-03. The brief's *Full House* ("return a coat while
+every hook is full") looked natural, but the stream stops arrivals at the
+shift's load target, and every load target sits below the hook count. A bot
+that hangs and fetches perfectly saw a full room in 0% of campaign shifts and
+1-2% of late Endless shifts (only when no guest could be named and an arrival
+was forced). v1 counts 10+ coats hanging instead (100% of shift 12 and of
+Endless from load 10). Check: for every achievement, run a bot over the
+generator and count how often the condition can happen at all.
+
+*Evidence: bots. Provisional.*

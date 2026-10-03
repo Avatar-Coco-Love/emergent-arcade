@@ -1348,6 +1348,86 @@
         "max": 500,
         "epoch": 1
       }
+    },
+    {
+      "id": "coat-check",
+      "title": "Coat Check",
+      "file": "coat-check.html",
+      "version": 1,
+      "added": "2026-10-03",
+      "updated": "2026-10-03",
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-10-03",
+          "text": "New game: a cloakroom of identical doors. Twelve shifts add one rule each, then Endless until a lost shift."
+        }
+      ],
+      "blurb": "Hang each coat behind an identical door, then find it again from one word on a ticket. Where you hang it is all you have.",
+      "goal": "Return as many coats as you can in one run. A shift is cleared when every guest has their coat back; three complaints (wrong doors) lose it. The first loss on each of the 12 campaign shifts is a free retry with new coats; after that, Endless runs until a shift is lost.",
+      "howToPlay": "Guests hand over coats one at a time. Drag the coat from the counter onto any free hook and its door shuts: closed doors all look the same, and nothing on screen lists what went where. Later a guest shows a ticket naming one thing about their coat (its colour, its pattern or its pin); {tap} the door you think hides it. A wrong door shows you what is there and the guest complains. {Hold} a door until the ring around your {finger} closes to peek behind it without opening it for the guest; peeks are limited (the dots in the bar). Each shift adds a rule: look-alike coats, a coach party of one colour, a manager who reorders a row, friends whose ticket names the coat handed in just before theirs, two-feature tickets, and regulars whose coats stay overnight. After each shift every door opens for a moment so you can see your own system.",
+      "keyboard": "Arrows pick a hook, Enter hangs the coat or opens the door, hold P to peek, Enter for the next shift",
+      "mechanics": [
+        {
+          "name": "hang",
+          "verb": "drag",
+          "description": "Drag the coat from the counter onto any free hook; the door shuts and the coat can't be moved again. A {tap} never hangs a coat."
+        },
+        {
+          "name": "fetch",
+          "verb": "tap",
+          "description": "{Tap} the door that holds the guest's coat. A wrong door shows what it holds, and the guest complains."
+        },
+        {
+          "name": "peek",
+          "verb": "hold",
+          "description": "{Hold} a door until the ring closes to look behind it without serving anyone. Spends one peek; a manager's reshuffle adds peeks."
+        }
+      ],
+      "sharedState": "The hooks (which coat hangs behind which door, and which hooks are free) and the peek budget. Hang writes the hooks; Fetch reads them through what you remember of where things went and frees a hook; Peek reads them directly and spends the budget, which is all that saves a doubt from becoming a guess.",
+      "topics": ["working-memory"],
+      "accent": "#e0aa5c",
+      "achievements": [
+        {
+          "id": "first-night",
+          "title": "First Night",
+          "description": "Clear the first 4 shifts of the campaign."
+        },
+        {
+          "id": "clean-shift",
+          "title": "Clean Shift",
+          "description": "Clear a shift of 8 or more guests with no complaints and no peeks."
+        },
+        {
+          "id": "filing-system",
+          "title": "Filing System",
+          "description": "Clear a 12-hook shift where every row shares a colour, a pattern or a pin (purity 100)."
+        },
+        {
+          "id": "sharp-eye",
+          "title": "Sharp Eye",
+          "description": "After the manager reshuffles a row, return every coat from that row with at most one peek."
+        },
+        {
+          "id": "full-house",
+          "title": "Full House",
+          "description": "Return a coat while 10 or more coats hang on the hooks."
+        },
+        {
+          "id": "night-porter",
+          "title": "Night Porter",
+          "description": "Return 100 coats in one run."
+        }
+      ],
+      "score": {
+        "label": "Coats returned",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 2000,
+        "epoch": 1
+      }
     }
   ]
 }

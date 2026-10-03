@@ -280,5 +280,23 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale };
+  function coatCheck() {
+    let body = `<rect width="72" height="72" fill="#0f0d0c"/>`;
+    // A 3x3 wall of identical doors; one stands open on a blue coat, one hook is free.
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      const x = 6 + c * 21, y = 6 + r * 21;
+      if (r === 1 && c === 1) {
+        body += `<rect x="${x}" y="${y}" width="18" height="18" rx="2" fill="#16120f"/>`;
+        body += `<path d="M ${x + 6} ${y + 4} L ${x + 3} ${y + 7} L ${x + 4} ${y + 16} H ${x + 14} L ${x + 15} ${y + 7} L ${x + 12} ${y + 4} L ${x + 9} ${y + 7} Z" fill="#3f8fe0" stroke="#1b1612" stroke-width="0.8"/>`;
+        body += `<circle cx="${x + 6.5}" cy="${y + 9.5}" r="1.8" fill="#f6f1e8"/>`;
+      } else if (r === 2 && c === 0) {
+        body += `<rect x="${x + 0.5}" y="${y + 0.5}" width="17" height="17" rx="2" fill="#16120f" stroke="#4a433b" stroke-dasharray="2 2"/>`;
+      } else {
+        body += `<rect x="${x}" y="${y}" width="18" height="18" rx="2" fill="#5b4431"/><circle cx="${x + 14.5}" cy="${y + 9}" r="1.3" fill="#c9a46a"/>`;
+      }
+    }
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale, "coat-check": coatCheck };
 })();

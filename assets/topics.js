@@ -25,7 +25,7 @@ window.ArcadeTopics = (function () {
     { id: "deduction", kind: "skill", label: "deduction", about: "Proving the answer from what you have observed." },
     { id: "timing", kind: "skill", label: "timing", about: "Acting at the right moment in a system that keeps moving." },
     { id: "spatial-reasoning", kind: "skill", label: "spatial reasoning", about: "Picturing where things go when the whole space turns." },
-    { id: "working-memory", kind: "skill", label: "working memory", about: "Keeping what you have seen in mind, because the game doesn't show it again.", planned: true },
+    { id: "working-memory", kind: "skill", label: "working memory", about: "Keeping what you have seen in mind, because the game doesn't show it again." },
   ];
   const BY_ID = new Map(LIST.map((t) => [t.id, t]));
   const KINDS = ["subject", "skill"];
