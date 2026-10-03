@@ -117,13 +117,13 @@
   const FLARE_CLEAR = 0.8;           // a flare leaves the air this much clearer than clear at its centre (fog goes below 0)
 
   // Ships
-  const SPEED = 13, BIG_SPEED = 9;   // px/s
+  const SPEED = 16, BIG_SPEED = 11;   // px/s
   const STEER = 0.7, BIG_STEER = 0.35; // turn rate when the ship can see (rad/s)
   const WANDER = 0.25;               // blind ships' heading drift (rad/s, random walk)
   const LOOK = 85;                   // how far ahead a seeing ship watches for reefs
   const WRECK_MAX = 2;               // a night is lost at the third wreck
   const CONVOY_GAP = 0.25;           // s between the ships of a convoy
-  const PACE = 1, REEF_U = 0.35;
+  const REEF_U = 0.35;                // convoy reefs sit this far (+0–0.15) along each ship's course
 
   // Input
   const HOLD_MS = 260, LAMP_R = 34, TAP_MS = 450, DRAG_PX = 10;
@@ -134,19 +134,19 @@
   // fog: base density; ships: count, s between arrivals; reefs; banks: drifting fog banks;
   // side: share of ships from the right-hand side; big: share of heavy ships; group: ships per arrival.
   const NIGHTS = [
-    { name: 'Calm night', fog: 0.45, ships: 5, every: 10, reefs: 2 },
-    { name: 'Sea mist', fog: 0.6, ships: 6, every: 9, reefs: 3 },
-    { name: 'Fog bank', fog: 0.55, ships: 8, every: 14, reefs: 3, banks: 2, group: 2 },
-    { name: 'Two lanes', fog: 0.6, ships: 7, every: 9, reefs: 4, side: 0.35 },
-    { name: 'Heavy cargo', fog: 0.55, ships: 7, every: 10, reefs: 4, big: 0.3 },
-    { name: 'Thick night', fog: 0.75, ships: 9, every: 18, reefs: 4, regrow: 1.5, group: 3 },
-    { name: 'Convoy', fog: 0.65, ships: 12, every: 22, reefs: 5, group: 4, side: 0.3 },
-    { name: 'Storm', fog: 0.7, ships: 10, every: 16, reefs: 5, banks: 2, side: 0.35, big: 0.25, group: 3 },
+    { name: 'Calm night', fog: 0.45, ships: 5, every: 6, reefs: 2 },
+    { name: 'Sea mist', fog: 0.6, ships: 6, every: 5.4, reefs: 3 },
+    { name: 'Fog bank', fog: 0.5, ships: 6, every: 8.4, reefs: 3, banks: 2, group: 2 },
+    { name: 'Two lanes', fog: 0.6, ships: 7, every: 5.4, reefs: 4, side: 0.35 },
+    { name: 'Heavy cargo', fog: 0.55, ships: 7, every: 6, reefs: 4, big: 0.3 },
+    { name: 'Thick night', fog: 0.75, ships: 9, every: 10.8, reefs: 4, regrow: 1.5, group: 3 },
+    { name: 'Convoy', fog: 0.65, ships: 12, every: 13.2, reefs: 5, group: 4, side: 0.3 },
+    { name: 'Storm', fog: 0.7, ships: 10, every: 9.6, reefs: 5, banks: 2, side: 0.35, big: 0.25, group: 3 },
   ];
   function nightSpec(n) {
     if (n <= NIGHTS.length) return Object.assign({ banks: 0, side: 0, big: 0, group: 1, regrow: 1 }, NIGHTS[n - 1]);
     const e = n - NIGHTS.length, group = 3 + (e % 2);
-    return { name: 'Night ' + n, fog: Math.min(0.9, 0.68 + 0.02 * e), ships: 10 + e, every: Math.max(5.5, 8 - 0.25 * e) * group * 0.75,
+    return { name: 'Night ' + n, fog: Math.min(0.9, 0.68 + 0.02 * e), ships: 10 + e, every: Math.max(3.3, 4.8 - 0.15 * e) * group * 0.75,
       reefs: 5 + (e >> 1), banks: 1 + (e % 2), side: 0.35, big: 0.25, group, regrow: 1 + 0.06 * e };
   }
 
@@ -387,7 +387,7 @@
         const p = side ? { x: W + 10, y: 90 + Math.random() * 220 } : { x, y: -12 };
         schedule.push({ at: at + g * CONVOY_GAP, x: p.x, y: p.y, big: Math.random() < spec.big, c: n > 1 ? k - g : -1 });
       }
-      at += spec.every * PACE * (0.8 + Math.random() * 0.4);
+      at += spec.every * (0.8 + Math.random() * 0.4);
     }
     // Reefs sit across the ships' courses, clear of the harbour and the lamp.
     reefs = [];
