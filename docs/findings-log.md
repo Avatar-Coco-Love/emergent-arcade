@@ -581,3 +581,46 @@ Endless from load 10). Check: for every achievement, run a bot over the
 generator and count how often the condition can happen at all.
 
 *Evidence: bots. Provisional.*
+
+## A branch that dies by itself makes the cut verb optional
+
+Mycelium v1, 2026-10-03. The brief's *prune* stopped a thread's upkeep and
+stranded what lay beyond. But a branch to a used-up patch starved and
+vanished on its own within ~12 s, so the upkeep it cost was small: a bot
+that never cut scored 50 against skilled's 55 and won as many seasons.
+Charging pool for a cut (the brief's idea) would only have made cutting
+worse. What worked was a cost for *not* cutting: a knot that starves while
+attached rots the knot it grew from, and the rot climbs to the spore,
+stranding every branch past it; a cut branch withers harmlessly. The
+never-cut bot then fell to 72 vs 88 (and 49 vs 68 at higher upkeep), with
+4-6 rotted knots a season. Check: for a cleanup verb, run a bot that never
+uses it; if the mess clears itself, give the mess a cost that spreads.
+
+*Evidence: bots. Provisional.*
+
+## A real-time rival turns a budget game into a speed test
+
+Mycelium v1, 2026-10-03. Every verb was paid from the pool, so the action
+rate shouldn't matter, but a sweep said it did: the skilled bot at 1 action
+per 2 s won the last campaign season 13% of runs, against 100% at 2 per s.
+The cause was the rival mould, which regrew one knot every 1.1 s from its
+root right after each cut, so cutting it was a race. A 5 s rest after a cut
+(and 1.4 s per knot) made the action rate irrelevant (0.5, 1 and 2 s per
+action all win season 8 96-100%). Check: sweep the bot's action rate even
+when every verb has a price; anything that regrows on a clock is the suspect.
+
+*Evidence: bots. Provisional.*
+
+## A budget that can hit zero with no income source freezes the round
+
+Mycelium v1, 2026-10-03. With an empty pool, a thread that was still
+growing stalled, and the spore's trickle (0.3/s) didn't cover the upkeep of
+the knots already grown, so nothing could ever change: novice bots sat out
+whole seasons with untouched food on screen. Fixes that keep the empty pool
+a punishment: a trickle above a small network's upkeep (1/s), the empty pool
+eats the farthest tip every 1.5 s (so upkeep falls until the trickle wins),
+a gift each new season and each retry, and an early frost once all food is
+gone. Check: for a resource game, find a state where income is zero and
+spending is blocked, and make sure the passive rules leave it.
+
+*Evidence: bots. Provisional.*
