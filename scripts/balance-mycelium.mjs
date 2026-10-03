@@ -71,17 +71,70 @@ window.__seed = s => { __s = s; };
     get P() { return P; }, get N() { return N; }, get core() { return core; }, get own() { return own; },
     get par() { return par; }, get sap() { return sap; }, get rot() { return rot; }, get conn() { return conn; }, get dc() { return dc; },
     get dh() { return dh; }, get dry() { return dry; }, get patchAt() { return patchAt; }, get rpar() { return rpar; },
-    get rown() { return rown; }, get patches() { return patches; }, get rivals() { return rivals; }, get jobs() { return jobs; },
+    get rown() { return rown; }, get fx() { return fx; }, get patches() { return patches; }, get rivals() { return rivals; }, get jobs() { return jobs; },
     get pool() { return pool; }, get t() { return t; }, get spec() { return spec; }, get endT() { return endT; }, get season() { return season; },
     get state() { return state; }, get mushrooms() { return mushrooms; }, get total() { return total; }, get st() { return st; },
     earned: runEarned, K, PULSE, FRUIT, GROW_C, GROW_V, INCOME, SAPN,
-    upkeepRate, route, grow, pulse, prune, step, newRun, nextSeason, retrySeason, topo, subtree, pathToCore,
+    upkeepRate, route, grow, pulse, prune, step, setPool: v => { pool = v; }, newRun, nextSeason, retrySeason, topo, subtree, pathToCore,
   };
   newRun();
 })();`);
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'myc-')), 'debug.html');
   fs.writeFileSync(out, html);
   return out;
+}
+
+// Runs inside the page once: regression checks. Returns a list of failures.
+function selfTest() {
+  const D = window.__dbg, bad = [];
+  const state = () => JSON.stringify([...D.own, ...D.par, ...D.rot, ...D.dry, ...D.patchAt, ...D.rown, ...D.rpar, ...Array.from(D.sap, x => x.toFixed(3))]) +
+    JSON.stringify(D.patches) + JSON.stringify(D.rivals);
+  // 1. A retry restores the season-start state (rivals, rot, dry soil, late patches) and leaves nothing over.
+  for (const target of [5, 6, 7, 8, 11]) {
+    window.__seed(7 + target); D.newRun();
+    while (D.season < target) D.nextSeason();
+    const s0 = state(), pool0 = D.pool;
+    let n = 0;
+    while (D.state === 'playing') {
+      if (n++ % 30 === 0) {
+        const mine = []; for (let i = 0; i < D.N; i++) if (D.own[i] === 1 && D.conn[i]) mine.push(i);
+        const a = mine[Math.floor(Math.random() * mine.length)], b = Math.floor(Math.random() * D.N);
+        if (Math.random() < 0.6) D.grow(a, b); else if (Math.random() < 0.5) D.pulse(a); else D.prune(a);
+        for (let i = 0; i < D.N; i++) if (D.own[i] === 2 && D.rpar[i] >= 0 && Math.random() < 0.1) { D.prune(i); break; }
+      }
+      D.step(1 / 60);
+    }
+    if (D.state !== 'lost') { bad.push(`retry s${target}: season not lost`); continue; }
+    D.retrySeason();
+    if (state() !== s0) bad.push(`retry s${target}: state differs from season start`);
+    if (Math.abs(D.pool - Math.min(150, pool0 + 15)) > 1e-6) bad.push(`retry s${target}: pool ${D.pool} vs ${pool0}+15`);
+    if (D.jobs.length || D.fx.length || D.t !== 0 || D.mushrooms !== 0) bad.push(`retry s${target}: leftovers`);
+  }
+  // 2. Growing into a stranded knot reverses its branch, side branches included.
+  window.__seed(3); D.newRun(); D.setPool(150);
+  const far = []; for (let i = 0; i < D.N; i++) { const r = D.route(D.core, i); if (r && r.length === 5) far.push(r); }
+  const r0 = far[0];
+  D.grow(D.core, r0[4]);
+  for (let k = 0; k < 300 && D.jobs.length; k++) D.step(1 / 60);
+  const side = D.P[r0[2]].nb.find(v => D.own[v] === 0 && D.route(r0[2], v));
+  D.grow(r0[2], side);
+  for (let k = 0; k < 300 && D.jobs.length; k++) D.step(1 / 60);
+  D.prune(r0[1]);
+  const before = D.own.filter(x => x === 1).length;
+  // Re-enter at the tip from another knot (the spore's other side).
+  let re = null;
+  for (let i = 0; i < D.N; i++) if (D.own[i] === 1 && D.conn[i]) { const r = D.route(i, r0[4]); if (r && (!re || r.length < re.length)) re = r; }
+  D.setPool(150); D.grow(re[0], r0[4]);
+  for (let k = 0; k < 600 && D.jobs.length; k++) D.step(1 / 60);
+  D.topo();
+  for (let i = 0; i < D.N; i++) if (D.own[i] === 1) {
+    if (!D.conn[i]) bad.push(`reconnect: knot ${i} still stranded`);
+    let a = i, n = 0; while (a >= 0 && n++ < 400) a = D.par[a];
+    if (n >= 400) bad.push(`reconnect: cycle at ${i}`);
+  }
+  if (D.own[side] !== 1 || D.par[side] !== r0[2]) bad.push('reconnect: side branch lost');
+  if (D.own.filter(x => x === 1).length !== before + re.length - 2) bad.push('reconnect: knot count');
+  return bad;
 }
 
 // Runs inside the page: one whole run.
@@ -318,6 +371,14 @@ for (const kv of (process.argv[4] || '').split(',').filter(Boolean)) {
 }
 const file = buildDebug(overrides);
 const browser = await chromium.launch();
+{
+  const page = await browser.newPage();
+  page.on('pageerror', e => console.log('ERR', e.message));
+  await page.goto(pathToFileURL(file).href);
+  const bad = await page.evaluate(selfTest);
+  console.log(bad.length ? 'SELFTEST FAIL ' + bad.join('; ') : 'selftest ok (retry restores seasons 5-8, 11; reconnect reverses a branch)');
+  await page.close();
+}
 for (const n of names) {
   if (n.startsWith('dbg:')) { report(n, await run({ ...BOTS[n.slice(4)], dbg: true }, runs, file, browser, opts)); continue; }
   if (!BOTS_ALL[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);

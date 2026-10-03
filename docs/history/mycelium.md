@@ -6,7 +6,33 @@ section; sessions don't read this file by default.
 
 ## History
 
+- v2 (2026-10-03): review pass. Upkeep ×1.3 in season 5, ×1.7 from
+  season 6 (endless starts from 1.7); pulses no longer refill rotting
+  knots; seasons 4–5 nearer patches (3–6), Dry spell goal 3, first rival
+  knot ~11 s; season 6 patches from 3; season 8 food 75. Bug fixes: the
+  log no longer uses `ctx.roundRect` (older Safari threw every frame); a
+  retry also restores rival threads and clears the hunger clock, the press
+  and the keyboard mark; a late patch whose site was taken lands nearby;
+  keyboard messages (Enter twice unmarks, Space/X explain), cut messages
+  moved into the verbs. Score epoch unchanged (a mushroom means the same).
 - v1 (2026-10-03): first version, from the brief below.
+
+## v1 balance (superseded by v2)
+
+| Bot | Seasons 1–8 won % | Median seasons | Run (1st loss) | Score | Per season |
+|---|---|---|---|---|---|
+| idle | 0 | 0 | 3.0 min | 0 | |
+| greedy | 34/0/… | 0 | 3.0 min | 1 | 15 starved, 12 rotted, 1 pulse |
+| timer | 100/72/50/24/24/20/20/7 | 3 | 9.3 (1.9) min | 14 | 44 pulses, 58 spilled |
+| skilled | 100 × 8 | 10 | 13.9 (10.6) min | 88 | 15 pulses, 0 spilled, 5 cuts |
+| noprune | 100 × 8 | 9 | 13.3 (9.1) min | 72 | 6 starved, 4 rotted |
+| novice | 100/81/67/35/25/12/2/0 | 3 | 9.6 (2.2) min | 12 | 20 spilled, 3 cuts |
+| novice, 4 retries | 100/96/96/71/67/51/25/8 | 6 | 20.6 min | 26 | season 8 reached by 26.7 min |
+
+v1 seasons 4–5 had patches 4–7 threads out, goal 4 in both, rival start
+~5 s, upkeep ×1 through season 8 and ×1.08ⁿ in endless; season 8 food 55.
+v1 achievements (skilled / novice): first-flush 100/100, long-reach 91/76,
+clean-cut 49/33, lean-season 100/15, fairy-ring 33/0, old-growth 100/0.
 
 ## v1: departures from the brief and why
 

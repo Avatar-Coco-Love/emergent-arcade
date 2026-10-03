@@ -639,3 +639,30 @@ night 8 ~80%. Check: for an aim verb, compare the effect's lifetime with the
 time a blind sweep takes to come back, and run the sweep as a bot.
 
 *Evidence: bots. Provisional.*
+
+## An automatic shed is a free cut
+
+Mycelium v2, 2026-10-03. To make cutting pay, knots out of feeding range
+(dead branches past a used-up patch) were charged 2-4× upkeep. The never-cut
+bot barely lost (90% → 88% of skilled's score at 4×) while the novice dropped
+a season: the extra upkeep emptied its pool, and an empty pool eats the
+farthest tip, which on a dead branch *is* the cut, done for free. What
+worked was a flat upkeep rise in the seasons where dead branches pile up
+(season 5 ×1.3, 6+ ×1.7): never-cut fell from 82% to 63% of skilled. Check:
+when a rule makes a mess costly, list every automatic way the mess can
+clear (starvation, hunger, decay) and run the never-clean bot against each.
+
+*Evidence: bots. Provisional.*
+
+## A floor on a shared budget rescues the habit that ignores it
+
+Mycelium v2, 2026-10-03. To soften the novice's wall at seasons 4-5, each
+season was started with at least 60 in the pool. The novice gained two
+seasons, but the timer bot (pulses every 1.5 s without reading the pool)
+went from 16% to 68% of skilled: it ended every season broke, and the floor
+refilled exactly what its habit spilled. Nearer patches, a lower goal and a
+later rival in those seasons helped the novice as much and left the timer
+bot at 21%. Check: before adding a floor, gift or refund to a budget, run
+the bot that wastes that budget and see who gains most.
+
+*Evidence: bots. Provisional.*
