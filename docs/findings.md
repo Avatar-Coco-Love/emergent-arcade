@@ -67,6 +67,10 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   the goal by following links (couplings, trailing moves): start routes
   set wrong and prove it with a bot that never uses it. *A route verb is
   only needed where the other verb can't follow a chain.* Rail Yard. bots.
+- An aim verb (a beam, a hose) is only read if what it does fades before
+  a blind sweep comes back: test a bot that sweeps end to end without
+  looking. *A sweep plays itself when the effect outlasts the sweep.*
+  Lighthouse Keeper. bots.
 - A two-way verb (a valve, a door) forgives its own misuse: what it let in
   it lets back out. Check that misusing it costs more than using it well
   saves, from round 1, and test "must read the value" with a bot that runs

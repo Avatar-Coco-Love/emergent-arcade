@@ -1428,6 +1428,86 @@
         "max": 2000,
         "epoch": 1
       }
+    },
+    {
+      "id": "lighthouse-keeper",
+      "title": "Lighthouse Keeper",
+      "file": "lighthouse-keeper.html",
+      "version": 1,
+      "added": "2026-10-03",
+      "updated": "2026-10-03",
+      "blurb": "Turn the lighthouse beam through the fog so ships can see the rocks, and ration the oil to last the night.",
+      "goal": "Bring each night's ships into the harbour with no more than 2 wrecks. Oil carries over; after 8 nights the nights keep coming, foggier and busier. Score: ships brought home over the run.",
+      "howToPlay": "Ships sail out of the dark toward the harbour (bottom left). In thick fog a ship can't see and holds its course, drifting, straight onto any rocks in its way; its mast light flashes red. Drag across the sea to turn the beam: it burns the fog away where it points, and a ship it lights (green mast light) sees the rocks and steers home around them. The fog drifts back within seconds once the beam moves on. The open lamp burns oil, and every ship that docks brings a little more. {Tap} the lighthouse to shutter the lamp (no oil burns, but the sea goes dark) and {tap} it again to open it. {Hold} the lighthouse to charge a flare and let go to fire it where the beam points: it clears a wide patch of fog for several seconds, and a bigger flare costs more oil. A third wreck loses the night. Later nights bring drifting fog banks, ships from the right, heavy ships that turn slowly, convoys and storms.",
+      "keyboard": "← → turn the beam, S shutters or opens the lamp, hold Space to charge a flare",
+      "mechanics": [
+        {
+          "name": "turn",
+          "verb": "drag",
+          "description": "Drag across the sea to turn the beam: it burns fog away where it points, and ships it lights can see the rocks."
+        },
+        {
+          "name": "shutter",
+          "verb": "tap",
+          "description": "{Tap} the lighthouse to shutter or open the lamp. Shuttered, it burns no oil but lights nothing."
+        },
+        {
+          "name": "flare",
+          "verb": "hold",
+          "description": "{Hold} the lighthouse to charge a flare and let go to fire it where the beam points: a wide patch of fog clears for several seconds. Bigger flares cost more oil."
+        }
+      ],
+      "sharedState": "Fog density over the sea and the lamp's oil. The beam and flares burn fog; the open lamp and flares spend oil; ships see only through thin fog and bring oil home; the fog drifts back everywhere.",
+      "topics": ["timing"],
+      "accent": "#ffd27a",
+      "achievements": [
+        {
+          "id": "safe-harbour",
+          "title": "Safe Harbour",
+          "description": "Bring a ship home."
+        },
+        {
+          "id": "clear-passage",
+          "title": "Clear Passage",
+          "description": "Win a night from night 3 on without a wreck."
+        },
+        {
+          "id": "starburst",
+          "title": "Starburst",
+          "description": "Light 4 ships with one flare."
+        },
+        {
+          "id": "thrifty-keeper",
+          "title": "Thrifty Keeper",
+          "description": "Win a night with the lamp shuttered for a third of it."
+        },
+        {
+          "id": "last-drop",
+          "title": "Last Drop",
+          "description": "Bring a ship home while the lamp has under 3 oil."
+        },
+        {
+          "id": "storm-keeper",
+          "title": "Storm Keeper",
+          "description": "Win night 8, the storm."
+        }
+      ],
+      "score": {
+        "label": "Ships home",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 5000,
+        "epoch": 1
+      },
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-10-03",
+          "text": "First version."
+        }
+      ]
     }
   ]
 }
