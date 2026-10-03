@@ -396,6 +396,13 @@ window.ArcadeCabinet = (function () {
     );
     $("aboutBlurb").textContent = g.blurb;
     $("aboutHow").textContent = g.howToPlay || "";
+    // Topics (assets/topics.js): each links to the gallery filtered by it.
+    const topics = window.ArcadeTopics.of(g);
+    $("aboutTopics").hidden = !topics.length;
+    $("aboutTopics").replaceChildren(
+      el("span", { className: "label", textContent: "Topics" }),
+      ...topics.map((t) => el("a", { className: "topic-link", href: `#/?topic=${t.id}`, title: t.about }, [t.label, el("span", { className: "kind", textContent: t.kind })]))
+    );
     showAllChanges = false;
     renderChanges();
     const archived = g.status === "archived" ? " · archived (still playable)" : "";

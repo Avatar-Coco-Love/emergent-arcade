@@ -69,6 +69,7 @@
       ],
       "keyboard": "Z undo · R restart · N next level",
       "sharedState": "Pressure per cell: written by pump and siphon, read by siphon (it pours what is there) and by bursts, which empty a cell at 10 and send +2 to each open neighbor, setting off chains.",
+      "topics": ["planning"],
       "accent": "#ff7a3d",
       "goal": "Burst every ringed cell on each of 10 levels in as few moves as you can. Match par for 3 stars; stars open the next level.",
       "howToPlay": "Each {tap} adds 4 pressure to a cell. At 10 a cell bursts: it empties and sends +2 to each open neighbor, so a neighbor at 8 bursts too. Drag from a cell to a neighbor to pour everything into it (1 is lost); sealed cells can only be filled this way. Walls stop bursts and pours, and a cell left above 8 leaks 1 per move. Later levels add valves (arrows: pours through them only go the arrow's way), vents (they start at 8; one that bursts empties its neighbors) and leaky cells (they lose 2 after every move). Nothing moves between your moves, so take your time. Undo and Restart are free; fewer moves earn more stars.",
@@ -173,6 +174,7 @@
         }
       ],
       "sharedState": "Planet mass: placing creates it, landed seeds add to it, and it sets how hard each planet pulls on every seed. Each fling withers every planet a little, and blooming is read from it.",
+      "topics": ["mechanics"],
       "accent": "#8be07a",
       "achievements": [
         {
@@ -261,6 +263,7 @@
         }
       ],
       "sharedState": "Each bird's fear: startling raises it, it spreads from bird to bird, and crowding around the lure raises it. The lure's pull fades as fear rises, scared birds stop sticking together (but keep matching heading) and fly faster, and panicked birds stop avoiding the edges of the sky.",
+      "topics": ["collective-behaviour", "contagion"],
       "accent": "#a78bfa",
       "achievements": [
         {
@@ -360,6 +363,7 @@
         }
       ],
       "sharedState": "Scent per patch of ground: drawn trails and food-carrying ants add it, rain and time remove it, and both the ants and the spider steer by it (the spider also moves faster on strong scent).",
+      "topics": ["collective-behaviour"],
       "accent": "#d9a23b",
       "achievements": [
         {
@@ -472,6 +476,7 @@
         }
       ],
       "sharedState": "Fuel (grass) per patch of ground: cutting removes it and costs stamina by how much there is, backburns and the main fire burn it to ash, and fire can only spread, and only spreads fast, where fuel is left.",
+      "topics": ["contagion"],
       "accent": "#e2483d",
       "achievements": [
         {
@@ -555,6 +560,7 @@
         }
       ],
       "sharedState": "The sand grid: pouring adds grains, which fall, slide and pile up on ledges and pack down when they rest. Knocking only moves sand that is already there, loosening packed grains and shoving them sideways, and the hourglasses count whatever reaches them.",
+      "topics": ["granular-matter", "timing"],
       "accent": "#e0b25c",
       "achievements": [
         {
@@ -641,6 +647,7 @@
         }
       ],
       "sharedState": "Temperature and thickness per bar segment. Heating writes temperature (faster where the bar is thin) and burning removes thickness; striking reads the struck segment's temperature (crack or how much it thins) and its neighbours' temperatures (where the metal goes), and writes thickness.",
+      "topics": ["thermodynamics", "timing"],
       "accent": "#f07a2a",
       "achievements": [
         {
@@ -702,6 +709,7 @@
         }
       ],
       "sharedState": "Rabbits, foxes and grass per meadow. Releasing writes rabbits; fences decide which paths foxes can use. Each season rabbits eat grass and breed, foxes eat the rabbits in their meadow and breed or starve, rabbits move away from foxes and toward grass, and foxes move toward rabbits, except across a fence. The census reads the island's totals.",
+      "topics": ["ecology", "planning"],
       "accent": "#7cc56a",
       "achievements": [
         {
@@ -773,6 +781,7 @@
         }
       ],
       "sharedState": "Tension in every strand of the net (its stretch). Pulling writes it around the dragged knot; pins fix knots so tension builds between them, and each pin reads the tension of its strands (too much and it pops, releasing its knot and passing the load on). A strand past its limit snaps for good. Where the knots end up, which the silhouette reads, is set by that tension balance.",
+      "topics": ["mechanics"],
       "accent": "#e0679a",
       "achievements": [
         {
@@ -851,6 +860,7 @@
         }
       ],
       "sharedState": "The water depth in every column of the hillside. Tilting moves it along each terrace, gates move it between terraces (faster when tilted toward them), and each plant reads the depth over its roots and drinks from it.",
+      "topics": ["fluid-dynamics"],
       "accent": "#5fb8d8",
       "achievements": [
         {
@@ -931,6 +941,7 @@
         }
       ],
       "sharedState": "The grid of sand, glass and liquid inside the box. Turning moves the sand and the shards (and the bubble the other way), melting turns sand into glass, shattering turns glass back into sand, and the bubble's path reads all of it: sand slows it, deep sand or glass stops it.",
+      "topics": ["granular-matter", "spatial-reasoning"],
       "accent": "#f0c46a",
       "achievements": [
         {
@@ -1008,6 +1019,7 @@
         }
       ],
       "sharedState": "Wall height and standing water per column. Flicks raise the wall, and read the water (wet sand washes out). Gates lower the water, and read the wall's sea side (the sea pours in whenever it stands above the sill). Waves overtop wherever the crest beats the wall and add water; standing water softens the wall each second.",
+      "topics": ["fluid-dynamics", "timing"],
       "accent": "#5fb0e0",
       "achievements": [
         {
@@ -1077,6 +1089,7 @@
         }
       ],
       "sharedState": "Each rolling car’s speed. The flick sets it; the route the switches pick decides how fast it drains (plain track 1 per car length, gravel 2); what is left when it meets a car or buffer decides the outcome: couple (2 to 4), touch (0 to 1) or bounce back (5 and up).",
+      "topics": ["mechanics", "planning"],
       "accent": "#ffd166",
       "achievements": [
         {
@@ -1218,6 +1231,7 @@
         }
       ],
       "sharedState": "The water. Turning moves all of it (and the floating bead); valves freeze one cup's share of it; the ring reads the cups, and the bead needs enough free water to float down to the ring.",
+      "topics": ["fluid-dynamics", "planning", "spatial-reasoning"],
       "accent": "#d9a441",
       "achievements": [
         {
@@ -1296,6 +1310,7 @@
         }
       ],
       "sharedState": "The coins' marks and the weighing budget. Weigh writes a result about the coins on the pans; Mark records it on the coins; Load reads the marks (only ✓ coins are fair ballast, only suspects are worth weighing) and the budget decides how big each split must be.",
+      "topics": ["information-theory", "deduction"],
       "accent": "#e2b34a",
       "achievements": [
         {

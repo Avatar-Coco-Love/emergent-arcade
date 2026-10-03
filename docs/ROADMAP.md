@@ -104,6 +104,9 @@ player feedback still jump the queue.
 At 15–30 games, a flat scroll stops working.
 
 - Gallery sort/filter: new, recently revised, highest rated, by verb.
+  Built: topic tags (subjects and skills, fixed list in `assets/topics.js`)
+  with chips, `?topic=`, search and the ⓘ panel; the mechanic map shows
+  verbs × topics.
 - A **mechanic map**: which verb pairs and shared-state kinds exist
   (`games.json` already records verbs). Untried combinations become the
   source of new proposals ("pairs *hold* with *draw* over a heat field,

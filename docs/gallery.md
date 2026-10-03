@@ -8,8 +8,9 @@ per check at 360×740, 740×360 and 1280×800; screenshots go to `--out`).
 
 Playtest (private artifact, feedback/telemetry disabled in that copy):
 https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
-(republished for the tap/click wording PR: open it on a phone for "tap",
-on a PC for "click". In that frame the share buttons can't use the share
+(republished for the topic tags PR: try the topic chips on a phone and a
+PC, and the ⓘ panel's Topics line. No `leaderboards.json` there, so no
+play counts or boards. In that frame the share buttons can't use the share
 sheet and may not reach the clipboard, so share can do nothing there.)
 
 ## Files
@@ -25,9 +26,10 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/cabinet.js` | `ArcadeCabinet.open(game)` / `close()`: toolbar, panels, ⋯ menu, toasts, loading/error states, share, download, rating, nudge |
 | `assets/name-ctl.js` | `ArcadeNameCtl.create(prefix, { toast, onChange })`: the leaderboard name controls (show me, pick another name, type a name), used by the 🏆 panel (ids `lb…`) and the Records view (ids `rec…`) |
 | `assets/records.js` | `ArcadeRecords`: the Records view (`#/records`), every game's leaderboard on one page |
-| `assets/gallery.js` | cards, search/sort/verb filter, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
+| `assets/topics.js` | `ArcadeTopics`: the fixed topic tag list (`LIST`, `get`, `of`). Also run by the Node scripts through `scripts/topics.mjs` |
+| `assets/gallery.js` | cards, search/sort/verb and topic filters, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
-Script order in `index.html`: config, ui, wording, feedback, achievements, scores, progress,
+Script order in `index.html`: config, ui, wording, topics, feedback, achievements, scores, progress,
 telemetry, thumbs, download, cabinet, records, gallery.
 
 ## Tap or click
@@ -53,12 +55,34 @@ ideas).
 ## Routes
 
 - `#/play/<id>`: a game's cabinet. The link people share.
-- `#/` or `#/?sort=<new|updated|title|left>&verb=<verb>&q=<text>`: the
-  gallery with its view state. Filter changes use `history.replaceState`,
+- `#/` or `#/?sort=<new|updated|title|left>&verb=<verb>&topic=<id>&q=<text>`: the
+  gallery with its view state (an unknown topic id is ignored). Filter changes use `history.replaceState`,
   so they don't fill the back history. The cabinet's ← goes back to the
   same view. An unknown id shows the gallery with a notice.
 - `#/records` or `#/records?mine=1`: the Records view (below). A cabinet
   opened from it goes back to it (← and focus on the row's ▶).
+
+## Topics
+
+Games carry 1–3 tags from the fixed list in `assets/topics.js` (manifest
+field and how to add a tag: `docs/adding-a-game.md`, "Topics"). The
+gallery uses them in three places:
+
+- **Topic chips**: a second chip row under the verbs: "All topics", then
+  "Subjects" and "Skills", each a small label followed by its chips in list
+  order. Only tags some game uses get a chip. One topic at a time; it
+  combines with the verb filter and search (a game must match all three).
+  Phones (≤ 480 px) show the row as one line that scrolls sideways, with a
+  faded right edge, so a dozen topics don't push the games below the fold;
+  a pressed chip out of view is scrolled in. With a mouse the chips are
+  34 px tall (44 px on touch). Pressing one logs `filter` with `topic`.
+- **Search** matches topic labels ("fluid", "planning").
+- **ⓘ panel**: a "Topics" line after How to play, one link per tag (label
+  and kind) to `#/?topic=<id>`, which closes the cabinet onto the filtered
+  gallery.
+
+`node scripts/mechanic-map.mjs` prints verbs × topics. Smoke-tested by
+"topic filter, search and ⓘ links".
 
 ## Per-browser storage
 
@@ -172,7 +196,7 @@ all show the arcade's card. Instead:
 Required ones are in `docs/adding-a-game.md`. Optional: `accent` (card and
 cabinet chrome color; all current accents are bright, so buttons on them
 use dark text), `changes`, `status` (`archived` → Archive section, still
-playable).
+playable), `topics` (above).
 
 ## Open ideas / follow-ups
 
