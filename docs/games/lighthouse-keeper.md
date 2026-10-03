@@ -75,7 +75,29 @@ the coast). A Space held through a pause must be let go before it charges.
 
 ## Balance (v2)
 
-BALANCE_PLACEHOLDER
+50 runs, retries 2, `node scripts/balance-lighthouse-keeper.mjs 50` (±7 pts).
+The harness starts with a self-test (retry restores the night; every ship
+ends its voyage; reefs clear of arrival points).
+
+| Bot | Nights 1–8 won % | Median nights | Run | Score | Per night |
+|---|---|---|---|---|---|
+| idle | 32/4/2/0… | 0 | 2.7 min | 1 | 3 wrecks |
+| sweep | 98/68/56/42/32/4/0/0 | 3 | 6.3 min | 15 | 3 wrecks |
+| nearest | 100/88/68/58/46/8/2/0 | 4 | 7.5 min | 20 | 3 wrecks |
+| skilled | 100/100/98/98/96/78/62/56 | 8 | 11.4 min | 57 | 23 s shut, oil 80 |
+| noshutter | 100/100/100/98/94/70/54/42 | 7 | 11.0 min | 44 | 4 s dry, oil 8 |
+| noflare | 100/100/98/98/96/76/56/50 | 8 | 10.7 min | 51 | |
+| flarespam | 100/100/92/86/68/26/6/4 | 5 | 8.2 min | 26 | oil 8 |
+| novice | 100/98/80/70/58/6/0/0 | 5 | 7.6 min | 23 | 14 s dark, 6 s dry |
+| novice, 4 retries | 100/98/98/96/92/34/4/4 | 5 | 11.2 min | 25 | |
+
+- Nights last ~62 s (v1 ~1.7 min). Skilled median run 11.4 min.
+- Action rate: skilled at 0.5 / 1 / 2 s per action scores 57 / 59 / 52
+  (noflare 51 / 48 / 52): no speed test, but at 2 s flares stop paying.
+- Achievements (skilled / novice): starburst 26/0, storm-keeper 56/0,
+  clear-passage 96/18, thrifty-keeper 100/20, last-drop 20/90.
+- The skilled bot flares only when 2+ fogged ships outside the beam are
+  <5 s from rock, sized to cover them (8 s was too early).
 
 ## Telemetry
 
@@ -113,7 +135,9 @@ None yet.
   time, or convoys on more nights.
 - The skilled bot does better at 1 s per action than at 0.5 s (it switches
   targets too eagerly); not a speed test, but the bot is not optimal.
-- Novice wall now at night 6 (Thick night, threes in fast fog).
+- Novice wall now at night 6 (Thick night, threes in fast fog). The
+  thirstier lamp (1.4/s) costs the novice ~15 pts at nights 3–5 but makes
+  the shutter matter (noshutter 89% → 77% of skilled).
 - Not hand-played on a phone yet.
 - Ideas: a lit ship signals back (morse) to say where it is; a tide that
   covers and uncovers reefs; a second lighthouse to hand ships over to.
