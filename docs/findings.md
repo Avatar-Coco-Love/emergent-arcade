@@ -71,6 +71,14 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   a bot that never uses it, and give leaving the mess a cost that spreads
   (rot climbing back). *A branch that dies by itself makes the cut verb
   optional.* Mycelium. bots.
+- An automatic shed (an empty pool eating the farthest tip, a starved tip
+  dying) cuts dead branches for free: when a rule makes a mess costly, run
+  the never-clean bot against each automatic way the mess clears. *An
+  automatic shed is a free cut.* Mycelium. bots.
+- A floor or gift on a shared budget (a minimum pool each round) helps
+  most the habit that wastes the budget: run the timer bot before adding
+  one; easier layouts help a novice without it. *A floor on a shared budget
+  rescues the habit that ignores it.* Mycelium. bots.
 - In a budget game, check that income can't reach zero while spending is
   blocked (a stalled build, upkeep above the trickle): that state is a still
   screen. *A budget that can hit zero with no income source freezes the

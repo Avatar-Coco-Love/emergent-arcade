@@ -1433,12 +1433,12 @@
       "id": "mycelium",
       "title": "Mycelium",
       "file": "mycelium.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-10-03",
       "updated": "2026-10-03",
       "blurb": "Grow a fungal network through the soil to reach food, keep its far threads fed, and fruit mushrooms before the frost.",
       "goal": "Grow each season's mushrooms before the frost. Your nutrient pool carries over; after 8 seasons the seasons keep coming, leaner each time. Score: mushrooms over the run.",
-      "howToPlay": "The glowing spore in the middle is your network's heart. Drag from it (or from any knot of your network) to a leaf patch to grow a thread there; each new knot costs nutrient from your pool, and every knot costs a little upkeep each second (shown next to the pool). A patch your thread reaches feeds the pool until it is used up. {Tap} a knot to pulse: a surge of nutrient leaves the pool and runs out along the thread, refilling every knot on the way; what reaches a patch grows a mushroom there, and what reaches any other knot is spilled. Knots more than 3 threads from the spore or a feeding patch slowly fade: pulse them, or they starve, and a thread that starves while attached rots back toward the spore. {Hold} a knot to cut the thread into it: everything beyond withers harmlessly and stops costing upkeep, and growing into it again reconnects it. When the pool is empty the network eats its own farthest tips. Later seasons bring an old log far out, dry soil (4× upkeep), rival moulds racing you to food ({hold} a rival knot to cut it), stones and patches that fall mid-season.",
+      "howToPlay": "The glowing spore in the middle is your network's heart. Drag from it (or from any knot of your network) to a leaf patch to grow a thread there; each new knot costs nutrient from your pool, and every knot costs a little upkeep each second (shown next to the pool). A patch your thread reaches feeds the pool until it is used up. {Tap} a knot to pulse: a surge of nutrient leaves the pool and runs out along the thread, refilling every knot on the way; what reaches a patch grows a mushroom there, and what reaches any other knot is spilled. Knots more than 3 threads from the spore or a feeding patch slowly fade: pulse them, or they starve, and a thread that starves while attached rots back toward the spore. {Hold} a knot to cut the thread into it: everything beyond withers harmlessly and stops costing upkeep, and growing into it again reconnects it. When the pool is empty the network eats its own farthest tips. Later seasons bring an old log far out, dry soil (4× upkeep), rival moulds racing you to food ({hold} a rival knot to cut it), stones and patches that fall mid-season; from season 5 every knot costs more upkeep, so cut what no longer feeds you.",
       "keyboard": "Arrows move the cursor, Enter marks a knot then Enter grows to the cursor, Space pulses, X cuts",
       "mechanics": [
         {
@@ -1502,6 +1502,11 @@
         "epoch": 1
       },
       "changes": [
+        {
+          "version": 2,
+          "date": "2026-10-03",
+          "text": "Cutting matters more: upkeep rises from season 5 and a pulse no longer heals rot. Seasons 4 and 5 are gentler, season 8 richer. Fixes: the old log draws on older Safari, a retry resets everything, clearer keyboard and cut messages."
+        },
         {
           "version": 1,
           "date": "2026-10-03",
