@@ -56,7 +56,7 @@ nights: 8 scripted, then endless; oil carries over. Score = ships home.
 | Const | Value | Const | Value |
 |---|---|---|---|
 | HALF / RANGE | 0.15 rad / 470 | BURN / REGROW | 0.9 / 0.2 per s |
-| SEE / TURN | 0.35 / 1.0 rad/s | LAMP / DOCK_OIL | 1.0/s / 6 |
+| SEE / TURN | 0.35 / 1.0 rad/s | LAMP / DOCK_OIL | 1.4/s / 6 |
 | OIL0 / OIL_MAX | 70 / 120 | DAWN_OIL / RETRY_OIL | 35 / 15 |
 | FLARE_MIN / MAX / S | 10 / 34 oil / 1.2 s | FLARE_R0 / R1 / CLEAR | 70 / 230 / 0.8 |
 | SPEED / BIG_SPEED | 16 / 11 px/s | STEER / BIG_STEER / LOOK | 0.7 / 0.35 rad/s / 85 |
@@ -100,9 +100,13 @@ None yet.
 
 ## Open ideas / known limits
 
-- Flare is close to the target (never-flare at ~80% of skilled) and only on
-  convoy nights; most nights skilled fires none. If players never flare,
-  check `flares` per night on nights 6–8 before changing anything.
+- **Flare is still short of its target:** never-flare scores ~89% of
+  skilled at 0.5 s per action (target 80%), 76% at 1 s, tied at 2 s.
+  It pays only on convoy nights, and only fired ~5 s before the reefs;
+  most nights skilled fires none. Tried and not enough: tighter/wider
+  convoys, a slower lamp, slower ship turns, longer patches, more oil
+  pressure. Next lever: blind ships that drift off course over time, so
+  one look no longer fixes a ship for good.
 - The lit-once rule is why the beam can serve a crowd: a ship that saw holds
   its course blind (findings: *A spotlight serves a crowd one by one*).
   Stronger flare levers if needed: blind ships that drift off course over
