@@ -158,6 +158,10 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   settles k + 2): a rule can't break a k-coat habit until load ≥ k + 3, so
   shifts below that are tutorials whatever their rule. *Memory load at most
   k + 1 is solved by elimination.* Coat Check (pre-build). bots.
+- Run a bot over the generator for every achievement: a condition the
+  generator's caps never produce (a full cloakroom when arrivals stop at the
+  load target) is a dead achievement. *An achievement can ask for a state
+  the generator never makes.* Coat Check. bots.
 - Optional collectibles only add a route if the direct solution misses
   them: run the shortest-route bot and count what it picks up by accident,
   then move those (a sweep along one wall took 2 of 3). One free pickup on
