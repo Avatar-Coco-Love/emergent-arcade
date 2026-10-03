@@ -87,6 +87,15 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   a blind sweep comes back: test a bot that sweeps end to end without
   looking. *A sweep plays itself when the effect outlasts the sweep.*
   Lighthouse Keeper. bots.
+- A spotlight verb serves a crowd one target at a time if one short look
+  fixes a target for good: time how long each target needs the aim, and
+  make the crowd need it at the same moment (hazards the same way along
+  each course). *A spotlight serves a crowd one by one when one look is
+  enough.* Lighthouse Keeper. bots.
+- A burst verb (a flare, a bomb) has a firing window: too early and the
+  effect fades before it's needed. Sweep when the bot fires before calling
+  the verb weak. *A burst verb fired too early looks useless.* Lighthouse
+  Keeper. bots.
 - A two-way verb (a valve, a door) forgives its own misuse: what it let in
   it lets back out. Check that misusing it costs more than using it well
   saves, from round 1, and test "must read the value" with a bot that runs
