@@ -1,6 +1,6 @@
 # Coat Check: design notes
 
-**v1** (2026-10-03) · playtest: PLAYTEST_LINK (private, republished each push) ·
+**v1** (2026-10-03) · playtest: https://claude.ai/artifact/U4NaLDKJ5bL7NjHZnrcDZU (private, republished each push) ·
 balance: `node scripts/balance-coat-check.mjs 300` (~12 s)
 Verbs: **hang** (drag), **fetch** (tap) and **peek** (hold), sharing **the hooks
 and the peek budget**. A cloakroom of identical closed doors: where you hang a
