@@ -1,6 +1,6 @@
 # Geode: design notes
 
-**v1** (2026-10-04) · playtest: PLAYTEST_LINK (private, republished each push) ·
+**v1** (2026-10-04) · playtest: https://claude.ai/artifact/CS1Gj1PNQ3xcjPJbhAEdKn (private, republished each push) ·
 balance: `node scripts/balance-geode.mjs 200`
 Verbs: **seed** (tap), **warm** (drag the thermostat), **cleave** (hold),
 sharing **strain per site, pool saturation σ and temperature T**. Endless
