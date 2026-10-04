@@ -82,7 +82,20 @@ house) **FAIL (31%)**; ≥ 25% after 3 **FAIL**.
 
 ### Results, fresh for 2 turns
 
-FRESH2_TABLE
+| house | env | par | decisions | wo | doors-first | novice 2 taps |
+|---|---|---|---|---|---|---|
+| 1-3 | 1 | 1 | 1 | 1 | win | 55 / 82 / 86 |
+| 2-1 | 2 | 1 | 3 | 4 | win | 51 / 53 / 71 |
+| 2-2 | 3 | 2 | 4 | 5 | win | 30 / 30 / 41 |
+| 3-1 | 2 | **1** | 4 | 3 | fails | 23 / 42 / 38 |
+| 3-2 | - | - | - | - | - | not finished (the run hit its 15-minute cap: string state keys above 17 guests) |
+
+Two tells per guest lets a closed door *hold* a wave for a turn: 3-1's par
+drops from 2 to 1 (`· · w5 d0 · d1 d1 ·`: shut the door as the wave arrives,
+reopen it next turn while the guest still has a tell left). That makes 3-1
+a one-whisper house with a spare envelope, but the solve is 4× slower and
+novice survival barely moves. Fresh for 1 turn stays the default; the hold
+trick is a candidate rule for a later chapter.
 
 ### What the run taught
 
@@ -114,4 +127,10 @@ FRESH2_TABLE
 
 ### Go/no-go
 
-GO_NOGO
+**Conditional: 5 of 7 checks pass, novice fails** (median 31% after 2 wrong
+taps, target 50%). Rules, solver and bots work, and doors are required
+where intended. Before v1: (1) give every house a spare envelope where
+whisper-only still loses with it; (2) rebuild the chapter 3 houses around
+junction guests so they can carry one; (3) unlimited Undo in the campaign
+and the one-turn-early spoil warning; (4) doors use `{hold}`. Waiting on the
+maintainer's call before building.
