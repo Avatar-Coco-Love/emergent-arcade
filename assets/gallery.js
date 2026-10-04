@@ -46,6 +46,7 @@
     $("repoLink").href = repo;
     $("sourceLink").href = repo;
     $("findingsLink").href = `${repo}/blob/main/docs/findings.md`;
+    $("teachingLink").href = `${repo}/blob/main/docs/teaching.md`;
   }
 
   if (config.supportUrl) {

@@ -10,7 +10,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Emergent Arcade</title>
-<meta name="description" content="Tiny browser games built on emergent, shared-state mechanics. Playable instantly, no installs.">
+<meta name="description" content="Free tiny browser games built on emergent, shared-state mechanics, for players, students, teachers and game developers. Playable instantly, no installs.">
 <!-- Link previews (Facebook, Messenger). Absolute URLs: crawlers need them.
      Each game's own card is on play/<id>/ (scripts/build-share-pages.mjs). -->
 <link rel="canonical" href="https://avatar-coco-love.github.io/emergent-arcade/">
@@ -18,7 +18,7 @@
 <meta property="og:site_name" content="Emergent Arcade">
 <meta property="og:url" content="https://avatar-coco-love.github.io/emergent-arcade/">
 <meta property="og:title" content="Emergent Arcade">
-<meta property="og:description" content="Tiny browser games built on emergent, shared-state mechanics. Playable instantly, no installs.">
+<meta property="og:description" content="Free tiny browser games built on emergent, shared-state mechanics, for players, students, teachers and game developers. Playable instantly, no installs.">
 <meta property="og:image" content="https://avatar-coco-love.github.io/emergent-arcade/assets/og/arcade.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -130,8 +130,9 @@
   </main>
 
   <footer class="site-footer">
+    <p class="mission">Free games for players, students, teachers and game developers.</p>
     <a id="repoLink" target="_blank" rel="noopener">Source on GitHub</a>
-    <span id="supportWrap" hidden> · <a id="supportLink" target="_blank" rel="noopener">Support this arcade</a></span>
+    <span id="supportWrap" hidden> · <a id="supportLink" target="_blank" rel="noopener">Help keep these games free</a></span>
     <p class="muted" id="telemetryNote" hidden>To tune the games, the arcade records anonymous play stats: time played, wins and losses, scores, and achievements. No accounts, no cookies. Leaderboards show a made-up name like "Amber Otter" unless you type your own, and anyone can see it. <button type="button" class="linkish" id="telemetryNoteBtn">Turn off for this browser</button></p>
   </footer>
 
@@ -198,6 +199,14 @@
     </div>
     <div class="dialog-body prose">
       <p class="lead">Emergent Arcade is a growing collection of tiny experiments in emergent game design.</p>
+      <h3>Who it's for</h3>
+      <p>Part of the mission is to help people learn from these games, not just play them:</p>
+      <ul>
+        <li><b>Students</b>: see how a few simple rules add up to surprising behavior, then read the code. Each game is one self-contained file.</li>
+        <li><b>Teachers</b>: free, no accounts, no installs, and every game can be downloaded to run offline. Use them in class to talk about systems, feedback loops and design. Browse by subject, like <a href="#/?topic=thermodynamics" data-close>thermodynamics</a>, <a href="#/?topic=ecology" data-close>ecology</a> or <a href="#/?topic=fluid-dynamics" data-close>fluid dynamics</a>, and read the <a id="teachingLink" target="_blank" rel="noopener">guide for teachers</a>. Leaderboards show any name a player types to everyone, so ask students to use a nickname.</li>
+        <li><b>Game developers</b>: the design rules, balance bots and findings are all open. Borrow the ideas and the method.</li>
+      </ul>
+      <p>The code is free to reuse under the MIT license, and the docs under CC BY 4.0. Just give credit.</p>
       <h3>The rules every game follows</h3>
       <ul>
         <li>Two or three core verbs (<span data-verb="tap">tap</span>, drag, hold…), each doing something different.</li>

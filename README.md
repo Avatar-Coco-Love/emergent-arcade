@@ -3,6 +3,15 @@
 Tiny browser games built on emergent, shared-state mechanics. Playable
 instantly, no installs.
 
+**Mission:** help students, teachers and game developers learn from these
+games, not just play them. Students can see how a few simple rules add up to
+surprising behavior and read each game as one self-contained file.
+Teachers get free, account-free games that also download to run offline, for lessons on systems,
+feedback loops and design. Game developers can borrow the design rules,
+balance bots and [design findings](docs/findings.md); everything is open.
+Teachers: start with the [guide for teachers](docs/teaching.md) (games by
+subject, offline copies, privacy).
+
 **Live site:** https://avatar-coco-love.github.io/emergent-arcade/ (after the
 one-time Pages setup below)
 
@@ -125,3 +134,12 @@ merge deploys it.
 | [Pressure Grid](games/pressure-grid.html) | **pump** (tap a cell to add pressure), **siphon** (drag to move a fraction of a cell's pressure into a neighbor, with loss) | Pressure per cell, also read by the passive bleed-and-eruption system | 100 eruptions in 60 s, then free play |
 | [Orbit Garden](games/orbit-garden.html) | **place** (tap to add a planet), **fling** (drag to launch a seed that curves under gravity) | Planet mass: created by placing, grown by landed seeds, sets gravity, drained by a passive wither | 3 planets blooming at once within 40 seeds |
 | [Murmuration](games/murmuration.html) | **lure** (hold to draw calm birds toward your finger), **startle** (tap to scare nearby birds away from the tap) | Fear per bird: raised by startles and by crowding at the lure, spread bird to bird, cancels the lure's pull, and makes panicked birds fly off the edges | 15+ birds through each of 5 gates, in order, before night falls (60 s) |
+
+## License
+
+The code (everything that runs: `index.html`, `assets/`, `games/`,
+`scripts/`, `feedback/`) is under the [MIT License](LICENSE). The
+documentation (`docs/`, this README) is under
+[Creative Commons Attribution 4.0](LICENSE-docs) (CC BY 4.0). Both let you
+copy, adapt and share, in class or in your own games, as long as you give
+credit.
