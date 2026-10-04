@@ -349,5 +349,30 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale, "coat-check": coatCheck, mycelium, "surprise-party": surpriseParty, geode };
+  function lighthouseKeeper() {
+    let body = `<defs><filter id="lk-fog" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3.5"/></filter>`
+      + `<linearGradient id="lk-beam" x1="0.15" y1="0.7" x2="1" y2="0"><stop offset="0" stop-color="#ffe39a" stop-opacity="0.75"/><stop offset="1" stop-color="#ffe39a" stop-opacity="0.15"/></linearGradient></defs>`;
+    body += `<rect width="72" height="72" fill="#10243a"/>`;
+    // Fog drifts over the sea; the beam from the lighthouse (bottom left) burns a clear wedge through it.
+    body += `<g filter="url(#lk-fog)" fill="#9aaab8" opacity="0.55">`;
+    for (const [x, y, r] of [[50, 10, 14], [66, 34, 12], [20, 16, 14], [36, 2, 10], [6, 36, 9], [60, 58, 12], [34, 66, 9], [46, 48, 7]]) {
+      body += `<circle cx="${x}" cy="${y}" r="${r}"/>`;
+    }
+    body += `</g><path d="M 14 49 L 54 -2 L 74 -2 L 74 22 Z" fill="#10243a"/><path d="M 14 49 L 54 -2 L 74 -2 L 74 22 Z" fill="url(#lk-beam)"/>`;
+    // Rocks in the beam, a lit ship (green mast light) steering past them, a blind one (red) drifting in the fog.
+    body += `<path d="M 44 31 Q 46 25 50 26 Q 55 26 56 31 Z M 57 21 Q 59 16 62 18 Q 64 20 64 22 Z" fill="#3c5670" stroke="#1c2c3c" stroke-width="0.8"/>`;
+    const ship = (x, y, light) => {
+      body += `<path d="M ${x - 5} ${y} L ${x + 5} ${y} L ${x + 3} ${y + 3} L ${x - 3} ${y + 3} Z" fill="#e8e2d2"/>`;
+      body += `<rect x="${x - 0.5}" y="${y - 6}" width="1" height="6" fill="#d9d4c7"/><circle cx="${x}" cy="${y - 6.5}" r="1.8" fill="${light}"/>`;
+    };
+    ship(36, 40, "#7dffb0");
+    ship(22, 24, "#ff5a4a");
+    // The lighthouse on its rock.
+    body += `<path d="M 0 72 Q 4 61 14 62 Q 24 63 28 72 Z" fill="#22303c"/>`;
+    body += `<path d="M 10 64 L 11.5 52 L 16.5 52 L 18 64 Z" fill="#e9eef2"/><rect x="10.8" y="57" width="6.4" height="2.4" fill="#b5413a"/>`;
+    body += `<circle cx="14" cy="49.5" r="7" fill="#ffd27a" opacity="0.25"/><rect x="11" y="47" width="6" height="5" fill="#ffd27a"/><path d="M 10 47 L 14 43 L 18 47 Z" fill="#b5413a"/>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale, "coat-check": coatCheck, mycelium, "surprise-party": surpriseParty, geode, "lighthouse-keeper": lighthouseKeeper };
 })();
