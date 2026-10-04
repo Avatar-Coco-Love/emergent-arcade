@@ -693,3 +693,19 @@ Before calling a burst verb weak, sweep *when* the bot fires it against
 the window in which its effect is useful; that window is the decision.
 
 *Evidence: bots. Provisional.*
+
+## A blocking verb is worth one action per branch it guards
+
+Surprise Party pre-build go/no-go, 2026-10-04. A guest within 2 steps of
+the birthday person may hear no earlier than 7:45, so a wave can pass them
+with at most one more hop behind. Without doors, every deep branch behind
+such a guest needs its own whisper; a door shut as the wave passes costs
+none. Houses where that guest guards one branch (doors worth +1 whisper)
+couldn't give a spare envelope without letting whisper-only win, and the
+novice bot survived 2 wrong taps 15–31% of the time. Putting the guest at
+a 3-way junction made whisper-only cost par + 3, left room for a spare
+envelope and raised the median novice from 31% to 44%. Check: count how
+many independent branches the second verb guards; that is the slack the
+level can give before the first verb alone wins.
+
+*Evidence: bots. Provisional.*

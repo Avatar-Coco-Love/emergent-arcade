@@ -102,6 +102,12 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   the verb on a timer; give every hazard that blocks the verb a window to
   use it. *A two-way verb forgives its own misuse.* Tidewright. bots.
 
+- A blocking verb (a door) saves one action of the other verb per branch
+  it guards: put the guarded point at a junction (3 deep branches) so the
+  level can give a spare action and the single-verb habit still loses.
+  *A blocking verb is worth one action per branch it guards.* Surprise
+  Party. bots.
+
 - In an order puzzle, amounts that only add up make the order free (4a +
   2b reaches 10 whatever the order); order costs come from what takes or
   empties (pours, bursts, caps). Land the key interaction exactly on the

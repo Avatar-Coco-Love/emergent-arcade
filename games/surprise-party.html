@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Surprise Party</title>
+<style>
+  :root {
+    --bg: #1a1420; --panel: #251d2c; --line: #3d3247; --text: #f3ecf4; --muted: #a99bb0;
+    --accent: #ff8fb1; --gold: #ffd166; --good: #7ad99a; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 6px 8px; padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+    user-select: none; -webkit-user-select: none;
+  }
+  #rule { flex: none; text-align: center; color: var(--accent); font-weight: 600; font-size: 0.8rem; min-height: 1.3em; }
+  /* The message strip has its own row, never over the house; fixed height so nothing jumps. */
+  #msg { flex: none; min-height: 2.6em; display: flex; align-items: center; justify-content: center;
+    text-align: center; font-size: 0.88rem; line-height: 1.25; }
+  #msg b { color: var(--gold); }
+  #msg .win { color: var(--good); font-weight: 600; }
+  #msg .loss { color: var(--bad); font-weight: 600; }
+  #wrap { flex: 1; min-height: 0; position: relative; }
+  #board { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #bar { flex: none; display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  #bar button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; font-size: 0.85rem; padding: 7px 11px; cursor: pointer; min-height: 38px; }
+  #bar button:disabled { opacity: 0.4; cursor: default; }
+  #bar #wait { border-color: var(--gold); color: var(--gold); font-weight: 600; }
+  #hud { flex: none; display: flex; justify-content: space-between; gap: 8px; font-size: 0.82rem; color: var(--muted);
+    border-top: 1px solid var(--line); padding-top: 2px; }
+  #hud .clk { color: var(--text); font-weight: 600; }
+  #hud .env { color: var(--gold); letter-spacing: 1px; }
+  #menu { position: absolute; inset: 0; background: rgba(26, 20, 32, 0.97); overflow-y: auto; padding: 10px; display: none; }
+  #menu.open { display: block; }
+  #menu h3 { margin: 10px 0 4px; font-size: 0.85rem; color: var(--accent); font-weight: 600; }
+  #menu .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  #menu button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; font-size: 0.8rem; padding: 7px 9px; cursor: pointer; text-align: left; }
+  #menu button.cur { border-color: var(--accent); }
+  #menu button .st { color: var(--gold); margin-left: 4px; }
+  #menu .season { border-color: var(--gold); color: var(--gold); font-weight: 600; }
+  @media (max-height: 420px) {
+    body { gap: 1px; padding-top: 3px; }
+    #rule { font-size: 0.74rem; }
+    #msg { min-height: 2.4em; font-size: 0.8rem; }
+    #bar button { min-height: 32px; padding: 4px 9px; }
+  }
+</style>
+</head>
+<body>
+  <div id="rule"></div>
+  <div id="msg"></div>
+  <div id="hud"><span id="where"></span><span class="clk" id="clk"></span><span class="env" id="env"></span></div>
+  <div id="wrap"><canvas id="board" aria-label="Surprise Party: whisper to guests, shut doors, keep the birthday person from hearing before 8:00."></canvas><div id="menu"></div></div>
+  <div id="bar"><button id="wait">Wait 15 min</button><button id="undo">Undo</button><button id="restart">Restart</button><button id="houses">Houses</button></div>
+
+<script>
+(function() {
+  const GAME_ID = 'surprise-party';
+  const HOLD_MS = 320;          // holding a door this long opens or shuts it
+  const SLIDE_PX = 22;          // a press that slides this far does nothing
+  const ANIM_MS = 520;          // the ripple of one quarter hour
+  const END_LOCK_MS = 1000;     // input ignored after a house ends
+  const SEASON_START = 2;       // envelopes in hand when a season starts; each party adds its par
+
+// § sim (pure rules: no DOM, no clock; scripts/balance-surprise-party.mjs runs this block)
+const RULES = { turns: 8, reach: 2, fresh: 1 };
+
+// '#' wall, '.' floor, 'g' guest, 'B' birthday person, 'd' open door, 'D' closed door.
+// env = envelopes (whispers) for the house.
+const HOUSES = [
+  { id: '1-1', ch: 1, name: 'First whisper', env: 1, map: [
+    '###########',
+    '#.........#',
+    '#.g.g.g.g.#',
+    '#..g.g.g..#',
+    '#.........#',
+    '###########'] },
+  { id: '1-2', ch: 1, name: 'Next door', env: 1, map: [
+    '###############',
+    '#g.g.g.#g.g.g.#',
+    '#.....g.g.....#',
+    '#g.g.g.#g.g.g.#',
+    '###############'] },
+  { id: '1-3', ch: 1, name: 'Three rooms', env: 1, map: [
+    '#################',
+    '#g.g.#.g.g.#.g.g#',
+    '#...g.g...g.g...#',
+    '#g.g.#.g.g.#.g.g#',
+    '#################'] },
+  { id: '1-4', ch: 1, name: 'Two parties', env: 2, map: [
+    '#################',
+    '#g.g.g.###g.g.g.#',
+    '#.g.g..###.g.g..#',
+    '#g.g.g.###g.g.g.#',
+    '#################'] },
+  { id: '1-5', ch: 1, name: 'The long hall', env: 1, map: [
+    '###########',
+    '#g.g.g.g.g#',
+    '#########.#',
+    '#g.g.g.g.g#',
+    '#.#########',
+    '#g.g.g.g.g#',
+    '###########'] },
+  { id: '2-1', ch: 2, name: 'The den', env: 1, intro: true, map: [
+    '#####################',
+    '#.g.g.g.g.g.g.g.g.g.#',
+    '##########d##########',
+    '#########.B.#########',
+    '#####################'] },
+  { id: '2-2', ch: 2, name: 'The junction', env: 2, map: [
+    '#####################',
+    '#...g.g.g.g.g.g.g...#',
+    '##########.##########',
+    '#.g.g.g.g.gDg.g.g.g.#',
+    '#........#d#........#',
+    '#...g...#.B.#...g...#',
+    '#####################'] },
+  { id: '2-3', ch: 2, name: 'A friend inside', env: 3, map: [
+    '#####################',
+    '#...g.g.g.g.g.g.g...#',
+    '##########.##########',
+    '#.g.g.g.g.gDg.g.g.g.#',
+    '#........#d#........#',
+    '#...g...#gB.#...g...#',
+    '#####################'] },
+  { id: '2-4', ch: 2, name: 'Trust the clock', env: 1, optionalDoors: true, map: [
+    '###################',
+    '#.g.g.g.g.g.g.g.gg#',
+    '################d##',
+    '###############.B.#',
+    '###################'] },
+  { id: '2-5', ch: 2, name: 'Two doors', env: 2, map: [
+    '#####################',
+    '#.........g.........#',
+    '#.g.g.g.g.g.g.g.g.g.#',
+    '##.#######d#####D####',
+    '#.g.g.g.gdB..#..g.g.#',
+    '#........#...#......#',
+    '#.g.g.g..#####..g.g.#',
+    '#####################'] },
+  { id: '3-1', ch: 3, name: 'The hallway', env: 2, map: [
+    '#####################',
+    '#...................#',
+    '#...g.g.g.g.g.g.g...#',
+    '##########.##########',
+    '#.g.g.g.g.gDg.g.g.g.#',
+    '######d###d###d######',
+    '#.....g.g.B.g.g.....#',
+    '#####################'] },
+  { id: '3-2', ch: 3, name: 'Beside them', env: 3, map: [
+    '#####################',
+    '#...................#',
+    '#...g.g.g.g.g.g.g...#',
+    '##########.##########',
+    '#.g.g.g.g.gDg.g.g.g.#',
+    '####d#####d#####d####',
+    '#...g.g..gBg....g...#',
+    '#####################'] },
+  { id: '3-3', ch: 3, name: 'Downstairs', env: 2, map: [
+    '#####################',
+    '#...g.g.g.B.g.g.....#',
+    '####d#####d###d######',
+    '#.g.g.g.g.gDg.g.g.g.#',
+    '##########.##########',
+    '#...g.g.g.g.g.g.g...#',
+    '#...................#',
+    '#####################'] },
+  { id: '3-4', ch: 3, name: 'Long way round', env: 2, map: [
+    '#####################',
+    '#...................#',
+    '#...g.g.g.g.g.g.g...#',
+    '##########.##########',
+    '#.g.g.g.g.gDg.g.g.g.#',
+    '######D###d###D######',
+    '#.....g.g.B.g.g.....#',
+    '#####################'] },
+  { id: '3-5', ch: 3, name: 'Full house', env: 3, map: [
+    '#####################',
+    '#...................#',
+    '#...g.g.g.g.g.g.g...#',
+    '##########.##########',
+    '#.g.g.g.g.gDg.g.g.g.#',
+    '####d#####d#####d####',
+    '#.g.g.g..gBg....g...#',
+    '#####################'] },
+];
+
+function parse(h) {
+  const rows = h.map, H = rows.length, W = rows[0].length;
+  const cell = [], guests = [], doors = [];
+  let B = -1, doorMask = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = rows[y][x] || '#', i = y * W + x;
+    cell.push(c === '#' ? 0 : (c === 'd' || c === 'D') ? 2 : 1);
+    if (c === 'g') guests.push(i);
+    if (c === 'B') B = i;
+    if (c === 'd' || c === 'D') { if (c === 'd') doorMask |= 1 << doors.length; doors.push(i); }
+  }
+  const P = { W, H, cell, guests, doors, B, n: guests.length, env: h.env, doorMask0: doorMask, nbCache: new Map() };
+  return P;
+}
+
+// cells within RULES.reach walking steps of cell s, given open-door mask
+function dist2(P, s, mask) {
+  const seen = new Map([[s, 0]]), q = [s];
+  while (q.length) {
+    const c = q.shift(), d = seen.get(c);
+    if (d >= RULES.reach) continue;
+    const x = c % P.W;
+    for (const nc of [c - 1, c + 1, c - P.W, c + P.W]) {
+      if ((nc === c - 1 && x === 0) || (nc === c + 1 && x === P.W - 1) || nc < 0 || nc >= P.cell.length) continue;
+      if (seen.has(nc) || P.cell[nc] === 0) continue;
+      if (P.cell[nc] === 2 && !(mask >> P.doors.indexOf(nc) & 1)) continue;
+      seen.set(nc, d + 1); q.push(nc);
+    }
+  }
+  return seen;
+}
+
+// nb[i] = bitmask of guests guest i tells (bit n = birthday person)
+function nbFor(P, mask) {
+  let nb = P.nbCache.get(mask);
+  if (nb) return nb;
+  nb = P.guests.map((g, i) => {
+    const s = dist2(P, g, mask); let m = 0;
+    P.guests.forEach((h, j) => { if (j !== i && s.has(h)) m |= 1 << j; });
+    if (P.B >= 0 && s.has(P.B)) m |= 1 << P.n;
+    return m;
+  });
+  P.nbCache.set(mask, nb);
+  return nb;
+}
+
+// state: t = actions taken, know (bitmask), f = [tells left 1, tells left 2], doors, used whispers, spoiled
+function start(P) { return { t: 0, know: 0, f: [0, 0], doors: P.doorMask0, used: 0, spoiled: false, bAt: -1 }; }
+
+// actions: {k:'wait'} | {k:'whisper', i} | {k:'door', j}. Returns the new state (after the tick).
+function act(P, s, a) {
+  const n = { t: s.t, know: s.know, f: s.f.slice(), doors: s.doors, used: s.used, spoiled: s.spoiled, bAt: s.bAt, heard: 0 };
+  if (a.k === 'whisper') { n.know |= 1 << a.i; n.f[RULES.fresh - 1] |= 1 << a.i; n.used++; }
+  if (a.k === 'door') n.doors ^= 1 << a.j;
+  // tick: everyone with tells left tells everyone within reach, then loses one tell
+  const tellers = n.f[0] | n.f[1], nb = nbFor(P, n.doors);
+  let heard = 0;
+  for (let i = 0; i < P.n; i++) if (tellers >> i & 1) heard |= nb[i];
+  n.t++;
+  const bBit = 1 << P.n;
+  if (heard & bBit) { if (n.bAt < 0) n.bAt = n.t; if (n.t < RULES.turns) n.spoiled = true; }
+  const fresh = heard & ~n.know & (bBit - 1);
+  n.know |= fresh;
+  n.heard = fresh;
+  if (RULES.fresh === 1) n.f = [fresh, 0];
+  else n.f = [n.f[1], fresh];
+  return n;
+}
+
+function legal(P, s, opt = {}) {
+  const out = [{ k: 'wait' }];
+  if (s.used < (opt.env ?? P.env)) for (let i = 0; i < P.n; i++) if (!(s.know >> i & 1)) out.push({ k: 'whisper', i });
+  if (!opt.noDoors) for (let j = 0; j < P.doors.length; j++) if (!(opt.locked & (1 << j))) out.push({ k: 'door', j });
+  return out;
+}
+
+// Exact forward search. Goal 'win': all guests know after the last tick and the birthday
+// person never heard before 8:00. Lexicographic cost: whispers, then non-wait moves.
+// Returns { w, m, plan, end } or null. goal 'survive': any line that doesn't spoil.
+// opt: env (whisper budget), noDoors, locked (door bitmask never toggled), jit (they hear at 8:00).
+function solve(P, s0, opt = {}) {
+  const n = P.n, all = (1 << n) - 1, bBit = 1 << n, D = P.doors.length, F2 = RULES.fresh === 2;
+  const env = opt.env ?? P.env, survive = opt.goal === 'survive';
+  const nbOpen = nbFor(P, (1 << D) - 1);
+  const K = all + 1, big = n * (F2 ? 3 : 2) + D > 52;   // numeric keys while they fit in a double
+  // could every unknown guest still hear in time with no whispers left (all doors open, one hop per tick)?
+  const reachable = (know, f0, f1, left) => {
+    let fr = f0 | f1, kn = know;
+    for (let t = 0; t < left && fr; t++) {
+      let h = 0;
+      for (let i = 0; i < n; i++) if (fr >> i & 1) h |= nbOpen[i];
+      fr = h & ~kn & all; kn |= fr;
+    }
+    return (kn & all) === all;
+  };
+  // layer arrays: know, f0, f1, doors, used, w, m, parent index, action code (-1 wait, i whisper, 100 + j door)
+  let L = { know: [s0.know], f0: [s0.f[0]], f1: [s0.f[1]], doors: [s0.doors], used: [s0.used], w: [0], m: [0], par: [-1], act: [0] };
+  const layers = [L];
+  for (let t = s0.t; t < RULES.turns; t++) {
+    const N = { know: [], f0: [], f1: [], doors: [], used: [], w: [], m: [], par: [], act: [] }, idx = new Map();
+    const last = t + 1 === RULES.turns;
+    for (let p = 0; p < L.know.length; p++) {
+      const know = L.know[p], f0 = L.f0[p], f1 = L.f1[p], doors = L.doors[p], used = L.used[p];
+      const nA = 1 + (used < env ? n : 0) + (opt.noDoors ? 0 : D);
+      for (let c = 0; c < nA; c++) {
+        let kn = know, a0 = f0, a1 = f1, dm = doors, u = used, code = -1;
+        if (c >= 1 && c <= (used < env ? n : 0)) {
+          const i = c - 1; if (know >> i & 1) continue;
+          kn |= 1 << i; if (F2) a1 |= 1 << i; else a0 |= 1 << i; u++; code = i;
+        } else if (c > 0) {
+          const j = c - 1 - (used < env ? n : 0);
+          if (opt.locked >> j & 1) continue;
+          dm ^= 1 << j; code = 100 + j;
+        }
+        const nb = nbFor(P, dm), tellers = a0 | a1;
+        let heard = 0;
+        for (let i = 0; i < n; i++) if (tellers >> i & 1) heard |= nb[i];
+        if ((heard & bBit) && !last) continue;
+        if (opt.jit && last && !(heard & bBit)) continue;   // the birthday person hears exactly at 8:00
+        const fresh = heard & ~kn & all;
+        kn |= fresh;
+        const n0 = F2 ? a1 : fresh, n1 = F2 ? fresh : 0;
+        if (!survive && u >= env && !reachable(kn, n0, n1, RULES.turns - t - 1)) continue;
+        const key = big ? kn + ',' + n0 + ',' + n1 + ',' + dm : ((kn * K + n0) * K + n1) * (1 << D) + dm;
+        const w = L.w[p] + (code >= 0 && code < 100 ? 1 : 0), m = L.m[p] + (code === -1 ? 0 : 1);
+        const old = idx.get(key);
+        if (old === undefined) {
+          idx.set(key, N.know.length);
+          N.know.push(kn); N.f0.push(n0); N.f1.push(n1); N.doors.push(dm); N.used.push(u); N.w.push(w); N.m.push(m); N.par.push(p); N.act.push(code);
+        } else if (w < N.w[old] || (w === N.w[old] && m < N.m[old])) {
+          N.used[old] = u; N.w[old] = w; N.m[old] = m; N.par[old] = p; N.act[old] = code;
+        }
+      }
+    }
+    L = N; layers.push(L);
+    if (!L.know.length) return null;
+  }
+  let best = -1;
+  for (let p = 0; p < L.know.length; p++) {
+    if (!survive && L.know[p] !== all) continue;
+    if (best < 0 || L.w[p] < L.w[best] || (L.w[p] === L.w[best] && L.m[p] < L.m[best])) best = p;
+  }
+  if (best < 0) return null;
+  const plan = [];
+  for (let li = layers.length - 1, p = best; li > 0; p = layers[li].par[p], li--) {
+    const c = layers[li].act[p];
+    plan.unshift(c === -1 ? { k: 'wait' } : c < 100 ? { k: 'whisper', i: c } : { k: 'door', j: c - 100 });
+  }
+  let end = s0;
+  for (const a of plan) end = act(P, end, a);
+  return { w: L.w[best], m: L.m[best], plan, end };
+}
+
+// doors that touch the birthday person's room (flood fill from B, stopping at doors)
+function bRoomDoors(P) {
+  if (P.B < 0) return [];
+  const seen = new Set([P.B]), q = [P.B], out = new Set();
+  while (q.length) {
+    const c = q.shift();
+    for (const nc of [c - 1, c + 1, c - P.W, c + P.W]) {
+      if (seen.has(nc) || P.cell[nc] === 0) continue;
+      seen.add(nc);
+      if (P.cell[nc] === 2) { out.add(P.doors.indexOf(nc)); continue; }
+      q.push(nc);
+    }
+  }
+  return [...out];
+}
+// § generator: Party Season houses from the junction template (den = chapter 2, hall = chapter 3)
+function rng32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+// One draw of the template. k = parties already pulled off this season (houses grow with it).
+function seasonMap(rnd, k) {
+  const R = n => Math.floor(rnd() * n), hall = k >= 1 && rnd() < 0.55;
+  const L = Math.min(4, 3 + R(2)), c = 2 * L + 2, W = 2 * c + 1;
+  const H = 8, g = Array.from({ length: H }, () => Array(W).fill('#'));
+  const set = (x, y, v) => { g[y][x] = v; }, row = (y, x0, x1, v = '.') => { for (let x = x0; x <= x1; x++) set(x, y, v); };
+  const U = Math.min(L - 1, 1 + R(3) + (k >= 6 ? 1 : 0));
+  row(1, 1, W - 2); row(2, 1, W - 2);
+  for (let i = -U; i <= U; i++) set(c + 2 * i, 2, 'g');
+  set(c, 3, '.');
+  row(4, 1, W - 2);
+  for (let i = 1; i <= L; i++) { set(c - 2 * i, 4, 'g'); set(c + 2 * i, 4, 'g'); }
+  set(c, 4, 'g');
+  set(c - 1, 4, rnd() < 0.3 ? 'D' : '.'); set(c + 1, 4, rnd() < 0.7 ? 'D' : 'd');
+  if (!hall) {   // den below the junction; wing rooms reach down beside it
+    row(5, 1, c - 2); row(5, c + 2, W - 2); set(c, 5, 'd');
+    row(6, 1, c - 3); row(6, c + 3, W - 2); row(6, c - 1, c + 1); set(c, 6, 'B');
+    if (rnd() < 0.35 + 0.05 * k) set(c - 1 + 2 * R(2), 6, 'g');
+    for (const sgn of [-1, 1]) if (rnd() < 0.6) set(c + sgn * (2 * L - 1), 6, 'g');
+  } else {       // hallway below: the birthday person's room, fed from the wings' end doors
+    set(c, 5, 'd'); row(6, 1, W - 2); set(c, 6, 'B');
+    for (const sgn of [-1, 1]) {
+      const e = 2 + 2 * R(Math.max(1, L - 2)), ex = c + sgn * (2 * L - e + 2);
+      if (Math.abs(ex - c) < 4) continue;
+      set(ex, 5, rnd() < 0.25 ? 'D' : 'd');
+      for (let x = ex; Math.abs(x - c) >= 2; x -= 2 * sgn) set(x, 6, 'g');
+    }
+    if (rnd() < 0.3 + 0.05 * k) { set(c - 1, 6, 'g'); set(c + 1, 6, 'g'); }
+  }
+  let m = g.map(r => r.join(''));
+  if (rnd() < 0.5) m = m.map(r => [...r].reverse().join(''));
+  if (rnd() < 0.5) m = m.reverse();
+  return { map: m, ch: hall ? 3 : 2 };
+}
+// A house worth playing: winnable with few whispers, doors required (and for a hallway,
+// shutting all its doors fails), 3+ decisions. env = par + 1 when the habits still lose with it.
+function seasonHouse(seed, k, maxTries = 40) {
+  const rnd = rng32(seed);
+  for (let tries = 1; tries <= maxTries; tries++) {
+    const { map, ch } = seasonMap(rnd, k);
+    const P = parse({ map, env: 1 });
+    let sol = null;
+    for (let e = 1; e <= 3 && !sol; e++) { P.env = e; sol = solve(P, start(P)); }
+    if (!sol || sol.m < 3) continue;
+    const habitsLose = env => {
+      const Q = { ...P, env };
+      if (solve(Q, start(Q), { noDoors: true })) return false;
+      if (ch >= 3) {
+        let s = start(Q), locked = 0;
+        for (const j of bRoomDoors(Q)) { locked |= 1 << j; if (s.doors >> j & 1) { s = act(Q, s, { k: 'door', j }); if (s.spoiled) return true; } }
+        if (solve(Q, s, { locked })) return false;
+      }
+      return true;
+    };
+    if (!habitsLose(sol.w)) continue;
+    const env = habitsLose(sol.w + 1) ? sol.w + 1 : sol.w;
+    return { id: 'season-' + (k + 1), ch, name: 'Party ' + (k + 1), env, par: sol.w, map, tries };
+  }
+  return null;
+}
+// § end sim
+
+  // § words: the gallery fills {tap} in the manifest; the game does its own.
+  const COARSE = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  const words = s => s.replace(/\{Tap\}/g, COARSE ? 'Tap' : 'Click').replace(/\{tap\}/g, COARSE ? 'tap' : 'click')
+    .replace(/\{Hold\}/g, COARSE ? 'Hold' : 'Click and hold').replace(/\{hold\}/g, COARSE ? 'hold' : 'click and hold');
+  const clock = t => { const m = 18 * 60 + 15 * t; return `${Math.floor(m / 60) - 12}:${String(m % 60).padStart(2, '0')}`; };
+  const CH_RULE = {
+    1: '{Tap} a guest to whisper. Anyone who just heard tells everyone within 2 steps, once.',
+    2: 'The birthday person mustn\'t hear before 8:00. {Hold} a door to shut or open it (15 min).',
+    3: 'Their room is the hallway: shut its doors and you split the house.',
+    4: 'Party Season: envelopes carry over, and an undone whisper stays spent. Run out and the season ends.'
+  };
+
+  // § messaging: achievements, results, pause, bests from the gallery.
+  const embedded = () => window.parent !== window;
+  const unlocked = new Set();
+  function unlock(id) {
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (embedded()) window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+  }
+  let paused = false, bestShown = 0;
+  window.addEventListener('message', evt => {
+    const d = evt.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'arcade:pause') { paused = true; press = null; }
+    if (d.type === 'arcade:resume') paused = false;
+    if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {
+      const b = Number(d.bests.main); if (b > 0 && b < 1e5) { bestShown = Math.round(b); renderHUD(); }
+    }
+  });
+
+  // § state: the campaign (stars per house) or a season (envelopes carried), and the house in play.
+  const runId = Math.random().toString(36).slice(2, 10) || 'run';
+  const stars = HOUSES.map(() => 0), attempts = HOUSES.map(() => 0);
+  let mode = 'campaign', hi = 0, season = null;
+  let house, P, s, hist, phase, endT, roundMs, anim, counts, warn, touchedDoor, preview;
+  const inSeason = () => mode === 'season';
+  function startHouse(h) {
+    house = h; P = parse(h); s = start(P); hist = [];
+    if (inSeason()) P.env = season.pool;
+    phase = 'play'; endT = 0; roundMs = 0; anim = null; warn = ''; touchedDoor = false; press = null;
+    counts = { whispers: 0, doors: 0, waits: 0, undos: 0 };
+    if (!inSeason()) attempts[hi]++; else season.attempt++;
+    layout(); updatePreview();
+    const tag = inSeason() ? `Party Season · party ${season.k + 1}` : `House ${h.id} · ${h.name}`;
+    $('rule').textContent = tag;
+    say(words(CH_RULE[inSeason() ? 4 : h.ch]));
+    renderHUD();
+  }
+  function playHouse(i) { mode = 'campaign'; hi = i; season = null; closeMenu(); startHouse(HOUSES[i]); }
+  function startSeason() {
+    mode = 'season'; closeMenu();
+    season = { k: 0, pool: SEASON_START, parties: 0, seed: (Math.random() * 1e9) >>> 0, attempt: 0, house: null, over: false };
+    nextSeasonHouse();
+  }
+  function nextSeasonHouse() {
+    say('Planning the next party…');
+    setTimeout(() => {
+      let h = null;
+      for (let t = 0; !h; t++) h = seasonHouse(season.seed + season.k * 7919 + t * 104729, season.k);
+      season.house = h; season.pool += h.par; season.attempt = 0;
+      startHouse(h);
+    }, 30);
+  }
+
+  // § actions: whisper (tap a guest), door (hold a door), wait (the button or Space).
+  function doAct(a) {
+    if (phase !== 'play' || anim) return;
+    if (a.k === 'whisper' && s.used >= P.env) { say(inSeason() ? 'No envelopes left this season.' : 'No envelopes left: <b>Undo</b> or wait for the wave.'); return; }
+    const prev = s;
+    hist.push(prev);
+    const tellers = prev.f[0] | prev.f[1] | (a.k === 'whisper' ? 1 << a.i : 0);
+    s = act(P, prev, a);
+    if (a.k === 'whisper') counts.whispers++; else if (a.k === 'door') { counts.doors++; touchedDoor = true; } else counts.waits++;
+    anim = { t: 0, tellers, heard: s.heard, door: a.k === 'door' ? a.j : -1 };
+    warn = '';
+    if (s.spoiled) { endHouse(false, 'spoiled'); return; }
+    if (s.t >= RULES.turns) { endHouse(s.know === (1 << P.n) - 1, 'missed'); return; }
+    updatePreview();
+    message();
+    renderHUD();
+    // the solver looks ahead (no false alarms), after this frame so the ripple starts at once
+    const at = s;
+    setTimeout(() => {
+      if (s !== at || phase !== 'play') return;
+      warn = !solve(P, s, { goal: 'survive' }) ? 'spoil' : !solve(P, s) ? 'stuck' : '';
+      if (warn) message();
+    }, 30);
+  }
+  function message() {
+    if (warn === 'spoil') return say('<span class="loss">Whatever you do now, they\'ll hear before 8:00.</span> <b>Undo</b>?');
+    if (warn === 'stuck') return say(inSeason() ? 'Not everyone can hear by 8:00 from here. <b>Restart</b> costs the envelopes spent.' : 'Not everyone can hear by 8:00 from here: <b>Undo</b> or <b>Restart</b>.');
+    if (preview.b && s.t + 1 < RULES.turns) return say('<span class="loss">If the clock moves on, the birthday person hears!</span>');
+    const left = P.n - popcount(s.know);
+    say(`${clock(s.t)}: ${left} guest${left === 1 ? '' : 's'} still to hear.` + (s.t === RULES.turns - 1 ? ' Last quarter hour: news at 8:00 is fine.' : ''));
+  }
+  const popcount = x => { let c = 0; while (x) { c += x & 1; x >>>= 1; } return c; };
+  // In a season an undone whisper stays spent: the envelope went out.
+  function undo() {
+    if (!hist.length || (phase !== 'play' && phase !== 'over') || anim || (inSeason() && season.over)) return;
+    if (phase === 'over' && endT < END_LOCK_MS) return;
+    const back = hist.pop();
+    if (inSeason() && s.used > back.used) P.env--;
+    s = back; counts.undos++; phase = 'play'; warn = ''; updatePreview(); message(); renderHUD();
+  }
+  function restart() {
+    if (anim) return;
+    if (inSeason()) {
+      if (season.over) { startSeason(); return; }
+      if (phase === 'over') return advance();
+      if (phase !== 'over') season.pool = P.env - s.used;
+      if (!solve(P, start(P), { env: season.pool })) return seasonOver();
+      startHouse(season.house); return;
+    }
+    startHouse(HOUSES[hi]);
+  }
+  function updatePreview() {   // who hears if the clock moves on now
+    const n = act(P, s, { k: 'wait' });
+    preview = { heard: n.heard, b: n.spoiled, zone: P.B >= 0 ? dist2(P, P.B, s.doors) : new Map() };
+  }
+  function endHouse(won, reason) {
+    phase = 'over'; endT = 0; press = null;
+    const par = house.par || parFor(hi);
+    let st = 0;
+    if (won) {
+      st = s.used <= par ? 3 : s.used === par + 1 ? 2 : 1;
+      if (popcount(s.know) >= 8 && s.used === 1) unlock('word-of-mouth');
+      if (s.bAt === RULES.turns) unlock('just-in-time');
+      if (house.ch >= 2 && !touchedDoor) unlock('open-house');
+    }
+    if (inSeason()) {
+      season.pool = P.env - s.used;
+      if (won) { season.parties++; if (season.parties >= 10) unlock('party-planner'); }
+    } else if (won) stars[hi] = Math.max(stars[hi], st);
+    postResult(won, reason, st);
+    const starTxt = '★'.repeat(st) + '☆'.repeat(3 - st);
+    if (won) say(`<span class="win">Surprise!</span> ${inSeason() ? `Party ${season.parties} pulled off · ${season.pool} envelope${season.pool === 1 ? '' : 's'} left` : starTxt + (st < 3 ? ` · par is ${par} whisper${par > 1 ? 's' : ''}` : '')} · <b>${words('{Tap}')}</b> for the next house`);
+    else if (reason === 'spoiled') say(`<span class="loss">They heard at ${clock(s.bAt)}!</span> ` + (inSeason() ? `<b>Undo</b>, or <b>${words('{tap}')}</b> to try again (the envelopes are spent)` : '<b>Undo</b> or <b>Restart</b>'));
+    else say(`<span class="loss">8:00 and ${P.n - popcount(s.know)} guest${P.n - popcount(s.know) === 1 ? '' : 's'} never heard.</span> ` + (inSeason() ? `<b>Undo</b>, or <b>${words('{tap}')}</b> to try again` : '<b>Undo</b> or <b>Restart</b>'));
+    renderHUD();
+  }
+  const parCache = {};
+  function parFor(i) {
+    if (parCache[i] === undefined) { const Q = parse(HOUSES[i]), r = solve(Q, start(Q)); parCache[i] = r ? r.w : HOUSES[i].env; }
+    return parCache[i];
+  }
+  function advance() {
+    if (phase !== 'over' || endT < END_LOCK_MS) return;
+    const won = !s.spoiled && s.know === (1 << P.n) - 1;
+    if (inSeason()) {
+      if (season.over) { startSeason(); return; }
+      if (won) { season.k++; nextSeasonHouse(); return; }
+      if (!solve(P, start(P), { env: season.pool })) return seasonOver();
+      startHouse(season.house); return;
+    }
+    if (won) { if (hi + 1 < HOUSES.length) playHouse(hi + 1); else openMenu(); }
+    else startHouse(HOUSES[hi]);
+  }
+  function seasonOver() {
+    season.over = true; phase = 'over'; endT = 0;
+    say(`<span class="loss">Out of envelopes.</span> The season ends with <b>${season.parties}</b> part${season.parties === 1 ? 'y' : 'ies'}. <b>${words('{Tap}')}</b> for a new season.`);
+    renderHUD();
+  }
+  function postResult(won, reason, st) {
+    if (!embedded()) return;
+    const msg = { type: 'arcade:result', game: GAME_ID, outcome: won ? 'win' : 'loss', time: Math.round(roundMs / 100) / 10,
+      level: inSeason() ? HOUSES.length + season.k + 1 : hi + 1, run: runId,
+      attempt: inSeason() ? season.attempt : attempts[hi],
+      stats: { whispers: s.used, doors: counts.doors, waits: counts.waits, undos: counts.undos, par: house.par || parFor(hi),
+        env: P.env, guests: P.n, heard: popcount(s.know), stars: st, ch: house.ch, turn: s.t } };
+    if (inSeason()) { msg.score = season.parties; msg.stats.pool = season.pool; }
+    if (!won) msg.reason = reason;
+    window.parent.postMessage(msg, '*');
+  }
+
+  // § ui: HUD, message strip, houses menu.
+  const $ = id => document.getElementById(id);
+  const say = html => { $('msg').innerHTML = '<span>' + html + '</span>'; };
+  function renderHUD() {
+    if (!P) return;
+    $('where').textContent = inSeason() ? `🎉 ${season.parties}` + (bestShown ? ` · best ${bestShown}` : '') : `House ${house.id}`;
+    $('clk').textContent = `${clock(s.t)} · party at 8:00`;
+    const left = P.env - s.used;
+    $('env').textContent = left > 6 ? `✉ ${left}` : '✉'.repeat(left) + '·'.repeat(Math.max(0, Math.min(6, P.env) - left)) || '✉ 0';
+    $('env').title = `${left} envelope${left === 1 ? '' : 's'} (whispers) left`;
+    $('undo').disabled = !hist.length || (inSeason() && season.over);
+    $('wait').disabled = phase !== 'play';
+  }
+  function openMenu() {
+    const m = $('menu');
+    let html = '';
+    for (const ch of [1, 2, 3]) {
+      html += `<h3>${['', 'Invitations', 'The birthday person', 'The hallway'][ch]}</h3><div class="row">`;
+      HOUSES.forEach((h, i) => { if (h.ch === ch) html += `<button data-i="${i}" class="${i === hi && !inSeason() ? 'cur' : ''}">${h.id} ${h.name}<span class="st">${'★'.repeat(stars[i])}</span></button>`; });
+      html += '</div>';
+    }
+    html += '<h3>Endless</h3><div class="row"><button class="season" data-s="1">Party Season</button><button data-close="1">Back</button></div>';
+    m.innerHTML = html; m.classList.add('open');
+  }
+  function closeMenu() { $('menu').classList.remove('open'); }
+  $('menu').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.i) playHouse(+b.dataset.i); else if (b.dataset.s) startSeason(); else closeMenu();
+  });
+  $('wait').addEventListener('click', () => doAct({ k: 'wait' }));
+  $('undo').addEventListener('click', undo);
+  $('restart').addEventListener('click', restart);
+  $('houses').addEventListener('click', () => $('menu').classList.contains('open') ? closeMenu() : openMenu());
+
+  // § layout: the house scaled to fit; refit on every house and resize.
+  const canvas = $('board'), ctx = canvas.getContext('2d'), wrap = $('wrap');
+  let W = 300, H = 300, G = null, rooms = null;
+  function layout() {
+    const b = wrap.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    W = Math.max(1, b.width); H = Math.max(1, b.height);
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (!P) return;
+    // a wide house turns a quarter on a tall screen when that makes the rooms bigger
+    const fit = (w, h) => Math.max(4, Math.floor(Math.min(W / w, H / h)));
+    const rot = fit(P.H, P.W) > fit(P.W, P.H) * 1.15, cols = rot ? P.H : P.W, rows = rot ? P.W : P.H, cs = fit(cols, rows);
+    G = { cs, rot, ox: Math.floor((W - cs * cols) / 2), oy: Math.floor((H - cs * rows) / 2) };
+    rooms = roomsOf(P);
+  }
+  function roomsOf(P) {   // floor regions between walls and doors, for the pastel colours
+    const id = new Array(P.cell.length).fill(-1); let n = 0;
+    for (let i = 0; i < P.cell.length; i++) {
+      if (P.cell[i] !== 1 || id[i] >= 0) continue;
+      const q = [i]; id[i] = n;
+      while (q.length) {
+        const c = q.pop();
+        for (const d of [c - 1, c + 1, c - P.W, c + P.W]) if (d >= 0 && d < P.cell.length && P.cell[d] === 1 && id[d] < 0) { id[d] = n; q.push(d); }
+      }
+      n++;
+    }
+    return id;
+  }
+  // house cell <-> screen square (turned clockwise when G.rot)
+  const scr = c => { const x = c % P.W, y = Math.floor(c / P.W); return G.rot ? { i: P.H - 1 - y, j: x } : { i: x, j: y }; };
+  const cellAt = (px, py) => {
+    const i = Math.floor((px - G.ox) / G.cs), j = Math.floor((py - G.oy) / G.cs);
+    const x = G.rot ? j : i, y = G.rot ? P.H - 1 - i : j;
+    return x >= 0 && x < P.W && y >= 0 && y < P.H ? y * P.W + x : -1;
+  };
+  const sq = c => { const q = scr(c); return { x: G.ox + q.i * G.cs, y: G.oy + q.j * G.cs }; };
+  const cxy = c => { const q = sq(c); return { x: q.x + G.cs / 2, y: q.y + G.cs / 2 }; };
+
+  // § drawing
+  const FLOORS = ['#f7e8c9', '#dcefd6', '#d8e6f6', '#f6dde6', '#e7def6', '#fbe5cf', '#d9f1ee'];
+  const SKIN = ['#f2c9a0', '#d9a477', '#a8754f', '#f5d6b8', '#c68b5e', '#7d5236'];
+  const HATS = ['#ff6f91', '#5ec2ff', '#ffd166', '#8be28b', '#c79bff'];
+  function draw(now) {
+    ctx.clearRect(0, 0, W, H);
+    if (!P || !G) return;
+    const cs = G.cs, at = anim ? Math.min(1, anim.t / ANIM_MS) : 1;
+    for (let c = 0; c < P.cell.length; c++) {
+      const { x, y } = sq(c);
+      if (P.cell[c] === 0) { ctx.fillStyle = '#3b2f45'; ctx.fillRect(x, y, cs + 0.5, cs + 0.5); continue; }
+      ctx.fillStyle = P.cell[c] === 2 ? '#e9d8bd' : FLOORS[rooms[c] % FLOORS.length];
+      ctx.fillRect(x, y, cs + 0.5, cs + 0.5);
+      if (preview.zone.has(c) && phase === 'play') { ctx.fillStyle = 'rgba(255,70,110,0.2)'; ctx.fillRect(x, y, cs + 0.5, cs + 0.5); }
+    }
+    // doors: a plank across the gap when shut, swung against the wall when open
+    P.doors.forEach((c, j) => {
+      const { x, y } = sq(c), open = s.doors >> j & 1;
+      const horiz = (P.cell[c - 1] === 0 && P.cell[c + 1] === 0) !== G.rot;   // the wall runs left-right on screen
+      ctx.fillStyle = '#9b6a3a'; ctx.strokeStyle = '#5e3e1f'; ctx.lineWidth = Math.max(1, cs * 0.05);
+      const t = cs * 0.22;
+      if (!open) {
+        if (horiz) { ctx.fillRect(x, y + (cs - t) / 2, cs, t); ctx.strokeRect(x, y + (cs - t) / 2, cs, t); }
+        else { ctx.fillRect(x + (cs - t) / 2, y, t, cs); ctx.strokeRect(x + (cs - t) / 2, y, t, cs); }
+      } else {
+        if (horiz) { ctx.fillRect(x, y, t * 0.6, cs); } else { ctx.fillRect(x, y, cs, t * 0.6); }
+      }
+      if (press && press.door === j && press.t > 60) {   // the hold ring
+        const p = cxy(c), k = Math.min(1, press.t / HOLD_MS);
+        ctx.strokeStyle = '#ffd166'; ctx.lineWidth = Math.max(2, cs * 0.1);
+        ctx.beginPath(); ctx.arc(p.x, p.y, cs * 0.55, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
+      }
+    });
+    // ripples from everyone who told this quarter hour
+    if (anim) for (let i = 0; i < P.n; i++) if (anim.tellers >> i & 1) {
+      const p = cxy(P.guests[i]);
+      ctx.strokeStyle = `rgba(255,209,102,${0.8 * (1 - at)})`; ctx.lineWidth = Math.max(2, cs * 0.12);
+      ctx.beginPath(); ctx.arc(p.x, p.y, cs * (0.4 + 2.1 * at), 0, 7); ctx.stroke();
+    }
+    const fresh = s.f[0] | s.f[1];
+    for (let i = 0; i < P.n; i++) {
+      const p = cxy(P.guests[i]), knows = s.know >> i & 1, isNew = anim && (anim.heard >> i & 1);
+      const pop = isNew ? 0.6 + 0.4 * at : 1;
+      if (phase === 'play' && !anim && (preview.heard >> i & 1)) {   // next quarter hour, if the clock moves on
+        ctx.setLineDash([cs * 0.12, cs * 0.1]); ctx.strokeStyle = 'rgba(160,110,20,0.9)'; ctx.lineWidth = Math.max(1.5, cs * 0.06);
+        ctx.beginPath(); ctx.arc(p.x, p.y, cs * 0.47, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      }
+      if (fresh >> i & 1) { ctx.fillStyle = 'rgba(255,209,102,0.55)'; ctx.beginPath(); ctx.arc(p.x, p.y, cs * 0.5 * pop, 0, 7); ctx.fill(); }
+      face(p.x, p.y, cs * 0.36 * pop, SKIN[i % SKIN.length], knows ? 'smile' : 'plain');
+      if (knows) hat(p.x, p.y - cs * 0.24 * pop, cs * 0.44 * pop, HATS[i % HATS.length]);
+    }
+    if (P.B >= 0) {
+      const p = cxy(P.B), heard = s.spoiled || s.bAt >= 0;
+      if (preview.b && phase === 'play' && !anim) {
+        ctx.strokeStyle = `rgba(255,60,90,${0.5 + 0.4 * Math.sin(now / 150)})`; ctx.lineWidth = Math.max(2, cs * 0.12);
+        ctx.beginPath(); ctx.arc(p.x, p.y, cs * 0.52, 0, 7); ctx.stroke();
+      }
+      face(p.x, p.y, cs * 0.4, '#e2b6ff', heard ? 'gasp' : 'calm');
+      // the birthday person's bow
+      ctx.fillStyle = '#ff4f7b';
+      const by = p.y - cs * 0.36, bw = cs * 0.16;
+      ctx.beginPath(); ctx.moveTo(p.x, by); ctx.lineTo(p.x - bw * 1.6, by - bw); ctx.lineTo(p.x - bw * 1.6, by + bw); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(p.x, by); ctx.lineTo(p.x + bw * 1.6, by - bw); ctx.lineTo(p.x + bw * 1.6, by + bw); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, by, bw * 0.55, 0, 7); ctx.fill();
+    }
+  }
+  function face(x, y, r, skin, mood) {
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(40,25,30,0.55)'; ctx.lineWidth = Math.max(1, r * 0.08); ctx.stroke();
+    ctx.fillStyle = '#2a1d22';
+    const e = r * 0.33;
+    ctx.beginPath(); ctx.arc(x - e, y - r * 0.12, r * 0.1, 0, 7); ctx.arc(x + e, y - r * 0.12, r * 0.1, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#2a1d22'; ctx.lineWidth = Math.max(1, r * 0.1); ctx.beginPath();
+    if (mood === 'smile') ctx.arc(x, y + r * 0.12, r * 0.35, 0.15 * Math.PI, 0.85 * Math.PI);
+    else if (mood === 'gasp') { ctx.fillStyle = '#2a1d22'; ctx.arc(x, y + r * 0.35, r * 0.17, 0, 7); ctx.fill(); }
+    else if (mood === 'calm') ctx.arc(x, y + r * 0.2, r * 0.25, 0.2 * Math.PI, 0.8 * Math.PI);
+    else { ctx.moveTo(x - r * 0.25, y + r * 0.38); ctx.lineTo(x + r * 0.25, y + r * 0.38); }
+    ctx.stroke();
+  }
+  function hat(x, y, s, col) {
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x - s * 0.45, y + s * 0.15); ctx.lineTo(x + s * 0.45, y + s * 0.15); ctx.lineTo(x, y - s * 0.9); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff6'; ctx.beginPath(); ctx.arc(x, y - s * 0.9, s * 0.16, 0, 7); ctx.fill();
+  }
+
+  // § input: tap a guest = whisper, hold a door = open/shut, Wait button or Space = the clock moves on.
+  let press = null;
+  function pt(e) { const b = canvas.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; }
+  const locked = () => paused || !P || !G || $('menu').classList.contains('open');
+  canvas.addEventListener('pointerdown', e => {
+    if (locked() || press) return;
+    if (phase === 'over') { advance(); return; }
+    if (anim) return;
+    const p = pt(e), c = cellAt(p.x, p.y);
+    if (c < 0) return;
+    press = { c, door: P.doors.indexOf(c), t: 0, x0: p.x, y0: p.y, dead: false, done: false };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!press) return;
+    const p = pt(e);
+    if (Math.hypot(p.x - press.x0, p.y - press.y0) > SLIDE_PX) press.dead = true;
+  });
+  function endPress(cancel) {
+    const g = press; press = null;
+    if (!g || cancel || g.dead || g.done || phase !== 'play' || locked()) return;
+    if (g.door >= 0) { say(words('{Hold} the door until the ring closes to open or shut it.')); return; }
+    const i = P.guests.indexOf(g.c);
+    if (g.c === P.B) { say('That\'s the birthday person. Keep it a secret until 8:00!'); return; }
+    if (i < 0) return;
+    if (s.know >> i & 1) { say('They already know.'); return; }
+    doAct({ k: 'whisper', i });
+  }
+  canvas.addEventListener('pointerup', () => endPress(false));
+  canvas.addEventListener('pointercancel', () => endPress(true));
+  window.addEventListener('keydown', e => {
+    if (locked() || e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key;
+    if (phase === 'over' && (k === 'Enter' || k === ' ')) advance();
+    else if (k === ' ' || k === 'w' || k === 'W') doAct({ k: 'wait' });
+    else if (k === 'u' || k === 'U' || k === 'Backspace') undo();
+    else if (k === 'r' || k === 'R') restart();
+    else return;
+    e.preventDefault();
+  });
+
+  // § clock: animation, hold timing and unpaused round time (telemetry only; no rule reads it)
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(100, now - last); last = now;
+    if (!paused && P) {
+      if (phase === 'play') roundMs += dt;
+      if (phase === 'over') endT += dt;
+      if (anim && (anim.t += dt) >= ANIM_MS) anim = null;
+      if (press && press.door >= 0 && !press.dead && !press.done && phase === 'play' && !anim && (press.t += dt) >= HOLD_MS) {
+        press.done = true; doAct({ k: 'door', j: press.door });
+      }
+    }
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+  new ResizeObserver(() => layout()).observe(wrap);
+  window.addEventListener('resize', layout);
+  // read-only peek for scripts/ tests (screenshots, playthroughs)
+  window.__sp = () => ({ P, s, phase, mode, season, hi, G, cxy, play: playHouse, season0: startSeason, act: doAct, solve, warn });
+  playHouse(0);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

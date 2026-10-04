@@ -13,4 +13,6 @@ design lives in `docs/games/<id>.md`.
 | `lighthouse-keeper-v3.md` | next steps after v2: phone playtest, then make the flare required (ready prompt) | proposed |
 | `mycelium.md` | simulation: grow, pulse, prune a fungal network | built (v1), stub points to history |
 | `puzzle-ideas.md` | index of six generated-puzzle ideas (2026-10-02) | discussion |
+| `simple-grid-ideas.md` | turn-based grid games with ASCII levels and exact solvers; Sheepdog, Kiln, River Crossing, Shade Garden (2026-10-04) | discussion |
+| `surprise-party.md` | turn-based contagion: whisper + door, news spreads as a wave | proposed (go/no-go next) |
 | `cipher-bench.md`, `gear-lock.md`, `deduction-grid.md`, `lights-out-gf2.md`, `factor-forge.md` | generated puzzles (see `puzzle-ideas.md`) | ideas, not built |
