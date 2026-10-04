@@ -96,6 +96,11 @@ published from a branch.
    The gallery records unlocks per player (in their browser), shows a popup,
    and lists them under the game. Good achievements reward interplay between
    the mechanics, not just grinding. Achievement ids are permanent too.
+   Start `<head>` with the **crash-report snippet**, copied from any game
+   (`// § crash report`) with `game:` set to your id. It posts uncaught
+   errors to the gallery as `arcade:error` (docs/telemetry.md, "Errors");
+   `validate.mjs` requires it and `monkey-games.mjs` checks it works.
+   Adding or changing only this snippet bumps nothing: it isn't gameplay.
 4. Make the game **fill whatever window it's given** and never scroll:
    `html, body { height: 100%; overflow: hidden }`, then scale the play area
    to the largest size that fits both the width and the height (see

@@ -28,6 +28,8 @@
       "Bash(git push -u origin ccr-*)",
       "Bash(node scripts/smoke-gallery.mjs*)",
       "Bash(node scripts/fetch-telemetry.mjs*)",
+      "Bash(node scripts/fetch-errors.mjs*)",
+      "Bash(node scripts/monkey-games.mjs*)",
       "Bash(node scripts/outline.mjs*)",
       "Bash(node scripts/games.mjs*)",
       "mcp__github__list_issues",

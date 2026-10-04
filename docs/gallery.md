@@ -201,6 +201,19 @@ logs a `share` row with `from: "gallery"`.
   under the same key the gallery uses, and shows a toast. It does nothing
   inside a frame. The output passes `scripts/self-contained.mjs`.
 
+## Content Security Policy
+
+GitHub Pages can't send headers, so `index.html` carries the CSP in a
+`<meta http-equiv>` tag: scripts and styles only from this site (inline
+styles allowed: the gallery sets some from JS), images also from `data:`
+and `blob:`, and network requests only to this site and the Apps Script
+backend (`script.google.com`, which redirects to
+`script.googleusercontent.com`). Moving the backend means adding its host
+to `connect-src`, or every feedback and telemetry request is refused.
+Games load from `games/` in their sandboxed iframe and keep their own
+rules (`scripts/self-contained.mjs`); the CSP doesn't reach inside them.
+`smoke-gallery.mjs` checks that another host is refused.
+
 ## Link previews (Facebook, Messenger)
 
 Crawlers ignore everything after `#`, so `#/play/<id>` links alone would

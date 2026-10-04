@@ -754,6 +754,30 @@ for (const vp of VIEWPORTS) {
       await waitGame(page);
     });
 
+    await check("content security policy blocks other hosts", async () => {
+      // The fake endpoint is this server, so 'self' covers it; any other host
+      // must be refused.
+      const blocked = await page.evaluate(() => new Promise((resolve) => {
+        document.addEventListener("securitypolicyviolation", (e) => resolve(e.violatedDirective), { once: true });
+        fetch("https://example.invalid/").catch(() => {});
+        setTimeout(() => resolve(""), 2000);
+      }));
+      assert(blocked.startsWith("connect-src"), `not blocked (${blocked || "no violation"})`);
+    });
+
+    await check("crash reports: a game's arcade:error becomes an error row", async () => {
+      await page.goto(`${base}#/play/${games[0].id}`);
+      await waitGame(page);
+      const frame = page.frames().find((f) => f.url().includes(games[0].file));
+      await frame.evaluate((id) => parent.postMessage({ type: "arcade:error", game: id, message: "smoke test error", line: 7, col: 3 }, "*"), games[0].id);
+      await page.waitForTimeout(300);
+      const errs = rows.filter((r) => r.kind === "error");
+      const row = errs.find((r) => r.message === "smoke test error");
+      assert(row && row.source === "game" && row.game_id === games[0].id && row.line === 7, JSON.stringify(row));
+      const other = errs.filter((r) => r !== row && r.message !== "smoke test error");
+      assert(!other.length, `unexpected error rows: ${other.map((r) => r.message).join(" | ")}`);
+    });
+
     await check("gallery telemetry rows", async () => {
       const gal = rows.filter((r) => r.kind === "gallery");
       const kinds = [...new Set(gal.map((r) => r.action))].sort();
@@ -763,8 +787,9 @@ for (const vp of VIEWPORTS) {
     });
   }
 
-  // Aborted requests in the load-error check log console errors on purpose.
-  const real = errors.filter((e) => !/ERR_FAILED|Failed to load resource/.test(e));
+  // Aborted requests in the load-error check, and the CSP check's refused
+  // fetch, log console errors on purpose.
+  const real = errors.filter((e) => !/ERR_FAILED|Failed to load resource|example\.invalid/.test(e));
   report(!real.length, tag("console has no errors"), real.slice(0, 3).join(" | "));
   await context.close();
 }

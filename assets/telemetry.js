@@ -153,5 +153,31 @@ window.ArcadeTelemetry = (function () {
     send(Object.assign({ kind: "gallery", action }, fields || {}));
   }
 
-  return { start, pause, resume, result, achievement, end, event, enabled, active };
+  // Uncaught errors, from a game (its crash-report snippet posts
+  // arcade:error, forwarded by cabinet.js) or from the gallery itself. Kind
+  // "error" lands in the events tab; at most 5 distinct ones per page load.
+  const reported = new Set();
+  function error(source, e) {
+    const message = String((e && e.message) || "").slice(0, 300);
+    const key = `${source}|${message}|${e && e.line}`;
+    if (!message || reported.has(key) || reported.size >= 5) return;
+    reported.add(key);
+    const int = (v) => (Number.isInteger(v) && v >= 0 && v < 1e7 ? v : 0);
+    const row = { kind: "error", source, message, line: int(e.line), col: int(e.col), file: String((e && e.file) || "").slice(0, 120) };
+    if (s) Object.assign(row, { game_id: s.game.id, game_version: s.game.version, session_id: s.id });
+    send(row);
+  }
+
+  // "Script error." is a cross-origin script (a browser extension) with no
+  // detail to act on.
+  window.addEventListener("error", (e) => {
+    if (!e.message || /^Script error\.?$/.test(e.message)) return;
+    error("gallery", { message: e.message, line: e.lineno, col: e.colno, file: String(e.filename || "").replace(/^.*\//, "") });
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    const r = e.reason;
+    error("gallery", { message: `Unhandled rejection: ${r && r.message ? r.message : r}` });
+  });
+
+  return { start, pause, resume, result, achievement, end, event, error, enabled, active };
 })();

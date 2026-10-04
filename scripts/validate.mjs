@@ -93,6 +93,14 @@ for (const [i, g] of games.entries()) {
   if (!html.includes("arcade:pause") || !html.includes("arcade:resume")) {
     fail(`${where}: games/${g.file} must handle "arcade:pause" and "arcade:resume" messages`);
   }
+  // Platform rule: uncaught errors are reported, or a crash on a player's
+  // phone is invisible (docs/telemetry.md, "Errors").
+  const crash = html.match(/<head>\s*<script>\s*\/\/ § crash report[\s\S]*?game: '([a-z0-9-]+)'/);
+  if (!crash) {
+    fail(`${where}: games/${g.file} must start its <head> with the crash-report snippet (docs/adding-a-game.md)`);
+  } else if (crash[1] !== g.id) {
+    fail(`${where}: the crash-report snippet in games/${g.file} reports game '${crash[1]}', expected '${g.id}'`);
+  }
 }
 
 if (!existsSync(join(root, "assets", "og", "arcade.png"))) fail("assets/og/arcade.png (the gallery's link preview) is missing (run node scripts/make-og-images.mjs arcade)");

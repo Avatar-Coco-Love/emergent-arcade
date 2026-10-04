@@ -28,7 +28,9 @@
   edit the file in place and bump `version` + `updated` in the manifest.
 - Always run `node scripts/validate.mjs` before pushing. After changing
   `index.html` or `assets/`, also run `node scripts/smoke-gallery.mjs`
-  (design notes: `docs/gallery.md`).
+  (design notes: `docs/gallery.md`); after changing a game,
+  `node scripts/monkey-games.mjs <id>` (random input, fails on any error).
+  CI runs both. Crash reports from players: `node scripts/fetch-errors.mjs`.
 - Never push to `main`. Propose new or revised games as a PR (the template has
   the design checklist). Merging to `main` is what deploys.
 - Feedback readback: `node scripts/fetch-feedback.mjs` (needs

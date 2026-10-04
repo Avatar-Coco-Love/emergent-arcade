@@ -519,6 +519,7 @@ window.ArcadeCabinet = (function () {
     const data = evt.data;
     if (!current || evt.source !== frame.contentWindow) return;
     if (!data || data.game !== current.id) return;
+    if (data.type === "arcade:error") telemetry.error("game", data);
     if (data.type === "arcade:result") {
       const sc = Scores.record(current, data);
       telemetry.result(sc ? Object.assign({}, data, scoreFields(sc)) : data);
