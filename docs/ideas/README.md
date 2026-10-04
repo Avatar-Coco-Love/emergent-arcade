@@ -16,3 +16,4 @@ design lives in `docs/games/<id>.md`.
 | `simple-grid-ideas.md` | turn-based grid games with ASCII levels and exact solvers; Sheepdog, Kiln, River Crossing, Shade Garden (2026-10-04) | discussion |
 | `surprise-party.md` | turn-based contagion: whisper + door, news spreads as a wave | proposed (go/no-go next) |
 | `cipher-bench.md`, `gear-lock.md`, `deduction-grid.md`, `lights-out-gf2.md`, `factor-forge.md` | generated puzzles (see `puzzle-ideas.md`) | ideas, not built |
+| `geode.md` | simulation (seed, temperature, cleave), approved, build next (2026-10-04) | idea, planned, not built |
