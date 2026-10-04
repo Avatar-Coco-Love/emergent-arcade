@@ -3,6 +3,13 @@
 Tiny browser games built on emergent, shared-state mechanics. Playable
 instantly, no installs.
 
+**Mission:** help students, teachers and game developers learn from these
+games, not just play them. Students can see how a few simple rules add up to
+surprising behavior and read each game as one self-contained file.
+Teachers get free, account-free games that also download to run offline, for lessons on systems,
+feedback loops and design. Game developers can borrow the design rules,
+balance bots and [design findings](docs/findings.md); everything is open.
+
 **Live site:** https://avatar-coco-love.github.io/emergent-arcade/ (after the
 one-time Pages setup below)
 
