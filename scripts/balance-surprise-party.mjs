@@ -20,9 +20,10 @@
 //   habit         one-line rule: close the birthday doors at once, then
 //                 whisper the unknown guest farthest from the birthday person
 //                 whom the wave won't reach next tick; else wait
-//   novice        follows the solver but makes k random wrong taps (a door
-//                 or a whisper the plan didn't make) at random turns,
-//                 re-planning after each; never undoes
+//   novice        follows the solver but makes k random wrong taps (a door,
+//                 a wait, or a whisper outside the tinted danger zone, that
+//                 the plan didn't make) at random turns, re-planning after
+//                 each; never undoes
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -69,23 +70,23 @@ const HOUSES = [
     '#...g...#gB.#...g...#',
     '#####################'] },
   { id: '3-1', ch: 3, name: 'The hallway', env: 2, map: [
-    '#################',
-    '#g.g.g.gDg.g.g.g#',
-    '#######.#######.#',
-    '#g.g.g.g#g.g.g.g#',
-    '#######d###d#####',
-    '#......g.B.g....#',
-    '#################'] },
-  { id: '3-2', ch: 3, name: 'Crossroads', env: 2, map: [
-    '###############',
-    '#......g......#',
-    '#g.g.g.g.g.g.g#',
-    '#d#####d#####d#',
-    '#g.g.g.B.g.g.g#',
-    '#d#####d#####d#',
-    '#g.g.g.g.g.g.g#',
-    '#......g......#',
-    '###############'] },
+    '#####################',
+    '#...................#',
+    '#...g.g.g.g.g.g.g...#',
+    '##########.##########',
+    '#.g.g.g.g.gDg.g.g.g.#',
+    '######d###d###d######',
+    '#.....g.g.B.g.g.....#',
+    '#####################'] },
+  { id: '3-2', ch: 3, name: 'Beside them', env: 3, map: [
+    '#####################',
+    '#...................#',
+    '#...g.g.g.g.g.g.g...#',
+    '##########.##########',
+    '#.g.g.g.g.gDg.g.g.g.#',
+    '####d#####d#####d####',
+    '#...g.g..gBg....g...#',
+    '#####################'] },
 ];
 
 function parse(h) {
@@ -405,6 +406,8 @@ function walk(P, a, b) {   // walking distance, all doors open
   return 99;
 }
 
+// cells within 2 steps of the birthday person with the doors as they are (the tint)
+const zone = (P, s) => P.B < 0 ? new Map() : dist2(P, P.B, s.doors);
 function novice(P, k, extraEnv = 0, kindsAllowed = null) {
   const env = P.env + extraEnv;
   let wins = 0;
@@ -416,7 +419,8 @@ function novice(P, k, extraEnv = 0, kindsAllowed = null) {
       let a = plan[0];
       if (turns.has(s.t)) {
         // a wrong tap: a door the plan didn't toggle, a guest it didn't whisper, or a wait where it acted
-        const wrong = legal(P, s, { env }).filter(b => fmt(b) !== fmt(a) && (b.k !== 'wait' || a.k !== 'wait'));
+        // the danger zone is tinted on screen, so a careless whisper never picks a guest inside it
+        const wrong = legal(P, s, { env }).filter(b => fmt(b) !== fmt(a) && (b.k !== 'wait' || a.k !== 'wait') && !(b.k === 'whisper' && zone(P, s).has(P.guests[b.i])));
         const kinds = [...new Set(wrong.map(b => b.k))].filter(x => !kindsAllowed || kindsAllowed.includes(x));
         if (kinds.length) {
           const kind = kinds[Math.floor(rnd() * kinds.length)], pool = wrong.filter(b => b.k === kind);
@@ -448,10 +452,19 @@ function run(fresh) {
     const wo = solve(P, start(P), { noDoors: true });
     const woFree = wo || upTo({ noDoors: true }, P.env + 1);
     const df = doorsFirst(P), hb = habit(P);
+    // most envelopes the house could give while the habits it targets still lose
+    let safe = P.env;
+    for (let e = sol.w; e <= sol.w + 3; e++) {
+      const Q = { ...P, env: e };
+      if (h.ch >= 2 && solve(Q, start(Q), { noDoors: true })) break;
+      if (h.ch >= 3 && doorsFirst(Q).win) break;
+      safe = e;
+    }
     const nv = [1, 2, 3].map(k => novice(P, k)), nvT = [1, 2, 3].map(k => novice(P, k, 0, ['door', 'wait'])), nv1 = [1, 2, 3].map(k => novice(P, k, 1));
     const wo1 = solve(P, start(P), { noDoors: true, env: P.env + 1 });
     const dec = sol.m;
     console.log(`${h.id.padEnd(5)} ch${h.ch} ${h.name}: ${P.n} guests, ${P.doors.length} doors, env ${h.env}, par ${sol.w} (fewest ${free.w}), decisions ${dec}, plan ${fmtPlan(P, sol.plan)}  [${ms} ms]`);
+    console.log(`  spare         most envelopes with whisper-only${h.ch >= 3 ? ' and doors-first' : ''} still losing: ${h.ch >= 2 ? safe : '-'}`);
     console.log(`  whisper-only  ${wo ? `win (${wo.w} env)` : `fails` + (woFree ? ` (needs ${woFree.w} env)` : ` (none up to ${P.env + 4} env)`)}`);
     console.log(`  doors-first   ${df.txt}`);
     console.log(`  habit         ${hb.txt}`);
