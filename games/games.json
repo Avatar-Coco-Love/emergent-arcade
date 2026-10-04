@@ -1663,6 +1663,89 @@
           "text": "New game: whisper the party news through the house and steer it with doors. 15 houses in three chapters, then endless Party Season."
         }
       ]
+    },
+    {
+      "id": "geode",
+      "title": "Geode",
+      "file": "geode.html",
+      "version": 1,
+      "added": "2026-10-04",
+      "updated": "2026-10-04",
+      "blurb": "Grow a crystal that rings like a bell: seed, warm and chip away the flaws before they crack it.",
+      "goal": "Grow each crystal to its quota and harvest it, as big and as clear as you dare, before its pool runs dry. Flaws spread by themselves; a crack that reaches the core shatters the crystal and you lose what was unbanked. Three lost geodes end the run.",
+      "howToPlay": "{Tap} beside the crystal to place an ion where you want it. Drag the thermostat under the pool: cold grows fast but strains the crystal, the middle glow heals strain without growing much, and too hot melts your corners. The ring on the thermostat is the real temperature; it follows your setting slowly. Strain shows as amber and red, thick outlines and cross-hatching, and it spreads to neighbours; at full strain an ion cracks and shocks the ones around it. Dark foreign ions swap into the crystal and creep toward bursting (watch the arc around them): {hold} on one to snap it out, and the gap heals cleanly. Harvest once the bar reaches the quota: a bigger, clearer crystal is worth more carats, but the pool ages, impurities come faster and the ring around the pool drains. Later geodes bring cold snaps, heat waves and salt flushes. Listen: a clear crystal sounds like a chord, strain sounds out of tune (sound is optional).",
+      "keyboard": "← → set the temperature · H harvest · M sound",
+      "mechanics": [
+        {
+          "name": "seed",
+          "verb": "tap",
+          "description": "{Tap} beside the crystal to place an ion on the nearest open site. Seeds cost more of the pool than natural growth but add no growth strain, so they fill gaps cleanly."
+        },
+        {
+          "name": "warm",
+          "verb": "drag",
+          "description": "Drag the thermostat: cold grows fast and strains the crystal, the glow anneals strain away, too hot melts the tips. The pool follows slowly."
+        },
+        {
+          "name": "cleave",
+          "verb": "hold",
+          "description": "{Hold} on an ion to snap it off, with whatever hangs from it. Clears foreign ions and relieves the strain around them."
+        }
+      ],
+      "sharedState": "Strain per site, pool saturation and temperature. Growth (natural and seeded) writes strain and spends the pool; strain spreads to neighbours. Temperature sets how fast the pool is spent and anneals or melts by strain. Seeds read the neighbours' strain (a new ion inherits it); cleave reads it to pick what is worth the mass, and clears it.",
+      "topics": [
+        "thermodynamics",
+        "timing"
+      ],
+      "accent": "#8fe3ff",
+      "achievements": [
+        {
+          "id": "first-light",
+          "title": "First Light",
+          "description": "Harvest your first geode."
+        },
+        {
+          "id": "perfect-pitch",
+          "title": "Perfect Pitch",
+          "description": "Harvest a geode at 90% clarity or better."
+        },
+        {
+          "id": "chip-and-heal",
+          "title": "Chip and Heal",
+          "description": "Cleave a flaw out of the middle of the crystal and let growth fill the gap."
+        },
+        {
+          "id": "cool-head",
+          "title": "Cool Head",
+          "description": "Ride out a cold snap with the crystal's average strain staying low (clarity above 50%)."
+        },
+        {
+          "id": "window-seat",
+          "title": "Window Seat",
+          "description": "Harvest a geode at one and a half times its quota."
+        },
+        {
+          "id": "deep-time",
+          "title": "Deep Time",
+          "description": "Reach geode 6 in one run."
+        }
+      ],
+      "score": {
+        "label": "Carats banked",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 20000,
+        "epoch": 1
+      },
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-10-04",
+          "text": "New game: grow a crystal in a cooling pool, anneal its strain, cleave out foreign ions and harvest it before the pool runs dry."
+        }
+      ]
     }
   ]
 }

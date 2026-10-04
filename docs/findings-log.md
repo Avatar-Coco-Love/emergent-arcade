@@ -709,3 +709,45 @@ many independent branches the second verb guards; that is the slack the
 level can give before the first verb alone wins.
 
 *Evidence: bots. Provisional.*
+
+## A mess that adds what the cleanup removes makes the cleanup free
+
+Geode v1 build, 2026-10-04. The brief's impurities landed on empty
+frontier sites: each one added a site and its cleave removed that site, so
+cleaving cost no mass and a bot that cleaved every impurity at once never
+lost (skilled and anneal-park both hit the 40-minute cap). Having the
+impurity swap into an existing ion made each cleave cost a site that
+growth must refill, and the never-cleave bot then died in geode 1. Landing
+anywhere first made cleaves cut whole branches (all bots stalled); limiting
+impurities to embedded sites (4+ neighbours) turned each cleave into a
+clean vacancy that refills. Check: count what the mess adds and what the
+cleanup removes; if they cancel, the verb only has a time cost.
+
+*Evidence: bots. Provisional.*
+
+## A rate verb is free while the budget binds
+
+Geode v1 build, 2026-10-04. Temperature was meant to trade growth speed
+against strain, but with the brief's attach rate growth was always limited
+by the pool's income: the crystal grew as fast in the anneal glow as in
+the cold, so annealing cost nothing and the anneal-park bot banked as much
+as the strain reader. The trade appeared only once the cold attach rate
+could outrun income and the glow's could not (rate `(1 - T/0.8)^2`, pool
+cap 0.5 so annealing overflows, seeds priced at 3× to spend the overflow).
+Check: for each setting of a rate verb, find which constraint binds (the
+rate or the budget); the verb matters only where the rate does.
+
+*Evidence: bots. Provisional.*
+
+## A thinning income turns a quota into a soft lock
+
+Geode v1 build, 2026-10-04. The brief's pool aged by cutting income to 15%
+to push the player to harvest. Careful bots fell behind, income dropped,
+and from geode 5 the quota became unreachable while nothing ended the
+round: a still-winnable-looking stall. Two fixes together: the age raises
+the impurity rate instead (income floors at 50%), and a visible pool life
+seals the geode (harvested at quota, else a `thin` loss). Check: run the
+most careful bot to the end of each round; if it can't finish and can't
+lose, the round needs a clock or a loss.
+
+*Evidence: bots. Provisional.*

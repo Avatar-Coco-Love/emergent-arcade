@@ -83,6 +83,17 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   blocked (a stalled build, upkeep above the trickle): that state is a still
   screen. *A budget that can hit zero with no income source freezes the
   round.* Mycelium. bots.
+- A cleanup verb is free if the mess adds what the cleanup removes (an
+  impurity that lands as a new site): make the mess take something (swap
+  into an existing piece) and check the never-clean bot loses. *A mess that
+  adds what the cleanup removes makes the cleanup free.* Geode. bots.
+- A rate verb (temperature, speed) costs nothing where the budget, not the
+  rate, limits progress: check which binds at each setting. *A rate verb is
+  free while the budget binds.* Geode. bots.
+- An income that thins with time can make a quota unreachable without
+  ending the round: run the most careful bot to the end; give the round a
+  visible clock or a loss. *A thinning income turns a quota into a soft
+  lock.* Geode. bots.
 - An aim verb (a beam, a hose) is only read if what it does fades before
   a blind sweep comes back: test a bot that sweeps end to end without
   looking. *A sweep plays itself when the effect outlasts the sweep.*

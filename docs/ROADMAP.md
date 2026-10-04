@@ -94,6 +94,7 @@ Each revision:
 | tidewright | v1 | Endless seasons of 6 waves | Built with depth (endless, score = waves held); revise from playtest | New game |
 | rail-yard | v2 | 10 levels, 2 chapters | Built with depth (score = yard points over the run); more chapters if playtests ask | New game |
 | aqueduct | v6 | Warm-up + 5 levels, free pour | More levels; score = pearls, bullseyes, water brought home | New game (v5); v6 fixes phone tilt |
+| geode | v1 | Endless geodes, 3 chambers | Built with depth (score = carats banked over the run); revise from playtest (run length, shatter vs thin) | New game |
 
 Order: the games players already stay longest in first (they're closest to
 10 minutes and show what works), then the rest by rating. Revisions from

@@ -330,5 +330,24 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale, "coat-check": coatCheck, mycelium, "surprise-party": surpriseParty };
+  function geode() {
+    let body = `<rect width="72" height="72" fill="#0c0f17"/><circle cx="36" cy="38" r="31" fill="#162a48"/>`;
+    // A small hex crystal in the pool: clear cyan gems, one strained red cell (hatched) and a dark foreign ion.
+    const hex = (x, y, r, fill, stroke, sw) => {
+      const pts = [0, 1, 2, 3, 4, 5].map(k => { const a = Math.PI / 6 + k * Math.PI / 3; return `${(x + r * Math.cos(a)).toFixed(1)},${(y + r * Math.sin(a)).toFixed(1)}`; }).join(" ");
+      body += `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    };
+    const P = 9, at = (q, r) => [36 + P * (q + r / 2), 38 + P * 0.866 * r];
+    const cells = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1], [2, -1], [-2, 1], [1, 1], [-1, -1], [2, -2], [0, 2]];
+    for (const [q, r] of cells) { const [x, y] = at(q, r); hex(x, y, 4.6, "#c4f2ff", "#5aa7c0", 0.8); }
+    const [rx, ry] = at(2, -1);
+    hex(rx, ry, 4.6, "#ff4b4b", "#5a1010", 1.6);
+    body += `<path d="M ${rx - 2.6} ${ry + 1.8} L ${rx + 2.6} ${ry - 1.8} M ${rx - 2.6} ${ry - 1.8} L ${rx + 2.6} ${ry + 1.8}" stroke="#3a0808" stroke-width="1"/>`;
+    const [ix, iy] = at(-1, 1);
+    hex(ix, iy, 4.6, "#231432", "#c9a6ff", 1.2);
+    body += `<circle cx="36" cy="38" r="9" fill="#bdefff" opacity="0.25"/>`;
+    return svg(body);
+  }
+
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale, "coat-check": coatCheck, mycelium, "surprise-party": surpriseParty, geode };
 })();
