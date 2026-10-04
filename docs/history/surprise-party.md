@@ -1,7 +1,7 @@
 # Surprise Party: history
 
 Older versions, superseded balance tables and rationale. Current design:
-`docs/games/surprise-party.md` (once the game exists). Add new entries at
+`docs/games/surprise-party.md`. Add new entries at
 the top; sessions don't read this file by default.
 
 ## Go/no-go re-run: chapter 3 rebuilt (2026-10-04)
