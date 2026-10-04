@@ -269,5 +269,5 @@ playable), `topics` (above).
 
 ## Support link
 
-`supportUrl` in `assets/config.js` adds a "Support this arcade" link to the
+`supportUrl` in `assets/config.js` adds a "Help keep these games free" link to the
 gallery footer (Cash App). Empty string hides it.
