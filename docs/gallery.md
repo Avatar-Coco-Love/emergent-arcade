@@ -8,8 +8,9 @@ per check at 360×740, 740×360 and 1280×800; screenshots go to `--out`).
 
 Playtest (private artifact, feedback/telemetry disabled in that copy):
 https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
-(republished for the topic tags PR: try the topic chips on a phone and a
-PC, and the ⓘ panel's Topics line. No `leaderboards.json` there, so no
+(republished for the Daily Challenge PR: the banner on top, "Play today's",
+the 📅 result card after a lost run, Share and Save image. Earlier: the topic
+chips and the ⓘ panel's Topics line. No `leaderboards.json` there, so no
 play counts or boards. In that frame the share buttons can't use the share
 sheet and may not reach the clipboard, so share can do nothing there.)
 

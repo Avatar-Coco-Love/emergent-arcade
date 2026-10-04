@@ -7,7 +7,8 @@ on one game, and on the same levels, which makes their results comparable
 (and comparable with the bots). It also gives players a reason to come back
 and something to post.
 
-Playtest (private Artifact, republished each push): see the PR.
+Playtest (private Artifact, the whole gallery, feedback and telemetry off,
+no `leaderboards.json` so no boards): https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
 
 ## How it plays
 
