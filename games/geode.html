@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Geode</title>
+<style>
+  :root {
+    --bg: #0c0f17;
+    --panel: #1a2030;
+    --text: #eef2fa;
+    --muted: #9aa6bd;
+    --accent: #8fe3ff;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given (a browser tab or the gallery
+     cabinet); the pool scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #field { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #stage { position: relative; }
+  #pool { display: block; width: 100%; height: 100%; touch-action: none; border-radius: 10px; }
+  #msg {
+    flex: none; margin: 0; min-height: 2.6em; display: flex; align-items: center; justify-content: center;
+    text-align: center; font-size: 0.85rem; line-height: 1.3; color: #dfe7f5;
+  }
+  #msg.warn { color: #ffc49a; font-weight: 600; }
+  #endCard {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+    width: min(86%, 300px); padding: 18px 16px; border-radius: 12px;
+    background: rgba(18, 22, 36, 0.96); border: 1px solid #3a4766; text-align: center;
+  }
+  #endCard[hidden] { display: none; }
+  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
+  #endCard h2.won { color: #a6ecff; }
+  #endCard h2.lost { color: #ff9a8a; }
+  #endCard p { margin: 0 0 4px; color: #d3dbea; font-size: 0.9rem; }
+  #endCard button { margin-top: 10px; width: 100%; font-weight: 600; }
+  #endCard button:disabled { opacity: 0.4; }
+  #endCard button[hidden] { display: none; }
+  .bar {
+    flex: none; display: flex; align-items: center; justify-content: center;
+    gap: 10px; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted);
+  }
+  .bar b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .meter {
+    display: inline-block; width: 52px; height: 8px; border-radius: 4px;
+    background: #27304a; vertical-align: middle; overflow: hidden;
+  }
+  .meter span { display: block; height: 100%; background: var(--accent); }
+  button {
+    background: var(--panel); color: var(--text); border: 1px solid #3a4766;
+    border-radius: 6px; padding: 8px 12px; font-size: 0.9rem; cursor: pointer; min-height: 44px;
+  }
+  button:active { transform: scale(0.97); }
+  #harvestBtn { min-width: 132px; font-weight: 600; }
+  #harvestBtn:disabled { opacity: 0.45; cursor: default; }
+  #harvestBtn.ready { background: #1f4a5c; border-color: #8fe3ff; color: #fff; }
+</style>
+</head>
+<body>
+  <div id="field">
+    <div id="stage">
+      <canvas id="pool" aria-label="Geode: a crystal grows in a cooling pool. Tap beside it to seed an ion, drag the thermostat under the pool to set the temperature, hold on an ion to cleave it off."></canvas>
+      <div id="endCard" hidden>
+        <h2 id="endTitle"></h2>
+        <p id="endDetail"></p>
+        <p id="endAch"></p>
+        <button id="mainBtn"></button>
+        <button id="altBtn">New run</button>
+      </div>
+    </div>
+  </div>
+  <p id="msg" role="status"></p>
+  <div class="bar">
+    <button id="harvestBtn" disabled>Harvest</button>
+    <span>Clarity <span class="meter"><span id="clarFill"></span></span> <b id="clarTxt"></b></span>
+    <button id="soundBtn" aria-pressed="true">Sound on</button>
+    <button id="resetBtn">New run</button>
+  </div>
+
+<script>
+(function() {
+  // § constants
+  const GAME_ID = 'geode';
+  const STEP = 0.1;                 // simulation step (s)
+  const R = 8;                      // pool radius in sites (217 sites)
+
+  // Temperature
+  const T0 = 0.35, T_TAU = 2.5;     // starting setpoint, lag of the actual T (s)
+  const A_LO = 0.35, A_PEAK = 0.6, MELT = 0.82; // anneal bump starts, peaks; melt above
+  const C_ZERO = 0.8, C_POW = 2;    // growth speed c(T) = (1 - T/C_ZERO)^C_POW
+
+  // Pool saturation sigma
+  const SIG_CAP = 0.5, SIG0 = 0.5;  // cap, start of each geode
+  const SIG_R = 0.08;               // recharge per s (fresh pool, geode 1)
+  const INC_POW = 0.5;              // ... x (quota / geode 1 quota)^INC_POW: bigger geodes take longer
+  const AGE = 0.003;                // recharge falls by AGE per s of the geode's age...
+  const SIG_FLOOR = 0.5;            // ... never below this share
+  const POOL_LIFE = 200;            // s: then the pool is spent and the geode seals (harvested at quota, else lost: 'thin')
+
+  // Growth and strain
+  const G = 0.4;                    // auto attach rate per frontier site per s
+  const W_K = [0, 0.25, 1, 1.6];    // by occupied neighbours (3 = 3+)
+  const ION = 0.06;                 // sigma per auto attach
+  const SEED_ION = 0.18;            // sigma per seed
+  const F_K = [0, 0.30, 0.08, 0];   // strain on attach by neighbours
+  const INHERIT = 0.7, SPEED = 0.45;
+  const SPREAD = 0.35, MARGIN = 0.12;
+  const ANNEAL = 0.10, ANNEAL_G = 0.13, ANNEAL_MIN = 0.3; // anneal weakens per geode down to ANNEAL_MIN x
+  const MELT_R = 2;
+  const SHOCK = 0.25;               // a crack shocks its neighbours
+
+  // Impurities
+  const IMP_FIRST = 25, IMP_T0 = 14, IMP_DT = 1, IMP_MIN = 5; // s
+  const IMP_AGE = 160, IMP_AGE_G = 0.1; // the pool ages: impurities come (1 + age/IMP_AGE) times as often (ages faster per geode)
+  const PAIR_G = 4;                 // from this geode impurities land in pairs
+  const IMP_K = 4;                  // an impurity swaps into a site with at least this many neighbours
+  const IMP_RING = 2;               // innermost ring an impurity can land on (weight: rings from there + 1)
+  const IMP_S = 0.65, IMP_RISE = 0.012, IMP_SHOCK = 0.5, IMP_MELT = 0.95;
+
+  // Cleave
+  const HOLD_MS = 450, HOLD_SLOP = 10, CLEAVE_CD = 0.6, RELIEF = 0.2;
+
+  // Geodes and run
+  const Q0 = 36, QG = 10, QMAX = 120, CHAMBERS = 3;
+  const EV_LEAD = 3, EV_LEN = 12, EV_OFF = 0.3, FLUSH_LEN = 10;
+  const EV_FIRST = 30, EV_GAP = 30, EV_JIT = 20; // s
+  const END_LOCK_MS = 1000;
+
+  // Layout (game units; the canvas scales to fit)
+  const W = 400, H = 516;
+  const CX = 200, CY = 244, PITCH = 21, POOL_R = 188, GEM_R = 10.5;
+  const TH_Y = 450, TH_H = 58, TH_X0 = 30, TH_X1 = 370; // thermostat strip
+  const SNAP = 1.4, KEY_STEP = 0.05;
+
+  const canvas = document.getElementById('pool');
+  const ctx = canvas.getContext('2d');
+  const msgEl = document.getElementById('msg');
+  const touchy = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  const TAP = touchy ? 'Tap' : 'Click', HOLD = touchy ? 'Hold' : 'Click and hold';
+  const calm = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  // Achievements: announced to the Emergent Arcade gallery when embedded.
+  const unlocked = new Set();
+  function unlock(id) {
+    runEarned.add(id);
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+    }
+  }
+
+  // Round (geode) results for play telemetry (docs/telemetry.md); keys in docs/games/geode.md.
+  function report(won, carats) {
+    if (window.parent === window) return;
+    const r1 = v => Math.round(v * 10) / 10;
+    const msg = { type: 'arcade:result', game: GAME_ID, outcome: won ? 'win' : 'loss',
+      time: r1(t), level: g, run: runId, attempt, score: r1(banked),
+      stats: { mass, clarity: Math.round(100 * clarity()), carats: carats || 0, cleaves, seeds, cracks,
+        peak_s: Math.round(100 * Math.min(peakS, 1)), anneal_s: r1(annealS) } };
+    if (!won) msg.reason = lastReason;
+    window.parent.postMessage(msg, '*');
+  }
+
+  const field = document.getElementById('field');
+  const stage = document.getElementById('stage');
+  function fitPool() {
+    const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
+    const w = Math.max(80, Math.floor(W * scale)), h = Math.max(100, Math.floor(H * scale));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  new ResizeObserver(fitPool).observe(field);
+  window.addEventListener('resize', fitPool);
+  fitPool();
+
+  let paused = false;
+  window.addEventListener('message', evt => {
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; press = null; audioPause(true); }
+    if (evt.data && evt.data.type === 'arcade:resume') { paused = false; audioPause(false); }
+  });
+
+  const endCard = document.getElementById('endCard');
+  const mainBtn = document.getElementById('mainBtn');
+  const altBtn = document.getElementById('altBtn');
+  const harvestBtn = document.getElementById('harvestBtn');
+  const soundBtn = document.getElementById('soundBtn');
+
+  // Effects the drawing and sound read (bonds, cracks, cleaves...). Bots never read it, so it is capped.
+  const fx = [];
+  function emit(kind, i, a) { if (fx.length < 400) fx.push({ kind, i, a, at: clock }); }
+  let clock = 0;                    // unpaused seconds, for animation
+
+  // § lattice
+  // Axial hex coordinates (q, r); a site's 6 neighbours; ring = distance from the centre.
+  const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+  const SQ = [], SR = [], RING = [];
+  for (let q = -R; q <= R; q++) for (let r = -R; r <= R; r++) {
+    if (Math.abs(q + r) > R) continue;
+    SQ.push(q); SR.push(r); RING.push(Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)));
+  }
+  const N = SQ.length;
+  const idx = new Map();
+  for (let i = 0; i < N; i++) idx.set(SQ[i] + ',' + SR[i], i);
+  const NB = [];
+  for (let i = 0; i < N; i++) {
+    NB.push(DIRS.map(([dq, dr]) => idx.get((SQ[i] + dq) + ',' + (SR[i] + dr))).filter(j => j !== undefined));
+  }
+  const CORE = RING.map(r => r <= 1);
+
+  // § state
+  const occ = new Uint8Array(N);    // site holds an ion
+  const s = new Float32Array(N);    // strain
+  const imp = new Uint8Array(N);    // foreign ion
+  const vac = new Uint8Array(N);    // vacancy left by cleaving an embedded flaw (Chip and Heal)
+  const kk = new Uint8Array(N);     // occupied neighbours (refreshed by countK)
+  const tmp = new Float32Array(N);
+  const seen = new Uint8Array(N);
+  const runEarned = new Set();
+  let state, g, attempt, chambers, banked, runId, t, sigma, T, Ts, mass, quota;
+  let nextImp, ev, nextEv, lastEv, cdUntil, peakS, annealS, cleaves, seeds, cracks, autoN;
+  let lastReason = null, snapRide = false, hinted = {}, lockUntil = 0, lastCarats = 0;
+
+  // § run
+  function newRun() {
+    g = 1; attempt = 1; chambers = CHAMBERS; banked = 0;
+    runId = Math.random().toString(36).slice(2, 10) || 'run';
+    runEarned.clear();
+    hinted = {};
+    newGeode();
+    say(`${TAP} beside the crystal to seed an ion. Drag the thermostat below: cold grows fast, the glow heals strain.`, 8);
+  }
+  function newGeode() {
+    occ.fill(0); s.fill(0); imp.fill(0); vac.fill(0);
+    for (let i = 0; i < N; i++) if (CORE[i]) occ[i] = 1;
+    t = 0; sigma = SIG0; T = Ts = T0;
+    quota = Math.min(QMAX, Q0 + QG * g);
+    nextImp = IMP_FIRST; ev = null; lastEv = null;
+    nextEv = g >= 2 ? EV_FIRST + Math.random() * EV_JIT : Infinity;
+    cdUntil = 0; peakS = 0; annealS = 0; cleaves = 0; seeds = 0; cracks = 0; autoN = 0;
+    impMark = -1; born.fill(-9); fx.length = 0;
+    state = 'playing';
+    countK();
+  }
+  function harvest() {
+    if (state !== 'playing' || mass < quota) return false;
+    const cl = clarity();
+    const carats = Math.round(mass * (0.5 + cl));
+    banked += carats; lastCarats = carats;
+    if (g === 1) unlock('first-light');
+    if (cl >= 0.9) unlock('perfect-pitch');
+    if (mass >= 1.5 * quota) unlock('window-seat');
+    report(true, carats);
+    state = 'banked';
+    showCard(true);
+    return true;
+  }
+  function nextGeode() { g++; attempt = 1; if (g >= 6) unlock('deep-time'); newGeode(); }
+  function shatter(reason) {
+    chambers--;
+    lastReason = reason || 'shatter';
+    report(false);
+    state = chambers > 0 ? 'shattered' : 'over';
+    showCard(false);
+  }
+  function retryGeode() { attempt++; newGeode(); }
+
+  // § simulation
+  const cOf = T => Math.pow(Math.max(0, Math.min(1, 1 - T / C_ZERO)), C_POW);
+  function aOf(T) {
+    if (T <= A_LO || T >= MELT) return 0;
+    return T < A_PEAK ? (T - A_LO) / (A_PEAK - A_LO) : 1 - (T - A_PEAK) / (MELT - A_PEAK);
+  }
+  function countK() {
+    mass = 0;
+    for (let i = 0; i < N; i++) {
+      let k = 0;
+      for (const j of NB[i]) k += occ[j];
+      kk[i] = k;
+      mass += occ[i];
+    }
+  }
+  const isFrontier = i => !occ[i] && kk[i] > 0;
+  function meanS() {
+    let sum = 0, n = 0;
+    for (let i = 0; i < N; i++) if (occ[i]) { sum += s[i]; n++; }
+    return n ? sum / n : 0;
+  }
+  const clarity = () => 1 - Math.min(1, meanS() / 0.5);
+  function attach(i, auto) {
+    const k = kk[i];
+    let sum = 0, n = 0;
+    for (const j of NB[i]) if (occ[j]) { sum += s[j]; n++; }
+    s[i] = F_K[Math.min(3, k)] + INHERIT * (n ? sum / n : 0) + (auto ? SPEED * cOf(T) : 0);
+    occ[i] = 1; imp[i] = 0;
+    emit('bond', i);
+    if (auto && vac[i]) unlock('chip-and-heal');
+    vac[i] = 0;
+    countK();
+  }
+  // Remove every site no longer connected to the core.
+  function dropLoose() {
+    seen.fill(0);
+    const st = [];
+    for (let i = 0; i < N; i++) if (CORE[i] && occ[i]) { seen[i] = 1; st.push(i); }
+    while (st.length) { const i = st.pop(); for (const j of NB[i]) if (occ[j] && !seen[j]) { seen[j] = 1; st.push(j); } }
+    let n = 0;
+    for (let i = 0; i < N; i++) if (occ[i] && !seen[i]) { occ[i] = 0; imp[i] = 0; s[i] = 0; n++; emit('drop', i); }
+    countK();
+    return n;
+  }
+  // Cracks: every site at s >= 1 breaks and shocks its neighbours, which may break in turn.
+  function cracksPass() {
+    const q = [];
+    for (let i = 0; i < N; i++) if (occ[i] && s[i] >= 1) q.push(i);
+    if (!q.length) return;
+    let core = false;
+    while (q.length) {
+      const i = q.pop();
+      if (!occ[i]) continue;
+      const sh = imp[i] ? IMP_SHOCK : SHOCK;
+      occ[i] = 0; imp[i] = 0; s[i] = 0; cracks++;
+      emit('crack', i);
+      if (CORE[i]) core = true;
+      for (const j of NB[i]) if (occ[j]) { s[j] += sh; if (s[j] >= 1) q.push(j); }
+    }
+    dropLoose();
+    if (core) shatter();
+  }
+
+  function startEvent() {
+    const kinds = ['snap', 'heat'];
+    if (g >= 3) kinds.push('flush');
+    if (g >= 5) kinds.push('double');
+    const pick = kinds.filter(k => k !== lastEv);
+    const kind = pick[Math.floor(Math.random() * pick.length)];
+    lastEv = kind;
+    ev = { kind, at: t + EV_LEAD, end: t + EV_LEAD + (kind === 'flush' ? FLUSH_LEN : kind === 'double' ? 2 * EV_LEN : EV_LEN) };
+    if (kind === 'snap' || kind === 'double') snapRide = true;
+  }
+  function evOffset() {
+    if (!ev || t < ev.at) return 0;
+    if (ev.kind === 'snap') return -EV_OFF;
+    if (ev.kind === 'heat') return EV_OFF;
+    if (ev.kind === 'double') return t < ev.at + EV_LEN ? -EV_OFF : EV_OFF;
+    return 0;
+  }
+  const evOn = kind => ev && ev.kind === kind && t >= ev.at;
+
+  // A foreign ion swaps into an embedded site (next to `near` if given), more often toward the rim.
+  function dropImpurity(near) {
+    const ok = i => occ[i] && !imp[i] && kk[i] >= IMP_K && RING[i] >= IMP_RING && (near < 0 || NB[near].includes(i));
+    let tot = 0;
+    for (let i = 0; i < N; i++) if (ok(i)) tot += RING[i] - IMP_RING + 1;
+    let pick = Math.random() * tot;
+    for (let i = 0; i < N && tot > 0; i++) {
+      if (!ok(i)) continue;
+      pick -= RING[i] - IMP_RING + 1;
+      if (pick < 0) { imp[i] = 1; s[i] = Math.max(s[i], IMP_S); return i; }
+    }
+    return -1;
+  }
+
+  function step(dt) {
+    t += dt;
+    // Events
+    if (!ev && t >= nextEv - EV_LEAD) startEvent();
+    if (ev && t >= ev.end) {
+      if ((ev.kind === 'snap' || ev.kind === 'double') && snapRide) unlock('cool-head');
+      ev = null; nextEv = t + EV_GAP + Math.random() * EV_JIT;
+    }
+    if (ev && (ev.kind === 'snap' || (ev.kind === 'double' && t < ev.at + EV_LEN)) && t >= ev.at && meanS() >= 0.25) snapRide = false;
+    // Temperature chases the setpoint (plus any event) with a lag.
+    T += (Math.max(0, Math.min(1, Ts + evOffset())) - T) * (1 - Math.exp(-dt / T_TAU));
+    const c = cOf(T), a = aOf(T) * Math.max(ANNEAL_MIN, 1 - ANNEAL_G * (g - 1));
+    if (T >= 0.4 && T <= 0.75) annealS += dt;
+    // Pool recharge, thinning with age.
+    const age = Math.max(SIG_FLOOR, 1 - AGE * t) * Math.pow((quota - 7) / (Q0 + QG - 7), INC_POW);
+    if (evOn('flush') && !ev.done) { ev.done = true; sigma *= 0.5; }
+    sigma = Math.min(SIG_CAP, sigma + SIG_R * age * (evOn('flush') ? 0.5 : 1) * dt);
+    // Auto growth on the frontier.
+    if (c > 0) {
+      const off = Math.floor(Math.random() * N);
+      for (let n = 0; n < N; n++) {
+        const i = (n + off) % N;
+        if (!isFrontier(i) || sigma < ION) continue;
+        if (Math.random() < G * sigma * c * W_K[Math.min(3, kk[i])] * dt) { attach(i, true); sigma -= ION; autoN++; }
+      }
+    }
+    // Spread (toward the strongest neighbour), anneal, impurities creep up.
+    for (let i = 0; i < N; i++) {
+      if (!occ[i]) { tmp[i] = 0; continue; }
+      let m = 0;
+      for (const j of NB[i]) if (occ[j] && s[j] > m) m = s[j];
+      tmp[i] = SPREAD * Math.max(0, m - s[i] - MARGIN) * dt;
+    }
+    for (let i = 0; i < N; i++) {
+      if (!occ[i]) continue;
+      if (imp[i]) s[i] += IMP_RISE * dt;
+      else s[i] += tmp[i] - ANNEAL * a * s[i] * dt;
+      if (s[i] > peakS) peakS = s[i];
+    }
+    // Melt: thin sites dissolve when hot.
+    if (T > MELT) {
+      let lost = 0;
+      for (let i = 0; i < N; i++) {
+        if (!occ[i] || CORE[i] || kk[i] > 3 || (imp[i] && T < IMP_MELT)) continue;
+        if (Math.random() < MELT_R * (T - MELT) * (0.4 + s[i]) * dt) { occ[i] = 0; imp[i] = 0; s[i] = 0; sigma = Math.min(SIG_CAP, sigma + ION / 2); lost++; emit('melt', i); }
+      }
+      if (lost) dropLoose();
+    }
+    // Impurities
+    if (t >= nextImp) {
+      const i = dropImpurity(-1);
+      if (i >= 0 && g >= PAIR_G) dropImpurity(i);
+      nextImp = t + Math.max(IMP_MIN, IMP_T0 - IMP_DT * (g - 1)) / (1 + t * (1 + IMP_AGE_G * (g - 1)) / IMP_AGE);
+    }
+    cracksPass();
+    if (state === 'playing' && t >= POOL_LIFE) { if (mass >= quota) harvest(); else shatter('thin'); }
+  }
+
+  // § verbs
+  function setThermo(v) { Ts = Math.max(0, Math.min(1, v)); }
+  function seedAt(i) {
+    if (state !== 'playing' || !isFrontier(i)) return false;
+    if (sigma < SEED_ION) return false;
+    sigma -= SEED_ION; seeds++;
+    attach(i, false);
+    return true;
+  }
+  function cleaveAt(i) {
+    if (state !== 'playing' || !occ[i] || CORE[i] || t < cdUntil) return false;
+    const embedded = kk[i] >= 4 && (imp[i] || s[i] >= 0.4);
+    occ[i] = 0; imp[i] = 0; s[i] = 0; cleaves++;
+    emit('cleave', i);
+    for (const j of NB[i]) if (occ[j]) s[j] = Math.max(0, s[j] - RELIEF);
+    if (embedded) vac[i] = 1;
+    cdUntil = t + CLEAVE_CD;
+    return 1 + dropLoose();
+  }
+
+  // § messages
+  let msgUntil = 0, msgMin = 0, queued = null;
+  function say(text, secs, warn) {
+    if (clock < msgMin && !warn) { queued = [text, secs]; return; }
+    msgEl.textContent = text;
+    msgEl.className = warn ? 'warn' : '';
+    msgMin = clock + Math.min(secs, 4);
+    msgUntil = clock + secs;
+  }
+  function tickMsg() {
+    if (queued && clock >= msgMin) { const q = queued; queued = null; say(q[0], q[1]); }
+    else if (msgEl.textContent && clock >= msgUntil) msgEl.textContent = '';
+  }
+  function hintOnce(id, text, secs, warn) { if (hinted[id]) return; hinted[id] = true; say(text, secs || 6, warn); }
+
+  // Teaching on first occurrence (once per run), plus event warnings.
+  let stillT = 0, lastMass = 0, evSaid = null;
+  function hints() {
+    let maxS = 0, firstImp = -1;
+    for (let i = 0; i < N; i++) if (occ[i]) { if (imp[i]) { if (firstImp < 0) firstImp = i; } else if (s[i] > maxS) maxS = s[i]; }
+    if (firstImp >= 0 && !hinted.imp) { impMark = firstImp; hintOnce('imp', `A dark foreign ion! ${HOLD} on it to cleave it out before it bursts.`, 8, true); }
+    if (maxS > 0.3 && !hinted.strain) hintOnce('strain', 'Strain (amber, cross-hatched) spreads. Drag the thermostat into the glow to anneal it.', 8);
+    if (mass >= quota && !hinted.quota) hintOnce('quota', 'Quota reached: Harvest now, or keep growing for more carats.', 6);
+    if (ev && ev !== evSaid) {
+      evSaid = ev;
+      const say1 = { snap: 'A cold snap is coming: nudge the thermostat warmer.', heat: 'A heat wave is coming: nudge the thermostat cooler.',
+        flush: 'A salt flush: the pool thins for a while.', double: 'A cold snap, then a heat wave right after it.' };
+      say(say1[ev.kind], 5, true);
+      sfx('warn');
+    }
+    // Hot and nothing growing: say why (a still screen should explain itself).
+    if (T > MELT - 0.05 && mass <= lastMass) stillT += STEP; else stillT = 0;
+    lastMass = mass;
+    if (stillT > 6) { stillT = -20; say('Too hot: nothing grows and the tips melt. Drag the thermostat left.', 6, true); }
+    if (t > POOL_LIFE * 0.7 && mass < quota && !hinted.dry) hintOnce('dry', 'The pool is drying up (the ring around it). Grow colder and faster, or lose this geode.', 7, true);
+  }
+
+  function hud() {
+    const cl = clarity(), ready = state === 'playing' && mass >= quota;
+    harvestBtn.disabled = !ready;
+    harvestBtn.className = ready ? 'ready' : '';
+    harvestBtn.textContent = ready ? `Harvest +${Math.round(mass * (0.5 + cl))} ◆` : `Harvest ${mass}/${quota}`;
+    document.getElementById('clarFill').style.width = Math.round(100 * cl) + '%';
+    document.getElementById('clarTxt').textContent = Math.round(100 * cl) + '%';
+  }
+
+  function showCard(won) {
+    const tEl = document.getElementById('endTitle');
+    const over = state === 'over';
+    if (won) {
+      tEl.textContent = `Geode ${g} harvested`;
+      document.getElementById('endDetail').textContent = `+${lastCarats} carats (${mass} ions, ${Math.round(100 * clarity())}% clear). Banked this run: ${banked}.`;
+    } else {
+      tEl.textContent = lastReason === 'thin' ? 'The pool ran dry' : 'The geode shattered';
+      const why = lastReason === 'thin' ? `The crystal was short of its quota (${mass}/${quota}) when the pool was spent.`
+        : 'A crack reached the core.';
+      document.getElementById('endDetail').textContent = over
+        ? `${why} No chambers left: run over with ${banked} carats banked.`
+        : `${why} ${chambers} ${chambers === 1 ? 'chamber' : 'chambers'} left; try geode ${g} again.`;
+    }
+    tEl.className = won ? 'won' : 'lost';
+    const names = { 'first-light': 'First Light', 'perfect-pitch': 'Perfect Pitch', 'chip-and-heal': 'Chip and Heal',
+      'cool-head': 'Cool Head', 'window-seat': 'Window Seat', 'deep-time': 'Deep Time' };
+    const got = [...runEarned].map(id => names[id]);
+    document.getElementById('endAch').textContent = got.length ? 'Earned this run: ' + got.join(', ') : '';
+    mainBtn.textContent = won ? 'Next geode' : over ? 'New run' : `Retry geode ${g}`;
+    altBtn.hidden = won || over;
+    endCard.hidden = false;
+    sfx(won ? 'harvest' : 'shatter');
+    lockUntil = performance.now() + END_LOCK_MS;
+    mainBtn.disabled = altBtn.disabled = true;
+    setTimeout(() => { mainBtn.disabled = altBtn.disabled = false; }, END_LOCK_MS);
+  }
+
+  // § sound
+  // WebAudio, started on the first gesture; never required (every cue is also drawn).
+  let ac = null, master = null, padA = null, padB = null, padGain = null, hiss = null, hissGain = null;
+  let soundOn = true, voices = 0, noteTimes = [];
+  try { soundOn = localStorage.getItem('geode.sound') !== 'off'; } catch (e) { /* sandboxed: default on */ }
+  function setSoundBtn() { soundBtn.textContent = soundOn ? 'Sound on' : 'Sound off'; soundBtn.setAttribute('aria-pressed', String(soundOn)); }
+  setSoundBtn();
+  function audioStart() {
+    if (ac || !soundOn) { if (ac && ac.state === 'suspended' && !paused) ac.resume().catch(() => {}); return; }
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      ac = new AC();
+      master = ac.createGain(); master.gain.value = 0.22; master.connect(ac.destination);
+      padGain = ac.createGain(); padGain.gain.value = 0; padGain.connect(master);
+      padA = ac.createOscillator(); padB = ac.createOscillator();
+      padA.type = padB.type = 'sine'; padA.frequency.value = 130.8; padB.frequency.value = 130.8;
+      padA.connect(padGain); padB.connect(padGain); padA.start(); padB.start();
+      const buf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      hiss = ac.createBufferSource(); hiss.buffer = buf; hiss.loop = true;
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.7;
+      hissGain = ac.createGain(); hissGain.gain.value = 0;
+      hiss.connect(bp); bp.connect(hissGain); hissGain.connect(master); hiss.start();
+      noiseBuf = buf;
+    } catch (e) { ac = null; }
+  }
+  let noiseBuf = null;
+  function audioPause(p) { if (!ac) return; try { if (p) ac.suspend(); else if (soundOn) ac.resume(); } catch (e) { /* ignore */ } }
+  function tone(freq, dur, gain, type, at, glide) {
+    if (!ac || !soundOn || voices >= 8) return;
+    const t0 = ac.currentTime + (at || 0);
+    const o = ac.createOscillator(), gn = ac.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t0);
+    if (glide) o.frequency.exponentialRampToValueAtTime(glide, t0 + dur);
+    gn.gain.setValueAtTime(0.0001, t0); gn.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(gn); gn.connect(master); o.start(t0); o.stop(t0 + dur + 0.05);
+    voices++; o.onended = () => { voices--; };
+  }
+  function noise(dur, gain, freq) {
+    if (!ac || !soundOn || !noiseBuf) return;
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), gn = ac.createGain(), t0 = ac.currentTime;
+    src.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.value = freq || 900;
+    gn.gain.setValueAtTime(gain, t0); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(f); f.connect(gn); gn.connect(master); src.start(t0); src.stop(t0 + dur);
+  }
+  // Pentatonic bells mapped by site; strain detunes them so a flawed crystal beats.
+  const SCALE = [261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3, 659.3, 784.0];
+  function bell(i) {
+    if (!ac || !soundOn) return;
+    const now = ac.currentTime;
+    noteTimes = noteTimes.filter(x => now - x < 1);
+    if (noteTimes.length >= 12) return;
+    noteTimes.push(now);
+    const band = Math.min(2, Math.floor(RING[i] / 3));
+    const f = SCALE[((SQ[i] - SR[i]) % 3 + 3) % 3 + 3 * band] * Math.pow(2, Math.min(1, s[i]) * 60 / 1200);
+    tone(f, 1.2, 0.12); tone(f * 2, 0.6, 0.03);
+  }
+  function sfx(kind) {
+    if (!ac || !soundOn) return;
+    if (kind === 'cleave') { tone(1800, 0.05, 0.08, 'triangle'); tone(900, 0.5, 0.07, 'sine', 0.02, 300); }
+    else if (kind === 'crack') { tone(70, 0.4, 0.2, 'sine', 0, 45); noise(0.25, 0.12, 700); }
+    else if (kind === 'harvest') [0, 2, 4, 5, 7].forEach((k, j) => tone(SCALE[k], 0.9, 0.1, 'sine', j * 0.11));
+    else if (kind === 'shatter') [8, 6, 4, 3, 1].forEach((k, j) => tone(SCALE[k] * 0.97, 1.1, 0.08, 'triangle', j * 0.07, SCALE[k] * 0.7));
+    else if (kind === 'warn') tone(330, 1.4, 0.05, 'sine', 0, 520);
+    else if (kind === 'dull') tone(150, 0.12, 0.06, 'square');
+    else if (kind === 'melt') tone(500, 0.3, 0.03, 'sine', 0, 250);
+  }
+  function audioTick() {
+    if (!ac || !soundOn) return;
+    const now = ac.currentTime, playing = state === 'playing' && !paused;
+    padB.frequency.setTargetAtTime(130.8 + meanS() * 8, now, 0.5);
+    padGain.gain.setTargetAtTime(playing ? 0.035 : 0, now, 0.4);
+    hissGain.gain.setTargetAtTime(playing ? 0.04 * Math.max(0, T - 0.3) : 0, now, 0.4);
+  }
+  soundBtn.addEventListener('click', () => {
+    soundOn = !soundOn;
+    try { localStorage.setItem('geode.sound', soundOn ? 'on' : 'off'); } catch (e) { /* sandboxed */ }
+    setSoundBtn();
+    if (soundOn) audioStart(); else if (ac) { try { ac.suspend(); } catch (e) { /* ignore */ } }
+  });
+
+  // § drawing
+  const PX = new Float32Array(N), PY = new Float32Array(N);
+  for (let i = 0; i < N; i++) { PX[i] = CX + PITCH * (SQ[i] + SR[i] / 2); PY[i] = CY + PITCH * 0.866 * SR[i]; }
+  const born = new Float32Array(N).fill(-9);
+  const cracksFx = [], motes = [];
+  for (let k = 0; k < 40; k++) motes.push({ x: CX + (Math.random() - 0.5) * 300, y: CY + (Math.random() - 0.5) * 300, tx: -1, until: 0, ph: Math.random() * 6 });
+  let impMark = -1;
+  const glow = document.createElement('canvas');
+  glow.width = glow.height = 64;
+  { const gc = glow.getContext('2d'), gr = gc.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(150,230,255,0.55)'); gr.addColorStop(1, 'rgba(150,230,255,0)');
+    gc.fillStyle = gr; gc.fillRect(0, 0, 64, 64); }
+  function mixc(a, b, f) { return a.map((v, j) => Math.round(v + (b[j] - v) * f)); }
+  function strainRGB(v) {
+    const C0 = [196, 242, 255], C1 = [255, 214, 120], C2 = [255, 120, 80], C3 = [255, 50, 60];
+    return v < 0.4 ? mixc(C0, C1, v / 0.4) : v < 0.75 ? mixc(C1, C2, (v - 0.4) / 0.35) : mixc(C2, C3, Math.min(1, (v - 0.75) / 0.25));
+  }
+  const rgb = (c, a) => a === undefined ? `rgb(${c[0]},${c[1]},${c[2]})` : `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  function hexPath(x, y, r) {
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; ctx.lineTo(x + r * Math.cos(a), y + r * Math.sin(a)); }
+    ctx.closePath();
+  }
+  const thX = v => TH_X0 + (TH_X1 - TH_X0) * v;
+
+  function consumeFx() {
+    while (fx.length) {
+      const e = fx.shift();
+      if (e.kind === 'bond') { born[e.i] = clock; bell(e.i); }
+      else if (e.kind === 'crack' || e.kind === 'cleave' || e.kind === 'melt' || e.kind === 'drop') {
+        const n = e.kind === 'crack' ? 4 : 2, segs = [];
+        for (let k = 0; k < n; k++) {
+          const a = Math.random() * 6.28, l = e.kind === 'crack' ? 12 + Math.random() * 10 : 6;
+          segs.push([PX[e.i], PY[e.i], PX[e.i] + Math.cos(a) * l * 0.5 + (Math.random() - 0.5) * 4, PY[e.i] + Math.sin(a) * l * 0.5 + (Math.random() - 0.5) * 4, PX[e.i] + Math.cos(a) * l, PY[e.i] + Math.sin(a) * l]);
+        }
+        if (cracksFx.length < 80) cracksFx.push({ at: clock, segs, kind: e.kind });
+        if (e.kind === 'crack') sfx('crack'); else if (e.kind === 'cleave') sfx('cleave'); else if (e.kind === 'melt') sfx('melt');
+      }
+    }
+  }
+
+  function draw() {
+    const sc = canvas.width / W;
+    ctx.setTransform(sc, 0, 0, sc, 0, 0);
+    ctx.fillStyle = '#0c0f17';
+    ctx.fillRect(0, 0, W, H);
+    // Pool: cool blue to warm amber with the actual temperature.
+    const tint = mixc([16, 34, 64], [70, 38, 16], Math.min(1, T));
+    const pg = ctx.createRadialGradient(CX, CY, 20, CX, CY, POOL_R);
+    pg.addColorStop(0, rgb(mixc(tint, [255, 255, 255], 0.08))); pg.addColorStop(1, rgb(mixc(tint, [0, 0, 0], 0.45)));
+    ctx.fillStyle = pg;
+    ctx.beginPath(); ctx.arc(CX, CY, POOL_R, 0, 6.283); ctx.fill();
+    // Heat shimmer
+    if (T > 0.7 && !calm) {
+      ctx.strokeStyle = `rgba(255,170,90,${(T - 0.7) * 0.5})`; ctx.lineWidth = 1;
+      for (let k = 0; k < 6; k++) {
+        const yy = CY - 150 + k * 60 + Math.sin(clock * 0.7 + k) * 10;
+        ctx.beginPath();
+        for (let x = CX - 160; x <= CX + 160; x += 10) ctx.lineTo(x, yy + Math.sin(x * 0.06 + clock * 3 + k) * 3);
+        ctx.stroke();
+      }
+    }
+    // Pool life: the ring drains as the pool ages.
+    const life = Math.max(0, 1 - t / POOL_LIFE);
+    ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath(); ctx.arc(CX, CY, POOL_R + 4, 0, 6.283); ctx.stroke();
+    ctx.strokeStyle = life < 0.25 ? '#ff9a6a' : 'rgba(160,220,255,0.6)';
+    ctx.beginPath(); ctx.arc(CX, CY, POOL_R + 4, -Math.PI / 2, -Math.PI / 2 + 6.283 * life); ctx.stroke();
+    ctx.lineCap = 'butt';
+    // Motes: the pool's saturation, drifting toward the frontier.
+    const nm = Math.round(40 * sigma / SIG_CAP);
+    ctx.fillStyle = 'rgba(190,235,255,0.55)';
+    for (let k = 0; k < nm; k++) {
+      const m = motes[k];
+      if (clock > m.until || m.tx < 0 || occ[m.tx]) {
+        const fr = []; for (let i = 0; i < N; i++) if (isFrontier(i)) fr.push(i);
+        m.tx = fr.length ? fr[Math.floor(Math.random() * fr.length)] : -1; m.until = clock + 2 + Math.random() * 3;
+        if (Math.hypot(m.x - CX, m.y - CY) > POOL_R - 6) { const a = Math.random() * 6.28; m.x = CX + Math.cos(a) * (POOL_R - 12); m.y = CY + Math.sin(a) * (POOL_R - 12); }
+      }
+      if (m.tx >= 0 && !paused && state === 'playing') {
+        const dx = PX[m.tx] - m.x, dy = PY[m.tx] - m.y, d = Math.hypot(dx, dy) || 1;
+        const v = calm ? 0.25 : 0.5;
+        m.x += dx / d * v + (calm ? 0 : Math.sin(clock * 2 + m.ph) * 0.3); m.y += dy / d * v + (calm ? 0 : Math.cos(clock * 1.7 + m.ph) * 0.3);
+        if (d < 8) { const a = Math.random() * 6.28; m.x = CX + Math.cos(a) * (POOL_R - 12); m.y = CY + Math.sin(a) * (POOL_R - 12); }
+      }
+      ctx.beginPath(); ctx.arc(m.x, m.y, 1.4, 0, 6.283); ctx.fill();
+    }
+    // Frontier: faint rings where a seed can go.
+    ctx.strokeStyle = 'rgba(190,235,255,0.16)'; ctx.lineWidth = 1;
+    for (let i = 0; i < N; i++) if (isFrontier(i)) { ctx.beginPath(); ctx.arc(PX[i], PY[i], 3, 0, 6.283); ctx.stroke(); }
+    // Glow under clean gems
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < N; i++) if (occ[i] && !imp[i] && s[i] < 0.5) { ctx.globalAlpha = (1 - s[i] * 2) * 0.6; ctx.drawImage(glow, PX[i] - 20, PY[i] - 20, 40, 40); }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    // Gems. Strain shows three ways: colour, outline weight, and hatch lines (plus a tremor near cracking).
+    for (let i = 0; i < N; i++) {
+      if (!occ[i]) continue;
+      const v = Math.min(1, s[i]);
+      let x = PX[i], y = PY[i];
+      if (!calm && !imp[i] && v > 0.7) { x += Math.sin(clock * 37 + i) * (v - 0.7) * 5; y += Math.cos(clock * 41 + i * 3) * (v - 0.7) * 5; }
+      const age = clock - born[i], pop = age < 0.25 ? 0.4 + 0.6 * age / 0.25 : 1;
+      const r = GEM_R * pop * (CORE[i] && !calm ? 1 + 0.04 * Math.sin(clock * 1.6) : 1);
+      if (imp[i]) {
+        hexPath(x, y, r); ctx.fillStyle = '#231432'; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = '#c9a6ff'; ctx.stroke();
+        ctx.fillStyle = '#c9a6ff'; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, 6.283); ctx.fill();
+        // Fuse: the arc fills as the foreign ion nears bursting.
+        const f = Math.max(0, Math.min(1, (s[i] - IMP_S) / (1 - IMP_S)));
+        ctx.lineWidth = 2.5; ctx.strokeStyle = f > 0.7 ? '#ff6a5a' : '#f0e2ff';
+        ctx.beginPath(); ctx.arc(x, y, r + 3.5, -Math.PI / 2, -Math.PI / 2 + 6.283 * Math.max(0.04, f)); ctx.stroke();
+        continue;
+      }
+      const c = strainRGB(v);
+      hexPath(x, y, r); ctx.fillStyle = rgb(c); ctx.fill();
+      // facet
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - r * 0.87, y - r * 0.5); ctx.lineTo(x, y - r); ctx.closePath(); ctx.fill();
+      ctx.lineWidth = 1 + v * 2.5; ctx.strokeStyle = rgb(mixc(c, [20, 10, 20], 0.55));
+      hexPath(x, y, r); ctx.stroke();
+      if (v > 0.35) {
+        ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(40,10,10,0.75)';
+        ctx.beginPath(); ctx.moveTo(x - r * 0.6, y + r * 0.45); ctx.lineTo(x + r * 0.6, y - r * 0.45);
+        if (v > 0.65) { ctx.moveTo(x - r * 0.6, y - r * 0.45); ctx.lineTo(x + r * 0.6, y + r * 0.45); }
+        ctx.stroke();
+      }
+      if (CORE[i]) { ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.7)'; hexPath(x, y, r - 3); ctx.stroke(); }
+    }
+    // First impurity gets a marker ring.
+    if (impMark >= 0 && occ[impMark] && imp[impMark]) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.arc(PX[impMark], PY[impMark], 20 + (calm ? 0 : 2 * Math.sin(clock * 4)), 0, 6.283); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // Cracks fade slowly.
+    for (let k = cracksFx.length - 1; k >= 0; k--) {
+      const c = cracksFx[k], a = 1 - (clock - c.at) / 3;
+      if (a <= 0) { cracksFx.splice(k, 1); continue; }
+      ctx.strokeStyle = c.kind === 'crack' ? `rgba(10,5,8,${a})` : `rgba(230,240,255,${a * 0.7})`;
+      ctx.lineWidth = c.kind === 'crack' ? 2.5 : 1.5;
+      for (const sg of c.segs) { ctx.beginPath(); ctx.moveTo(sg[0], sg[1]); ctx.lineTo(sg[2], sg[3]); ctx.lineTo(sg[4], sg[5]); ctx.stroke(); }
+    }
+    // Hold ring (cleave)
+    if (press && press.target >= 0 && press.mode === 'hold') {
+      const f = Math.min(1, (performance.now() - press.t0) / HOLD_MS);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(PX[press.target], PY[press.target], GEM_R + 6, -Math.PI / 2, -Math.PI / 2 + 6.283 * f); ctx.stroke();
+    }
+    drawTop();
+    drawThermo();
+  }
+
+  function drawTop() {
+    ctx.textBaseline = 'middle'; ctx.font = '600 14px -apple-system, Segoe UI, Roboto, sans-serif';
+    ctx.fillStyle = '#eef2fa'; ctx.textAlign = 'left';
+    ctx.fillText(`Geode ${g}`, 10, 18);
+    ctx.textAlign = 'center';
+    ctx.fillText(`${mass} / ${quota}`, 200, 12);
+    ctx.fillStyle = '#27304a'; ctx.fillRect(140, 23, 120, 5);
+    ctx.fillStyle = mass >= quota ? '#a6ecff' : '#6f8bb8'; ctx.fillRect(140, 23, 120 * Math.min(1.5, mass / quota) / 1.5, 5);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(140 + 120 / 1.5 - 1, 21, 2, 9); // the quota mark
+    ctx.textAlign = 'right'; ctx.fillStyle = '#eef2fa';
+    ctx.fillText(`◆ ${banked}`, 330, 18);
+    // Chambers left: small geodes, cracked once used.
+    for (let k = 0; k < CHAMBERS; k++) {
+      const x = 348 + k * 18, y = 18, ok = k < chambers;
+      hexPath(x, y, 6.5); ctx.fillStyle = ok ? '#8fe3ff' : '#3a2a30'; ctx.fill();
+      if (!ok) { ctx.strokeStyle = '#ff8a7a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 1, y); ctx.lineTo(x - 2, y + 4); ctx.stroke(); }
+    }
+  }
+
+  function drawThermo() {
+    const y0 = TH_Y, ym = y0 + 26, h = 18;
+    // Zones: grow (cold), anneal (glow), melt (hatched).
+    const z = (a, b, col) => { ctx.fillStyle = col; ctx.fillRect(thX(a), ym - h / 2, thX(b) - thX(a), h); };
+    z(0, 0.4, '#24477a'); z(0.4, 0.75, '#3d6b55'); z(0.75, MELT, '#4a3b2c'); z(MELT, 1, '#6a2420');
+    // Anneal glow pulses; melt is hatched (readable without colour).
+    if (!calm) { ctx.fillStyle = `rgba(200,255,200,${0.08 + 0.06 * Math.sin(clock * 2)})`; ctx.fillRect(thX(0.4), ym - h / 2, thX(0.75) - thX(0.4), h); }
+    ctx.save(); ctx.beginPath(); ctx.rect(thX(MELT), ym - h / 2, thX(1) - thX(MELT), h); ctx.clip();
+    ctx.strokeStyle = 'rgba(255,200,180,0.5)'; ctx.lineWidth = 1.5;
+    for (let x = thX(MELT) - 20; x < thX(1) + 20; x += 7) { ctx.beginPath(); ctx.moveTo(x, ym + h / 2); ctx.lineTo(x + 12, ym - h / 2); ctx.stroke(); }
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(thX(0), ym - h / 2, thX(1) - thX(0), h);
+    ctx.font = '11px -apple-system, Segoe UI, Roboto, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(238,242,250,0.85)';
+    ctx.fillText('grow', thX(0.2), ym + 20); ctx.fillText('anneal', thX(0.575), ym + 20); ctx.fillText('melt', thX(0.91), ym + 20);
+    ctx.fillStyle = 'rgba(238,242,250,0.6)';
+    ctx.textAlign = 'left'; ctx.fillText('cold', thX(0), y0 + 6);
+    ctx.textAlign = 'right'; ctx.fillText('hot', thX(1), y0 + 6);
+    // Event: an arrow from the thumb to where the weather pushes the pool.
+    const off = ev ? (ev.kind === 'snap' || (ev.kind === 'double' && t < ev.at + EV_LEN) ? -EV_OFF : ev.kind === 'heat' || ev.kind === 'double' ? EV_OFF : 0) : 0;
+    if (off) {
+      const xa = thX(Ts), xb = thX(Math.max(0, Math.min(1, Ts + off))), yy = ym - 15;
+      ctx.strokeStyle = off < 0 ? '#9fd0ff' : '#ffb27a'; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(xa, yy); ctx.lineTo(xb, yy); ctx.stroke();
+      const dir = Math.sign(xb - xa) || 1;
+      ctx.beginPath(); ctx.moveTo(xb, yy); ctx.lineTo(xb - dir * 6, yy - 4); ctx.lineTo(xb - dir * 6, yy + 4); ctx.fill();
+      ctx.textAlign = 'center'; ctx.font = '600 11px -apple-system, Segoe UI, Roboto, sans-serif';
+      const lab = { snap: 'cold snap', heat: 'heat wave', double: 'snap + heat' }[ev.kind];
+      ctx.fillText(t < ev.at ? lab + ' coming' : lab, 200, y0 + 6);
+    } else if (ev && ev.kind === 'flush') {
+      ctx.textAlign = 'center'; ctx.fillStyle = '#d6c8ff'; ctx.font = '600 11px -apple-system, Segoe UI, Roboto, sans-serif';
+      ctx.fillText(t < ev.at ? 'salt flush coming' : 'salt flush: pool thinned', 200, y0 + 6);
+    }
+    // Actual temperature: a ring chasing the thumb.
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(thX(T), ym, 15, 0, 6.283); ctx.stroke();
+    // Setpoint thumb
+    ctx.fillStyle = '#ffe9b8'; ctx.beginPath(); ctx.arc(thX(Ts), ym, 10, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = '#3a2a10'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // § input
+  // Tap beside the crystal = seed (snaps to the nearest frontier site); hold on an ion = cleave;
+  // drag on the thermostat strip = set the temperature.
+  let press = null;
+  function toPool(evt) {
+    const r = canvas.getBoundingClientRect();
+    return [(evt.clientX - r.left) * W / r.width, (evt.clientY - r.top) * H / r.height];
+  }
+  function nearest(p, test) {
+    let best = -1, bd = 1e9;
+    for (let i = 0; i < N; i++) { if (!test(i)) continue; const d = Math.hypot(p[0] - PX[i], p[1] - PY[i]); if (d < bd) { bd = d; best = i; } }
+    return [best, bd];
+  }
+  function inThermo(p) { return p[1] >= TH_Y - 8 && p[1] <= TH_Y + TH_H + 4; }
+  function setFromX(x) { setThermo((x - TH_X0) / (TH_X1 - TH_X0)); }
+  let holdWhiffs = 0;
+  function tapAt(p) {
+    const [o, od] = nearest(p, i => occ[i]);
+    const [f, fd] = nearest(p, isFrontier);
+    if (f >= 0 && fd <= SNAP * PITCH && (o < 0 || fd <= od)) {
+      if (seedAt(f)) { hinted.seed = true; return; }
+      sfx('dull');
+      say('The pool is thin: wait for the motes to gather, or warm it up to let them collect.', 4);
+      return;
+    }
+    if (o >= 0 && od <= PITCH * 0.7) {
+      if (holdWhiffs++ < 3) say(CORE[o] ? 'The bright core can\'t be cleaved.' : `${HOLD} on an ion to cleave it off.`, 3);
+    }
+  }
+  canvas.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    audioStart();
+    if (state !== 'playing' || paused || press) return;
+    canvas.setPointerCapture(evt.pointerId);
+    const p = toPool(evt);
+    if (inThermo(p)) { press = { id: evt.pointerId, mode: 'thermo' }; setFromX(p[0]); hinted.thermo = true; return; }
+    const [o, od] = nearest(p, i => occ[i] && !CORE[i]);
+    const [f, fd] = nearest(p, isFrontier);
+    const target = o >= 0 && od <= PITCH * 0.7 && (f < 0 || od < fd) ? o : -1;
+    press = { id: evt.pointerId, mode: 'hold', start: p, t0: performance.now(), target };
+  });
+  canvas.addEventListener('pointermove', evt => {
+    if (!press || evt.pointerId !== press.id) return;
+    const p = toPool(evt);
+    if (press.mode === 'thermo') { if (state === 'playing' && !paused) setFromX(p[0]); return; }
+    if (Math.hypot(p[0] - press.start[0], p[1] - press.start[1]) > HOLD_SLOP) press.mode = 'moved';
+  });
+  function release(evt, cancel) {
+    if (!press || evt.pointerId !== press.id) return;
+    const a = press; press = null;
+    if (cancel || state !== 'playing' || paused) return;
+    if (a.mode === 'hold' && performance.now() - a.t0 < HOLD_MS) tapAt(a.start);
+  }
+  canvas.addEventListener('pointerup', evt => release(evt, false));
+  canvas.addEventListener('pointercancel', evt => release(evt, true));
+  function checkHold() {
+    if (!press || press.mode !== 'hold' || press.target < 0 || performance.now() - press.t0 < HOLD_MS) return;
+    const i = press.target;
+    press.mode = 'done';
+    if (!occ[i]) return;
+    if (t < cdUntil) { sfx('dull'); return; }
+    cleaveAt(i);
+  }
+
+  window.addEventListener('keydown', evt => {
+    audioStart();
+    const k = evt.key;
+    if (k === 'm' || k === 'M') { soundBtn.click(); return; }
+    if ((k === 'Enter' || k === ' ') && !endCard.hidden) { onMain(); evt.preventDefault(); return; }
+    if (state !== 'playing' || paused) return;
+    if (k === 'ArrowLeft' || k === 'ArrowRight') { setThermo(Ts + (k === 'ArrowLeft' ? -KEY_STEP : KEY_STEP)); hinted.thermo = true; evt.preventDefault(); }
+    else if (k === 'h' || k === 'H') doHarvest();
+  });
+
+  function doHarvest() { if (performance.now() >= lockUntil) harvest(); }
+  harvestBtn.addEventListener('click', () => { audioStart(); doHarvest(); });
+  function onMain() {
+    if (performance.now() < lockUntil) return;
+    endCard.hidden = true;
+    if (state === 'banked') nextGeode(); else if (state === 'shattered') retryGeode(); else if (state === 'over') newRun();
+  }
+  mainBtn.addEventListener('click', onMain);
+  altBtn.addEventListener('click', () => { if (performance.now() >= lockUntil) { endCard.hidden = true; newRun(); } });
+  document.getElementById('resetBtn').addEventListener('click', () => { endCard.hidden = true; newRun(); });
+
+  // § loop
+  let last = performance.now(), acc = 0;
+  function frame(now) {
+    const d = Math.min((now - last) / 1000, 0.25);
+    last = now;
+    if (!paused) { acc += d; clock += d; }
+    checkHold();
+    while (acc >= STEP) {
+      if (state === 'playing' && !paused) { step(STEP); if (state === 'playing') hints(); }
+      acc -= STEP;
+    }
+    consumeFx();
+    tickMsg();
+    hud();
+    audioTick();
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  newRun();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
