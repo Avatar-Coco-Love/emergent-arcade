@@ -293,10 +293,18 @@
     }
   });
 
+  // § daily: ?daily=YYYY-MM-DD is the arcade's Daily Challenge (docs/daily.md): one seeded run, the same for everyone that day.
+  const DAILY = (/[?&]daily=(\d{4}-\d\d-\d\d)(?:&|$)/.exec(location.search) || [])[1] || '';
+  const dailySeed = () => { let h = 0x811c9dc5; for (const ch of GAME_ID + ':' + DAILY) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0; return h; };
+  function postFinal(run, score) {
+    if (DAILY && embedded()) window.parent.postMessage({ type: 'arcade:final', game: GAME_ID, daily: DAILY, run: run, score: score }, '*');
+  }
+
   // § state: the run (coats returned, free retries, regulars) and the shift on the hooks.
   let run, st, phase, lastCoat, counts, shiftMs, endT, flash, rattle, sharp, peekView, carryNote;
   function newRun() {
-    run = { id: Math.random().toString(36).slice(2, 10) || 'run', seed: (Math.random() * 1e6) >>> 0, idx: 0, attempt: 1,
+    // A daily run skips the campaign: Endless shifts from the day's seed.
+    run = { id: Math.random().toString(36).slice(2, 10) || 'run', seed: DAILY ? dailySeed() % 1e6 : (Math.random() * 1e6) >>> 0, idx: DAILY ? CAMPAIGN.length : 0, attempt: 1,
       coats: 0, free: CAMPAIGN.map(() => true), carry: [], bonus: 0, over: false, lastWon: false };
     startShift();
   }
@@ -311,7 +319,7 @@
     cursor = 0; press = null;
     layout();
     next(st);
-    $('rule').textContent = (inCampaign() ? `Shift ${run.idx + 1}/${CAMPAIGN.length} · ` : '') + ruleLine(spec);
+    $('rule').textContent = (inCampaign() ? `Shift ${run.idx + 1}/${CAMPAIGN.length} · ` : DAILY ? 'Daily · ' : '') + ruleLine(spec);
     prompt('');
     renderHUD();
   }
@@ -408,10 +416,11 @@
       say(`<span class="loss">Three complaints.</span> Free retry with new coats. Here is where everything hung.`);
     } else {
       run.over = true;
-      say(`<span class="loss">Three complaints: the run is over.</span> ${run.coats} coats returned.`);
+      say(`<span class="loss">Three complaints: the run is over.</span> ${run.coats} coats returned.` + (DAILY ? ' Daily run done.' : ''));
     }
     run.lastWon = won;
     postResult(won, pur);
+    if (run.over) postFinal(run.id, run.coats);
     renderHUD();
   }
   function advance() {
@@ -430,6 +439,7 @@
         cancels: counts.cancels, actions: counts.actions, think_s: t.length ? r1(t[t.length >> 1]) : 0, purity: pur,
         guests: st.spec.guests, budget: st.budget } };
     if (!won) msg.reason = 'complaints';
+    if (DAILY) msg.daily = DAILY;
     window.parent.postMessage(msg, '*');
   }
 
@@ -438,7 +448,7 @@
   const say = html => { $('msg').innerHTML = '<span>' + html + '</span>'; };
   function renderHUD() {
     if (!st) return;
-    $('where').textContent = inCampaign() ? `Shift ${run.idx + 1}` + (run.attempt > 1 ? ' (retry)' : '') : `Endless ${run.idx - CAMPAIGN.length + 1}`;
+    $('where').textContent = inCampaign() ? `Shift ${run.idx + 1}` + (run.attempt > 1 ? ' (retry)' : '') : `${DAILY ? 'Daily' : 'Endless'} ${run.idx - CAMPAIGN.length + 1}`;
     $('cx').textContent = '✕'.repeat(st.complaints) + '○'.repeat(Math.max(0, COMPLAINTS - st.complaints));
     $('cx').title = st.complaints + ' complaints';
     const left = st.budget - st.peeks;

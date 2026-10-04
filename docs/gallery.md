@@ -8,8 +8,9 @@ per check at 360×740, 740×360 and 1280×800; screenshots go to `--out`).
 
 Playtest (private artifact, feedback/telemetry disabled in that copy):
 https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
-(republished for the topic tags PR: try the topic chips on a phone and a
-PC, and the ⓘ panel's Topics line. No `leaderboards.json` there, so no
+(republished for the Daily Challenge PR: the banner on top, "Play today's",
+the 📅 result card after a lost run, Share and Save image. Earlier: the topic
+chips and the ⓘ panel's Topics line. No `leaderboards.json` there, so no
 play counts or boards. In that frame the share buttons can't use the share
 sheet and may not reach the clipboard, so share can do nothing there.)
 
@@ -21,6 +22,7 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/wording.js` | `ArcadeWording`: tap or click (see below). Also run by the Node scripts through `scripts/wording.mjs` |
 | `assets/scores.js` | `ArcadeScores`: score specs, personal bests, handles, `leaderboards.json` ([scores.md](scores.md)) |
 | `assets/names.js` | `ArcadeNames`: typed leaderboard names (clean, fold, check, tag), with the word lists `assets/name-reserved.json` and `assets/name-blocked.json`. Also run by the builder through `scripts/names.mjs` ([scores.md](scores.md), "Typed names") |
+| `assets/daily.js` | `ArcadeDaily`: the Daily Challenge: the day's pick, this browser's daily results and streak, the result card and its share ([daily.md](daily.md)). Also run by the Node scripts through `scripts/daily.mjs` |
 | `assets/progress.js` | `ArcadeProgress`: every per-browser key, New/Updated badges, recent games, export/import/reset, telemetry opt-out |
 | `assets/download.js` | `ArcadeDownload`: standalone copy of a game (header comment + shim) |
 | `assets/cabinet.js` | `ArcadeCabinet.open(game)` / `close()`: toolbar, panels, ⋯ menu, toasts, loading/error states, share, download, rating, nudge |
@@ -30,7 +32,7 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/topics.js` | `ArcadeTopics`: the fixed topic tag list (`LIST`, `get`, `of`). Also run by the Node scripts through `scripts/topics.mjs` |
 | `assets/gallery.js` | cards, search/sort/verb and topic filters, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
-Script order in `index.html`: config, ui, wording, topics, feedback, achievements, scores, progress,
+Script order in `index.html`: config, ui, wording, topics, feedback, achievements, names, scores, daily, progress,
 telemetry, thumbs, download, cabinet, records, spotlight, gallery.
 
 ## Tap or click
@@ -62,6 +64,9 @@ ideas).
   same view. An unknown id shows the gallery with a notice.
 - `#/records` or `#/records?mine=1`: the Records view (below). A cabinet
   opened from it goes back to it (← and focus on the row's ▶).
+- `#/daily`: today's Daily Challenge in the cabinet (the game in daily mode,
+  [daily.md](daily.md)). The gallery's daily banner, above Continue playing,
+  links here; hidden while filtering.
 - `#/spotlight`: the Spotlight view (below). A cabinet opened from it goes
   back to it, with focus on the Play link used.
 
@@ -226,6 +231,9 @@ all show the arcade's card. Instead:
   `assets/og/<id>.png?v=<version>`, then `location.replace("../../#/play/<id>")`
   (JS, so crawlers stay on the tags). These pages exist only on the
   published site.
+- `daily/index.html` does the same for `#/daily` (the arcade's image: the
+  day's game is only known in the browser). The daily result share hands
+  out `<siteUrl>daily/`.
 - The cabinet's share button hands out `<siteUrl>play/<id>/` when the page
   is on `siteUrl`, else the old `#/play/<id>` link (local, playtest copies).
 - Images: 1200×630 PNGs drawn by `scripts/make-og-images.mjs [id ...]`

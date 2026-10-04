@@ -73,6 +73,9 @@ Supabase (free projects pause after a week idle, which means maintenance).
   on phones). The ⓘ, 🏆 and ★ buttons open a panel over the game and pause
   it; ▶ closes the panel and resumes. Nothing in the cabinet scrolls except
   long panel text. Details: [`docs/gallery.md`](docs/gallery.md).
+- **Daily Challenge** (`#/daily`): one featured game a day, the same seeded
+  run for everyone; your first run goes on the day's board and makes a
+  shareable result card. Details: [`docs/daily.md`](docs/daily.md).
 - **Download** saves a game as one HTML file that plays offline, with a
   small shim that keeps achievements in that browser.
 - **Progress** (achievements and what the arcade remembers) lives in the

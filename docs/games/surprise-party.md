@@ -1,10 +1,20 @@
 # Surprise Party: design notes
 
-v1 (2026-10-04). Brief: `docs/ideas/surprise-party.md`. Go/no-go runs and
+v2 (2026-10-04, Daily Challenge; v1 same day). Brief: `docs/ideas/surprise-party.md`. Go/no-go runs and
 superseded house designs: `docs/history/surprise-party.md`.
 Harness: `node scripts/balance-surprise-party.mjs [trials] [1|2|both]`
 (cuts the `// § sim` block out of the game; `show <id>`, `gen [n] [k]` dev
 modes). Playtest (private Artifact): https://claude.ai/artifact/Rm7Soae7ZjRPdG1pLDb9wj
+
+## Daily Challenge (v2)
+
+`?daily=<date>` (the gallery's `#/daily`, [daily.md](../daily.md)): the game
+opens straight into a Party Season with `season.seed = dailySeed() % 1e9`
+(FNV-1a of `surprise-party:<date>`), the same houses for everyone. Each
+season now has its own `run` id (`season.id`; campaign rounds keep the
+page's). Season results carry `daily`; `seasonOver()` posts `arcade:final`
+(`score` = parties). The houses menu still opens the campaign (those
+results aren't daily). Open: no chapter 1-2 tutorial before the season.
 
 ## How it works
 

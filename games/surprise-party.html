@@ -472,6 +472,13 @@ function seasonHouse(seed, k, maxTries = 40) {
     }
   });
 
+  // § daily: ?daily=YYYY-MM-DD is the arcade's Daily Challenge (docs/daily.md): one seeded run, the same for everyone that day.
+  const DAILY = (/[?&]daily=(\d{4}-\d\d-\d\d)(?:&|$)/.exec(location.search) || [])[1] || '';
+  const dailySeed = () => { let h = 0x811c9dc5; for (const ch of GAME_ID + ':' + DAILY) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0; return h; };
+  function postFinal(run, score) {
+    if (DAILY && embedded()) window.parent.postMessage({ type: 'arcade:final', game: GAME_ID, daily: DAILY, run: run, score: score }, '*');
+  }
+
   // § state: the campaign (stars per house) or a season (envelopes carried), and the house in play.
   const runId = Math.random().toString(36).slice(2, 10) || 'run';
   const stars = HOUSES.map(() => 0), attempts = HOUSES.map(() => 0);
@@ -485,7 +492,7 @@ function seasonHouse(seed, k, maxTries = 40) {
     counts = { whispers: 0, doors: 0, waits: 0, undos: 0 };
     if (!inSeason()) attempts[hi]++; else season.attempt++;
     layout(); updatePreview();
-    const tag = inSeason() ? `Party Season · party ${season.k + 1}` : `House ${h.id} · ${h.name}`;
+    const tag = inSeason() ? `${DAILY ? 'Daily season' : 'Party Season'} · party ${season.k + 1}` : `House ${h.id} · ${h.name}`;
     $('rule').textContent = tag;
     say(words(CH_RULE[inSeason() ? 4 : h.ch]));
     renderHUD();
@@ -493,7 +500,9 @@ function seasonHouse(seed, k, maxTries = 40) {
   function playHouse(i) { mode = 'campaign'; hi = i; season = null; closeMenu(); startHouse(HOUSES[i]); }
   function startSeason() {
     mode = 'season'; closeMenu();
-    season = { k: 0, pool: SEASON_START, parties: 0, seed: (Math.random() * 1e9) >>> 0, attempt: 0, house: null, over: false };
+    // A daily season's houses come from the day's seed; each season is its own run.
+    season = { id: Math.random().toString(36).slice(2, 10) || 'season', k: 0, pool: SEASON_START, parties: 0,
+      seed: DAILY ? dailySeed() % 1e9 : (Math.random() * 1e9) >>> 0, attempt: 0, house: null, over: false };
     nextSeasonHouse();
   }
   function nextSeasonHouse() {
@@ -602,16 +611,17 @@ function seasonHouse(seed, k, maxTries = 40) {
   function seasonOver() {
     season.over = true; phase = 'over'; endT = 0;
     say(`<span class="loss">Out of envelopes.</span> The season ends with <b>${season.parties}</b> part${season.parties === 1 ? 'y' : 'ies'}. <b>${words('{Tap}')}</b> for a new season.`);
+    postFinal(season.id, season.parties);
     renderHUD();
   }
   function postResult(won, reason, st) {
     if (!embedded()) return;
     const msg = { type: 'arcade:result', game: GAME_ID, outcome: won ? 'win' : 'loss', time: Math.round(roundMs / 100) / 10,
-      level: inSeason() ? HOUSES.length + season.k + 1 : hi + 1, run: runId,
+      level: inSeason() ? HOUSES.length + season.k + 1 : hi + 1, run: inSeason() ? season.id : runId,
       attempt: inSeason() ? season.attempt : attempts[hi],
       stats: { whispers: s.used, doors: counts.doors, waits: counts.waits, undos: counts.undos, par: house.par || parFor(hi),
         env: P.env, guests: P.n, heard: popcount(s.know), stars: st, ch: house.ch, turn: s.t } };
-    if (inSeason()) { msg.score = season.parties; msg.stats.pool = season.pool; }
+    if (inSeason()) { msg.score = season.parties; msg.stats.pool = season.pool; if (DAILY) msg.daily = DAILY; }
     if (!won) msg.reason = reason;
     window.parent.postMessage(msg, '*');
   }
@@ -832,7 +842,7 @@ function seasonHouse(seed, k, maxTries = 40) {
   window.addEventListener('resize', layout);
   // read-only peek for scripts/ tests (screenshots, playthroughs)
   window.__sp = () => ({ P, s, phase, mode, season, hi, G, cxy, play: playHouse, season0: startSeason, act: doAct, solve, warn });
-  playHouse(0);
+  if (DAILY) startSeason(); else playHouse(0);
   requestAnimationFrame(frame);
 })();
 </script>

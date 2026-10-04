@@ -7,6 +7,7 @@
 //          #/?topic=fluid-dynamics          (topics: assets/topics.js)
 //          #/records, #/records?mine=1     every game's leaderboard (assets/records.js)
 //          #/spotlight                     games that need playtesters (assets/spotlight.js)
+//          #/daily                         today's Daily Challenge (assets/daily.js, docs/daily.md)
 (function () {
   const UI = window.ArcadeUI;
   const { el } = UI;
@@ -21,6 +22,7 @@
   const Records = window.ArcadeRecords;
   const Spotlight = window.ArcadeSpotlight;
   const Topics = window.ArcadeTopics;
+  const Daily = window.ArcadeDaily;
 
   const galleryView = $("galleryView");
   const gameList = $("gameList");
@@ -221,6 +223,56 @@
     );
   }
 
+  // Today's Daily Challenge: the game, this browser's result, the day's leader.
+  function renderDaily() {
+    const banner = $("dailyBanner");
+    const date = Daily.today();
+    const game = games.find((g) => g.id === Daily.pick(games, date));
+    banner.hidden = !game || filtering();
+    if (banner.hidden) return;
+    const sp = Scores.spec(game);
+    const d = Daily.day(date);
+    const mine = d && d.game === game.id ? d : null;
+    const streak = Daily.streak(date);
+    const sub = el("p", { className: "daily-sub" });
+    if (mine && mine.done) {
+      sub.append("Your run: ", el("b", { textContent: mine.first != null ? Scores.format(sp, mine.first) : "–" }), ` ${sp.label.toLowerCase()}`);
+      if (mine.marks) sub.append(" · ", el("span", { className: "daily-marks", textContent: mine.marks }));
+    } else if (mine) {
+      sub.textContent = "Your first run is still going: it counts until it ends.";
+    } else {
+      sub.textContent = "Same run for everyone today. Your first run counts.";
+    }
+    if (streak > 1) sub.append(` · 🔥 ${streak} days`);
+    const leader = el("p", { className: "daily-sub daily-leader" });
+    const b = Daily.board(boards, date);
+    if (b && b.game === game.id && b.top.length) {
+      leader.textContent = `${Scores.count(b.n)} player${b.n === 1 ? "" : "s"} today · 🥇 ${b.top[0].h} ${Scores.format(sp, b.top[0].s)}`;
+    }
+    const play = el("a", { className: "primary", href: "#/daily", textContent: mine && mine.done ? "Practice" : mine ? "Continue" : "Play today's" });
+    play.addEventListener("click", () => { pendingOpen = { from: "daily" }; });
+    const go = el("div", { className: "daily-go" }, [play]);
+    if (mine && mine.done) {
+      const share = el("button", { type: "button", textContent: "Share result" });
+      share.addEventListener("click", async () => {
+        const method = await Daily.share(game, date, mine, galleryToast);
+        if (method) telemetry.event("share", { game_id: game.id, game_version: game.version, method, from: "daily-banner", daily: date });
+      });
+      go.append(share);
+    }
+    if (game.accent) banner.style.setProperty("--card-accent", game.accent);
+    banner.replaceChildren(
+      thumb(game),
+      el("div", {}, [
+        el("p", { className: "daily-kicker", textContent: `Daily #${Daily.number(date)} · ${Daily.longDate(date)}` }),
+        el("h2", { id: "dailyTitle", textContent: game.title }),
+        sub,
+        leader.textContent ? leader : null,
+      ]),
+      go
+    );
+  }
+
   function renderChips() {
     const counts = new Map();
     for (const g of games) for (const m of g.mechanics) counts.set(m.verb, (counts.get(m.verb) || 0) + 1);
@@ -287,6 +339,7 @@
     gameList.replaceChildren(...active.map((g, i) => card(g, "list", i)));
     $("archiveSection").hidden = !archived.length;
     $("archiveList").replaceChildren(...archived.map((g, i) => card(g, "archive", i)));
+    renderDaily();
     renderContinue();
     renderChips();
     renderHeader();
@@ -357,6 +410,26 @@
     }
     const fromRecords = Records.current() || fromSpotlight;
     Records.hide();
+    if (/^#\/daily(\?|$)/.test(location.hash)) {
+      const date = Daily.today();
+      const game = games.find((g) => g.id === Daily.pick(games, date));
+      if (game) {
+        const open = Cabinet.current();
+        if (!open) {
+          galleryScroll = window.scrollY;
+          listHash = fromRecords || galleryHash;
+        }
+        if (!open || open.id !== game.id || Cabinet.daily() !== date) {
+          const src = pendingOpen || { from: "link" };
+          telemetry.event("open", { game_id: game.id, game_version: game.version, from: src.from, daily: date, sort: state.sort || "featured" });
+        }
+        pendingOpen = null;
+        $("backLink").href = listHash;
+        galleryView.hidden = true;
+        Cabinet.open(game, { daily: date });
+        return;
+      }
+    }
     const match = location.hash.match(/^#\/play\/([a-z0-9-]+)/);
     const game = match && games.find((g) => g.id === match[1]);
     if (game) {
@@ -400,7 +473,10 @@
   }
 
   window.addEventListener("hashchange", route);
-  window.addEventListener("arcade:progress", renderHeader);
+  window.addEventListener("arcade:progress", () => {
+    renderHeader();
+    renderDaily();
+  });
   window.addEventListener("arcade:records-open", () => { pendingOpen = { from: "records" }; });
   window.addEventListener("arcade:spotlight-open", () => { pendingOpen = { from: "spotlight" }; });
 
@@ -591,6 +667,7 @@
           if (game) fillPlays(span, game);
         }
         fillPlayTotal();
+        if (!galleryView.hidden) renderDaily();
       });
     })
     .catch((err) => {

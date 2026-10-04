@@ -63,4 +63,41 @@ for (const g of manifest.games) {
   writeFileSync(join(out, "play", g.id, "index.html"), html);
   n++;
 }
-console.log(`share pages: ${n} written to ${join(out, "play")}/`);
+// The Daily Challenge link (docs/daily.md): the arcade's card, then #/daily.
+// Which game is today's is decided in the browser, so the preview stays general.
+{
+  const url = `${siteUrl}daily/`;
+  const title = "Daily Challenge · Emergent Arcade";
+  const blurb = "One game a day, the same run for everyone. Your first run counts. Can you beat my result?";
+  const image = `${siteUrl}assets/og/arcade.png`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(blurb)}">
+<link rel="canonical" href="${esc(url)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emergent Arcade">
+<meta property="og:url" content="${esc(url)}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(blurb)}">
+<meta property="og:image" content="${esc(image)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Emergent Arcade">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0b0b10">
+<script>location.replace("../#/daily");</script>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0b10;color:#e8e8ee;font:18px system-ui,sans-serif}a{color:#6fd3ff}</style>
+</head>
+<body>
+<p><a href="../#/daily">Play today's Daily Challenge</a></p>
+</body>
+</html>
+`;
+  mkdirSync(join(out, "daily"), { recursive: true });
+  writeFileSync(join(out, "daily", "index.html"), html);
+}
+console.log(`share pages: ${n} written to ${join(out, "play")}/, plus daily/`);

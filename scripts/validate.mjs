@@ -84,6 +84,16 @@ for (const [i, g] of games.entries()) {
   const html = readFileSync(path, "utf8");
   checkSelfContained(g.file, html);
   checkAchievements(where, g, html);
+  // Optional: in the Daily Challenge rotation (docs/daily.md). The game must
+  // read ?daily=, tag its results and say when the daily run is over.
+  if (g.daily !== undefined) {
+    if (!g.daily || typeof g.daily !== "object" || !/^\d{4}-\d{2}-\d{2}$/.test(String(g.daily.from || ""))) {
+      fail(`${where}: "daily" must be { "from": "YYYY-MM-DD" }`);
+    }
+    for (const [needle, what] of [["daily=", "read the ?daily= date"], ["arcade:final", "post arcade:final when the daily run ends"], ["msg.daily", "add daily to its arcade:result"]]) {
+      if (!html.includes(needle)) fail(`${where}: has "daily" but games/${g.file} doesn't ${what} (docs/daily.md)`);
+    }
+  }
   // Platform rule: games with rounds report how each one ended, for play
   // telemetry (docs/telemetry.md). Sandboxes (goal starts "Sandbox") have none.
   if (!/^sandbox\b/i.test(g.goal || "") && !html.includes("arcade:result")) {

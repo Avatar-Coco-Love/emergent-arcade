@@ -1,11 +1,20 @@
 # Counterfeit Scale: design notes
 
-**v1** (2026-10-02) · playtest: https://claude.ai/artifact/SYLhAXySXMqp9oH6aC5y5k (private, republished each push) ·
+**v2** (2026-10-04) · playtest: https://claude.ai/artifact/SYLhAXySXMqp9oH6aC5y5k (private, republished each push) ·
 balance: `node scripts/balance-counterfeit-scale.mjs 400`
 Verbs: **load** (drag), **mark** (tap) and **weigh** (hold), sharing **the coins'
 marks and the weighing budget**. 12 campaign cases (2 per rule), then Endless
 until 3 strikes. Score: cases cracked in the run. 5 achievements.
 Original brief: `docs/history/counterfeit-scale.md`.
+
+## Daily Challenge (v2)
+
+`?daily=<date>` (the gallery's `#/daily`, [daily.md](../daily.md)): the run
+skips the campaign and starts at Endless 1 with `run.seed = dailySeed() % 1e9`
+(FNV-1a of `counterfeit-scale:<date>`), the same cases for everyone. Top line
+says `Daily N`. Results carry `daily`; the third strike posts `arcade:final`
+(`score` = cases cracked). Open: Endless has slack 0 from case 1, hard for
+a newcomer; watch the first-run levels median.
 
 ## How it works
 

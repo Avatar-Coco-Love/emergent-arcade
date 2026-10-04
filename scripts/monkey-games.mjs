@@ -5,7 +5,9 @@
 // pause/resume messages. A game fails if it throws (its crash-report snippet
 // posts arcade:error, as it would to the gallery), logs a console error,
 // scrolls, or doesn't report a deliberate test error (the snippet is
-// missing or broken). One line per game.
+// missing or broken). One line per game. Games in the Daily Challenge
+// rotation also get a phone run as the daily (games/<file>?daily=<date>),
+// whose results must carry that date (docs/daily.md).
 //
 //   node scripts/monkey-games.mjs [<id> ...] [--seconds 6] [--seed 1] [--jobs 4]
 //
@@ -50,9 +52,9 @@ const { chromium } = await loadPlaywright();
 
 // Same sandbox as the gallery's #gameFrame; messages from the game are
 // collected in window.__got.
-const harness = (file) => `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+const harness = (file, query) => `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>html,body{margin:0;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%;display:block}</style></head>
-<body><iframe id="f" sandbox="allow-scripts" allow="accelerometer; gyroscope" src="/games/${file}"></iframe>
+<body><iframe id="f" sandbox="allow-scripts" allow="accelerometer; gyroscope" src="/games/${file}${query || ""}"></iframe>
 <script>
 window.__got = [];
 const f = document.getElementById("f");
@@ -66,8 +68,9 @@ const server = http.createServer((req, res) => {
   const m = url.pathname.match(/^\/__harness\/([a-z0-9-]+)$/);
   if (m) {
     const g = games.find((x) => x.id === m[1]);
+    const daily = url.searchParams.get("daily");
     res.writeHead(g ? 200 : 404, { "Content-Type": "text/html" });
-    res.end(g ? harness(g.file) : "not found");
+    res.end(g ? harness(g.file, daily ? `?daily=${daily}` : "") : "not found");
     return;
   }
   const rel = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, "");
@@ -104,6 +107,8 @@ const VIEWPORTS = [
   { name: "desktop", viewport: { width: 1280, height: 800 } },
 ];
 
+const DAILY_DATE = new Date().toISOString().slice(0, 10);
+
 async function monkey(browser, game, vp, seed) {
   const problems = [];
   const ctx = await browser.newContext({ viewport: vp.viewport, hasTouch: !!vp.hasTouch, isMobile: !!vp.isMobile });
@@ -117,7 +122,7 @@ async function monkey(browser, game, vp, seed) {
   });
   page.on("pageerror", (err) => problems.push(`page: ${String(err.message).slice(0, 160)}`));
   try {
-    await page.goto(`${base}/__harness/${game.id}`, { waitUntil: "load" });
+    await page.goto(`${base}/__harness/${game.id}${vp.daily ? `?daily=${DAILY_DATE}` : ""}`, { waitUntil: "load" });
     const frame = page.frames().find((f) => f.url().includes(`/games/${game.file}`));
     if (!frame) throw new Error("game frame missing");
     await frame.waitForLoadState("load");
@@ -184,6 +189,13 @@ async function monkey(browser, game, vp, seed) {
     // That test error is expected in the console; drop it.
     for (let i = problems.length - 1; i >= 0; i--) if (/monkey self-test/.test(problems[i])) problems.splice(i, 1);
 
+    if (vp.daily) {
+      const plain = got.filter((x) => x.type === "arcade:result" && x.daily !== DAILY_DATE).length;
+      if (plain) problems.push(`${plain} daily result(s) without daily: "${DAILY_DATE}"`);
+      for (const f of got.filter((x) => x.type === "arcade:final")) {
+        if (f.daily !== DAILY_DATE || !/^[a-z0-9]{1,16}$/.test(String(f.run || "")) || !(Number(f.score) >= 0)) problems.push(`bad arcade:final ${JSON.stringify(f).slice(0, 120)}`);
+      }
+    }
     const results = got.filter((x) => x.type === "arcade:result").length;
     const ach = got.filter((x) => x.type === "arcade:achievement").length;
     return { problems, info: `${step} inputs, ${results} result(s), ${ach} achievement(s)` };
@@ -197,7 +209,9 @@ async function monkey(browser, game, vp, seed) {
 
 const browser = await chromium.launch();
 let failures = 0;
-const queue = games.flatMap((g, gi) => VIEWPORTS.map((vp) => ({ g, vp, seed: SEED * 1000 + gi * 10 + VIEWPORTS.indexOf(vp) })));
+const DAILY_VP = { ...VIEWPORTS[0], name: "daily", daily: true };
+const queue = games.flatMap((g, gi) => [...VIEWPORTS, ...(g.daily ? [DAILY_VP] : [])]
+  .map((vp, vi) => ({ g, vp, seed: SEED * 1000 + gi * 10 + vi })));
 async function worker() {
   for (let job = queue.shift(); job; job = queue.shift()) {
     const { problems, info } = await monkey(browser, job.g, job.vp, job.seed);
@@ -209,5 +223,5 @@ async function worker() {
 await Promise.all(Array.from({ length: Math.max(1, JOBS) }, worker));
 await browser.close();
 server.close();
-console.log(failures ? `\n${failures} failure(s)` : `\nOK: ${games.length} game(s) × ${VIEWPORTS.length} sizes`);
+console.log(failures ? `\n${failures} failure(s)` : `\nOK: ${games.length} game(s) × ${VIEWPORTS.length} sizes, plus ${games.filter((g) => g.daily).length} daily run(s)`);
 process.exit(failures ? 1 : 0);

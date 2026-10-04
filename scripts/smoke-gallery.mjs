@@ -42,6 +42,10 @@ const manifest = JSON.parse(readFileSync(join(root, "games/games.json"), "utf8")
 const { WORDS } = (await import("./wording.mjs")).wording;
 const Topics = (await import("./topics.mjs")).topics;
 const games = manifest.games;
+const { daily: Daily } = await import("./daily.mjs");
+// Today's Daily Challenge, in this machine's time zone (the browser's too).
+const TODAY = Daily.today();
+const dailyGame = games.find((g) => g.id === Daily.pick(games, TODAY));
 const rows = []; // everything the gallery sent to the (fake) endpoint
 
 // Play counts in the leaderboards.json fixture: the first game has 18 plays
@@ -81,7 +85,8 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify({ format: "emergent-arcade-leaderboards", version: 1, updated_at: "2026-09-30T12:00:00Z", through: null,
       games: { "pressure-grid": { epoch: 2, boards: { main: [{ h: "Jade Owl", p: "x", s: 12, at: "2026-10-01", v: 8 }, { h: "Misty Wren", p: "y", s: 6, at: "2026-10-01", v: 8 }] } } },
       names: { x: { n: "Coco", r: "Jade Owl", at: "2026-10-01T00:00:00.000Z" } },
-      plays: PLAYS, spotlight: SPOTLIGHT }));
+      plays: PLAYS, spotlight: SPOTLIGHT,
+      daily: dailyGame ? { [TODAY]: { game: dailyGame.id, n: 2, top: [{ h: "Jade Owl", p: "x", s: 5, at: TODAY }, { h: "Misty Wren", p: "y", s: 1, at: TODAY }] } } : {} }));
     return;
   }
   const rel = normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)).replace(/^([/\\])+/, "");
@@ -404,7 +409,7 @@ for (const vp of VIEWPORTS) {
       await page.waitForSelector(".toast:has-text('New best!'):has-text('was 5'):has-text('#2 on the leaderboard')", { timeout: 3000 });
       await post("win", 4);
       await page.waitForSelector(".toast:has-text('your best 9')", { timeout: 3000 });
-      const scored = rows.filter((r) => r.kind === "round" && r.score != null);
+      const scored = rows.filter((r) => r.kind === "round" && r.score != null && !r.daily);
       assert(scored.length === 3 && scored[1].score === 9 && scored[1].board === "main" && scored[1].score_epoch === 2 && /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(scored[1].handle), JSON.stringify(scored[1]));
       await page.locator('.toolbar [data-panel="achievements"]').click();
       assert((await page.locator("#panelTitle").textContent()) === "Records", "panel title");
@@ -465,6 +470,64 @@ for (const vp of VIEWPORTS) {
 
   await page.locator("#backLink").click();
   await page.waitForSelector("#galleryView:not([hidden])");
+
+  await check(tag("daily challenge: banner, run, result card, board"), async () => {
+    assert(dailyGame, "no game in the daily rotation");
+    await page.goto(`${base}#/`);
+    await page.waitForSelector("#dailyBanner:not([hidden])");
+    const kicker = await page.locator("#dailyBanner .daily-kicker").textContent();
+    assert(kicker.includes(`Daily #${Daily.number(TODAY)} ·`), kicker);
+    assert((await page.locator("#dailyTitle").textContent()) === dailyGame.title, "banner title");
+    await page.waitForSelector("#dailyBanner .daily-leader:has-text('Jade Owl')");
+    assert(await noHScroll(page), "horizontal scroll");
+    await shot("daily-banner");
+    await page.locator("#dailyBanner a.primary").click();
+    await page.waitForSelector("#cabinet:not([hidden])");
+    await waitGame(page);
+    assert((await page.evaluate(() => location.hash)) === "#/daily", "hash");
+    assert((await page.locator("#gameFrame").getAttribute("src")).includes(`daily=${TODAY}`), "frame src has no daily date");
+    assert((await page.locator("#cabVersion").textContent()) === `Daily #${Daily.number(TODAY)}`, "title bar tag");
+    assert(await page.locator("#dailyBtn").isVisible(), "no daily button");
+    assert(!(await page.evaluate(() => { const b = document.querySelector(".toolbar"); return b.scrollWidth > b.clientWidth + 1; })), "toolbar overflows");
+    if (await page.locator("#panel").isVisible()) {
+      assert(await page.locator("#aboutDaily").isVisible(), "intro has no daily note");
+      await page.locator("#aboutPlay").click();
+    }
+    const frame = page.frames().find((f) => f.url().includes(`daily=${TODAY}`));
+    const post = (msg) => frame.evaluate(([id, m]) => parent.postMessage(Object.assign({ game: id }, m), "*"), [dailyGame.id, msg]);
+    const n0 = rows.length;
+    const r = (outcome, score, run) => post({ type: "arcade:result", outcome, time: 9, score, run, daily: TODAY, level: 13 });
+    await r("win", 1, "smoke1");
+    await r("win", 2, "smoke1");
+    await r("loss", 2, "smoke1");
+    await post({ type: "arcade:final", run: "smoke1", score: 2, daily: TODAY });
+    await page.waitForSelector('#panel:not([hidden]) [data-body="daily"]:not([hidden])', { timeout: 5000 });
+    await page.waitForFunction(() => document.getElementById("dailyCard").src.startsWith("blob:"), null, { timeout: 5000 });
+    await page.waitForSelector("#dailyLb li.me");
+    const lb = await page.locator("#dailyLb li").allTextContents();
+    assert(lb.length === 3 && lb[0].includes("Jade Owl") && lb[1].includes("(you)") && lb[1].startsWith("#2"), lb.join(" | "));
+    await shot("daily-result");
+    for (let i = 0; i < 40 && rows.slice(n0).filter((x) => x.kind === "round").length < 3; i++) await page.waitForTimeout(50);
+    const rounds = rows.slice(n0).filter((x) => x.kind === "round");
+    assert(rounds.length === 3 && rounds.every((x) => x.daily === TODAY && x.daily_first === 1 && x.board === undefined && x.score_epoch >= 1), JSON.stringify(rounds[0]));
+    // A practice run: sent, but not as a first run.
+    await page.keyboard.press("Escape");
+    await r("win", 1, "smoke2");
+    for (let i = 0; i < 40 && rows.slice(n0).filter((x) => x.kind === "round").length < 4; i++) await page.waitForTimeout(50);
+    const practice = rows.slice(n0).filter((x) => x.kind === "round")[3];
+    assert(practice && practice.daily_first === 0, `practice row ${JSON.stringify(practice)}`);
+    await page.locator("#backLink").click();
+    await page.waitForSelector("#galleryView:not([hidden])");
+    const sub = await page.locator("#dailyBanner .daily-sub").first().textContent();
+    assert(sub.includes("Your run: 2") && sub.includes("🟩🟩🟥"), sub);
+    if (!coarse) {
+      await page.locator("#dailyBanner button:has-text('Share result')").click();
+      await page.waitForSelector(".toast:has-text('Result copied')", { timeout: 3000 });
+      const clip = await page.evaluate(() => navigator.clipboard.readText());
+      assert(clip.includes(`Daily #${Daily.number(TODAY)} · ${dailyGame.title}`) && clip.includes("🟩🟩🟥") && clip.includes("#/daily"), clip);
+    }
+    return `${dailyGame.id}: ${lb.join(" | ")}`;
+  });
 
   await check(tag("sort, verb filter, search in the hash"), async () => {
     await page.selectOption("#sort", "title");

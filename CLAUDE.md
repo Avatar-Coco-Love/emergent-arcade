@@ -19,6 +19,8 @@
   `arcade:result` (win/loss, time) when one ends (`docs/telemetry.md`).
   Every game has a `score` in the manifest (personal bests + leaderboard,
   `docs/scores.md`); bump `score.epoch` when a revision changes its meaning.
+  Games with a seeded generator can join the Daily Challenge rotation
+  (`daily` in the manifest, `docs/daily.md`).
   Target: 10+ minutes of play for a player who likes the game
   (`docs/ROADMAP.md`, depth pass).
 - Manifest text is read on phones and PCs: write `{tap}`, `{finger}`,

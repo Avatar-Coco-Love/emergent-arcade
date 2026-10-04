@@ -191,6 +191,33 @@ button.linkish {
   .continue-title { white-space: normal; }
 }
 
+/* ---------- Daily Challenge banner (docs/daily.md) ---------- */
+
+.daily-banner {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 12px; row-gap: 8px; align-items: center;
+  margin: 0 0 12px; padding: 12px;
+  background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--card-accent, var(--accent)); border-radius: var(--radius);
+}
+.daily-banner .thumb { width: 64px; height: 64px; }
+.daily-kicker { margin: 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.daily-banner h2 { margin: 0; font-size: 1.15rem; line-height: 1.2; }
+.daily-sub { margin: 2px 0 0; font-size: 0.85rem; color: var(--muted); }
+.daily-sub b { color: var(--text); }
+.daily-marks { letter-spacing: 1px; }
+.daily-go { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.daily-go a.primary, .daily-go button {
+  display: inline-flex; align-items: center; justify-content: center; min-height: var(--tap); padding: 0 16px;
+  border-radius: 10px; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.daily-go a.primary { background: var(--card-accent, var(--accent)); color: #0b0b10; border: 0; }
+.daily-go button { background: transparent; color: inherit; border: 1px solid var(--border); }
+.daily-go a.primary:focus-visible, .daily-go button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.daily-leader { font-size: 0.8rem; color: var(--muted); }
+@media (min-width: 640px) {
+  .daily-banner { grid-template-columns: 64px minmax(0, 1fr) auto; }
+  .daily-go { grid-column: auto; justify-content: flex-end; }
+}
+
 /* ---------- cards ---------- */
 
 .game-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
@@ -678,3 +705,9 @@ textarea {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .spinner { border-top-color: rgba(255, 255, 255, 0.15); }
 }
+
+/* ---------- Daily Challenge panel (cabinet) ---------- */
+
+.daily-note { margin: 0 0 12px; padding: 8px 10px; border-left: 3px solid var(--game-accent, var(--accent)); background: var(--panel-2); border-radius: 6px; font-size: 0.9rem; }
+.daily-card-wrap { margin: 8px 0; }
+.daily-card { display: block; width: 100%; max-width: 360px; aspect-ratio: 1; border-radius: 10px; background: #0b0b10; }

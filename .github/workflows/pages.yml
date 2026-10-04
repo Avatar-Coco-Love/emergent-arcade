@@ -32,6 +32,8 @@ jobs:
         run: node scripts/test-apps-script.mjs
       - name: Test typed leaderboard names
         run: node scripts/test-names.mjs
+      - name: Test the Daily Challenge pick and boards
+        run: node scripts/test-daily.mjs
       - name: Assemble site
         # Only the public files are published; docs, scripts and the Apps
         # Script source stay in the repo.

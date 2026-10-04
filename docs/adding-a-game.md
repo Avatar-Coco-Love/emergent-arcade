@@ -156,7 +156,10 @@ published from a branch.
 7. Write `docs/games/<id>.md`: key constants, layout, balance numbers and
    open ideas (see `docs/games/murmuration.md`, and "Notes files" below).
    Sessions read this file, not PR bodies, so keep it current and short.
-8. Open a PR and fill in the template checklist.
+8. Optional: join the Daily Challenge rotation if the game can build a
+   seeded run (`"daily": { "from": "<a date after merge>" }`, the
+   `§ daily` block and `arcade:final`; [daily.md](daily.md)).
+9. Open a PR and fill in the template checklist.
 
 ## Revising a game from feedback
 

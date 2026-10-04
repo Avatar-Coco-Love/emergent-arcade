@@ -1278,10 +1278,16 @@
       "id": "counterfeit-scale",
       "title": "Counterfeit Scale",
       "file": "counterfeit-scale.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-10-02",
-      "updated": "2026-10-02",
+      "updated": "2026-10-04",
+      "daily": { "from": "2026-10-04" },
       "changes": [
+        {
+          "version": 2,
+          "date": "2026-10-04",
+          "text": "Daily Challenge: the arcade's daily banner opens a seeded Endless run, the same cases for everyone that day. Your first run goes on the daily board."
+        },
         {
           "version": 1,
           "date": "2026-10-02",
@@ -1353,10 +1359,16 @@
       "id": "coat-check",
       "title": "Coat Check",
       "file": "coat-check.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-10-03",
-      "updated": "2026-10-03",
+      "updated": "2026-10-04",
+      "daily": { "from": "2026-10-04" },
       "changes": [
+        {
+          "version": 2,
+          "date": "2026-10-04",
+          "text": "Daily Challenge: the arcade's daily banner opens a seeded Endless run, the same shifts for everyone that day. Your first run goes on the daily board."
+        },
         {
           "version": 1,
           "date": "2026-10-03",
@@ -1603,9 +1615,10 @@
       "id": "surprise-party",
       "title": "Surprise Party",
       "file": "surprise-party.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-10-04",
       "updated": "2026-10-04",
+      "daily": { "from": "2026-10-04" },
       "blurb": "Spread the word about the party through the house as a ripple of whispers, and steer it with doors so the birthday person doesn't hear before 8:00.",
       "goal": "Get every guest in each house to hear about the party by 8:00 while the birthday person hears nothing before then. 15 houses in three chapters (stars for envelopes saved), then Party Season: endless new houses, envelopes carry over, and the score is the parties you pull off before they run out.",
       "howToPlay": "It's 6:00 and the party starts at 8:00; every move takes 15 minutes. {Tap} a guest to whisper the news (it costs one envelope). Anyone who just heard tells everyone within 2 steps on the next quarter hour, then goes quiet and puts on a party hat, so the news moves as a ripple and never comes back. Walls and shut doors stop it. {Hold} a door to shut or open it, or press Wait to let the clock move on. Dashed rings show who hears next; the pink tint is the birthday person's 2-step danger zone. News that reaches them exactly at 8:00 is fine: that's the surprise. Undo is free in the campaign; in Party Season an undone whisper stays spent.",
@@ -1657,6 +1670,11 @@
         "epoch": 1
       },
       "changes": [
+        {
+          "version": 2,
+          "date": "2026-10-04",
+          "text": "Daily Challenge: the arcade's daily banner opens a seeded Party Season, the same houses for everyone that day. Your first season goes on the daily board."
+        },
         {
           "version": 1,
           "date": "2026-10-04",

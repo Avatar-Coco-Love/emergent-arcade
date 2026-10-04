@@ -153,6 +153,37 @@ for (const [k, rows] of [...groups].sort()) {
   if (ach.size) console.log(`  achievements: ${[...ach].sort((a, b) => b[1] - a[1]).map(([id, n]) => `${id} ${n}`).join(", ")}`);
 }
 if (galleryRows.length) gallerySummary(galleryRows);
+dailySummary(data.rows, galleryRows);
+
+// Daily Challenge (docs/daily.md): per date, the day's game, how many
+// players finished a first run, their scores (the counted run's best) and
+// how many came back to practice. One line per date, newest first.
+function dailySummary(rows, events) {
+  const days = new Map();
+  for (const r of rows.filter((x) => x.kind === "round" && x.daily)) {
+    if (!days.has(r.daily)) days.set(r.daily, []);
+    days.get(r.daily).push(r);
+  }
+  if (!days.size) return;
+  console.log("\ndaily: date game · players · first-run score median (best) · levels median · practice runs · finished");
+  for (const [date, list] of [...days].sort((a, b) => b[0].localeCompare(a[0]))) {
+    const first = new Map(); // player -> { score, levels }
+    const practice = new Set();
+    for (const r of list) {
+      if (Number(r.daily_first) === 1) {
+        const f = first.get(r.client_id) || { score: 0, levels: 0 };
+        f.score = Math.max(f.score, Number(r.score) || 0);
+        f.levels++;
+        first.set(r.client_id, f);
+      } else practice.add(`${r.client_id}:${r.run}`);
+    }
+    const scores = [...first.values()].map((f) => f.score);
+    const games = [...new Set(list.map((r) => r.game_id))].join("+");
+    const finals = events.filter((e) => e.action === "daily" && e.daily === date && e.game_id === games).length;
+    console.log(`  ${date} ${games} · ${first.size} · ${median(scores) ?? "-"} (${scores.length ? Math.max(...scores) : "-"}) · ` +
+      `${median([...first.values()].map((f) => f.levels)) ?? "-"} · ${practice.size} · ${finals}`);
+  }
+}
 
 // Gallery events (docs/telemetry.md#gallery-events): how players find and
 // pass on games. One line per kind of action.
