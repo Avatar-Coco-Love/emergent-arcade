@@ -1598,6 +1598,71 @@
           "text": "First version."
         }
       ]
+    },
+    {
+      "id": "surprise-party",
+      "title": "Surprise Party",
+      "file": "surprise-party.html",
+      "version": 1,
+      "added": "2026-10-04",
+      "updated": "2026-10-04",
+      "blurb": "Spread the word about the party through the house as a ripple of whispers, and steer it with doors so the birthday person doesn't hear before 8:00.",
+      "goal": "Get every guest in each house to hear about the party by 8:00 while the birthday person hears nothing before then. 15 houses in three chapters (stars for envelopes saved), then Party Season: endless new houses, envelopes carry over, and the score is the parties you pull off before they run out.",
+      "howToPlay": "It's 6:00 and the party starts at 8:00; every move takes 15 minutes. {Tap} a guest to whisper the news (it costs one envelope). Anyone who just heard tells everyone within 2 steps on the next quarter hour, then goes quiet and puts on a party hat, so the news moves as a ripple and never comes back. Walls and shut doors stop it. {Hold} a door to shut or open it, or press Wait to let the clock move on. Dashed rings show who hears next; the pink tint is the birthday person's 2-step danger zone. News that reaches them exactly at 8:00 is fine: that's the surprise. Undo is free in the campaign; in Party Season an undone whisper stays spent.",
+      "keyboard": "Space or W to wait, U to undo, R to restart, Enter for the next house",
+      "mechanics": [
+        {
+          "name": "whisper",
+          "verb": "tap",
+          "description": "{Tap} a guest who hasn't heard to tell them. Spends an envelope and starts a ripple from them on the next quarter hour."
+        },
+        {
+          "name": "door",
+          "verb": "hold",
+          "description": "{Hold} a door until the ring closes to shut or open it. Shut doors stop the ripple; every toggle takes 15 minutes."
+        }
+      ],
+      "sharedState": "Who knows (not yet, just heard, quiet) and which doors are shut, against the clock. Whisper writes who knows; the spread reads who just heard and the doors to decide who hears next; Door rewrites the walking distances the spread reads, so a door shut as a ripple passes saves a whisper, and one shut too early cuts the house in two.",
+      "topics": ["contagion", "timing", "planning"],
+      "accent": "#ff8fb1",
+      "achievements": [
+        {
+          "id": "word-of-mouth",
+          "title": "Word of Mouth",
+          "description": "Win a house of 8 or more guests with a single whisper."
+        },
+        {
+          "id": "just-in-time",
+          "title": "Just in Time",
+          "description": "Win a house where the news reaches the birthday person exactly at 8:00."
+        },
+        {
+          "id": "open-house",
+          "title": "Open House",
+          "description": "Win a chapter 2 or 3 house without touching a door."
+        },
+        {
+          "id": "party-planner",
+          "title": "Party Planner",
+          "description": "Pull off 10 parties in one Party Season."
+        }
+      ],
+      "score": {
+        "label": "Parties pulled off",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 1000,
+        "epoch": 1
+      },
+      "changes": [
+        {
+          "version": 1,
+          "date": "2026-10-04",
+          "text": "New game: whisper the party news through the house and steer it with doors. 15 houses in three chapters, then endless Party Season."
+        }
+      ]
     }
   ]
 }

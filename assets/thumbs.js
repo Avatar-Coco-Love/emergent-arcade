@@ -298,6 +298,22 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
+  function surpriseParty() {
+    let body = `<rect width="72" height="72" fill="#1a1420"/>`;
+    // Two rooms; a ripple spreads from a guest in party hats; the birthday person waits behind a shut door.
+    body += `<rect x="5" y="5" width="62" height="34" fill="#f7e8c9"/><rect x="5" y="44" width="62" height="23" fill="#e7def6"/>`;
+    body += `<rect x="5" y="39" width="62" height="5" fill="#3b2f45"/><rect x="44" y="39" width="12" height="5" fill="#9b6a3a"/>`;
+    body += `<circle cx="22" cy="22" r="15" fill="none" stroke="#ffd166" stroke-width="2.2" opacity="0.8"/>`;
+    const face = (x, y, c) => { body += `<circle cx="${x}" cy="${y}" r="5.5" fill="${c}" stroke="#2a1d22" stroke-width="0.6"/><circle cx="${x - 2}" cy="${y - 0.8}" r="0.8" fill="#2a1d22"/><circle cx="${x + 2}" cy="${y - 0.8}" r="0.8" fill="#2a1d22"/>`; };
+    const hat = (x, y, c) => { body += `<path d="M ${x - 3.6} ${y - 4} L ${x + 3.6} ${y - 4} L ${x} ${y - 12} Z" fill="${c}"/>`; };
+    face(22, 24, "#f2c9a0"); hat(22, 24, "#ff6f91");
+    face(36, 30, "#a8754f"); hat(36, 30, "#5ec2ff");
+    face(12, 32, "#d9a477"); hat(12, 32, "#ffd166");
+    face(55, 22, "#f5d6b8");
+    body += `<circle cx="50" cy="57" r="6" fill="#e2b6ff" stroke="#2a1d22" stroke-width="0.6"/><path d="M 50 50 L 45 47 L 45 53 Z M 50 50 L 55 47 L 55 53 Z" fill="#ff4f7b"/>`;
+    return svg(body);
+  }
+
   function mycelium() {
     let body = `<rect width="72" height="72" fill="#1f1610"/>`;
     // Threads from the glowing spore out to two leaf patches, one fruiting, one branch rotting.
@@ -314,5 +330,5 @@ window.ArcadeThumbs = (function () {
     return svg(body);
   }
 
-  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale, "coat-check": coatCheck, mycelium };
+  return { "pressure-grid": pressureGrid, "orbit-garden": orbitGarden, murmuration, "ant-trails": antTrails, "wildfire-line": wildfireLine, "hourglass-delivery": hourglassDelivery, "hot-iron": hotIron, "island-census": islandCensus, loom, "terrace-garden": terraceGarden, "bubble-glass": bubbleGlass, tidewright, "rail-yard": railYard, aqueduct, "counterfeit-scale": counterfeitScale, "coat-check": coatCheck, mycelium, "surprise-party": surpriseParty };
 })();
