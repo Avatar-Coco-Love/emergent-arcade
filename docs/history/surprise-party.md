@@ -4,6 +4,47 @@ Older versions, superseded balance tables and rationale. Current design:
 `docs/games/surprise-party.md` (once the game exists). Add new entries at
 the top; sessions don't read this file by default.
 
+## Go/no-go re-run: chapter 3 rebuilt (2026-10-04)
+
+The hallway houses are now built like 2-1: a junction guest sits in the room
+right above the birthday person's door, the birthday person stands in the
+hallway below, and the hallway relays from each wing's end door carry the
+wave toward the guests beside them. 3-1 *The hallway*: relays end 2 steps
+from the birthday person. 3-2 *Beside them*: guests right beside them,
+linked through them, plus a lone guest at the far right. The old 3-1 and
+3-2 (U-shaped rooms, Crossroads) are in the first run below.
+
+Harness changes: a `spare` line (the most envelopes the house can give while
+whisper-only, and for chapter 3 doors-first, still lose), and the novice's
+wrong whisper never picks a guest inside the tinted danger zone (the game
+shows that zone; whispering there is a choice, not a slip).
+
+| house | env | par | decisions | wo | spare max | doors-first | novice 2 taps (any / slips / +1 env) | 3 taps |
+|---|---|---|---|---|---|---|---|---|
+| 1-3 | 1 | 1 | 1 | 1 | - | win | 65 / 80 / 91 | 58 |
+| 2-1 | 2 | 1 | 3 | 4 | 3 | win | 73 / 59 / 68 | 39 |
+| 2-2 | 3 | 2 | 4 | 5 | 4 | win | 41 / 41 / 44 | 20 |
+| 3-1 | 2 | 1 | 3 | 4 | 2 | fails (3 env) | 44 / 63 / 60* | 14 |
+| 3-2 | 3 | 2 | 4 | 5 | 3 | fails (4 env) | 27 / 35 / 46* | 12 |
+
+\* +1 env would let doors-first win, so chapter 3 can't use it.
+
+Plans: 3-1 `· · d2 w3 d0 · · ·` (shut the birthday door, whisper the
+junction at 6:45, open the right wing's door at 7:00); 3-2
+`· d0 d2 w11 · · · w18` (open the wing door, shut the birthday door,
+whisper at 6:45, the lone far guest at 7:45).
+
+Checks: rules, whisper-only, doors-first, habit, decisions all PASS.
+Novice median after 2 wrong taps **44%** (was 31%, target 50%) FAIL; after
+3, **20%** (target 25%) FAIL. Whisper-only now needs 4–5 envelopes on every
+chapter 2–3 house (par 1–2), so doors are worth 3 whispers, not 1.
+
+What's left: chapter 3's spare envelope is capped by doors-first, not
+whisper-only: with every hallway door shut, each hallway side needs one
+timed whisper, so doors-first costs exactly par + 2. A third shut-off
+hallway piece (a room below the hallway) would raise that cap. The
+remaining gap is timing slips: the junction whisper has a 1–2 turn window.
+
 ## Pre-build go/no-go (2026-10-04, before v1)
 
 **Not built yet.** Brief: `docs/ideas/surprise-party.md`. Harness:
