@@ -3,7 +3,7 @@
 // games must never depend on the gallery.
 //
 // The copy is the game file as served, plus an HTML comment header (title,
-// version, date, source) and a small shim before </body>. Games only
+// version, date, source, license) and a small shim before </body>. Games only
 // announce achievements to a parent frame (`if (window.parent !== window)`),
 // so when the copy runs on its own the shim stands in for that parent: it
 // hears arcade:achievement messages, saves them in localStorage (same key and
@@ -71,6 +71,8 @@ window.ArcadeDownload = (function () {
       `  From Emergent Arcade: ${clean(sourceUrl)}`,
       `  Downloaded ${new Date().toISOString().slice(0, 10)}. Plays offline in any browser;`,
       "  achievements are saved in the browser that opens this file.",
+      "  (c) 2026 Cody Joshua Clements. MIT License: free to use, copy and change, keep this notice.",
+      "  https://github.com/Avatar-Coco-Love/emergent-arcade/blob/main/LICENSE",
       "-->",
     ].join("\n");
   }

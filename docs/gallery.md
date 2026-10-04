@@ -199,7 +199,7 @@ logs a `share` row with `from: "gallery"`.
 - Share: Web Share API on touch devices, else copy the link ("Link
   copied"), else a prompt.
 - Download: `fetch` the game file, add an HTML comment header (title,
-  version, date, source link) after the doctype and a shim before
+  version, date, source link, copyright and MIT notice) after the doctype and a shim before
   `</body>`, save as `<id>-v<version>.html`. Games only post to a parent
   frame (`if (window.parent !== window)`), so the shim redefines
   `window.parent` as a stand-in that receives `arcade:achievement`, saves it

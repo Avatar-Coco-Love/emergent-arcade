@@ -365,6 +365,7 @@ for (const vp of VIEWPORTS) {
     const problems = selfContainedProblems(html);
     assert(!problems.length, problems.join("; "));
     assert(html.includes(`${first.title} v${first.version}`), "no header comment");
+    assert(html.includes("MIT License"), "no license notice in the header comment");
     return `${Math.round(html.length / 1024)} KB, passes the self-contained rules`;
   });
 
