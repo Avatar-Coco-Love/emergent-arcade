@@ -34,8 +34,10 @@ scripts/
   validate.mjs             checks manifest + design rules; runs in CI
   self-contained.mjs       the "one self-contained file" rules (validate + smoke test)
   smoke-gallery.mjs        Playwright check of the gallery at phone and desktop sizes
+  monkey-games.mjs         random input for every game; fails on errors (CI runs both)
   fetch-feedback.mjs       reads accumulated feedback back for review
   fetch-telemetry.mjs      reads play stats and gallery events back
+  fetch-errors.mjs         reads crash reports (games and gallery) back
 docs/                      brief, feedback backend setup, how to add/revise a game,
                            gallery.md (the gallery/cabinet design)
 .github/workflows/pages.yml  validate on PRs, deploy to Pages on merge to main

@@ -2,6 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Content Security Policy (GitHub Pages can't send headers, so it's here).
+     Scripts and styles come only from this site; the only other host the
+     gallery talks to is the Apps Script backend (assets/config.js), which
+     answers via a redirect to script.googleusercontent.com. Games run in
+     their own sandboxed iframe and aren't covered by it. docs/gallery.md. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Emergent Arcade</title>
 <meta name="description" content="Tiny browser games built on emergent, shared-state mechanics. Playable instantly, no installs.">

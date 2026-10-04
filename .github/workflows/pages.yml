@@ -13,6 +13,9 @@ on:
 permissions:
   contents: read
 
+# Third-party actions are pinned to a commit (tag in the comment): a moved
+# or compromised tag can't change what runs with the Pages token.
+
 concurrency:
   group: pages-${{ github.ref }}
   # Superseded PR runs can be dropped; a deploy from main must finish.
@@ -22,7 +25,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate games and manifest
         run: node scripts/validate.mjs
       - name: Test the Apps Script backend
@@ -61,9 +64,34 @@ jobs:
           fi
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: _site
+
+  browser:
+    # Every game under random input, and the gallery smoke test, in Chromium.
+    # Not on the hourly schedule (nothing changed) and not a deploy gate, so
+    # a flaky browser run never holds back the leaderboards.
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Monkey test every game
+        run: node scripts/monkey-games.mjs
+      - name: Gallery smoke test
+        run: node scripts/smoke-gallery.mjs --out smoke-shots
+      - name: Keep screenshots of a failed run
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: smoke-screenshots
+          path: smoke-shots
+          retention-days: 7
 
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -77,4 +105,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

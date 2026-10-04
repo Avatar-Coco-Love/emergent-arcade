@@ -1,6 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+// § crash report: uncaught errors go to the arcade's telemetry (docs/telemetry.md, "Errors").
+(function () {
+  var sent = 0;
+  function report(message, line, col) {
+    if (window.parent === window || sent++ >= 3) return;
+    try {
+      window.parent.postMessage({ type: 'arcade:error', game: 'lighthouse-keeper', message: String(message).slice(0, 300), line: line | 0, col: col | 0 }, '*');
+    } catch (_) {}
+  }
+  window.addEventListener('error', function (e) { report(e.message, e.lineno, e.colno); });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    report('Unhandled rejection: ' + (r && r.message ? r.message : r), 0, 0);
+  });
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lighthouse Keeper</title>

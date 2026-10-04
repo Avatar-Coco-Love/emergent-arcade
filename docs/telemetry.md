@@ -114,6 +114,29 @@ reason and the median of each stat for wins and for losses.
 `validate.mjs` requires `arcade:result` in every game whose `goal` doesn't
 start with "Sandbox".
 
+### Errors
+
+Uncaught errors and unhandled promise rejections, so a crash on a
+player's phone is visible. Kind `error` rows land in the events tab
+(no backend change):
+
+- **Games**: the crash-report snippet at the top of every game's `<head>`
+  posts `{ type: "arcade:error", game, message, line, col }` (at most 3
+  per load). `assets/cabinet.js` forwards it with `source: "game"` and the
+  session's `game_id`, `game_version`, `session_id`.
+- **Gallery**: `assets/telemetry.js` listens for its own errors
+  (`source: "gallery"`, plus `file`); "Script error." from browser
+  extensions is skipped.
+
+At most 5 distinct error rows per page load, and only when telemetry is on.
+Read them with `node scripts/fetch-errors.mjs [--game <id>] [--since
+YYYY-MM-DD]`, one line per distinct error, newest first. Line numbers
+refer to the game file at that version.
+
+Before shipping, `node scripts/monkey-games.mjs [<id>]` gives every game
+seeded random input at phone and desktop sizes in a sandboxed iframe and
+fails on any error, console error or scrolling (CI runs it on every PR).
+
 ## Reading it
 
 ```sh
