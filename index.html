@@ -50,6 +50,9 @@
 
   <main>
     <section id="galleryView" aria-label="Game gallery">
+      <!-- Daily Challenge banner (assets/gallery.js, docs/daily.md). -->
+      <section id="dailyBanner" class="daily-banner" hidden aria-labelledby="dailyTitle"></section>
+
       <section id="continueRow" class="continue" hidden aria-labelledby="continueTitle">
         <h2 id="continueTitle" class="section-title">Continue playing</h2>
         <ul id="continueList" class="continue-list"></ul>
@@ -220,6 +223,7 @@
         <a class="tool back" id="backLink" href="#/" aria-label="Back to all games" title="All games">&larr;</a>
         <h1 id="cabHeading"><span id="cabTitle"></span> <span id="cabVersion" class="ver"></span></h1>
         <button class="tool" type="button" id="playBtn" aria-label="Play" title="Play">&#9654;&#xFE0E;</button>
+        <button class="tool" type="button" data-panel="daily" id="dailyBtn" hidden aria-label="Daily result" title="Daily Challenge: your result and today's board">📅</button>
         <button class="tool" type="button" data-panel="about" aria-label="How to play" title="How to play (?)">&#9432;</button>
         <button class="tool" type="button" data-panel="achievements" aria-label="Achievements" title="Achievements">🏆<span id="achBadge" class="badge"></span></button>
         <button class="tool" type="button" data-panel="rate" aria-label="Rate this game" title="Rate this game">&#9733;</button>
@@ -254,6 +258,7 @@
           <div class="panel-body">
 
             <div data-body="about" class="about">
+              <p id="aboutDaily" class="daily-note" hidden></p>
               <p class="goal-label">Goal</p>
               <p id="aboutGoal" class="goal"></p>
               <ul id="aboutControls" class="verb-rows"></ul>
@@ -316,6 +321,20 @@
               </div>
             </div>
 
+            <!-- Daily Challenge: the result card, share, today's board (assets/daily.js). -->
+            <div data-body="daily" class="daily-panel">
+              <p id="dailyIntro" class="muted"></p>
+              <div id="dailyCardWrap" class="daily-card-wrap" hidden><img id="dailyCard" class="daily-card" alt=""></div>
+              <div id="dailyActions" class="about-actions" hidden>
+                <button type="button" class="primary" id="dailyShare">Share result</button>
+                <button type="button" class="secondary" id="dailySave">Save image</button>
+                <button type="button" class="secondary" id="dailyAgain">Play again</button>
+              </div>
+              <h3>Today's board</h3>
+              <ol id="dailyLb" class="lb-list"></ol>
+              <p id="dailyLbNote" class="muted lb-note"></p>
+            </div>
+
             <form data-body="rate" id="feedbackForm" class="feedback" novalidate>
               <fieldset class="stars" id="stars">
                 <legend class="visually-hidden">Rating from 1 to 5</legend>
@@ -345,6 +364,7 @@
 <script src="assets/achievements.js"></script>
 <script src="assets/names.js"></script>
 <script src="assets/scores.js"></script>
+<script src="assets/daily.js"></script>
 <script src="assets/progress.js"></script>
 <script src="assets/telemetry.js"></script>
 <script src="assets/thumbs.js"></script>

@@ -335,4 +335,6 @@ player's random name, since the builder runs every check again.
   boards there, and a "your place changed" note since the last visit.
 - Games showing `arcade:best` in their HUD (each game's depth-pass PR;
   Bubble Glass v3 does).
-- Daily seeded challenges share one board per day (`board: "d2026-10-01"`).
+- ~~Daily seeded challenges share one board per day~~: done as the Daily
+  Challenge ([daily.md](daily.md)): its boards are a separate `daily` block
+  of `leaderboards.json`, first runs only, not game boards.

@@ -28,6 +28,14 @@ should hold a player for 10+ minutes, with a best score to beat and a
 leaderboard. Scores, bests and leaderboards now exist for every game
 (`docs/scores.md`); the depth pass below is the next phase.
 
+**Update 2026-10-04:** a **Daily Challenge** (`docs/daily.md`) features
+one game a day with the same seeded run for everyone, a daily board (first
+runs only) and a shareable result card. It concentrates the few players
+on one game and one set of levels, so a day's results compare with each
+other and with the bots. Games join the rotation in their depth-pass PRs
+once they have a seeded generator (first three: Coat Check, Counterfeit
+Scale, Surprise Party).
+
 ## Principle: depth before volume
 
 Shipping a new game an hour is easy. Making any one of them great is hard.

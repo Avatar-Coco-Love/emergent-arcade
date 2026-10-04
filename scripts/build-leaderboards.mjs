@@ -11,7 +11,8 @@
 // It also counts plays (telemetry session rows) per game version for the
 // gallery cards and the About panel ("plays" below, docs/scores.md), and
 // tallies each game's current version for the Spotlight view ("spotlight"
-// below, docs/gallery.md).
+// below, docs/gallery.md), and keeps the Daily Challenge boards ("daily",
+// docs/daily.md): each player's first run of a day's game, the last 14 days.
 //
 // Incremental: it starts from the live leaderboards.json (--prev) and reads
 // only rows received since that file's `through`, so each run stays small
@@ -28,6 +29,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { scores } from "./scores.mjs";
 import { names, lists, takedowns } from "./names.mjs";
+import { daily } from "./daily.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -41,6 +43,9 @@ const MAX_BOARDS = 50; // per game, so a forged board name can't grow the file
 const PLAY_SECONDS = 30; // a play: a finished round, or this much play (docs/scores.md)
 const PLAY_RULE = `round-or-${PLAY_SECONDS}s`; // a file counted by another rule is recounted
 const OVERLAP_MS = 10 * 60 * 1000; // re-read a little before `through`; merging is idempotent
+const DAILY_DAYS = 14; // daily boards kept
+const DAILY_OPEN = 3; // days a daily board still takes rows (time zones, late uploads); it keeps every player meanwhile
+const DAILY_MAX = 2000; // players kept per open daily board
 
 const games = JSON.parse(readFileSync(join(root, "games/games.json"), "utf8")).games;
 const out = opt("out", "");
@@ -167,8 +172,9 @@ function nameBook(prevNames) {
   return { book, claim, dropped: () => dropped };
 }
 
-// Merges score rows into { gameId: { epoch, boards: { board: [entry] } } }.
-function merge(prevGames, rows, prevNames) {
+// Merges score rows into { gameId: { epoch, boards: { board: [entry] } } },
+// and daily rows into { date: { game, n, top: [entry] } }.
+function merge(prevGames, rows, prevNames, prevDaily) {
   const state = {};
   for (const g of games) {
     const sp = scores.spec(g);
@@ -179,6 +185,13 @@ function merge(prevGames, rows, prevNames) {
       for (const [b, list] of Object.entries(old.boards || {})) boards[b] = new Map(list.map((e) => [e.p, e]));
     }
     state[g.id] = { game: g, sp, boards };
+  }
+  // Daily boards: { date: { game, map: p -> entry } }. An entry's `u` is the
+  // run it came from: only that player's first run of the day counts.
+  const days = {};
+  for (const [date, b] of Object.entries(prevDaily || {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !b || !Array.isArray(b.top)) continue;
+    days[date] = { game: b.game, n: b.n || b.top.length, map: new Map(b.top.map((e) => [e.p, e])) };
   }
   const latest = new Map(); // p -> { handle, lb } from that player's newest row
   const typed = nameBook(prevNames);
@@ -205,6 +218,29 @@ function merge(prevGames, rows, prevNames) {
       continue;
     }
     if (r.score == null || r.score === "") continue;
+    if (r.daily != null) {
+      // A daily round: only the first run, on the game the date picked,
+      // sent within a day or so of that date (any time zone).
+      const date = String(r.daily);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number(r.daily_first) !== 1) continue;
+      if (daily.pick(games, date) !== r.game_id) continue;
+      const noon = Date.parse(`${date}T12:00:00Z`);
+      if (Math.abs((time(r) || noon) - noon) > 40 * 3600 * 1000) continue;
+      const s = Number(r.score);
+      if (Number(r.score_epoch) !== st.sp.epoch || !Number.isFinite(s) || s < 0 || s > st.sp.max) continue;
+      const run = String(r.run || "");
+      if (!/^[a-z0-9]{1,16}$/.test(run)) continue;
+      seen();
+      const day = (days[date] ||= { game: r.game_id, n: 0, map: new Map() });
+      if (day.game !== r.game_id) continue;
+      const mine = day.map.get(p);
+      if (mine && mine.u !== run) continue; // a later run: practice
+      if (!mine && day.map.size >= DAILY_MAX) continue;
+      used++;
+      if (mine && !scores.beats(st.sp, s, mine.s)) continue;
+      day.map.set(p, { h: mine ? mine.h : "", p, s: Math.round(s * 10) / 10, at: new Date(time(r) || Date.now()).toISOString().slice(0, 10), u: run });
+      continue;
+    }
     seen();
     const s = Number(r.score);
     const board = String(r.board || "main");
@@ -219,36 +255,52 @@ function merge(prevGames, rows, prevNames) {
     if (mine && !scores.beats(st.sp, s, mine.s)) continue;
     map.set(p, { h: "", p, s: Math.round(s * 10) / 10, at: new Date(time(r) || Date.now()).toISOString().slice(0, 10), v: Number(r.game_version) || 0 });
   }
+  // An entry's public name, now. -> false when it must not show.
+  function named(e) {
+    const who = latest.get(e.p);
+    if (who && who.lb === 0) return false; // opted out since: drop them
+    const c = typed.book[e.p];
+    if (c) {
+      // A typed name always shows with the player's tag: "Coco ·4F2A".
+      e.h = names.display(c.n, e.p);
+      e.r = c.r;
+    } else {
+      // No typed name (any more): their random name. Entries not
+      // re-read this run keep it in `r`.
+      if (who) e.h = who.handle;
+      else if (!scores.isHandle(e.h)) e.h = e.r;
+      delete e.r;
+    }
+    return !!c || scores.isHandle(e.h);
+  }
   const result = {};
   for (const [id, st] of Object.entries(state)) {
     const boards = {};
     for (const [b, map] of Object.entries(st.boards)) {
-      const list = [];
-      for (const e of map.values()) {
-        const who = latest.get(e.p);
-        if (who && who.lb === 0) continue; // opted out since: drop them
-        const c = typed.book[e.p];
-        if (c) {
-          // A typed name always shows with the player's tag: "Coco ·4F2A".
-          e.h = names.display(c.n, e.p);
-          e.r = c.r;
-        } else {
-          // No typed name (any more): their random name. Entries not
-          // re-read this run keep it in `r`.
-          if (who) e.h = who.handle;
-          else if (!scores.isHandle(e.h)) e.h = e.r;
-          delete e.r;
-        }
-        if (!c && !scores.isHandle(e.h)) continue;
-        list.push(e);
-      }
+      const list = [...map.values()].filter(named);
       // Better score first; a tie goes to whoever got there first.
       list.sort((a, b) => (a.s === b.s ? a.at.localeCompare(b.at) : scores.beats(st.sp, a.s, b.s) ? -1 : 1));
       if (list.length) boards[b] = list.slice(0, TOP);
     }
     result[id] = { epoch: st.sp.epoch, boards };
   }
-  return { games: result, used, names: typed.book, dropped: typed.dropped() };
+  // Daily boards: the last DAILY_DAYS dates. Open ones keep every player
+  // (so a first run is never counted twice); closed ones keep the top only.
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const dailyOut = {};
+  for (const date of Object.keys(days).sort().reverse()) {
+    if (date > daily.addDays(todayUtc, 1) || date <= daily.addDays(todayUtc, -DAILY_DAYS)) continue;
+    const day = days[date];
+    const game = games.find((g) => g.id === day.game);
+    const sp = game && scores.spec(game);
+    if (!sp) continue;
+    const list = [...day.map.values()].filter(named);
+    list.sort((a, b) => (a.s === b.s ? a.at.localeCompare(b.at) : scores.beats(sp, a.s, b.s) ? -1 : 1));
+    const open = date > daily.addDays(todayUtc, -DAILY_OPEN);
+    const top = open ? list : list.slice(0, TOP).map(({ u, ...e }) => e);
+    dailyOut[date] = { game: day.game, n: open ? list.length : Math.max(day.n, list.length), top };
+  }
+  return { games: result, used, names: typed.book, dropped: typed.dropped(), daily: dailyOut };
 }
 
 // Play counts: { since, through, recent, games: { id: { version: n } } }.
@@ -348,14 +400,14 @@ if (error) {
   data = prev || { format: FORMAT, version: 1, updated_at: null, through: null, games: {} };
   if (prev) {
     // Still apply takedowns and list changes to the names already shown.
-    const { games: kept, names: book } = merge(prev.games, [], prev.names);
-    data = { ...prev, games: kept, names: book };
+    const { games: kept, names: book, daily: days } = merge(prev.games, [], prev.names, prev.daily);
+    data = { ...prev, games: kept, names: book, daily: days };
   }
 } else {
-  const { games: merged, used, names: book, dropped } = merge(full || !prev ? {} : prev.games, rows, full || !prev ? {} : prev.names);
+  const { games: merged, used, names: book, dropped, daily: days } = merge(full || !prev ? {} : prev.games, rows, full || !prev ? {} : prev.names, full || !prev ? {} : prev.daily);
   const newest = rows.reduce((m, r) => Math.max(m, Date.parse(r.received_at || "") || 0), 0);
   const through = newest ? new Date(newest).toISOString() : prev && !full ? prev.through : null;
-  data = { format: FORMAT, version: 1, updated_at: new Date().toISOString(), through, games: merged, names: book };
+  data = { format: FORMAT, version: 1, updated_at: new Date().toISOString(), through, games: merged, names: book, daily: days };
   console.log(`leaderboards: ${rows.length} rows read${since ? ` since ${since}` : ""}, ${used} with a score`);
   console.log(`names: ${Object.keys(book).length} typed name(s) held${dropped ? `, ${dropped} freed (takedown or list)` : ""}`);
 }
@@ -399,5 +451,10 @@ for (const [id, g] of Object.entries(data.games)) {
   for (const [b, list] of Object.entries(g.boards)) {
     console.log(`  ${id}/${b}: ${list.length} player(s), #1 ${sp ? scores.format(sp, list[0].s) : list[0].s} (${list[0].h})`);
   }
+}
+for (const [date, b] of Object.entries(data.daily || {})) {
+  const game = games.find((x) => x.id === b.game);
+  const sp = game && scores.spec(game);
+  console.log(`  daily ${date} ${b.game}: ${b.n} player(s)${b.top.length ? `, #1 ${sp ? scores.format(sp, b.top[0].s) : b.top[0].s} (${b.top[0].h})` : ""}`);
 }
 if (out) writeFileSync(out, JSON.stringify(data) + "\n");

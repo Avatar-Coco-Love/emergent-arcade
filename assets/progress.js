@@ -9,6 +9,7 @@
 //   arcade.name                typed leaderboard name, assets/names.js rules (kept on reset)
 //   arcade.leaderboardOptOut   "1" = send scores without a name, off the leaderboard (kept on reset)
 //   arcade.recent              [ids], most recently opened first
+//   arcade.daily               { date: { game, first, marks, ... } }, Daily Challenge results (assets/daily.js)
 //   arcade.clientId            anonymous id for feedback/telemetry (kept on reset)
 //   arcade.telemetryOptOut     "1" = don't send play stats (kept on reset)
 // Progress is per browser, so export/import is the only way to move it.
@@ -17,7 +18,7 @@ window.ArcadeProgress = (function () {
   const Ach = window.ArcadeAchievements;
   const FORMAT = "emergent-arcade-progress";
   const ID = /^[a-z0-9-]{1,64}$/;
-  const RESETTABLE = /^arcade\.(achievements|best|seenIntro|seenVersion|rated|nudged)\.|^arcade\.recent$/;
+  const RESETTABLE = /^arcade\.(achievements|best|seenIntro|seenVersion|rated|nudged)\.|^arcade\.(recent|daily)$/;
 
   // 0 = never opened. Browsers that opened a game before versions were
   // remembered count as having seen the current one (no badge).
@@ -84,6 +85,7 @@ window.ArcadeProgress = (function () {
       seenVersion: seen,
       seenIntro: intro.sort(),
       bests,
+      daily: window.ArcadeDaily.exportData(),
     };
   }
 
@@ -95,7 +97,7 @@ window.ArcadeProgress = (function () {
     if (!raw || raw.format !== FORMAT || typeof raw.achievements !== "object") {
       throw new Error("That isn't an Emergent Arcade progress file.");
     }
-    const data = { achievements: {}, seenVersion: {}, seenIntro: [], bests: {} };
+    const data = { achievements: {}, seenVersion: {}, seenIntro: [], bests: {}, daily: raw.daily && typeof raw.daily === "object" ? raw.daily : {} };
     let count = 0;
     let fresh = 0;
     for (const [gameId, got] of Object.entries(raw.achievements || {})) {
@@ -146,6 +148,8 @@ window.ArcadeProgress = (function () {
     for (const [gameId, all] of Object.entries(data.bests || {})) {
       window.ArcadeScores.merge(gameId, all, (games || []).find((g) => g.id === gameId));
     }
+    // Daily results: a day already played in this browser is kept.
+    window.ArcadeDaily.merge(data.daily);
   }
 
   function resetAchievements() {

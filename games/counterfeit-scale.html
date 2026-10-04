@@ -451,10 +451,18 @@
   });
   const RUN_ID = () => Math.random().toString(36).slice(2, 10) || 'run';
 
+  // § daily: ?daily=YYYY-MM-DD is the arcade's Daily Challenge (docs/daily.md): one seeded run, the same for everyone that day.
+  const DAILY = (/[?&]daily=(\d{4}-\d\d-\d\d)(?:&|$)/.exec(location.search) || [])[1] || '';
+  const dailySeed = () => { let h = 0x811c9dc5; for (const ch of GAME_ID + ':' + DAILY) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0; return h; };
+  function postFinal(run, score) {
+    if (DAILY && embedded()) window.parent.postMessage({ type: 'arcade:final', game: GAME_ID, daily: DAILY, run: run, score: score }, '*');
+  }
+
   // § state: the run (strikes, cracked) and the case on the table.
   let run, c, where, panOrder, mark, phase, result, tipT, picks, caseMs, counts, endAt, hintUsed, revealed;
   function newRun() {
-    run = { id: RUN_ID(), seed: (Math.random() * 1e9) >>> 0, idx: 0, strikes: 0, cracked: 0, attempt: 1,
+    // A daily run skips the campaign: Endless cases from the day's seed.
+    run = { id: RUN_ID(), seed: DAILY ? dailySeed() % 1e9 : (Math.random() * 1e9) >>> 0, idx: DAILY ? CAMPAIGN.length : 0, strikes: 0, cracked: 0, attempt: 1,
       free: CAMPAIGN.map(() => true) };
     startCase();
   }
@@ -468,9 +476,9 @@
     phase = 'load'; result = null; tipT = 0; picks = []; caseMs = 0; endAt = 0; hintUsed = false; revealed = null;
     counts = { loads: 0, marks: 0 };
     layout(); renderUI();
-    say(`${inCampaign() ? 'Case ' + (run.idx + 1) + ' of ' + CAMPAIGN.length : 'Endless'}: ${c.n} coins, ` +
+    say(`${inCampaign() ? 'Case ' + (run.idx + 1) + ' of ' + CAMPAIGN.length : DAILY ? 'Daily' : 'Endless'}: ${c.n} coins, ` +
       `<b>${c.budget}</b> weighing${c.budget > 1 ? 's' : ''}. Find the fake${c.fakes > 1 ? 's' : ''}.`);
-    hint(spec.tip ? words(spec.tip) : 'Endless: no spare weighings. Score: cases cracked this run.');
+    hint(spec.tip ? words(spec.tip) : DAILY ? 'Daily: the same cases for everyone today, no spare weighings. 3 strikes end the run.' : 'Endless: no spare weighings. Score: cases cracked this run.');
   }
   const left = () => c.budget - c.log.length;
   const pans = () => [panOrder[1], panOrder[2]];
@@ -550,6 +558,7 @@
     const tail = won ? '' : struck ? ` Strike ${run.strikes} of ${STRIKES}.` : ' Free retry, new coins.';
     say(why + tail);
     postResult(won, reason);
+    if (run.strikes >= STRIKES) postFinal(run.id, run.cracked);
     if (won) {
       if (c.n === 9 && c.fakes === 1 && c.dir === 'heavy' && c.scale === 'balance' && c.log.length === 2) unlock('perfect-thirds');
       if (c.scale === 'spring' && c.fakes === 1 && c.dir === 'heavy' && c.log.length <= Math.ceil(Math.log2(c.n))) unlock('halving');
@@ -572,6 +581,7 @@
       stats: { weighings: c.log.length, par: c.par, budget: c.budget, coins: c.n, marks: counts.marks,
         loads: counts.loads, cases: run.cracked, strikes: run.strikes, hint: hintUsed ? 1 : 0 } };
     if (!won) msg.reason = reason;
+    if (DAILY) msg.daily = DAILY;
     window.parent.postMessage(msg, '*');
   }
   function showHint() {
@@ -601,7 +611,7 @@
   const hint = txt => { hintEl.textContent = txt; };
   function renderUI() {
     if (!c) return;
-    $('caseName').textContent = inCampaign() ? `Case ${run.idx + 1}` : `Endless ${run.idx - CAMPAIGN.length + 1}`;
+    $('caseName').textContent = inCampaign() ? `Case ${run.idx + 1}` : `${DAILY ? 'Daily' : 'Endless'} ${run.idx - CAMPAIGN.length + 1}`;
     $('rule').textContent = ruleLine(c);
     $('pips').textContent = '●'.repeat(Math.max(0, left())) + '○'.repeat(c.log.length);
     $('pips').title = left() + ' weighings left';

@@ -9,6 +9,7 @@ window.ArcadeCabinet = (function () {
   const Progress = window.ArcadeProgress;
   const Ach = window.ArcadeAchievements;
   const Scores = window.ArcadeScores;
+  const Daily = window.ArcadeDaily;
 
   const cabinet = $("cabinet");
   const frame = $("gameFrame");
@@ -23,7 +24,7 @@ window.ArcadeCabinet = (function () {
   const loadState = $("loadState");
   const toolbarBtn = (name) => document.querySelector(`.toolbar [data-panel="${name}"]`);
 
-  const PANEL_TITLES = { about: "How to play", achievements: "Achievements", rate: "Rate this game" };
+  const PANEL_TITLES = { about: "How to play", achievements: "Achievements", rate: "Rate this game", daily: "Daily Challenge" };
   const ICONS = {
     share: '<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/>',
     download: '<path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/><path d="M7 11l5 5 5-5"/><path d="M12 4v12"/>',
@@ -32,6 +33,8 @@ window.ArcadeCabinet = (function () {
   const ROUNDS_BEFORE_NUDGE = 3;
 
   let current = null;
+  let daily = null; // the date, while the cabinet plays the Daily Challenge (docs/daily.md)
+  let dailyTimer = null;
   let openPanelName = null;
   let returnFocus = null;
   let releaseTrap = null;
@@ -56,16 +59,24 @@ window.ArcadeCabinet = (function () {
 
   // ---------- open / close ----------
 
-  function open(game) {
-    const switching = !current || current.id !== game.id;
+  // opts.daily: a date, to play that day's Daily Challenge run.
+  function open(game, opts) {
+    const date = (opts && opts.daily) || null;
+    const switching = !current || current.id !== game.id || daily !== date;
     current = game;
-    document.title = `${game.title} v${game.version} · Emergent Arcade`;
+    daily = date;
+    clearTimeout(dailyTimer);
+    const tag = daily ? `Daily #${Daily.number(daily)}` : `v${game.version}`;
+    document.title = `${game.title} ${tag} · Emergent Arcade`;
     $("cabTitle").textContent = game.title;
-    $("cabVersion").textContent = `v${game.version}`;
+    $("cabVersion").textContent = tag;
+    $("dailyBtn").hidden = !daily;
+    $("aboutDaily").hidden = !daily;
+    if (daily) $("aboutDaily").textContent = `Daily Challenge #${Daily.number(daily)}: everyone gets the same run today. Your first run counts for the daily board; play again to practice.`;
     if (game.accent) cabinet.style.setProperty("--game-accent", game.accent);
     else cabinet.style.removeProperty("--game-accent");
     frame.title = game.title;
-    const src = `games/${game.file}?v=${game.version}`;
+    const src = srcOf(game);
     if (frame.getAttribute("src") !== src) load(src);
     renderAbout();
     renderAchievements();
@@ -91,12 +102,17 @@ window.ArcadeCabinet = (function () {
       syncToolbar();
       frame.focus();
       if (switching && seen && seen < game.version) whatsNew(game, seen);
+      if (switching && daily) dailyHello();
     }
   }
+
+  const srcOf = (game) => `games/${game.file}?v=${game.version}${daily ? `&daily=${daily}` : ""}`;
 
   function close() {
     if (current) telemetry.end();
     current = null;
+    daily = null;
+    clearTimeout(dailyTimer);
     loadToken++;
     clearTimeout(loadTimer);
     loadState.hidden = true;
@@ -154,7 +170,7 @@ window.ArcadeCabinet = (function () {
   });
 
   $("retryBtn").addEventListener("click", () => {
-    if (current) load(`games/${current.file}?v=${current.version}`);
+    if (current) load(srcOf(current));
   });
 
   // Games listen for these to freeze while a panel covers them.
@@ -167,7 +183,11 @@ window.ArcadeCabinet = (function () {
     const sp = current && Scores.spec(current);
     if (!sp) return;
     const bests = {};
-    for (const [board, b] of Object.entries(Scores.bests(current))) bests[board] = b.score;
+    if (daily) {
+      // The daily run's target is today's best, not the game's usual one.
+      const d = Daily.day(daily);
+      if (d && d.best != null) bests.main = d.best;
+    } else for (const [board, b] of Object.entries(Scores.bests(current))) bests[board] = b.score;
     tellGame("arcade:best", { game: current.id, better: sp.better, bests });
   }
 
@@ -192,7 +212,7 @@ window.ArcadeCabinet = (function () {
       returnFocus = opener;
     }
     openPanelName = name;
-    $("panelTitle").textContent = name === "achievements" && Scores.spec(current) ? "Records" : PANEL_TITLES[name];
+    $("panelTitle").textContent = name === "achievements" && Scores.spec(current) ? "Records" : name === "daily" ? `Daily #${Daily.number(daily)}` : PANEL_TITLES[name];
     for (const body of panel.querySelectorAll("[data-body]")) body.hidden = body.dataset.body !== name;
     syncToolbar();
     if (name === "achievements") {
@@ -201,6 +221,7 @@ window.ArcadeCabinet = (function () {
       renderAchievements();
       hideResetConfirm();
     }
+    if (name === "daily") renderDaily();
     panel.hidden = false;
     panel.querySelector(".panel-body").scrollTop = 0;
     tellGame("arcade:pause");
@@ -520,7 +541,11 @@ window.ArcadeCabinet = (function () {
     if (!current || evt.source !== frame.contentWindow) return;
     if (!data || data.game !== current.id) return;
     if (data.type === "arcade:error") telemetry.error("game", data);
-    if (data.type === "arcade:result") {
+    if (data.type === "arcade:final" && daily) dailyFinal(data);
+    if (data.type === "arcade:result" && daily && data.daily === daily) {
+      // The rating nudge waits for practice: it would cover the result card.
+      if (!dailyResult(data) && ++rounds === ROUNDS_BEFORE_NUDGE) nudge();
+    } else if (data.type === "arcade:result") {
       const sc = Scores.record(current, data);
       telemetry.result(sc ? Object.assign({}, data, scoreFields(sc)) : data);
       if (sc) announceScore(sc);
@@ -534,6 +559,110 @@ window.ArcadeCabinet = (function () {
     renderAchievements();
     progressChanged();
   });
+
+  // ---------- Daily Challenge (docs/daily.md) ----------
+
+  function dailyHello() {
+    const d = Daily.day(daily);
+    if (d && d.done) toast(`You've played Daily #${Daily.number(daily)}. This run is practice; your result is under 📅.`, { ms: 5000 });
+    else toast(`Daily #${Daily.number(daily)}: same run for everyone today. Your first run counts.`, { ms: 5000 });
+  }
+
+  // Rounds of a daily run go to the daily board, not the game's own bests.
+  function dailyResult(data) {
+    const rec = Daily.record(current, daily, data);
+    if (!rec) {
+      telemetry.result(data);
+      return false;
+    }
+    const row = Object.assign({}, data, { daily_first: rec.first ? 1 : 0 });
+    if (rec.value != null) {
+      Object.assign(row, { score: rec.value, score_epoch: Scores.spec(current).epoch, lb: Scores.listed() ? 1 : 0 });
+      if (Scores.listed()) Object.assign(row, nameFields());
+    }
+    delete row.board;
+    telemetry.result(row);
+    if (!rec.first && rec.day.runs > 1 && rec.value != null) toast(`Practice run: ${scoreText(Scores.spec(current), "main", rec.value)}`, { ms: 2500 });
+    tellBest();
+    return rec.first;
+  }
+
+  // The run that counts is over: show the result card (after a beat, so the
+  // game's own end message is seen first).
+  function dailyFinal(data) {
+    const d = Daily.finish(current, daily, data);
+    if (!d) return;
+    telemetry.event("daily", { game_id: current.id, game_version: current.version, daily, score: d.first, levels: [...d.marks].length });
+    window.dispatchEvent(new Event("arcade:progress"));
+    const game = current;
+    dailyTimer = setTimeout(() => {
+      if (current === game && daily && openPanelName !== "daily") openPanel("daily", null);
+    }, 1600);
+  }
+
+  let cardUrl = null;
+  function renderDaily() {
+    const game = current;
+    const date = daily;
+    const sp = Scores.spec(game);
+    const d = Daily.day(date);
+    const has = d && d.game === game.id;
+    $("dailyIntro").textContent = has
+      ? d.done ? "Your first run is in. Play again any time today to practice." : "Your first run is still going: it counts until it ends."
+      : "Everyone gets the same run today. Your first run counts for the board; after that it's practice.";
+    $("dailyCardWrap").hidden = !has;
+    $("dailyActions").hidden = !has;
+    if (cardUrl) URL.revokeObjectURL(cardUrl);
+    cardUrl = null;
+    $("dailyCard").removeAttribute("src");
+    if (has) {
+      $("dailyCard").alt = Daily.shareText(game, date, d).replace(/\n/g, ". ");
+      Daily.cardBlob(game, date, d).then((blob) => {
+        if (!blob || current !== game || daily !== date) return;
+        cardUrl = URL.createObjectURL(blob);
+        $("dailyCard").src = cardUrl;
+      });
+    }
+    $("dailyLb").replaceChildren(el("li", { className: "gap", textContent: "Loading…" }));
+    $("dailyLbNote").textContent = "";
+    Scores.leaderboards().then((data) => {
+      if (current !== game || daily !== date) return;
+      const b = Daily.board(data, date);
+      const sending = Scores.listed() && telemetry.active();
+      const id = Scores.me();
+      const rows = (b && b.game === game.id ? b.top : []).filter((e) => !(sending && e.p === id)).map((e) => ({ h: e.h, s: e.s }));
+      let mine = null;
+      if (sending && has && d.first != null) rows.push((mine = { h: Scores.publicName(data), s: d.first, me: true }));
+      rows.sort((x, y) => (x.s === y.s ? 0 : Scores.beats(sp, x.s, y.s) ? -1 : 1));
+      let prev = null;
+      let place = 0;
+      rows.forEach((e, i) => {
+        if (e.s !== prev) place = i + 1;
+        prev = e.s;
+        e.place = place;
+      });
+      const items = rows.slice(0, 10).map((e) => lbRow(sp, e));
+      if (mine && mine.place > 10) items.push(el("li", { className: "gap", textContent: "…" }), lbRow(sp, mine));
+      if (!items.length) items.push(el("li", { className: "gap", textContent: data ? "No results yet today. Be the first." : "The daily board isn't available here." }));
+      $("dailyLb").replaceChildren(...items);
+      const n = b && b.game === game.id ? b.n : 0;
+      $("dailyLbNote").textContent = lbNote(data, n ? ` ${Scores.count(n)} player${n === 1 ? "" : "s"} so far. First runs only.` : " First runs only.");
+    });
+  }
+
+  $("dailyShare").addEventListener("click", async () => {
+    const d = Daily.day(daily);
+    if (!d) return;
+    const method = await Daily.share(current, daily, d, toast);
+    if (method) telemetry.event("share", { game_id: current.id, game_version: current.version, method, from: "daily", daily });
+  });
+  $("dailySave").addEventListener("click", () => {
+    const d = Daily.day(daily);
+    if (!d) return;
+    Daily.saveImage(current, daily, d).catch((err) => toast(`Couldn't save the image (${err.message}).`, { kind: "err" }));
+    telemetry.event("share", { game_id: current.id, game_version: current.version, method: "image", from: "daily", daily });
+  });
+  $("dailyAgain").addEventListener("click", () => closePanel("game"));
 
   // ---------- records: best score and leaderboard ----------
 
@@ -748,5 +877,5 @@ window.ArcadeCabinet = (function () {
   });
   window.addEventListener("pagehide", () => telemetry.end());
 
-  return { open, close, current: () => current, lbItems, lbNote };
+  return { open, close, current: () => current, daily: () => daily, lbItems, lbNote };
 })();

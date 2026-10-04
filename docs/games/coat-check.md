@@ -1,6 +1,6 @@
 # Coat Check: design notes
 
-**v1** (2026-10-03) · playtest: https://claude.ai/artifact/U4NaLDKJ5bL7NjHZnrcDZU (private, republished each push) ·
+**v2** (2026-10-04) · playtest: https://claude.ai/artifact/U4NaLDKJ5bL7NjHZnrcDZU (private, republished each push) ·
 balance: `node scripts/balance-coat-check.mjs 300` (~12 s)
 Verbs: **hang** (drag), **fetch** (tap) and **peek** (hold), sharing **the hooks
 and the peek budget**. A cloakroom of identical closed doors: where you hang a
@@ -8,6 +8,16 @@ coat is the only record of it. 12 campaign shifts (one new rule each, then
 mixes), then Endless until a lost shift. Score: coats returned in the run.
 6 achievements. Topic: `working-memory`. Original brief and the pre-build
 go/no-go run: `docs/history/coat-check.md`.
+
+## Daily Challenge (v2)
+
+`?daily=<date>` (the gallery's `#/daily`, [daily.md](../daily.md)): the run
+skips the campaign and starts at Endless 1 with `run.seed = dailySeed() % 1e6`
+(FNV-1a of `coat-check:<date>`), so every player gets the same shifts. HUD
+says `Daily N`, rule line `Daily · …`. Results carry `daily`; the losing
+shift posts `arcade:final` (`score` = coats). A new run after it replays
+the same seed (practice). Open: newcomers meet 2-3 rules at load 8 with no
+tutorial; watch the first-run levels median (`fetch-telemetry.mjs`).
 
 ## How it works
 
