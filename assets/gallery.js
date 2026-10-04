@@ -6,6 +6,7 @@
 //          #/?sort=updated&verb=drag&q=ant  the gallery, with its view state
 //          #/?topic=fluid-dynamics          (topics: assets/topics.js)
 //          #/records, #/records?mine=1     every game's leaderboard (assets/records.js)
+//          #/spotlight                     games that need playtesters (assets/spotlight.js)
 (function () {
   const UI = window.ArcadeUI;
   const { el } = UI;
@@ -18,6 +19,7 @@
   const Cabinet = window.ArcadeCabinet;
   const Wording = window.ArcadeWording;
   const Records = window.ArcadeRecords;
+  const Spotlight = window.ArcadeSpotlight;
   const Topics = window.ArcadeTopics;
 
   const galleryView = $("galleryView");
@@ -325,6 +327,21 @@
   // ---------- routing ----------
 
   function route() {
+    if (/^#\/spotlight(\?|$)/.test(location.hash)) {
+      const closing = Cabinet.current();
+      Cabinet.close();
+      Records.hide();
+      galleryView.hidden = true;
+      $("spotlightBack").href = galleryHash;
+      Spotlight.show(location.hash, { games, thumb });
+      if (closing) {
+        window.scrollTo(0, galleryScroll);
+        Spotlight.focusGame(closing.id);
+      } else window.scrollTo(0, 0);
+      return;
+    }
+    const fromSpotlight = Spotlight.current();
+    Spotlight.hide();
     if (/^#\/records(\?|$)/.test(location.hash)) {
       const closing = Cabinet.current();
       Cabinet.close();
@@ -338,7 +355,7 @@
       } else window.scrollTo(0, 0);
       return;
     }
-    const fromRecords = Records.current();
+    const fromRecords = Records.current() || fromSpotlight;
     Records.hide();
     const match = location.hash.match(/^#\/play\/([a-z0-9-]+)/);
     const game = match && games.find((g) => g.id === match[1]);
@@ -385,6 +402,7 @@
   window.addEventListener("hashchange", route);
   window.addEventListener("arcade:progress", renderHeader);
   window.addEventListener("arcade:records-open", () => { pendingOpen = { from: "records" }; });
+  window.addEventListener("arcade:spotlight-open", () => { pendingOpen = { from: "spotlight" }; });
 
   // ---------- dialogs: settings and about the arcade ----------
 

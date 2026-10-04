@@ -9,7 +9,9 @@
 // first player who claims it, and applies data/name-takedowns.json. The
 // claims are kept in the file's `names` block, so later builds remember them.
 // It also counts plays (telemetry session rows) per game version for the
-// gallery cards and the About panel ("plays" below, docs/scores.md).
+// gallery cards and the About panel ("plays" below, docs/scores.md), and
+// tallies each game's current version for the Spotlight view ("spotlight"
+// below, docs/gallery.md).
 //
 // Incremental: it starts from the live leaderboards.json (--prev) and reads
 // only rows received since that file's `through`, so each run stays small
@@ -286,6 +288,50 @@ function countPlays(prevPlays, rows) {
   return { plays: { rule: PLAY_RULE, since, through: newest ? new Date(newest).toISOString() : null, recent, games: counts }, added };
 }
 
+// Spotlight tallies of each game's current version, from session rows:
+// { through, recent, games: { id: { v, sessions, early, rounds, wins,
+// players: { p: seconds } } } }. A revision starts its game over (the old
+// version's numbers say nothing about the new one). `early` counts visits
+// that left before finishing a round; `players` adds up each player's play
+// time (short hashed ids, capped), for "longest player" and the player
+// count. Re-read sessions are skipped like the play counts' (`recent`).
+const SPOT_PLAYERS = 400; // per game, so the file stays small
+function tallySpotlight(prevSpot, rows) {
+  const byId = new Map(games.map((g) => [g.id, g]));
+  const tallies = {};
+  for (const [id, t] of Object.entries((prevSpot && prevSpot.games) || {})) {
+    const g = byId.get(id);
+    if (g && t && t.v === g.version) tallies[id] = { ...t, players: { ...(t.players || {}) } };
+  }
+  const seen = new Map(Object.entries((prevSpot && prevSpot.recent) || {}));
+  let newest = Date.parse((prevSpot && prevSpot.through) || "") || 0;
+  let added = 0;
+  for (const r of rows) {
+    if (r.kind !== "session") continue;
+    const at = Date.parse(r.received_at || r.submitted_at || "") || 0;
+    newest = Math.max(newest, at);
+    const game = byId.get(r.game_id);
+    if (!game || Number(r.game_version) !== game.version || typeof r.client_id !== "string") continue;
+    const key = scores.hash(`spot:${r.session_id || `${r.client_id}|${r.submitted_at}`}`);
+    if (seen.has(key)) continue;
+    seen.set(key, at);
+    const t = (tallies[game.id] ||= { v: game.version, sessions: 0, early: 0, rounds: 0, wins: 0, players: {} });
+    const rounds = Math.max(0, Math.floor(Number(r.rounds) || 0));
+    const wins = Math.min(rounds, Math.max(0, Math.floor(Number(r.wins) || 0)));
+    const secs = Math.min(4 * 3600, Math.max(0, Math.round(Number(r.seconds) || 0)));
+    t.sessions++;
+    if (!rounds) t.early++;
+    t.rounds += rounds;
+    t.wins += wins;
+    const p = scores.hash(`player:${r.client_id}`).slice(0, 8);
+    if (p in t.players || Object.keys(t.players).length < SPOT_PLAYERS) t.players[p] = (t.players[p] || 0) + secs;
+    added++;
+  }
+  const recent = {};
+  for (const [key, at] of seen) if (at >= newest - OVERLAP_MS) recent[key] = at;
+  return { spotlight: { through: newest ? new Date(newest).toISOString() : null, recent, games: tallies }, added };
+}
+
 const prev = await readPrev(opt("prev", ""));
 const since = !full && prev && prev.through ? new Date(Date.parse(prev.through) - OVERLAP_MS).toISOString() : "";
 let rows = [];
@@ -327,6 +373,20 @@ try {
 } catch (err) {
   console.warn(`plays: ${err.message}; keeping the previous counts`);
   if (prev && prev.plays) data.plays = prev.plays;
+}
+// Spotlight tallies, read on their own like the plays. A file without them
+// (or --full) reads every session row, so history since telemetry began is
+// rebuilt.
+const prevSpot = !full && prev && prev.spotlight && prev.spotlight.games ? prev.spotlight : null;
+const spotSince = prevSpot && prevSpot.through ? new Date(Date.parse(prevSpot.through) - OVERLAP_MS).toISOString() : "";
+try {
+  const sessions = await fetchSessions(spotSince);
+  const { spotlight, added } = tallySpotlight(prevSpot, sessions);
+  data.spotlight = spotlight;
+  console.log(`spotlight: ${sessions.length} session rows read${spotSince ? ` since ${spotSince}` : " (all)"}, ${added} tallied`);
+} catch (err) {
+  console.warn(`spotlight: ${err.message}; keeping the previous tallies`);
+  if (prev && prev.spotlight) data.spotlight = prev.spotlight;
 }
 for (const [id, versions] of Object.entries((data.plays && data.plays.games) || {})) {
   const list = Object.entries(versions).map(([v, n]) => `v${v} ${n}`).join(", ");

@@ -125,6 +125,12 @@ button.linkish {
 }
 .records-btn svg { color: var(--star); flex: none; }
 .records-btn:hover, .records-btn:focus-visible { border-color: var(--accent); }
+.spotlight-btn svg { color: var(--accent); }
+/* Narrow phones: Spotlight and Records as icons (the label stays for screen readers). */
+@media (max-width: 400px) {
+  .records-btn .records-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .records-btn { padding: 0; }
+}
 /* Phones: search on its own row, then sort and Records. */
 @media (max-width: 480px) {
   .catalog-controls { flex-wrap: wrap; }
@@ -617,6 +623,56 @@ textarea {
 .rec-lead bdi { overflow-wrap: anywhere; }
 .rec-body { padding: 0 12px 12px; }
 .rec-body .board-pick { margin-top: 2px; }
+
+/* ---------- Spotlight view: games that need playtesters (assets/spotlight.js) ---------- */
+
+.spot-lede { margin: 0 0 12px; max-width: 62ch; }
+.spot-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 16px; margin: 0 0 8px; }
+.spot-stat { border-top: 2px solid var(--border); padding-top: 6px; display: grid; }
+.spot-stat b { font-size: 1.5rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.spot-stat span { color: var(--muted); font-size: 0.88rem; }
+.spot-how { margin: 16px 0 4px; padding: 0 0 0 1.3em; display: grid; gap: 4px; font-size: 0.92rem; max-width: 70ch; }
+.spot-group { --tone: var(--muted); margin-top: 18px; }
+.tone-accent { --tone: var(--accent); }
+.tone-bad { --tone: var(--bad); }
+.tone-good { --tone: var(--good); }
+.tone-star { --tone: var(--star); }
+.tone-muted { --tone: var(--muted); }
+.spot-group-title { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; margin: 0 0 2px; }
+.spot-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--tone); flex: none; }
+.spot-count { font-weight: 400; font-size: 0.9rem; }
+.spot-ask { margin: 0 0 8px; font-size: 0.9rem; max-width: 70ch; }
+.spot-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.spot-list.picks { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.spot-card {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.spot-card.pick { border-top: 3px solid var(--tone); padding-top: 10px; }
+.spot-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.spot-name { display: grid; gap: 4px; min-width: 0; }
+.spot-name h4 { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
+.spot-chip {
+  justify-self: start; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--tone); border: 1px solid var(--tone); border-radius: 999px; padding: 2px 8px;
+}
+.spot-blurb { margin: 0; color: var(--muted); font-size: 0.88rem; }
+.spot-fact { margin: 0; font-size: 0.88rem; }
+.spot-meter { display: grid; gap: 3px; }
+.spot-bar { position: relative; height: 8px; border-radius: 4px; background: var(--panel-2); }
+.spot-fill { position: absolute; inset: 0 auto 0 0; min-width: 3px; border-radius: 4px; background: var(--tone); }
+.spot-goal { position: absolute; right: 0; top: -3px; bottom: -3px; width: 2px; background: var(--text); }
+.spot-scale { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.spot-scale b { color: var(--text); font-weight: 600; }
+.spot-play {
+  align-self: flex-start; margin-top: auto; min-height: var(--tap); display: inline-flex; align-items: center;
+  color: var(--card-accent, var(--accent)); font-weight: 600; text-decoration: none;
+}
+.spot-play.big {
+  padding: 0 14px; border-radius: 10px; background: var(--accent); color: var(--on-accent);
+}
+.spot-play:hover { text-decoration: underline; }
+.spot-play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
