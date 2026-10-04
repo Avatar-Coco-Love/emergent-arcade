@@ -26,11 +26,12 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/cabinet.js` | `ArcadeCabinet.open(game)` / `close()`: toolbar, panels, ⋯ menu, toasts, loading/error states, share, download, rating, nudge |
 | `assets/name-ctl.js` | `ArcadeNameCtl.create(prefix, { toast, onChange })`: the leaderboard name controls (show me, pick another name, type a name), used by the 🏆 panel (ids `lb…`) and the Records view (ids `rec…`) |
 | `assets/records.js` | `ArcadeRecords`: the Records view (`#/records`), every game's leaderboard on one page |
+| `assets/spotlight.js` | `ArcadeSpotlight`: the Spotlight view (`#/spotlight`), games that need playtesters, grouped from hourly play stats |
 | `assets/topics.js` | `ArcadeTopics`: the fixed topic tag list (`LIST`, `get`, `of`). Also run by the Node scripts through `scripts/topics.mjs` |
 | `assets/gallery.js` | cards, search/sort/verb and topic filters, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
 Script order in `index.html`: config, ui, wording, topics, feedback, achievements, scores, progress,
-telemetry, thumbs, download, cabinet, records, gallery.
+telemetry, thumbs, download, cabinet, records, spotlight, gallery.
 
 ## Tap or click
 
@@ -61,6 +62,35 @@ ideas).
   same view. An unknown id shows the gallery with a notice.
 - `#/records` or `#/records?mine=1`: the Records view (below). A cabinet
   opened from it goes back to it (← and focus on the row's ▶).
+- `#/spotlight`: the Spotlight view (below). A cabinet opened from it goes
+  back to it, with focus on the Play link used.
+
+## Spotlight
+
+The page to share with playtesters: which games need players and what to
+look for in each. The **Spotlight** button sits next to Records (icons only
+at ≤ 400 px). It updates itself: `scripts/build-leaderboards.mjs` tallies
+each game's **current version** hourly into `leaderboards.json`'s
+`spotlight` block ([scores.md](scores.md)), and `assets/spotlight.js` sorts
+the games on load. A revision starts its game over.
+
+- **Groups**, most urgent first; a game goes in the first one it fits
+  (constants at the top of `assets/spotlight.js`):
+  Past 10 minutes (a player's total ≥ 10:00) · Needs first players (< 3
+  players) · Players get stuck (3+ rounds, < 45% won) · Closest to 10
+  minutes (a player ≥ 5:00) · Lost in the first minute (4+ visits, ≥ 40%
+  ended before a round) · Need more players (the rest).
+- **Picks**: "Play one of these next", the most urgent game of Needs first
+  players, Players get stuck and Closest to 10 minutes (then the others).
+- Each card: blurb, one line of facts (players, % of rounds won, early
+  exits), and a bar of the longest player against the 10:00 line.
+- Three numbers on top: games past 10 minutes, the longest player, games
+  needing first players. Then three steps (pick, play until you'd stop,
+  rate with ★) and "Updated N minutes ago".
+- Without the file (local copy) it says so and lists every game as needing
+  players. Logs a `spotlight` gallery event; opens log `from: spotlight`.
+- Counts include the maintainer's own plays and skip players who turned
+  off play stats, like the play counts.
 
 ## Topics
 

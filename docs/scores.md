@@ -292,6 +292,25 @@ sees a different rule and recounts every session row:
   (the About note says so).
 - Counts include everyone, the maintainer's own playtests too.
 
+## Spotlight tallies
+
+The same build keeps a `spotlight` block for the Spotlight view
+([gallery.md](gallery.md), "Spotlight"), from session rows of each game's
+**current version** only (a revision starts the game over):
+
+```json
+"spotlight": { "through": "<newest session row>", "recent": { "<hashed session id>": 1759334700892 },
+  "games": { "hot-iron": { "v": 4, "sessions": 3, "early": 2, "rounds": 2, "wins": 0,
+                           "players": { "<8-char player hash>": 67 } } } }
+```
+
+`early` counts visits with no finished round; `players` adds up each
+player's play seconds (capped at 400 players per game), which gives the
+player count and the longest player. Incremental like the play counts
+(`recent` skips sessions re-read in the overlap; tested: an incremental run
+equals a full recount), kept as is if the read fails, and rebuilt from
+every session row when the previous file has none (or with `--full`).
+
 ## Cheating
 
 Scores are posted by the browser, so a determined person can forge one.

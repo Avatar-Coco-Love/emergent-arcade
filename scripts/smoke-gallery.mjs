@@ -52,6 +52,14 @@ const PLAYS = { since: "2026-09-27", through: "2026-10-01T12:00:00Z", recent: {}
   [games[1].id]: { [games[1].version]: 1 },
 } };
 
+// Spotlight tallies (current versions): Pressure Grid held a player past 10
+// minutes, Hot Iron's players lose every round, the rest have no plays.
+const vOf = (id) => (games.find((g) => g.id === id) || {}).version;
+const SPOTLIGHT = { through: "2026-10-01T12:00:00Z", recent: {}, games: {
+  "pressure-grid": { v: vOf("pressure-grid"), sessions: 5, early: 0, rounds: 5, wins: 5, players: { a: 700, b: 100, c: 50 } },
+  "hot-iron": { v: vOf("hot-iron"), sessions: 4, early: 1, rounds: 4, wins: 0, players: { a: 90, b: 60, c: 30 } },
+} };
+
 // ---------- local server ----------
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml" };
@@ -73,7 +81,7 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify({ format: "emergent-arcade-leaderboards", version: 1, updated_at: "2026-09-30T12:00:00Z", through: null,
       games: { "pressure-grid": { epoch: 2, boards: { main: [{ h: "Jade Owl", p: "x", s: 12, at: "2026-10-01", v: 8 }, { h: "Misty Wren", p: "y", s: 6, at: "2026-10-01", v: 8 }] } } },
       names: { x: { n: "Coco", r: "Jade Owl", at: "2026-10-01T00:00:00.000Z" } },
-      plays: PLAYS }));
+      plays: PLAYS, spotlight: SPOTLIGHT }));
     return;
   }
   const rel = normalize(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)).replace(/^([/\\])+/, "");
@@ -606,6 +614,40 @@ for (const vp of VIEWPORTS) {
     const gal = rows.slice(n).filter((r) => r.kind === "gallery").map((r) => Object.assign({}, r, r.extra || {}));
     assert(gal.some((r) => r.action === "records") && gal.some((r) => r.action === "open" && r.from === "records") && gal.some((r) => r.action === "handle" && r.name === "Pip"), `telemetry ${JSON.stringify(gal.map((r) => r.action))}`);
     return `${scored} rows; ${line}`;
+  });
+
+  await check(tag("spotlight view: groups from the tallies, play and back"), async () => {
+    await page.goto(base);
+    await page.waitForSelector(".game-card");
+    const n = rows.length;
+    await page.locator("#spotlightLink").click();
+    await page.waitForSelector("#spotlightGroups:not([hidden]) .spot-card");
+    assert(await page.locator("#galleryView").isHidden(), "gallery still shown");
+    const groups = await page.$$eval(".spot-group", (gs) => Object.fromEntries(gs.map((g) => [g.getAttribute("aria-label"), [...g.querySelectorAll(".spot-card")].map((c) => c.dataset.id)])));
+    const active = games.filter((g) => g.status !== "archived").length;
+    assert(Object.values(groups).flat().length === active, `${Object.values(groups).flat().length} cards for ${active} games`);
+    assert(groups["Past 10 minutes"] && groups["Past 10 minutes"].join() === "pressure-grid", `done: ${JSON.stringify(groups)}`);
+    assert(groups["Players get stuck"] && groups["Players get stuck"].join() === "hot-iron", `stuck: ${JSON.stringify(groups)}`);
+    assert(groups["Needs first players"].length === active - 2, "fresh group");
+    const picks = await page.locator("#spotlightPicks .spot-card").count();
+    assert(picks === 3, `${picks} picks`);
+    const stat = await page.locator("#spotlightStats").textContent();
+    assert(stat.includes(`1 of ${active}`) && stat.includes("11:40"), `stats: ${stat}`);
+    assert(await noHScroll(page), "horizontal scroll");
+    await shot("spotlight");
+    await page.locator('#spotlightGroups .spot-card[data-id="hot-iron"] .spot-play').click();
+    await page.waitForSelector("#cabinet:not([hidden])");
+    assert((await page.locator("#backLink").getAttribute("href")) === "#/spotlight", "back link");
+    await page.locator("#backLink").click();
+    await page.waitForSelector("#spotlightView:not([hidden]) .spot-card");
+    assert(await page.evaluate(() => document.activeElement.classList.contains("spot-play")), "focus not back on the card");
+    await page.locator("#spotlightBack").click();
+    await page.waitForSelector("#galleryView:not([hidden])");
+    assert(await page.locator("#spotlightView").isHidden(), "spotlight still shown");
+    await page.waitForTimeout(300);
+    const gal = rows.slice(n).filter((r) => r.kind === "gallery").map((r) => Object.assign({}, r, r.extra || {}));
+    assert(gal.some((r) => r.action === "spotlight") && gal.some((r) => r.action === "open" && r.from === "spotlight"), `telemetry ${JSON.stringify(gal.map((r) => r.action))}`);
+    return `${Object.entries(groups).map(([k, v]) => `${k} ${v.length}`).join(", ")}`;
   });
 
   await check(tag("arcade play total from 250 plays"), async () => {
