@@ -731,12 +731,13 @@
       "id": "island-census",
       "title": "Island Census",
       "file": "island-census.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-09-29",
       "updated": "2026-10-05",
+      "keyboard": "Arrows pick a meadow · Enter/Space release rabbits · F then an arrow picks a path, F fences/unfences it · N next season",
       "blurb": "Keep rabbits and foxes in balance on a small island for two years, one season at a time.",
       "goal": "Get through 8 seasons (two years) with both rabbits and foxes alive. Every season that ends with either species outside its band on the census meters is a strike; three strikes, or either species dying out, ends the round.",
-      "howToPlay": "The island is a set of meadows joined by paths. Each season you get 2 moves, then {press} Next season to watch it play out. {Tap} a meadow to release 8 rabbits there. Drag across a path to put up a fence: foxes can't cross it, but rabbits slip under it. You can have 3 fences up at once, and dragging across a fence takes it down for free. Rabbits eat grass (meadows turn brown when grazed bare), breed fastest in spring and not at all in winter, and move away from foxes and crowding. Foxes eat rabbits, raise cubs when well fed, starve when not, and follow the rabbits: the orange arrows on the paths show where they're heading next. Numbers under each meadow are its rabbits (white) and foxes (orange). The meters at the top show both totals against their green band. Protect rabbits too well and the foxes starve; leave the foxes free and they eat the island bare. The second year brings one surprise, announced a season ahead.",
+      "howToPlay": "The island is a set of meadows joined by paths. Each season you get 2 moves, then {press} Next season to watch it play out. {Tap} a meadow to release 8 rabbits there. Drag across a path to put up a fence: foxes can't cross it, but rabbits slip under it. You can have 3 fences up at once, and dragging across a fence takes it down for free. Rabbits eat grass (meadows go dark and lose their tufts when grazed bare), breed fastest in spring and not at all in winter, and move away from foxes and crowding. Foxes eat rabbits, raise cubs when well fed, starve when not, and follow the rabbits: the orange arrows on the paths show where they're heading next. Numbers under each meadow are its rabbits (after a dot) and foxes (after a triangle). The meters at the top show both totals against their band (a number outside it says low or high). Protect rabbits too well and the foxes starve; leave the foxes free and they eat the island bare. The second year brings one surprise, announced a season ahead.",
       "mechanics": [
         {
           "name": "release",
@@ -785,6 +786,11 @@
         }
       ],
       "changes": [
+        {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "Playable with keys: arrows pick a meadow, Enter releases rabbits, F then an arrow fences a path, N plays the season. Bigger numbers at the top, and meadows, paths and counts told apart by lightness and shape, not only colour."
+        },
         {
           "version": 2,
           "date": "2026-10-05",

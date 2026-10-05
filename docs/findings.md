@@ -278,3 +278,16 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   twice in one frame; the audit then reads the stale first paint, so mark
   dirty and paint once per frame. *A turn-based game's live region comes
   from its move result.* Pressure Grid v11. audit + keys-only playthrough.
+- Anti-aliased text makes greys at every lightness, and colour-blind
+  eyes turn a saturated teal or olive into the grey of the same
+  lightness: Island Census's teal meter band merged with text edges on
+  late screens. Use a near-grey (low saturation) or a blue-bearing colour
+  for small fills, and audit screens from late in a round too. *A
+  saturated colour turns into text grey for colour-blind eyes.* Island
+  Census v3. audit + seeded late screens.
+- Arrow keys picking among a fixed set (a meadow's paths) must cover the
+  set: "nearest in that direction" left 890 paths unpickable on 500
+  islands (two neighbours on one side). Give each item its own arrow by
+  least-turn matching (≤ 24 orders for 4), cycle extras on a repeat.
+  Cursor moves can stay nearest-wins. *Picking by arrow direction needs a
+  matching, not a nearest.* Island Census v3. reachability script.
