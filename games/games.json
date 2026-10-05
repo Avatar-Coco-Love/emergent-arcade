@@ -342,10 +342,15 @@
       "id": "ant-trails",
       "title": "Ant Trails",
       "file": "ant-trails.html",
-      "version": 6,
+      "version": 7,
       "added": "2026-09-27",
       "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 7,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Trails and rain work from the keyboard (a cursor on the arrow keys), screen readers hear what happens, the bonus line is easier to read, and reduced motion stills the legs and raindrops."
+        },
         {
           "version": 6,
           "date": "2026-10-05",
@@ -380,7 +385,7 @@
       "blurb": "Draw scent trails to lead your ants to food over six days. The colony carries over, and every day brings something new: scattered food, storms, a second spider, a rival colony.",
       "goal": "Survive a six-day run. Each day, carry the day's crumbs into the nest before sundown (60 seconds on day 1, then 90) without the colony dropping below 8 ants. Ants alive at sundown start the next day.",
       "howToPlay": "Ants wander until they smell something. Drag to draw a scent trail (it uses up the scent meter, which refills). Ants follow trails away from the nest, grab a crumb, and walk straight home, laying scent as they go, so busy routes grow into bright highways. Scent fades over time. Spiders follow scent too, and move fastest on the strongest trails. {Press} and hold to make it rain: rain washes scent away, so you can throw a spider off a trail, but your ants lose that trail as well. Soldiers keep spiders away from the nest, and a new ant hatches for every 10 crumbs. Day 1 is a short warm-up with one pile and no spider. Every day after it has a new food layout and a twist: day 4 brings storm clouds that wash trails as they drift by, day 5 a second spider, day 6 a rival colony of red ants that raids the same food and follows your trails. Ants you lose stay lost, but overnight one ant hatches for every 10 seconds of daylight you had left, plus 3 more if you met the day's bonus challenge (bottom left). Lose a day and you can retry it with the ants you had at dawn, or start a new run. The ▶▶ button (bottom right) runs the day at 2× or 3× speed.",
-      "keyboard": "F to fast-forward (1×, 2×, 3×)",
+      "keyboard": "Arrows move the cursor · hold Space: trail · hold W: wash · H nest, N next food · F fast-forward · Enter next day",
       "mechanics": [
         {
           "name": "trail",

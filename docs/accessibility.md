@@ -42,7 +42,7 @@ the honest end state, not a fix still owed.
 | murmuration | partial (v6: reads it; all idle motion is the flock) | pass (v6: backings) | pass | pass (v6: cursor, hold Space, X) | pass (v6, live region) | pass (v6) |
 | orbit-garden | pass | pass | pass | fail: none | pass (labelled) | pass |
 | wildfire-line | pass (v4) | pass | pass (v4: lightness bands) | pass (v4: cursor) | pass (v4) | pass |
-| ant-trails | partial: ignores it | pass | pass | fail: fast-forward only | pass (labelled) | partial: 11.5 px |
+| ant-trails | partial (v7: reads it; legs and raindrops still; all idle motion is the ants and scent) | pass (v7: backings) | pass (v7, late screens too) | pass (v7: cursor, hold Space trail, hold W wash) | pass (v7, live region) | pass (v7) |
 | hourglass-delivery | partial: ignores it | pass | pass | fail: none | pass (labelled) | pass |
 | hot-iron | pass | pass | pass | fail: none | pass (labelled) | pass |
 | island-census | pass | pass (v3: backings) | pass (v3: lightness bands + shape) | pass (v3: cursor, F fences) | pass (v3, live region) | pass (v3) |

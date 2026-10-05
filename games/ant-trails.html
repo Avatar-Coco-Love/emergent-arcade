@@ -52,29 +52,39 @@
     touch-action: none;
     border-radius: 10px;
   }
+  /* Text over the ground and the scent glow sits on its own dark backing. */
   #msg {
     position: absolute;
     top: 10px;
-    left: 8px;
-    right: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 16px);
     margin: 0;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(23, 17, 12, 0.85);
     text-align: center;
     font-size: 0.85rem;
     color: #fff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     pointer-events: none;
   }
+  #msg:empty { display: none; }
   #bonus {
     position: absolute;
-    left: 8px;
+    left: 6px;
     bottom: 6px;
+    max-width: calc(100% - 92px);
     margin: 0;
-    font-size: 0.72rem;
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: rgba(23, 17, 12, 0.85);
+    font-size: 0.8rem;
     color: #f3e3c4;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     pointer-events: none;
   }
   #bonus.done { color: #bfe89a; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #ffBtn {
     position: absolute;
     right: 6px;
@@ -147,7 +157,8 @@
   <div id="field">
     <div id="stage">
       <canvas id="ground" role="img" aria-label="Ant Trails ground. Drag to lay a scent trail, hold to wash scent away."></canvas>
-      <p id="msg" role="status"></p>
+      <p id="msg" aria-hidden="true"></p>
+      <p id="say" class="sr" role="status"></p>
       <p id="bonus"></p>
       <button id="ffBtn" aria-label="Game speed">▶▶ 1×</button>
       <div id="endCard" hidden>
@@ -293,7 +304,7 @@
         dawn: play.dawn, ants: ants.length, lost, hatched, crumbs: delivered, bonus: bonusMet ? 1 : 0,
         trails: play.trails, trail_px: Math.round(play.trailPx), rains: play.rains, rain_s: r1(play.rainS),
         rain_spider_s: r1(play.rainSpiderS), first_input: play.first < 0 ? -1 : r1(play.first),
-        ff_s: r1(play.ffS),
+        ff_s: r1(play.ffS), keys: play.keys,
       };
       if (rivalNest) stats.rivals = rivalDelivered;
       window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
@@ -323,7 +334,7 @@
   // The gallery pauses the game while one of its panels covers it.
   let paused = false;
   window.addEventListener('message', evt => {
-    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; endGesture(); }
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; keysUp(); endGesture(); }
     if (evt.data && evt.data.type === 'arcade:resume') paused = false;
   });
 
@@ -397,9 +408,11 @@
     rain = null;
     bonusMet = false;
     roundEarned.clear();
-    play = { dawn: ants.length, trails: 0, trailPx: 0, rains: 0, rainS: 0, rainSpiderS: 0, first: -1, ffS: 0 };
+    play = { dawn: ants.length, trails: 0, trailPx: 0, rains: 0, rainS: 0, rainSpiderS: 0, first: -1, ffS: 0, keys: 0 };
     state = 'playing';
     endCard.hidden = true;
+    spoken = [];
+    heard = { crumbs: 0, rivals: 0, ants: ants.length, lostAt: 0, light: 0, storms: 0, zone: null };
     showBonus();
     say(`Day ${day + 1}: ${cfg.name}. ${cfg.note} Bring ${goal} crumbs home.`, 4500);
   }
@@ -492,6 +505,8 @@
       : isBest ? 'New best run!' : `Best run: ${b.days} day${b.days === 1 ? '' : 's'} won, ${b.crumbs} crumbs.`;
     playAgainBtn.disabled = newRunBtn.disabled = true;
     endCard.hidden = false;
+    speak([title, detail, night, next].map(e => e.textContent).filter(Boolean).join(' ') +
+      ` Enter: ${playAgainBtn.textContent.toLowerCase()}.`);
     setTimeout(() => { playAgainBtn.disabled = newRunBtn.disabled = false; }, END_INPUT_LOCK_MS);
   }
 
@@ -516,8 +531,62 @@
 
   function say(text, ms) {
     msgEl.textContent = text;
+    speak(text);
     clearTimeout(msgTimer);
     msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, ms || 3000);
+  }
+
+  // § live region: screen readers hear what changed, at most once a frame
+  // (crumbs home, the colony shrinking, raids, storms, light left, the
+  // cursor's place, the day's result), never the frame itself. #msg is
+  // aria-hidden; its text goes through speak() too.
+  const sayEl = document.getElementById('say');
+  let spoken = [], heard;
+  function speak(text) { spoken.push(text); }
+  function flushSpeech() {
+    if (!spoken.length) return;
+    sayEl.textContent = spoken.join(' ');
+    spoken = [];
+  }
+  const LIGHT_MARKS = [30, 15, 5];  // seconds of daylight left worth a line
+  function announce() {
+    if (state !== 'playing' || !heard) return flushSpeech();
+    const tens = Math.floor(delivered / 10) * 10;
+    if (tens > heard.crumbs) {
+      heard.crumbs = tens;
+      if (delivered < goal) speak(`${delivered} of ${goal} crumbs home.`);
+    }
+    if (rivalNest && Math.floor(rivalDelivered / 10) * 10 > heard.rivals) {
+      heard.rivals = Math.floor(rivalDelivered / 10) * 10;
+      speak(`Red ants have raided ${heard.rivals} crumbs.`);
+    }
+    // Losses come in bursts: say the new size once it has held a second.
+    if (ants.length < heard.ants) {
+      if (!heard.lostAt) heard.lostAt = elapsed;
+      if (elapsed - heard.lostAt >= 1) {
+        heard.ants = ants.length;
+        heard.lostAt = 0;
+        if (ants.length < MIN_ANTS + 5) speak(`Colony down to ${ants.length} ants; below ${MIN_ANTS} it gives up.`);
+      }
+    } else { heard.ants = ants.length; heard.lostAt = 0; }
+    if (storms.length > heard.storms) {
+      const c = storms[storms.length - 1];
+      speak(`A storm cloud drifts in from the ${c.vx > 0 ? 'left' : 'right'}.`);
+    }
+    heard.storms = storms.length;
+    const left = sundown - elapsed;
+    while (heard.light < LIGHT_MARKS.length && left <= LIGHT_MARKS[heard.light]) {
+      if (left > LIGHT_MARKS[heard.light] - 1) speak(`${LIGHT_MARKS[heard.light]} seconds to sundown.`);
+      heard.light++;
+    }
+    if (kb.shown) {
+      const z = zoneAt(kb.x, kb.y);
+      if (z !== heard.zone) {
+        heard.zone = z;
+        if (z) speak(z);
+      }
+    }
+    flushSpeech();
   }
 
   // ---------- scent ----------
@@ -797,6 +866,11 @@
   const glowCtx = glow.getContext('2d');
   const glowImg = glowCtx.createImageData(GW, GH);
 
+  // Reduced motion: the ants, spiders and scent are the game and keep
+  // moving; decoration (walking legs, falling raindrops) is drawn still.
+  const motionQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const still = () => motionQ.matches;
+
   function drawAnt(a) {
     const body = a.rival ? '#8e2412' : '#140d08';
     ctx.save();
@@ -804,7 +878,7 @@
     ctx.rotate(a.h);
     ctx.strokeStyle = body;
     ctx.lineWidth = 0.8;
-    const sw = Math.sin(a.leg) * 1.2;
+    const sw = still() ? 0.6 : Math.sin(a.leg) * 1.2;
     ctx.beginPath();
     for (const lx of [-1.5, 0, 1.5]) {
       const k = lx === 0 ? -sw : sw;
@@ -833,7 +907,7 @@
     for (let i = 0; i < 4; i++) {
       // Four legs a side, fanning from forward to backward, twitching as it walks.
       const bx = 1 - i * 1.6, fan = (1.5 - i) * 4.5;
-      const wig = s.eat > 0 ? 0 : Math.sin(s.leg + i * 1.7) * 1.5;
+      const wig = s.eat > 0 || still() ? 0 : Math.sin(s.leg + i * 1.7) * 1.5;
       for (const side of [-1, 1]) {
         ctx.moveTo(bx, 0);
         ctx.lineTo(bx + fan * 0.6 + wig * side, side * 7);
@@ -859,7 +933,7 @@
     for (let i = 0; i < drops; i++) {
       const a = i * 2.4, rr = r * Math.sqrt((i + 0.5) / drops);
       const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
-      const f = ((t * 3 + i * 0.37) % 1) * 8;
+      const f = (((still() ? 0 : t * 3) + i * 0.37) % 1) * 8;
       ctx.moveTo(px, py - 4 + f); ctx.lineTo(px - 1, py + f);
     }
     ctx.stroke();
@@ -909,6 +983,7 @@
 
     for (const c of storms) drawRain(c.x, c.y, STORM_R, c.t, 'rgba(70,90,130,0.32)', 22);
     if (rain) drawRain(rain.x, rain.y, rainRadius(), rain.t, 'rgba(120,170,230,0.28)', 14);
+    if (kb.shown && state === 'playing') drawCursor();
 
     // Evening light as sundown nears.
     const late = Math.max(0, (elapsed - sundown * 0.6) / (sundown * 0.4));
@@ -935,41 +1010,68 @@
     const rect = canvas.getBoundingClientRect();
     return [(evt.clientX - rect.left) * W / rect.width, (evt.clientY - rect.top) * H / rect.height];
   }
+  // A gesture (pointer or keys): press, then a trail or a wash, then let go.
+  // Both input paths call these, so the simulation can't tell them apart.
+  let gest = null;                 // what this gesture did, for the live region
   function endGesture() {
+    if (gest && state === 'playing') {
+      if (mode === 'trail' && gest.px >= 1) {
+        speak(`Trail laid. Scent meter ${Math.round(gland / GLAND_MAX * 100)}%.`);
+      } else if (mode === 'wash' && rain) speak(`Rain stopped after ${rain.t.toFixed(1)} s.`);
+    }
+    gest = null;
     mode = null;
     rain = null;
+    kb.trail = kb.wash = false;
     clearTimeout(holdTimer);
+  }
+  function pressAt(pt) {
+    if (play.first < 0) play.first = elapsed;
+    mode = 'pending';
+    lastPt = pt;
+    gest = { px: 0, empty: false };
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => {
+      if (mode === 'pending' && state === 'playing') {
+        mode = 'wash'; rain = { x: lastPt[0], y: lastPt[1], t: 0 }; play.rains++;
+        speak('Raining.');
+      }
+    }, HOLD_MS);
+  }
+  function beginTrail() {
+    mode = 'trail';
+    play.trails++;
+    clearTimeout(holdTimer);
+  }
+  function moveTo(pt) {
+    if (mode === 'trail') {
+      gest.px += layTrail(lastPt[0], lastPt[1], pt[0], pt[1]);
+      if (gland < 1 && !gest.empty) { gest.empty = true; speak('Scent meter empty.'); }
+    }
+    if (mode === 'wash') { rain.x = pt[0]; rain.y = pt[1]; }
+    if (mode !== 'pending') lastPt = pt;
   }
 
   canvas.addEventListener('pointerdown', evt => {
     evt.preventDefault();
     if (state !== 'playing' || paused) return;
     canvas.setPointerCapture(evt.pointerId);
-    if (play.first < 0) play.first = elapsed;
-    mode = 'pending';
+    if (kb.trail || kb.wash) endGesture();
+    kb.shown = false;
     startPx = [evt.clientX, evt.clientY];
-    lastPt = toGround(evt);
-    clearTimeout(holdTimer);
-    holdTimer = setTimeout(() => {
-      if (mode === 'pending' && state === 'playing') { mode = 'wash'; rain = { x: lastPt[0], y: lastPt[1], t: 0 }; play.rains++; }
-    }, HOLD_MS);
+    pressAt(toGround(evt));
   });
 
   canvas.addEventListener('pointermove', evt => {
-    if (!mode || state !== 'playing' || paused) return;
+    if (!mode || kb.trail || kb.wash || state !== 'playing' || paused) return;
     const pt = toGround(evt);
-    if (mode === 'pending' && Math.hypot(evt.clientX - startPx[0], evt.clientY - startPx[1]) > MOVE_PX) {
-      mode = 'trail';
-      play.trails++;
-      clearTimeout(holdTimer);
-    }
-    if (mode === 'trail') layTrail(lastPt[0], lastPt[1], pt[0], pt[1]);
-    if (mode === 'wash') { rain.x = pt[0]; rain.y = pt[1]; }
-    if (mode !== 'pending') lastPt = pt;
+    if (mode === 'pending' && Math.hypot(evt.clientX - startPx[0], evt.clientY - startPx[1]) > MOVE_PX) beginTrail();
+    moveTo(pt);
   });
 
-  canvas.addEventListener('pointerup', endGesture);
-  canvas.addEventListener('pointercancel', endGesture);
+  const pointerUp = () => { if (!kb.trail && !kb.wash) endGesture(); };
+  canvas.addEventListener('pointerup', pointerUp);
+  canvas.addEventListener('pointercancel', pointerUp);
 
   document.getElementById('resetBtn').addEventListener('click', newRun);
   playAgainBtn.addEventListener('click', () => {
@@ -986,19 +1088,115 @@
     ffBtn.classList.toggle('on', speed > 1);
   }
   ffBtn.addEventListener('click', cycleSpeed);
+
+  // § keys: the same verbs without a pointer. Arrows move a cursor while held
+  // (slow at first for aiming, then faster), hold Space to lay a trail along
+  // its path (key up = finger up), hold W to wash under it (let go before
+  // HOLD_MS and nothing happens, like lifting a finger). H jumps the cursor
+  // to the nest and N to the next food pile; a jump with Space held lays a
+  // straight trail, like a fast swipe. Same pressAt / beginTrail / moveTo.
+  const CUR_SLOW = 90, CUR_FAST = 240, CUR_RAMP = 0.6; // ground units per second; seconds to full speed
+  const DIRS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  const CUR_START = [200, 480];    // just above the nest
+  const kb = { x: CUR_START[0], y: CUR_START[1], held: new Set(), heldFor: 0, trail: false, wash: false, shown: false, pile: -1 };
+  function keysUp() {
+    kb.held.clear();
+    if (kb.trail || kb.wash) endGesture();
+  }
+  function cursorTo(x, y) {
+    kb.x = Math.max(0, Math.min(W, x));
+    kb.y = Math.max(0, Math.min(H, y));
+    if (kb.trail || kb.wash) moveTo([kb.x, kb.y]);
+  }
+  function moveCursor(dt) {
+    let dx = 0, dy = 0;
+    for (const k of kb.held) { dx += DIRS[k][0]; dy += DIRS[k][1]; }
+    if (!dx && !dy) { kb.heldFor = 0; return; }
+    kb.heldFor += dt;
+    const v = (CUR_SLOW + (CUR_FAST - CUR_SLOW) * Math.min(1, kb.heldFor / CUR_RAMP)) * dt / Math.hypot(dx, dy);
+    cursorTo(kb.x + dx * v, kb.y + dy * v);
+  }
+  // What the cursor is over, in words (null: bare ground).
+  function zoneAt(x, y) {
+    if (Math.hypot(x - NEST.x, y - NEST.y) < NEST.r + 12) return 'Cursor on the nest.';
+    if (rivalNest && Math.hypot(x - rivalNest.x, y - rivalNest.y) < rivalNest.r + 12) return 'Cursor on the red ants’ nest.';
+    for (const p of piles) {
+      if (p.n && Math.hypot(x - p.x, y - p.y) < PILE_R + 14) return `Cursor on ${p.far ? 'the far' : 'a'} pile, ${p.n} crumbs.`;
+    }
+    for (const s of spiders) if (Math.hypot(x - s.x, y - s.y) < 30) return 'Cursor near a spider.';
+    if (scentAt(x, y) > 0.3) return 'Cursor on a trail.';
+    return null;
+  }
+  function nextPile() {
+    const order = piles.map((p, i) => i).filter(i => piles[i].n)
+      .sort((a, b) => Math.hypot(piles[a].x - NEST.x, piles[a].y - NEST.y) - Math.hypot(piles[b].x - NEST.x, piles[b].y - NEST.y));
+    if (!order.length) return speak('No food left on the ground.');
+    const at = order.indexOf(kb.pile);
+    kb.pile = order[(at + 1) % order.length];
+    heard.zone = null;
+    cursorTo(piles[kb.pile].x, piles[kb.pile].y);
+  }
+  function drawCursor() {
+    // A dark ring under a white one reads on the soil, the scent and the dusk.
+    for (const [c, w] of [['rgba(23,17,12,0.9)', 5], ['#fff', 2]]) {
+      ctx.strokeStyle = c;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.arc(kb.x, kb.y, 8, 0, Math.PI * 2);
+      ctx.moveTo(kb.x - 14, kb.y); ctx.lineTo(kb.x - 8, kb.y);
+      ctx.moveTo(kb.x + 8, kb.y); ctx.lineTo(kb.x + 14, kb.y);
+      ctx.moveTo(kb.x, kb.y - 14); ctx.lineTo(kb.x, kb.y - 8);
+      ctx.moveTo(kb.x, kb.y + 8); ctx.lineTo(kb.x, kb.y + 14);
+      ctx.stroke();
+    }
+  }
   window.addEventListener('keydown', evt => {
-    if ((evt.key === 'f' || evt.key === 'F') && !evt.repeat) cycleSpeed();
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    const k = evt.key === ' ' ? 'space' : evt.key.toLowerCase();
+    if (onButton && (k === 'enter' || k === 'space')) return; // the focused button presses itself
+    if (k === 'f') { if (!evt.repeat) cycleSpeed(); return; }
+    if (evt.key in DIRS) {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (paused || state !== 'playing') return;
+      kb.held.add(evt.key);
+      kb.shown = true;
+      return;
+    }
+    if (paused) return;
+    if (state !== 'playing') {
+      if (k === 'enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); playAgainBtn.click(); }
+      return;
+    }
+    if (!['space', 'w', 'h', 'n'].includes(k)) return;
+    evt.preventDefault();
+    kb.shown = true;
+    if (evt.repeat) return;
+    if (k === 'h') { heard.zone = null; cursorTo(NEST.x, NEST.y); }
+    else if (k === 'n') nextPile();
+    else if (mode) return;           // a gesture is already on
+    else if (k === 'space') { pressAt([kb.x, kb.y]); beginTrail(); kb.trail = true; play.keys++; }
+    else { pressAt([kb.x, kb.y]); kb.wash = true; play.keys++; }
   });
+  window.addEventListener('keyup', evt => {
+    if (evt.key in DIRS) kb.held.delete(evt.key);
+    if ((evt.key === ' ' && kb.trail) || ((evt.key === 'w' || evt.key === 'W') && kb.wash)) endGesture();
+  });
+  window.addEventListener('blur', keysUp);
 
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   function frame(now) {
-    acc += Math.min((now - last) / 1000, 0.1) * speed;
+    const dt = Math.min((now - last) / 1000, 0.1);
+    acc += dt * speed;
     last = now;
+    if (state === 'playing' && !paused) moveCursor(dt);
     while (acc >= STEP) {
       if (state === 'playing' && !paused) step(STEP);
       acc -= STEP;
     }
+    announce();
     draw();
     requestAnimationFrame(frame);
   }
@@ -1011,7 +1209,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const h = fine ? 'click and hold' : 'hold';
-  document.getElementById('ground').setAttribute('aria-label', `Ant Trails ground. Drag to lay a scent trail, ${h} to wash scent away. Keys: F fast-forwards (1×, 2×, 3×).`);
+  document.getElementById('ground').setAttribute('aria-label', `Ant Trails ground. Drag to lay a scent trail, ${h} to wash scent away. Keys: arrows move a cursor, hold Space to lay a trail along its path, hold W to wash under it, H jumps to the nest, N to the next food, F fast-forwards.`);
 }
 </script>
 </body>

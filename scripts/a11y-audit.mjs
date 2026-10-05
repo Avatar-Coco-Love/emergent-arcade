@@ -428,7 +428,7 @@ const VERB_WORDS = { tap: /\b(tap|click|press)/i, drag: /\b(drag|draw|pull|slide
 const ALL = "all";
 const KEY_COVER = {
   "pressure-grid": ["Arrows move · Enter/Space pump · S then an arrow aims a pour, Enter pours · Z undo · R restart · N next level", ALL],
-  "ant-trails": ["F to fast-forward (1×, 2×, 3×)", []],
+  "ant-trails": ["Arrows move the cursor · hold Space: trail · hold W: wash · H nest, N next food · F fast-forward · Enter next day", ALL],
   "terrace-garden": ["← → or A / D to tilt", ["tilt"]],
   "bubble-glass": ["← → or A / D to turn the box", ["drag"]],
   "tidewright": ["← → pick a column, hold and release Space to throw sand (longer = more), 1-4 open or shut a gate", ALL],

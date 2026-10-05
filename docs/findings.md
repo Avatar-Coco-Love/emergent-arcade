@@ -318,3 +318,11 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   own press object, so key up early cancels exactly like lifting a finger.
   *A switch key keeps an arrow binding players know.* Geode v3. keys-only
   playthrough.
+- A path verb between two places (nest to food) is slow and blind with
+  arrows alone. Jump keys to the places that matter (H nest, N next pile)
+  plus the held path key lay a straight path, the same segment a fast
+  swipe makes, and the live region names what the cursor is on. When
+  measuring idle motion, hide the shared state too: Ant Trails was
+  0.00–0.05% with the ants hidden (carriers' scent), 0.00% with the scent
+  hidden as well. *Jump keys give a path verb its ends.* Ant Trails v7.
+  keys-only playthrough + hidden-pieces diff.
