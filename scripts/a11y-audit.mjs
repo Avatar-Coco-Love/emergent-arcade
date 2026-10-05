@@ -446,6 +446,7 @@ const KEY_COVER = {
   "orbit-garden": ["Arrows move the cursor · Enter places a planet · Space aims (arrows: angle, strength), Space flings · N next planet", ALL],
   "wildfire-line": ["Arrows move the cursor · Space starts or stops cutting along its path · Enter lights a backburn at the cursor", ALL],
   "hot-iron": ["← → move the cursor (Shift: half) · hold Space heats there · Enter or H strikes · O next off the outline · S status", ALL],
+  "loom": ["Arrows pick a knot · C next corner · Enter or P pins/unpins · hold Space: arrows pull it · S status · Enter next shape", ALL],
 };
 
 async function auditGame(g) {

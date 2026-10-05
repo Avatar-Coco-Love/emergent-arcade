@@ -1156,3 +1156,59 @@ scripted late screens, old and new; hot-bar idle diff normal/reduced ×
 sparks/glow hidden, 3 runs; balance old×2 and new identical; keys-only
 bot, 2 rounds.*
 
+
+## A picker over moving pieces needs a way back
+
+Loom v4. Loom's knots move: a pull drags the net, pins fix parts of it,
+and Kite needs it turned 45°. The arrow picker gives each of the picked
+knot's (up to 4) net neighbours its own arrow by least-turn matching on
+where the knots are now (findings, "Picking by arrow direction needs a
+matching"). That keeps every knot reachable: from every start, on 300
+randomly pulled and pinned nets, all 36. But it is not reversible. On
+those nets 43% of steps (15 330 of 36 000) were not undone by the
+opposite arrow, because a folded net puts a knot's "up" neighbour below
+it. The first keys-only bot walked to corners by reading knot names and
+stepping back when a step went the wrong way; it got lost after the
+second pin. v4 keeps a trail: the opposite of the last arrow walks back
+the way the picker came (40/40 random walks returned to the start on a
+folded net), and C / Shift+C jump between corners, the knots every plan
+starts from.
+
+The same bot showed a second gap. Its words said "Nearest dot 1: …" for
+the top-right corner after the top-left corner had covered dot 1, and it
+dragged the corner across the net onto it. A sighted player skips a dot
+that is already covered. The live region now says "Nearest dot 1,
+covered by another knot: …. Nearest open dot 2: …". With the plan read
+from S (each dot's offset from the picked knot) and those words, a bot
+using only keys and the live region held Tablecloth (7–8 s) and Banner
+(10–11 s) with 0 slips on 3 runs. Sail was lost: the plan "each corner
+to the dot furthest its way" can't see that two dots lie on a taut edge.
+
+*Evidence: reachability + reversibility script (300 nets), trail walk
+(40), keys-only bot, 3 runs × 3 shapes.*
+
+## A warning ramp can end where the resting state sits
+
+Loom v4. v3 coloured a taut strand linen → gold (at `WARN`) → red (at
+`SNAP`), and drew slack strands in a mid grey. By number (L*, normal /
+protan): slack 61/61, gold 80/78, red 58/48. The most urgent strand,
+about to snap, had the lightness of a relaxed one; under protanopia it
+was darker. Strands are 2–3.5 px lines, so no colour covers the 0.5% of
+the screen the audit's colour cell needs; it passed v3 on the usual
+screen and on 2 scripted late screens (Banner stretched with a hot strand
+and a pull in progress; Hammock with 3 holes), and passes v4 the same.
+v4 bands: slack 35 (dim, sagging, 1.5 px), taut linen 88 → gold 80, then
+at `WARN` a step to orange-red 60 → red 54 (protan 53 → 45) drawn 1 px
+thicker, and white crossbars over `SNAP`. Load rings got the same: from
+`RING_RED` a red at 53 drawn 4 px on a dark track (gold 80 below), and
+an outer white ring over `PIN_HOLD`, so the pin's shake isn't the only
+sign it is about to pop. Reduced motion stops the shake, blink, flash,
+lint and flying pins (their `Math.random` calls stay; 16 bots × 100 seeds
+identical). The motion cell was a state pass again: a settled net is
+0.00% idle in any setting, and the decoration only moves around a loose
+pin or an over-limit strand (frozen scene: v3 0.13–0.19% in either
+setting, v4 0.39–0.41% → 0.00% under it).
+
+*Evidence: L* by number, v3 vs v4; screenshots at 360×740 normal,
+deutan, protan, before and after; audit colour on 2 scripted late
+screens × 2 runs, old and new; balance old×2 and new identical.*

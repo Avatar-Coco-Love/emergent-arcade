@@ -1,6 +1,6 @@
 # Loom: design notes
 
-**v3** (2026-10-05, canvas label; v2 2026-09-29) · playtest: https://claude.ai/artifact/85uz8o6kFYJaZRyVatPwAf ·
+**v4** (2026-10-05, accessibility: keys, live region, tension by lightness; v3 canvas label; v2 2026-09-29) · playtest: https://claude.ai/artifact/85uz8o6kFYJaZRyVatPwAf ·
 balance: `node scripts/balance-loom.mjs 100`
 Verbs: **pull** (drag) and **pin** (tap), sharing **tension in every strand** of a 6×6 knotted net.
 
@@ -20,9 +20,8 @@ Verbs: **pull** (drag) and **pin** (tap), sharing **tension in every strand** of
   loses the shape at once; the corners' rows stretch to 0.22 even at the
   dots' inner edges, so use rows 1 and 4 and leave the frayed rows slack.
 - The net: knots on a 32 px grid, strands between horizontal and vertical
-  neighbours only (no diagonals, so it shears freely like a real net).
-  Strands only pull: force = strain = stretch / rest length, while taut.
-  A slack strand is drawn sagging.
+  neighbours only (it shears freely). Strands only pull: force = strain =
+  stretch / rest length, while taut.
 - Motion is overdamped: a free knot moves at `MOB · (|F| − FRICTION)` px/s
   (capped at `VMAX`) along its net force, and doesn't move under
   `FRICTION`. Friction is near zero, so an unpinned net slides as a whole
@@ -33,32 +32,17 @@ Verbs: **pull** (drag) and **pin** (tap), sharing **tension in every strand** of
   pink line thickens. Grabbing a pinned knot pulls its pin out. A released
   knot stays put for `GRACE` s (a fading ring), then slides.
 - Pin: tap a knot. Up to `MAX_PINS` at once. A pin's ring fills with its
-  load (the net strand force on it) relative to `PIN_HOLD`: white, gold at
-  half, red at `RING_RED`. Over `PIN_HOLD` for `POP_DELAY` s (the pin
-  shakes), it pops. While pulling, the grabbed knot shows the same ring: the
-  load a pin would hold there.
-- Snap: a strand over `SNAP` strain for `SNAP_DELAY` s snaps. It turns
-  linen → gold (`WARN`) → red, flashing white while over. Snapped strands
+  load (the net strand force on it) relative to `PIN_HOLD` (bands in
+  "Accessibility"). Over `PIN_HOLD` for `POP_DELAY` s (outer ring, shakes)
+  it pops. While pulling, the grabbed knot shows the same ring.
+- Snap: a strand over `SNAP` strain for `SNAP_DELAY` s snaps. Its colour
+  bands are in "Accessibility"; over `SNAP` it gets two white crossbars
+  (and blinks white with motion on). Snapped strands
   stay gone for the rest of the run, but a retry restores the holes the
   shape started with.
 - Shapes (dots are `[x, y, knot]`: the third number is the knot the design
-  has in mind, read only by the balance bots):
-  - Tablecloth: 200×200 square, corners to corners (strain ~0.25).
-  - Banner: 230×120, four corner dots plus one on the top and bottom edges.
-    The four corner pins stretch those edges taut (strain ~0.44), which lines
-    the edge knots up on the two extra dots. 6 dots, 4 pins.
-  - Sail: right triangle (net corners TL, BL, BR). The left edge is taut
-    (~0.4). 5 dots, 4 pins.
-  - Pennant (v2): triangle, left edge on the corners (190 px), point at
-    (335, 245) for the dyed knot 17. 3 dots, 3 pins, about 4 s for bots.
-  - Hammock (v2): 220×110 on knots 6, 11, 24, 29 (rows 1 and 4), frayed
-    top and bottom rows.
-  - Arrow (v2): tip (200, 110) for dyed knot 2, feet (310, 330) and
-    (90, 330) on the bottom corners. The pins at the feet pop at the dots'
-    centres: rings needed (no-rings 23% first try).
-  - Kite: diamond 240×320. The net has to turn 45° (corners to the points),
-    and pins at the dot centres pop; pins at the inner edges hold (loads
-    0.36–0.5).
+  has in mind, read only by the balance bots). Per-shape notes (strains,
+  pins, where pins pop) are in `docs/history/loom.md`, "Shapes (v2)".
 
 
 ## Key constants (`games/loom.html`, top of the script)
@@ -75,8 +59,8 @@ Verbs: **pull** (drag) and **pin** (tap), sharing **tension in every strand** of
 
 ## Layout (400×480)
 
-Net centred at (200, 245). The status message sits at the top. The HUD
-below the canvas shows shape n/4, pins in use, slips and Restart shape.
+Net centred at (200, 245); status line on a backing at the top; HUD
+below: shape n/7, pins, slips, Restart shape.
 
 ## Balance (v2, `node scripts/balance-loom.mjs 100`)
 
@@ -94,8 +78,39 @@ in history.
 | habit (v1 trick, blind to dye) | 0% | 0/0 | – | – |
 | habit-dye (v1 trick + dye) | 0% | 100/100 | 0/0 (tears) | – |
 
-Old Rope (Hammock first try): reader 100%, novice 84%. True Colours
-(Arrow, no slips): reader 85%, no-rings 24%, novice 33%.
+Achievement rates: `docs/history/loom.md`, "Shapes (v2)".
+
+
+## Accessibility (v4, `node scripts/a11y-audit.mjs loom`: all 6 pass, 3/3)
+
+- Keys (`// § keys`): arrows pick a knot; each net neighbour gets its own
+  arrow (least-turn matching on current positions), so all 36 are
+  reachable (300 pulled nets). On folded nets 43% of steps aren't undone
+  by the opposite arrow, so opposite arrows walk back a trail; C /
+  Shift+C jump corners. Enter/P = `tapKnot`. Hold Space = `grab`, arrows
+  move a lead point (40 → 160 px/s over 0.8 s, 3 px a press, ≤ 40 px
+  ahead) into `setFinger`; Space up = `release`. S status, Enter next.
+  Tab free; Space/Enter on a focused button press it.
+- Live region `#say` (`#msg` aria-hidden): picked knot (pinned + load
+  word, each strand by arrow: slack/taut/straining/over its limit, "On
+  dot 2, 4 right of its centre" or the nearest dot, saying if another
+  knot covers it), a pull's lead and load once the arrows rest, strands
+  turning straining, over-limit strands, pins working loose, pops and
+  snaps by name, covered dots (0.4 s still), start and result.
+- Tension by lightness (L* normal/deutan/protan), steps on the rule's
+  lines: slack 35 (sags, 1.5 px); taut linen 88 → gold 80/82/78; at `WARN`
+  orange-red 60/64/53 → red 54/58/45, +1 px; over `SNAP` white crossbars.
+  Rings: grey 54, gold 80 from half, from `RING_RED` red 53/57/45 4 px on
+  a dark track; over `PIN_HOLD` an outer white ring. v3 had no step at
+  `WARN` (red end protan 48 vs slack 61); the colour cell passed both, on
+  2 scripted late screens too.
+- Reduced motion (`still()`): no flash, shake, blink, lint, flying pins
+  (`Math.random` calls kept). v3's pass was a state pass (settled net
+  0.00% idle); a frozen loose-pin + over-limit scene moves 0.13–0.19% in
+  v3 either way, 0.39–0.41% → 0.00% in v4. `#msg` on a backing, 6.9:1, 13.6 px.
+- Balance identical to v3 (16 bots × 100, old file twice first). Keys-only
+  bot (live region only, 3 runs): Tablecloth 7–8 s, Banner 10–11 s, 0
+  slips; Sail lost (its corner plan misses the taut-edge dots).
 
 ## Telemetry
 
@@ -111,27 +126,20 @@ and `stats`:
 | `pulls` | drags | `pins` | pins placed |
 | `max_pins` | most pins in at once | `holes` | snapped strands carried in |
 | `covered` | dots covered at the end | `first_input` | s until the first touch (-1: none) |
+| `keys` (v4) | key pulls + key pins | | |
 
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play.
-- Not hand-played on a real phone yet (rendered headlessly with mouse input
-  at 390×700).
-- Bots win each shape in 6–12 s once they know the plan; a human's time goes
-  into finding it (turning the net for Kite, using the taut edges on
-  Banner), which bots can't measure. Check `first_input` and time per level.
-- A plan-aware bot aiming at the inner edge (`inset-rule`) wins every shape,
-  v2's included; the twists change which knots go where, not the "inner
-  edge" part. Not built yet: **tacks** (knots fixed where they lie, never
-  popping): a dot below a tack is safe at its outer (tack-side) edge, so
-  aiming at the inner edge snaps the strand.
-- Load rings aren't strictly needed (inner-edge aiming wins 100%). A shape
-  where the safe spot isn't the inner edge (e.g. an extra non-dot pin to
-  split a load) would make them required.
-- Snapping rarely matters to a player who knows the plan, so carry-over
-  holes rarely matter. A shape needing strain near `SNAP` (0.6) would make
-  yanking (full grip against a pin) a real risk.
+- Accessibility: a real screen reader and keyboard player are the test.
+  Offsets are in game px (knot spacing 32). Sighted players see that a
+  dot lies on the line between two others (a taut edge covers it); S
+  could say so (the keys bot lost Sail there).
+- Not hand-played on a real phone yet (headless, 390×700).
+- Bots win each shape in 6–12 s once they know the plan; a human's time
+  goes into finding it. Check `first_input` and time per level.
+- Depth ideas from v2 (tacks, a shape where load rings are needed, a shape
+  needing strain near `SNAP`): `docs/history/loom.md`, "Depth ideas".
 - The nearest-knot guess fails Banner outright (pins pop). If players stall
   there, draw a faint "corner" tick on the silhouette's corners, or move
   Banner's corners nearer the net's corners.

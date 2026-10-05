@@ -60,11 +60,18 @@
     right: 8px;
     margin: 0;
     text-align: center;
+    width: fit-content;
+    max-width: calc(100% - 16px);
+    margin: 0 auto;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(21, 15, 25, 0.88);
     font-size: 0.85rem;
     color: #f5e9f1;
-    text-shadow: 0 1px 3px #000;
     pointer-events: none;
   }
+  #msg:empty { display: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #endCard {
     position: absolute;
     left: 50%;
@@ -110,8 +117,9 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="table" role="img" aria-label="Loom. Drag a knot to pull the cloth, tap or click a knot to pin it."></canvas>
-      <p id="msg" role="status"></p>
+      <canvas id="table" role="img" aria-label="Loom. Drag a knot to pull the net, tap or click a knot to pin it. Keys: arrows pick a knot, C the next corner, Enter or P pins it, hold Space and the arrows pull it, S status."></canvas>
+      <p id="msg" aria-hidden="true"></p>
+      <div class="sr" id="say" role="status" aria-live="polite"></div>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -188,6 +196,11 @@
   const canvas = document.getElementById('table');
   const ctx = canvas.getContext('2d');
   const msgEl = document.getElementById('msg');
+  const sayEl = document.getElementById('say');
+  // Reduced motion: no shake, flash, blink, lint or flying pins (their
+  // Math.random calls stay, so seeded bots reproduce exactly).
+  const reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const still = () => reduceMQ.matches;
 
   // Achievements: announced to the Emergent Arcade gallery when embedded
   // (it records them); harmless when the file is opened on its own.
@@ -213,7 +226,7 @@
       outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
       level: level + 1, run: runId, attempt,
       stats: { snaps, pops, pulls, pins: pinsPlaced, max_pins: maxPins, holes: startHoles.length,
-        covered: coveredCount(), first_input: firstInput === null ? -1 : r1(firstInput) } };
+        covered: coveredCount(), first_input: firstInput === null ? -1 : r1(firstInput), keys: keyUses } };
     if (reason) msg.reason = reason;
     window.parent.postMessage(msg, '*');
   }
@@ -257,7 +270,7 @@
   let knots = [];
 
   let level, runId, attempt, runSnaps, startHoles, state, msgTimer;
-  let elapsed, holdT, snaps, pops, pulls, pinsPlaced, maxPins, firstInput;
+  let elapsed, holdT, snaps, pops, pulls, pinsPlaced, maxPins, firstInput, keyUses;
   let grabbed = null, finger = { x: 0, y: 0 }, slipWatch = null, hinted = false;
   let lint = [], flyingPins = [], flash = 0;
 
@@ -270,6 +283,10 @@
       dots: sh.dots.map(d => [fx(d[0]), d[1], fk(d[2]), d[3]]),
       frayed: (sh.frayed || []).map(([a, b]) => [fk(a), fk(b)]) };
     cur.dyed = cur.dots.filter(d => d[3] === 'dye').map(d => d[2]);
+    // Dot numbers for the live region, in reading order (labels only).
+    const order = cur.dots.map((d, j) => j).sort((a, b) => cur.dots[a][1] - cur.dots[b][1] || cur.dots[a][0] - cur.dots[b][0]);
+    cur.dotNo = [];
+    order.forEach((j, n) => { cur.dotNo[j] = n + 1; });
   }
   function shape() { return cur; }
   function pinsIn() { return knots.filter(k => k.pinned).length; }
@@ -298,13 +315,15 @@
       knots.push({ x: CX + (c - (COLS - 1) / 2) * REST, y: CY + (r - (ROWS - 1) / 2) * REST,
         pinned: false, over: 0, load: 0, grace: 0 });
     }
-    elapsed = 0; holdT = 0; snaps = 0; pops = 0; pulls = 0; pinsPlaced = 0; maxPins = 0;
+    elapsed = 0; holdT = 0; snaps = 0; pops = 0; pulls = 0; pinsPlaced = 0; maxPins = 0; keyUses = 0;
     firstInput = null; grabbed = null; slipWatch = null;
     lint = []; flyingPins = [];
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
-    say(`${shape().name}: ${shape().note || 'cover every dot.'}`, shape().note ? 4000 : 2500);
+    say(`${shape().name}: ${shape().note || 'cover every dot.'}`, shape().note ? 4000 : 2500,
+      `${shape().name}, shape ${level + 1} of ${SHAPES.length}: ${shape().note || 'cover every dot.'} ` +
+      `${shape().dots.length} dots. S says where they are from the picked knot.`);
     hud();
   }
 
@@ -342,6 +361,8 @@
     const n = roundEarned.size;
     document.getElementById('endAch').textContent = n
       ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned` : '';
+    speak(`${title.textContent} ${document.getElementById('endDetail').textContent} ` +
+      (n ? `${n} achievement${n === 1 ? '' : 's'} earned. ` : '') + `Enter: ${playAgainBtn.textContent.toLowerCase()}.`);
     playAgainBtn.disabled = true;
     endCard.hidden = false;
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
@@ -358,11 +379,15 @@
     }
   }
 
-  function say(text, ms) {
+  // #msg shows a line for a while; the live region (#say, hidden) gets the
+  // same line, or `spoken` when the words for keys differ.
+  function say(text, ms, spoken) {
     msgEl.textContent = text;
     clearTimeout(msgTimer);
     msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms || 2500);
+    speak(spoken || text);
   }
+  function speak(t) { sayEl.textContent = t; }
 
   function coveredBy(d) {
     if (d[3] === 'dye') return Math.hypot(knots[d[2]].x - d[0], knots[d[2]].y - d[1]) <= DOT_R;
@@ -402,7 +427,7 @@
     touched();
     const k = knots[i];
     if (k.pinned) { k.pinned = false; k.over = 0; hud(); return; }
-    if (pinsIn() >= MAX_PINS) { say(`All ${MAX_PINS} pins are in. Tap a pin to take it out.`); return; }
+    if (pinsIn() >= MAX_PINS) { say(`All ${MAX_PINS} pins are in. Tap a pin to take it out.`, 2500, `All ${MAX_PINS} pins are in. Pick a pin and press Enter to take it out.`); return; }
     k.pinned = true; k.over = 0;
     pinsPlaced++;
     maxPins = Math.max(maxPins, pinsIn());
@@ -471,7 +496,7 @@
     hud();
     if (s.fray) { endLevel('lost', 'frayed'); return; } // old rope gives way at once
     if (slipped('torn')) return;
-    say(`Snap! ${slipsLeft()}`);
+    say(`Snap! ${slipsLeft()}`, 2500, `Snap! The strand ${strandName(s)} broke. ${slipsLeft()}`);
   }
 
   function pop(k) {
@@ -482,7 +507,7 @@
     flyingPins.push({ x: k.x, y: k.y, vx: Math.cos(t) * 90, vy: -60 - Math.random() * 40, life: 0.7 });
     hud();
     if (slipped('slipped')) return;
-    say(`A pin popped loose! ${slipsLeft()}`);
+    say(`A pin popped loose! ${slipsLeft()}`, 2500, `The pin at ${knotName(knots.indexOf(k))} popped loose! ${slipsLeft()}`);
   }
 
   // Snaps and pops are slips; MAX_SLIPS of them in one shape lose it.
@@ -505,7 +530,7 @@
       const k = knots[slipWatch.i];
       if (k.pinned || grabbed === slipWatch.i) slipWatch = null;
       else if (Math.hypot(k.x - slipWatch.x, k.y - slipWatch.y) > 14) {
-        if (!hinted) { say('It slid back. Tap a knot to pin it.'); hinted = true; }
+        if (!hinted) { say('It slid back. Tap a knot to pin it.', 2500, 'It slid back. Enter or P pins the picked knot.'); hinted = true; }
         slipWatch = null;
       }
     }
@@ -540,22 +565,48 @@
     t = Math.max(0, Math.min(1, t));
     return `rgb(${c1.map((v, i) => Math.round(v + (c2[i] - v) * t)).join(',')})`;
   }
-  const LINEN = [232, 220, 200], GOLD = [242, 193, 78], RED = [255, 70, 70];
+  // Tension bands by lightness (L*), so they read without hue: slack 35
+  // (dim, sagging), taut linen 88 → gold 80, and at WARN a step down to
+  // orange-red 60 → red 54, drawn 1 px thicker. Over SNAP: crossbars (and
+  // a white blink with motion on). docs/games/loom.md, "Accessibility".
+  const LINEN = [232, 220, 200], GOLD = [242, 193, 78], EMBER = [235, 105, 45], RED = [230, 70, 60];
+  const SLACK = 'rgba(200,188,172,0.36)';
   function strandColor(s) {
     const warn = s.fray ? FRAY_WARN : WARN, snapAt = s.fray ? FRAY_SNAP : SNAP;
     if (s.strain < warn) return mix(LINEN, GOLD, s.strain / warn);
-    return mix(GOLD, RED, (s.strain - warn) / (snapAt - warn));
+    return mix(EMBER, RED, (s.strain - warn) / (snapAt - warn));
   }
 
   // A ring around a pin (or the knot being pulled) filling with its load:
-  // white, gold from half of PIN_HOLD, red from RING_RED of it.
+  // grey (L* 54), gold (80) from half of PIN_HOLD, and from RING_RED a
+  // darker red (53) drawn thicker on a dark track.
   function loadRing(x, y, f) {
-    ctx.strokeStyle = f > RING_RED ? '#ff5a5a' : f > 0.5 ? '#f2c14e' : 'rgba(255,255,255,0.45)';
-    ctx.lineWidth = 2.5;
+    const high = f > RING_RED;
+    if (high) {
+      ctx.strokeStyle = 'rgba(10,6,12,0.85)';
+      ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.strokeStyle = high ? '#e04848' : f > 0.5 ? '#f2c14e' : 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = high ? 4 : 2.5;
     ctx.beginPath(); ctx.arc(x, y, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke();
+  }
+  // A strand over its snap strain: two white crossbars with dark edges.
+  function overMark(a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1, nx = -dy / len * 5, ny = dx / len * 5;
+    for (const [c, w] of [['rgba(10,6,12,0.9)', 4], ['#ffffff', 2]]) {
+      ctx.strokeStyle = c; ctx.lineWidth = w;
+      ctx.beginPath();
+      for (const t of [0.4, 0.6]) {
+        const x = a.x + dx * t, y = a.y + dy * t;
+        ctx.moveTo(x - nx, y - ny); ctx.lineTo(x + nx, y + ny);
+      }
+      ctx.stroke();
+    }
   }
 
   function draw(now) {
+    const tm = still() ? 0 : now; // decoration's clock: frozen under reduced motion
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
     ctx.fillStyle = '#1d1523';
     ctx.fillRect(0, 0, W, H);
@@ -566,7 +617,7 @@
     for (let x = 10; x < W; x += 20) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
     for (let y = 10; y < H; y += 20) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
     ctx.stroke();
-    if (flash > 0) { ctx.fillStyle = `rgba(255,80,80,${flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
+    if (flash > 0 && !still()) { ctx.fillStyle = `rgba(255,80,80,${flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
 
     // The silhouette and its dots.
     const sh = shape();
@@ -620,15 +671,17 @@
         const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
         const len = Math.hypot(b.x - a.x, b.y - a.y);
         const sag = Math.sqrt(Math.max(0, REST * REST - len * len)) * 0.35;
-        ctx.strokeStyle = 'rgba(200,188,172,0.75)';
+        ctx.strokeStyle = SLACK;
         ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my + sag, b.x, b.y); ctx.stroke();
         continue;
       }
-      const hot = s.over > 0 && Math.sin(now / 40) > 0;
-      ctx.strokeStyle = hot ? '#ffffff' : strandColor(s);
-      ctx.lineWidth = (s.fray ? 1.5 : 2) + Math.min(1.5, snapFrac(s) * 1.5);
+      const blink = s.over > 0 && tm > 0 && Math.sin(tm / 40) > 0;
+      const warm = s.strain >= (s.fray ? FRAY_WARN : WARN);
+      ctx.strokeStyle = blink ? '#ffffff' : strandColor(s);
+      ctx.lineWidth = (s.fray ? 1.5 : 2) + (warm ? 1 : 0) + Math.min(1.5, snapFrac(s) * 1.5);
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      if (s.over > 0) { ctx.setLineDash([]); overMark(a, b); }
     }
     ctx.setLineDash([]);
 
@@ -639,7 +692,10 @@
       if (k.pinned) {
         const f = Math.min(1, k.load / PIN_HOLD);
         let x = k.x, y = k.y;
-        if (k.over > 0) { x += (Math.random() - 0.5) * 3; y += (Math.random() - 0.5) * 3; }
+        if (k.over > 0) {
+          const jx = (Math.random() - 0.5) * 3, jy = (Math.random() - 0.5) * 3;
+          if (!still()) { x += jx; y += jy; }
+        }
         ctx.fillStyle = 'rgba(0,0,0,0.35)';
         ctx.beginPath(); ctx.arc(x + 1.5, y + 2, 8, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = dyed ? DYE : '#d9a441';
@@ -647,6 +703,11 @@
         ctx.fillStyle = dyed ? '#bfe2ff' : '#f7d88a';
         ctx.beginPath(); ctx.arc(x - 2, y - 2, 2.5, 0, Math.PI * 2); ctx.fill();
         loadRing(x, y, f);
+        if (k.over > 0) {
+          // Working loose (over PIN_HOLD): an outer white ring.
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.stroke();
+        }
       } else {
         ctx.fillStyle = dyed ? DYE : '#f4ead8';
         ctx.beginPath(); ctx.arc(k.x, k.y, dyed ? 6 : 4.5, 0, Math.PI * 2); ctx.fill();
@@ -672,6 +733,7 @@
       loadRing(k.x, k.y, Math.min(1, k.load / PIN_HOLD));
     }
 
+    if (still()) { drawKeys(); return; }
     for (const p of lint) {
       ctx.fillStyle = `rgba(240,225,205,${Math.min(1, p.life * 2)})`;
       ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
@@ -680,6 +742,7 @@
       ctx.fillStyle = `rgba(217,164,65,${Math.min(1, p.life * 2)})`;
       ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); ctx.fill();
     }
+    drawKeys();
   }
 
   // ---------- input ----------
@@ -732,17 +795,305 @@
   document.getElementById('resetBtn').addEventListener('click', () => startLevel(attempt + 1));
   playAgainBtn.addEventListener('click', next);
 
+  // § keys
+  // The same two verbs without a pointer. Arrows pick a knot: each of the
+  // picked knot's net neighbours gets its own arrow (the least-turn
+  // matching over at most 4! orders, from where the knots are now), so
+  // every knot is reachable. Enter or P pins or unpins it (tapKnot, as a
+  // tap). Hold Space to grab it (grab, as a drag): the arrows then move a
+  // lead point that starts on the knot and speeds up while held, and the
+  // knot is pulled toward it with the same setFinger a finger uses, so the
+  // pull is the one a finger at that lead makes. Space up = finger up.
+  // C jumps to the next corner, S says the shape's status. Tab is the
+  // browser's; Space/Enter on a focused button press the button.
+  const LEAD_SLOW = 40, LEAD_FAST = 160, LEAD_RAMP = 0.8; // px/s, s to full speed
+  const LEAD_TAP = 3, LEAD_MAX = 40; // px a fresh press moves; farthest lead
+  const DIRS = { ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1], ArrowLeft: [-1, 0] };
+  const DIR_WORDS = { ArrowUp: 'up', ArrowRight: 'right', ArrowDown: 'down', ArrowLeft: 'left' };
+  const ARROWS = Object.keys(DIRS);
+  const OPPOSITE = { ArrowUp: 'ArrowDown', ArrowDown: 'ArrowUp', ArrowLeft: 'ArrowRight', ArrowRight: 'ArrowLeft' };
+  const kb = { i: 0, shown: false, pull: false, held: new Set(), heldFor: 0, lx: 0, ly: 0,
+    infoAt: -1, covered: -1, coverAt: 0, coverSaid: true, over: new Set(), loose: new Set(), band: 0, trail: [] };
+  const CORNERS = { 0: 'top-left', [COLS - 1]: 'top-right', [COLS * (ROWS - 1)]: 'bottom-left', [COLS * ROWS - 1]: 'bottom-right' };
+  function knotName(i) {
+    const r = Math.floor(i / COLS), c = i % COLS;
+    const n = CORNERS[i] ? `the ${CORNERS[i]} corner` : `row ${r + 1}, column ${c + 1}`;
+    return cur && cur.dyed.includes(i) ? `${n} (the blue knot)` : n;
+  }
+  function strandName(s) {
+    const r = Math.floor(s.a / COLS), c = s.a % COLS;
+    return s.b === s.a + 1 ? `on row ${r + 1} between columns ${c + 1} and ${c + 2}`
+      : `on column ${c + 1} between rows ${r + 1} and ${r + 2}`;
+  }
+  function neighbours(i) {
+    const r = Math.floor(i / COLS), c = i % COLS, n = [];
+    if (r > 0) n.push(i - COLS);
+    if (c < COLS - 1) n.push(i + 1);
+    if (r < ROWS - 1) n.push(i + COLS);
+    if (c > 0) n.push(i - 1);
+    return n;
+  }
+  // Which neighbour each arrow picks: the assignment with the least total
+  // (squared) turn from each neighbour's direction.
+  function arrowMap(i) {
+    const k = knots[i], nb = neighbours(i);
+    const turn = (j, a) => {
+      const dx = knots[j].x - k.x, dy = knots[j].y - k.y, m = Math.hypot(dx, dy);
+      if (m < 1e-6) return Math.PI / 2;
+      return Math.acos(Math.max(-1, Math.min(1, (dx * DIRS[a][0] + dy * DIRS[a][1]) / m)));
+    };
+    let best = null, bc = Infinity;
+    const perm = (n, used, cost, pick) => {
+      if (n === nb.length) { if (cost < bc) { bc = cost; best = pick.slice(); } return; }
+      for (const a of ARROWS) if (!used.has(a)) {
+        used.add(a); pick.push(a);
+        perm(n + 1, used, cost + turn(nb[n], a) ** 2, pick);
+        used.delete(a); pick.pop();
+      }
+    };
+    perm(0, new Set(), 0, []);
+    const map = {};
+    nb.forEach((j, n) => { map[best[n]] = j; });
+    return map;
+  }
+  function strandBetween(i, j) { return strands.find(s => (s.a === i && s.b === j) || (s.a === j && s.b === i)); }
+  function tensionWord(s) {
+    if (!s.alive) return 'snapped';
+    const warn = s.fray ? FRAY_WARN : WARN;
+    const w = s.strain <= 0 ? 'slack' : s.strain < warn ? 'taut' : snapFrac(s) < 1 ? 'straining' : 'over its limit';
+    return s.fray ? `frayed, ${w}` : w;
+  }
+  function loadWord(k) {
+    const f = k.load / PIN_HOLD;
+    return f > 1 ? 'too much, working loose' : f > RING_RED ? 'high' : f > 0.5 ? 'half' : 'low';
+  }
+  const off = (dx, dy) => {
+    const p = [];
+    if (Math.abs(dx) >= 2) p.push(`${Math.round(Math.abs(dx))} ${dx > 0 ? 'right' : 'left'}`);
+    if (Math.abs(dy) >= 2) p.push(`${Math.round(Math.abs(dy))} ${dy > 0 ? 'down' : 'up'}`);
+    return p.length ? p.join(', ') : 'right on it';
+  };
+  const dotName = d => `${d[3] === 'dye' ? 'blue dot' : 'dot'} ${cur.dotNo[cur.dots.indexOf(d)]}`;
+  // Where knot i is against the dots: the dot it covers, or the nearest
+  // one it can take (saying so if another knot covers it) and then the
+  // nearest open one.
+  function dotWords(i) {
+    const k = knots[i];
+    const takes = cur.dots.filter(d => d[3] !== 'dye' || d[2] === i);
+    const on = takes.find(d => Math.hypot(k.x - d[0], k.y - d[1]) <= DOT_R);
+    if (on) return `On ${dotName(on)}, ${off(k.x - on[0], k.y - on[1])} of its centre.`;
+    const near = ds => ds.reduce((p, q) => Math.hypot(p[0] - k.x, p[1] - k.y) <= Math.hypot(q[0] - k.x, q[1] - k.y) ? p : q);
+    const d = near(takes), open = takes.filter(e => !coveredBy(e));
+    if (!coveredBy(d)) return `Nearest ${dotName(d)}: ${off(d[0] - k.x, d[1] - k.y)}.`;
+    const o = open.length ? near(open) : null;
+    return `Nearest ${dotName(d)}, covered by another knot: ${off(d[0] - k.x, d[1] - k.y)}.` +
+      (o ? ` Nearest open ${dotName(o)}: ${off(o[0] - k.x, o[1] - k.y)}.` : '');
+  }
+  function strandWords(i, lead = 'Strands: ') {
+    const map = arrowMap(i);
+    return lead + ARROWS.filter(a => map[a] !== undefined)
+      .map(a => `${DIR_WORDS[a]} ${tensionWord(strandBetween(i, map[a]))}`).join(', ') + '.';
+  }
+  function knotInfo(i) {
+    const k = knots[i];
+    const pin = k.pinned ? `pinned, load ${loadWord(k)}` : 'free';
+    return `${knotName(i)}, ${pin}. ${strandWords(i)} ${dotWords(i)}`;
+  }
+  function netWords() {
+    let hot = 0, over = 0;
+    for (const s of strands) if (s.alive && s.strain >= (s.fray ? FRAY_WARN : WARN)) { if (snapFrac(s) >= 1) over++; else hot++; }
+    return over ? `${over} strand${over === 1 ? '' : 's'} over the limit, ${hot} straining.`
+      : hot ? `${hot} strand${hot === 1 ? '' : 's'} straining.` : 'No strand straining.';
+  }
+  function pullInfo() {
+    const k = knots[grabbed], lead = Math.hypot(kb.lx - k.x, kb.ly - k.y);
+    const g = Math.min(GRIP_MAX, GRIP_K * lead) / GRIP_MAX;
+    const how = g >= 1 ? 'full pull' : g >= 0.5 ? 'half pull' : g > 0.05 ? 'light pull' : 'no pull';
+    return `Lead ${off(kb.lx - k.x, kb.ly - k.y)}: ${how}. ${strandWords(grabbed)} ${netWords()} ` +
+      `A pin here would hold a ${loadWord(k).replace('too much, working loose', 'too high')} load. ${dotWords(grabbed)}`;
+  }
+  function status() {
+    const k = knots[kb.i], n = cur.dots.length;
+    const dots = cur.dots.slice().sort((a, b) => cur.dotNo[cur.dots.indexOf(a)] - cur.dotNo[cur.dots.indexOf(b)])
+      .map(d => `${dotName(d)} ${off(d[0] - k.x, d[1] - k.y)}${coveredBy(d) ? ' (covered)' : ''}`);
+    const dye = cur.dyed.length ? ` The blue dot only takes the blue knot, ${knotName(cur.dyed[0]).replace(' (the blue knot)', '')}.` : '';
+    return `${cur.name}: ${coveredCount()} of ${n} dots covered, ${pinsIn()} of ${MAX_PINS} pins, ` +
+      `${snaps + pops} of ${MAX_SLIPS} slips. ${netWords()} From ${knotName(kb.i)}: ${dots.join('; ')}.${dye}`;
+  }
+
+  function keyPick(key) {
+    if (!kb.shown) { kb.shown = true; speak(knotInfo(kb.i) + ' Enter pins it, hold Space and the arrows pull it.'); return; }
+    // The opposite arrow always walks back the way the picker came (a
+    // trail): once the net folds, the matching alone can't promise that
+    // (43% of steps on randomly pulled nets).
+    const top = kb.trail[kb.trail.length - 1];
+    const j = top && top.key === key ? top.to : arrowMap(kb.i)[key];
+    if (j === undefined) { speak(`No knot ${DIR_WORDS[key]} of ${knotName(kb.i)}.`); return; }
+    if (top && top.key === key) kb.trail.pop();
+    else { kb.trail.push({ key: OPPOSITE[key], to: kb.i }); if (kb.trail.length > 12) kb.trail.shift(); }
+    kb.i = j;
+    speak(knotInfo(j));
+  }
+  // C jumps to the next corner (clockwise from the top left): the knots
+  // most plans start from, and the arrows can't always walk back the way
+  // they came once the net folds.
+  const CORNER_ORDER = [0, COLS - 1, COLS * ROWS - 1, COLS * (ROWS - 1)];
+  function keyCorner(back) {
+    kb.shown = true;
+    if (kb.pull) return;
+    const at = CORNER_ORDER.indexOf(kb.i);
+    kb.i = CORNER_ORDER[at < 0 ? 0 : (at + (back ? 3 : 1)) % 4];
+    kb.trail = [];
+    speak(knotInfo(kb.i));
+  }
+  function keyPin() {
+    kb.shown = true;
+    if (kb.pull) { speak('Let go of Space first, then Enter pins the knot.'); return; }
+    const k = knots[kb.i], was = k.pinned, n = pinsIn();
+    tapKnot(kb.i);
+    if (was !== k.pinned) keyUses++;
+    if (was && !k.pinned) speak(`Took the pin out of ${knotName(kb.i)}. ${pinsIn()} of ${MAX_PINS} pins.`);
+    else if (!was && k.pinned) speak(`Pinned ${knotName(kb.i)}: load ${loadWord(k)}. ${n + 1} of ${MAX_PINS} pins. ${dotWords(kb.i)}`);
+  }
+  function startPull() {
+    kb.shown = true;
+    if (kb.pull || pointerId !== null) return;
+    grab(kb.i);
+    if (grabbed !== kb.i) return;
+    kb.pull = true; kb.heldFor = 0; keyUses++;
+    kb.lx = knots[kb.i].x; kb.ly = knots[kb.i].y;
+    setFinger(kb.lx, kb.ly);
+    kb.infoAt = -1;
+    speak(`Pulling ${knotName(kb.i)}. The arrows lead it; let go of Space to drop it.`);
+  }
+  function endPull() {
+    if (!kb.pull) return;
+    kb.pull = false; kb.held.clear();
+    if (grabbed !== kb.i) return;
+    release();
+    speak(`Let go of ${knotName(kb.i)}. ${dotWords(kb.i)} Enter pins it before it slides.`);
+  }
+  // The lead point moves while arrows are held (slow at first, for aiming,
+  // then fast enough to get ahead of the knot), never more than LEAD_MAX
+  // from it. Its pull is described once the arrows are let go.
+  function moveLead(dt) {
+    if (kb.pull && grabbed !== kb.i) { kb.pull = false; kb.held.clear(); }
+    if (!kb.pull) return;
+    let dx = 0, dy = 0;
+    for (const a of kb.held) { dx += DIRS[a][0]; dy += DIRS[a][1]; }
+    if (dx || dy) {
+      kb.heldFor += dt;
+      const v = (LEAD_SLOW + (LEAD_FAST - LEAD_SLOW) * Math.min(1, kb.heldFor / LEAD_RAMP)) * dt / Math.hypot(dx, dy);
+      nudgeLead(dx * v, dy * v);
+      kb.infoAt = 0.3;
+    } else {
+      kb.heldFor = 0;
+      if (kb.infoAt > 0 && (kb.infoAt -= dt) <= 0) speak(pullInfo());
+    }
+  }
+  function nudgeLead(dx, dy) {
+    const k = knots[grabbed];
+    let x = Math.max(0, Math.min(W, kb.lx + dx)), y = Math.max(0, Math.min(H, kb.ly + dy));
+    const m = Math.hypot(x - k.x, y - k.y);
+    if (m > LEAD_MAX) { x = k.x + (x - k.x) * LEAD_MAX / m; y = k.y + (y - k.y) * LEAD_MAX / m; }
+    kb.lx = x; kb.ly = y;
+    setFinger(x, y);
+  }
+  // What the eye sees change, in words, once each: a strand going over its
+  // limit, a pin working loose, the count of covered dots (once it has held
+  // still for 0.4 s), and the pulled knot's strands turning straining.
+  function announce() {
+    if (state !== 'playing' || paused) return;
+    const now = elapsed;
+    for (const s of strands) {
+      const on = s.alive && s.over > 0;
+      if (on && !kb.over.has(s)) speak(`The strand ${strandName(s)} is over its limit: ease off or it snaps!`);
+      if (on) kb.over.add(s); else kb.over.delete(s);
+    }
+    knots.forEach((k, i) => {
+      const on = k.pinned && k.over > 0;
+      if (on && !kb.loose.has(i)) speak(`The pin at ${knotName(i)} is working loose!`);
+      if (on) kb.loose.add(i); else kb.loose.delete(i);
+    });
+    const c = coveredCount();
+    if (c !== kb.covered) { kb.covered = c; kb.coverAt = now; kb.coverSaid = false; }
+    else if (!kb.coverSaid && now - kb.coverAt >= 0.4) {
+      kb.coverSaid = true;
+      if (now > 0.5) speak(c === cur.dots.length ? (grabbed === null ? 'Every dot covered. Hands off: hold for a second.'
+        : 'Every dot covered. Let go and pin to hold it.') : `${c} of ${cur.dots.length} dots covered.`);
+    }
+    if (kb.pull) {
+      let band = 0;
+      for (const j of neighbours(grabbed)) {
+        const s = strandBetween(grabbed, j);
+        if (s.alive && s.strain >= (s.fray ? FRAY_WARN : WARN)) band = 1;
+      }
+      if (band > kb.band) speak(strandWords(grabbed, 'Now straining. Strands: '));
+      kb.band = band;
+    } else kb.band = 0;
+  }
+  function drawKeys() {
+    if (!kb.shown || state !== 'playing') return;
+    const k = knots[kb.i];
+    for (const [c, w] of [['rgba(10,6,12,0.9)', 5], ['#ffffff', 2]]) {
+      ctx.strokeStyle = c; ctx.lineWidth = w;
+      ctx.beginPath(); ctx.arc(k.x, k.y, 19, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (kb.pull) {
+      for (const [c, w] of [['rgba(10,6,12,0.9)', 4], ['#ffffff', 1.5]]) {
+        ctx.strokeStyle = c; ctx.lineWidth = w;
+        ctx.beginPath();
+        ctx.moveTo(kb.lx - 6, kb.ly); ctx.lineTo(kb.lx + 6, kb.ly);
+        ctx.moveTo(kb.lx, kb.ly - 6); ctx.lineTo(kb.lx, kb.ly + 6);
+        ctx.stroke();
+      }
+    }
+  }
+  window.addEventListener('keydown', evt => {
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    const k = evt.key === ' ' ? 'space' : evt.key.toLowerCase();
+    if (onButton && (k === 'enter' || k === 'space')) return; // the focused button presses itself
+    if (evt.key in DIRS) {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (paused || state !== 'playing') return;
+      if (kb.pull) {
+        if (!evt.repeat) { kb.held.add(evt.key); nudgeLead(DIRS[evt.key][0] * LEAD_TAP, DIRS[evt.key][1] * LEAD_TAP); }
+        return;
+      }
+      keyPick(evt.key);
+      return;
+    }
+    if (paused) return;
+    if (state !== 'playing') {
+      if (k === 'enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); next(); }
+      return;
+    }
+    if (k === 'space') { evt.preventDefault(); if (!evt.repeat) startPull(); }
+    else if (k === 'enter' || k === 'p') { evt.preventDefault(); if (!evt.repeat) keyPin(); }
+    else if (k === 's') { evt.preventDefault(); if (!evt.repeat) { kb.shown = true; speak(status()); } }
+    else if (k === 'c') { evt.preventDefault(); if (!evt.repeat) keyCorner(evt.shiftKey); }
+  });
+  window.addEventListener('keyup', evt => {
+    if (evt.key in DIRS) kb.held.delete(evt.key);
+    if (evt.key === ' ') endPull();
+  });
+  window.addEventListener('blur', endPull);
+
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   function frame(now) {
     const dt = Math.min((now - last) / 1000, 0.1);
     acc += dt;
     last = now;
+    if (state === 'playing' && !paused) moveLead(dt);
     while (acc >= STEP) {
       if (state === 'playing' && !paused) step(STEP);
       acc -= STEP;
     }
     if (!paused) effects(dt);
+    announce();
     draw(now);
     requestAnimationFrame(frame);
   }
@@ -755,7 +1106,8 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap';
-  document.getElementById('table').setAttribute('aria-label', `Loom. Drag a knot to pull the cloth, ${t} a knot to pin it.`);
+  document.getElementById('table').setAttribute('aria-label', `Loom. Drag a knot to pull the net, ${t} a knot to pin it. ` +
+    'Keys: arrows pick a knot, C the next corner, Enter or P pins or unpins it, hold Space and the arrows pull it, S status.');
 }
 </script>
 </body>
