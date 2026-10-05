@@ -6,6 +6,45 @@ top of the relevant section; sessions don't read this file by default.
 
 ## Moved from the notes (2026-10-05)
 
+### v7 notes move (accessibility revision)
+
+v5 balance notes (still true in v7):
+
+- Day 1: 17 s with one trail, ~38 s without (idle 91%, novice 99%). Its
+  bonus (20 s spare) needs a trail: trail bots 100%, idle 54%.
+- From day 2 the run matches v4's days 1–5 (dawn 22–24 ants, wash full
+  season 53% vs 49%, novice 2%). `START_ANTS` 22 gave everyone ~7 extra ants
+  (wash full season 81%); 15 ants with a 45 s day 1 cost the novice 17% on day 1.
+
+Layout, telemetry and ideas:
+
+- After v5: does `ff_s` show up (which days, how much), and does the share of
+  sessions reaching day 2 rise vs v4?
+- Not hand-played on a real phone yet (only rendered headlessly at 390×760).
+- `fetch-telemetry.mjs --game ant-trails` prints one line per day (compare
+  with the bot table), levels won per run, where sessions stopped. Goal is
+  3+ rounds per session. Also: do players retry, and wash on purpose
+  (`rain_spider_s`) or by accident?
+
+Pile and spider positions
+are the `DAYS` table at the top of the script (before mirroring). Day 1: one
+pile of 25 at (285, 420). Day 2 keeps the v1 layout: near + middle is 40
+crumbs, so a day-2 win needs 10 from the far pile.
+`rain_spider_s / rain_s` separates deliberate washing from accidental holds;
+`first_input` shows reading time on day 1. v5 shifts `level` by one (old day
+1 is now level 2): compare v4 and v5 data by day name, not number.
+
+- Idle wins day 1 91% and day 2 40% of arrivals (the ants' own trails
+  recruit). Lower `CARRY_LAY` if players say early days play themselves.
+
+- The novice bot is barely better than idle on the scattered day (day 3):
+  random wobbly trails help about as much as they cost. Real players
+  probably do better; check telemetry.
+- More days / an endless mode (day 7+ repeats the twists combined) if runs get
+  finished; a mid-run choice (e.g. pick tomorrow's twist) if players want
+  more decisions.
+- Proposal alternatives still not built: pebble (tap to block), decoy crumb.
+
 ## Player data (latest: 2026-09-29, same friend, on v4)
 
 "level 1 takes way too long to want to sit and see the next days. Maybe a

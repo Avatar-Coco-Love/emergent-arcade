@@ -1018,3 +1018,30 @@ both ways and key up before 450 ms cancels like lifting a finger.
 *Evidence: keys-only playthrough (S at start, T, arrows + S ×33 → 6–7
 seeds, I → foreign ion, C 200 ms → "Let go early", C 650 ms → "Cleaved a
 foreign ion"); balance bots byte-identical to v2 over 200 runs × 11 bots.*
+
+## Jump keys give a path verb its ends
+
+Ant Trails v7. Trail is a drag laid in scent, usually from the nest to a
+food pile. With a cursor on the arrows (90 → 240 units/s while held) and
+Space held to lay scent along its path, a keys player can draw any trail,
+but steering 160–500 units to a pile they may not see is slow and, with a
+screen reader, guesswork. H jumps the cursor to the nest and N to the next
+pile (nearest first); a jump with Space held lays one straight segment,
+which `layTrail` already accepts from a fast swipe, so the simulation and
+the scent meter treat it exactly like the pointer. The live region names
+what the cursor lands on ("Cursor on a pile, 25 crumbs", "on a trail",
+"near a spider"), so H, Space + N is a whole nest-to-food trail. Hold W
+washes under the cursor through the same press object as a finger (key
+up before 150 ms: nothing). Motion: idle canvas diff 0.6–0.7% with
+everything drawn, 0.00–0.05% with ants and spiders hidden (carriers keep
+laying scent), 0.00% with the scent hidden too; freezing legs and
+raindrops barely moved the audit (0.5% → 0.4%). The 11.5 px bonus line
+was DOM text: a CSS size and a backing fixed it, no `fs()` needed.
+
+*Evidence: keys-only playthrough (only `page.keyboard`: H, Space + N →
+"Trail laid. Scent meter 75%"; Space + arrows → second trail; W 80 ms →
+silence; W 1 s → "Raining", "Rain stopped after 0.9 s"; F F, day 1 won,
+Enter → day 2; Tab not prevented; Space on ▶▶ presses it). Audit 3/3:
+5 pass, motion partial; scripted late copies (days 4–6 at 60–75 s, dusk,
+rain, cursor) contrast/colour/text 6/6 pass. Balance identical to v6
+(200 runs × 5 bots, diff empty).*

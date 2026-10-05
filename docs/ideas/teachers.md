@@ -12,7 +12,7 @@ the games, not just play them.
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
-| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6), Geode (v3); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
+| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6), Geode (v3), Ant Trails (v7); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
@@ -76,7 +76,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - murmuration: done (v6, 2026-10-05): a cursor that moves while an arrow is held, hold Space to lure, Enter or X to startle, gate count 12.5 px+ on a backing, a live region (gates, losses, light left), reduced motion read (decoration frozen; the flock still flies, so motion stays partial) (`docs/games/murmuration.md`, "Accessibility").
 - orbit-garden: no keyboard play.
 - wildfire-line: done (v4, 2026-10-05): ground told apart by lightness, keyboard cursor for both verbs, reduced motion, role and label. The pattern for the others (`docs/games/wildfire-line.md`, "Accessibility").
-- ant-trails: keys only fast-forward; ignores reduced motion; bonus line 11.5 px.
+- ant-trails: done (v7, 2026-10-05): a cursor that moves while an arrow is held, hold Space lays a trail along its path, hold W washes, H/N jump to the nest or the next food, text on backings at 12.8 px, a live region, reduced motion read (legs and raindrops still; the ants still walk, so motion stays partial) (`docs/games/ant-trails.md`, "Accessibility").
 - hourglass-delivery: no keyboard play; ignores reduced motion (small).
 - hot-iron: no keyboard play.
 - island-census: done (v3, 2026-10-05): meadows, turf, paths and sand in their own lightness bands (plus grass tufts), counts and strikes told by shape, HUD 12.5 px+, a keyboard cursor (Enter releases, F then an arrow picks a path), a live region (`docs/games/island-census.md`, "Accessibility").
@@ -345,7 +345,7 @@ Revise Geode for accessibility (docs/accessibility.md, its row; docs/ideas/teach
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Ant Trails accessibility revision (prompt below)
+## Prompt used for the Ant Trails accessibility revision (done, v7)
 
 Chosen 2026-10-05, after Geode v3. Still no classroom reports (0), so 3
 vs 4 keeps waiting on what teachers ask for. Ant Trails now has the most
@@ -368,6 +368,34 @@ Revise Ant Trails for accessibility (docs/accessibility.md, its row; docs/ideas/
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs ant-trails, node scripts/balance-ant-trails.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly; compare old and new output), node scripts/a11y-audit.mjs ant-trails (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that lays a trail and washes. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/ant-trails.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/ant-trails.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Hourglass Delivery accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Ant Trails v7. Still no classroom reports (0), so
+3 vs 4 keeps waiting on what teachers ask for. Five games still have no
+keyboard play (orbit-garden, hourglass-delivery, hot-iron, loom; surprise
+party has wait/undo only); Hourglass Delivery also ignores reduced motion,
+so it has the most cells left among them. Pour is a hold at a place (the
+spout's x) and knock a flick (a start point and a direction): a cursor, a
+held pour key, and a knock key that takes its direction from an arrow.
+
+```
+Revise Hourglass Delivery for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: pour and knock on keys, reduced motion, a live region. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/hourglass-delivery.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "A held key verb needs a cursor that can get ahead", "Jump keys give a path verb its ends", "When the simulation is the motion, a motion partial is the end state" and "Late screens grow their own greys"), docs/games/ant-trails.md and docs/games/geode.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game hourglass-delivery. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: pour is a hold (sand falls from the spout while held) and knock a flick (grains near its start shoved along its direction); there are no keys at all. Add a cursor (arrows, moving while held and speeding up, like Ant Trails; or a spout that ← → move if that is all pour needs) and a no-chord key per verb: e.g. hold Space pours (key up = finger up), K or X then an arrow knocks at the cursor in that direction (the same knock a flick of that direction makes). Jump keys to the places that matter (the next glass, the ledge) if aiming by arrows alone is slow. Keys call the same functions as the pointer. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what matters, short and not on every frame (what is under the cursor or spout, a glass filled or empty, sand left in the hopper, a knock that moved sand, the round's result). Update the keyboard line in the manifest (120 characters at most), the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: Hourglass Delivery ignores prefers-reduced-motion. First measure what moves while idle with the sand and the belt hidden (findings, "When the simulation is the motion…"; hide the shared state too): falling sand and the belt are the game; give decoration its own clock and freeze it. Record motion as partial if what's left is the simulation, measured, several runs.
+
+4. Text and contrast: every label at least 12 CSS px at 360 px wide (an fs() from the CSS width for canvas text), 4.5:1 against what is behind it, with backings where text sits over sand or glass. Colour must still pass on several runs, including a screen late in a round (a scripted copy, findings "Late screens grow their own greys"); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs hourglass-delivery, node scripts/balance-hourglass-delivery.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly; compare old and new output), node scripts/a11y-audit.mjs hourglass-delivery (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that pours and knocks. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/hourglass-delivery.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/hourglass-delivery.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```

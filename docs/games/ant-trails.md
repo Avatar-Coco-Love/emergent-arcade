@@ -1,6 +1,6 @@
 # Ant Trails: design notes
 
-**v6** (2026-10-05, canvas label; v5 2026-09-29) · playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG ·
+**v7** (2026-10-05, accessibility; v5 2026-09-29) · playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG ·
 balance: `node scripts/balance-ant-trails.mjs 200`
 Verbs: **trail** (drag) and **wash** (hold), sharing **scent per ground cell**
 (40×60 grid, 10 px cells, 0–1). A run of six days, each a round with its own
@@ -52,6 +52,26 @@ food layout, twist and bonus; ants alive at sundown start the next day.
 - **Input:** moving >10 px before 150 ms is a trail; holding still 150 ms
   starts rain, and the cloud follows the pointer.
 
+## Accessibility (v7, `node scripts/a11y-audit.mjs ant-trails`: 5 pass, motion partial by design, 3/3 runs)
+
+- Keys (`// § keys`): arrows move a cursor while held (90 → 240/s over
+  0.6 s, from 200, 480), hold Space lays a trail along its path,
+  hold W washes under it (key up before 150 ms: nothing, like a finger), H
+  jumps to the nest, N to the next pile (nearest first); a jump with Space
+  held lays a straight trail, like a swipe. Same `pressAt` / `beginTrail` /
+  `moveTo` as the pointer. Enter presses the end card's button. Tab free;
+  Space/Enter on a focused button press it.
+- Live region `#say` (`#msg` aria-hidden, `say()` speaks): what the cursor
+  is on (nest, pile and crumbs, spider, trail), trail laid + meter, rain,
+  every 10 crumbs, colony under 13 (held 1 s), raids per 10, storm clouds,
+  30/15/5 s to sundown, the end card.
+- `#msg` and `#bonus` on dark backings; bonus 0.8 rem (12.8 px, was 11.5).
+  Contrast 6.7:1+, colour passes early and on scripted late copies (days
+  4–6, 60–75 s, dusk, rain, cursor), 6/6.
+- Reduced motion: legs and raindrops drawn still (`still()`). Idle canvas
+  diff 0.6–0.7%; ants hidden 0.00–0.05% (carriers' scent); scent hidden
+  too 0.00%: what moves is the simulation.
+
 ## Key constants (`games/ant-trails.html`, top of the script)
 
 | Const | Value | Const | Value |
@@ -68,10 +88,8 @@ food layout, twist and bonus; ants alive at sundown start the next day.
 
 ## Layout (400×600)
 
-Nest (200, 555); rival nest (day 6) at (200, 40). Pile and spider positions
-are the `DAYS` table at the top of the script (before mirroring). Day 1: one
-pile of 25 at (285, 420). Day 2 keeps the v1 layout: near + middle is 40
-crumbs, so a day-2 win needs 10 from the far pile.
+Nest (200, 555); rival nest (day 6) at (200, 40). Piles and spiders: the `DAYS` table
+(before mirroring); day-2 layout notes in history.
 
 ## Balance (v5, `node scripts/balance-ant-trails.mjs 200`, ±3–7 pts)
 
@@ -86,11 +104,7 @@ win it, median ants at dawn.
 | far | 100% · 17 s · 15 | 93% · 65 s · 24 | 88% (94) | 81% (93) | 60% (73) | 40% (67) |
 | novice | 99% · 38 s · 15 | 61% · 77 s · 22 | 27% (44) | 13% (47) | 4% (28) | 2% (43) |
 
-- Day 1: 17 s with one trail, ~38 s without (idle 91%, novice 99%). Its
-  bonus (20 s spare) needs a trail: trail bots 100%, idle 54%.
-- From day 2 the run matches v4's days 1–5 (dawn 22–24 ants, wash full
-  season 53% vs 49%, novice 2%). `START_ANTS` 22 gave everyone ~7 extra ants
-  (wash full season 81%); 15 ants with a 45 s day 1 cost the novice 17% on day 1.
+v7 reproduces this byte for byte. Day-1 and START_ANTS notes: history.
 
 ## Telemetry
 
@@ -107,31 +121,21 @@ and `stats`:
 | `rains` | rain gestures | `rain_s` | seconds of rain |
 | `rain_spider_s` | seconds the rain covered a spider | `first_input` | s until the first touch (-1: none) |
 | `rivals` | crumbs the rivals took (rival day) | `ff_s` | s played fast-forwarded (v5) |
+| `keys` | trail/wash gestures by key (v7) | | |
 
-`rain_spider_s / rain_s` separates deliberate washing from accidental holds;
-`first_input` shows reading time on day 1. v5 shifts `level` by one (old day
-1 is now level 2): compare v4 and v5 data by day name, not number.
+v5 shifted `level` by one: compare v4 and v5 data by day name (history).
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys only fast-forward (drag, hold need a pointer); ignores reduced motion; bonus line 11.5 px.
-- After v5: does `ff_s` show up (which days, how much), and does the share of
-  sessions reaching day 2 rise vs v4?
-- Not hand-played on a real phone yet (only rendered headlessly at 390×760).
-- `fetch-telemetry.mjs --game ant-trails` prints one line per day (compare
-  with the bot table), levels won per run, where sessions stopped. Goal is
-  3+ rounds per session. Also: do players retry, and wash on purpose
-  (`rain_spider_s`) or by accident?
-- Idle wins day 1 91% and day 2 40% of arrivals (the ants' own trails
-  recruit). Lower `CARRY_LAY` if players say early days play themselves.
-- The novice bot is barely better than idle on the scattered day (day 3):
-  random wobbly trails help about as much as they cost. Real players
-  probably do better; check telemetry.
-- The two-spider day (day 5) is the wall for skilled bots. If players find it
-  a wall, start the second spider late (e.g. 20 s) instead of at dawn.
-- More days / an endless mode (day 7+ repeats the twists combined) if runs get
-  finished; a mid-run choice (e.g. pick tomorrow's twist) if players want
-  more decisions.
-- Proposal alternatives still not built: pebble (tap to block), decoy crumb.
+- Accessibility: red rival ants differ from yours by hue only (deutan and
+  protan see two darks; too small for the audit). A lighter rival body or
+  a mark if day-6 players mix them up.
+- v5 telemetry (3 players, all touch): `ff_s` used every day (median
+  15–75 s); win rate 92%, sessions median 67 s, 2 rounds. Goal 3+ rounds.
+  Watch retries and `rain_spider_s / rain_s` (washes are still rare), and
+  `keys` (v7).
+- Idle wins early days (own trails recruit): lower `CARRY_LAY` if they play themselves.
+- Day 5 (two spiders) is the bots' wall: start spider 2 at 20 s if players stall.
+- More days, endless mode, pebble, decoy crumb: history (ideas).
 
 History (older versions, balance tables, playtests): `docs/history/ant-trails.md`
