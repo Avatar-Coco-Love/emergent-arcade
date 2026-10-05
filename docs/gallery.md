@@ -8,9 +8,11 @@ per check at 360×740, 740×360 and 1280×800; screenshots go to `--out`).
 
 Playtest (private artifact, feedback/telemetry disabled in that copy):
 https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
-(republished for the Daily Challenge PR: the banner on top, "Play today's",
-the 📅 result card after a lost run, Share and Save image. Earlier: the topic
-chips and the ⓘ panel's Topics line. No `leaderboards.json` there, so no
+(republished for the teacher page PR: footer "For teachers", the
+classroom link (`?class=1` doesn't reach inside the artifact frame, so try
+classroom mode with the note's Turn off after opening the copied link
+elsewhere, or locally); the form falls back to a GitHub issue there.
+Earlier: the Daily Challenge, the topic chips and the ⓘ panel's Topics line. No `leaderboards.json` there, so no
 play counts or boards. In that frame the share buttons can't use the share
 sheet and may not reach the clipboard, so share can do nothing there.)
 
