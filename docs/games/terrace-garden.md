@@ -112,7 +112,7 @@ table: history, "v2 balance table". `TRACE=1` prints state every 5 s.
   water flowing, 0.26% → 0.24%, 0.00% with water, plants and spring count
   hidden (2 runs): the rest is the simulation.
 - Balance identical (old file twice, then new: 16 bots × 100 runs). Keys
-  bot (live region only): KEYSBOT.
+  bot (live region only): warm-up, gardens 1 and 2 first try (83 / 2 spilled), garden 3 lost (spring empty: 0 carried).
 
 ## Telemetry
 

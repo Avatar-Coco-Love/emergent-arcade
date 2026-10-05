@@ -1276,7 +1276,7 @@ target's place: with one plant per terrace the first draft said only
 "terrace 2's plant", so the bot could not tell which way to tilt; then it held
 a centre-left plant's water at the left wall, away from it. Every plant
 now has a place (left, centre-left, centre-right, right) and each
-terrace says which end is deeper. BOTRESULT
+terrace says which end is deeper. With both fixed, the bot won the warm-up and gardens 1 and 2 on the first try (garden 2 is the crack the hint-following balance bots never pass) and lost garden 3 with an empty spring, by keys and words alone.
 
 *Evidence: keys-only bot (only `page.keyboard`, reading only `#say`) at
 1280×800; balance old×2 and new identical (16 bots × 100 runs).*
