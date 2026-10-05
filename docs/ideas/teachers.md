@@ -488,7 +488,7 @@ Revise Loom for accessibility (docs/accessibility.md, its row; docs/ideas/teache
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Surprise Party accessibility revision (prompt below)
+## Prompt used for the Surprise Party accessibility revision (done, v4)
 
 Chosen 2026-10-05, after Loom v4. Still no classroom reports (0), so 3 vs
 4 keeps waiting on what teachers ask for. Surprise Party is the last game
@@ -515,6 +515,34 @@ Revise Surprise Party for accessibility (docs/accessibility.md, its row; docs/id
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs surprise-party, node scripts/smoke-gallery.mjs, node scripts/test-daily.mjs, node scripts/balance-surprise-party.mjs (balance must not move: same houses and solver; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs surprise-party (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that whispers and works doors, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/surprise-party.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/surprise-party.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Terrace Garden accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Surprise Party v4. Still no classroom reports (0),
+so the choice between ideas 3 and 4 still waits on what teachers ask for. Terrace Garden has the
+worst row left: its motion cell fails (it ignores the setting, and water
+and plants move) and its keyboard cell is partial (← → tilt, but the gates
+need a pointer). It is a real-time game, unlike Surprise Party: water
+flows while you choose, so the live region must not speak per frame, and
+the hint's pulsing tilt bar and gate ring are decoration that can freeze.
+
+```
+Revise Terrace Garden for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: gates on keys, a live region, reduced motion read. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/terrace-garden.md (its "Open ideas" accessibility line, the tilt and gate sections), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "Picking by arrow direction needs a matching, not a nearest", "When the simulation is the motion, a motion partial is the end state", "An early audit screen can miss the game's own motion", "Late screens grow their own greys", "A move's line waits for its warning" and "Run the old file twice before comparing balance"), docs/games/hot-iron.md and docs/games/surprise-party.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game terrace-garden. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: tilt is ← → / A D (held), gate is a tap on a gate. Keep ← → for tilt (findings "A switch key keeps an arrow binding players know") and give gates their own no-chord keys: e.g. 1–9 toggle gate k (gate 0 = the spring valve), or ↑ ↓ pick a gate and Enter/G toggles it, with the picked gate shown by a ring that reads without hue. Keys call the same functions as the pointer, outside the simulation. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what matters, short and never per frame: the picked gate (open/shut, the terrace's water depth against its plants' bands), each gate toggle, tilt once the key is released, plants blooming or drowning, the stuck hint's line, the garden's result. Update the keyboard line in the manifest (120 characters at most), the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: the audit fails Terrace Garden's motion cell (ignores it). Grep for prefers-reduced-motion; measure idle motion mid-garden with water flowing, then with the water and plants hidden, then decoration (hint pulse, ripples, sway). Decoration gets its own clock and freezes under the setting; the simulation and any Math.random calls the bots depend on must not change. Record motion as partial only if what's left is the simulation itself, measured, several runs.
+
+4. Text and colour: every label at least 12 CSS px at 360 px wide (an fs() from the CSS width for canvas text), 4.5:1 against what is behind it, with backings where text sits over the garden. Water depth against each plant's band, plant states (thirsty, blooming, drowning) and open/shut gates must read without hue (lightness steps on the rule's lines, or a mark), checked by number, not only by the audit's colour cell. Colour must still pass on several runs, including a late garden with full terraces (a scripted copy, findings "Late screens grow their own greys"); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs terrace-garden, node scripts/smoke-gallery.mjs, node scripts/balance-terrace-garden.mjs (balance must not move: same constants; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs terrace-garden (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that tilts and works gates, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/terrace-garden.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/terrace-garden.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
