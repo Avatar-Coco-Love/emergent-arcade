@@ -1298,3 +1298,57 @@ with the water, plants and spring count hidden: the simulation.
 
 *Evidence: audit on scripted garden copies, old and new; idle-motion
 diff with pieces hidden, 2 runs; contrast by number.*
+
+## A held verb's preview hides from the audit
+
+Lighthouse Keeper v4. The audit opens a game, taps a few seeded places
+and measures. Nothing it does holds a press, so anything drawn only
+while a verb is held never reaches the contrast or text cell. Lighthouse
+Keeper's flare preview labels its cost ("34 oil") in the ring's own
+colour: cream over fog when the oil covers it, red (`#de7b68` once
+anti-aliased) when it doesn't, at 12 game units (10 CSS px at 360 px
+wide). Over thick fog the red one was 2.3:1. Every default audit run
+passed contrast (7.0:1 lowest) and failed text only on "harbour". A
+scripted copy (night 8, charging from the first frame, 12 oil) showed
+both failures. The lamp's states had the same blind spot: shuttered and
+dry were told only by a ring and a dark disc, and the audit's taps
+rarely shutter. v4 draws every canvas label through one `label()` at
+`fs(12)` on a dark backing, says the lamp's state in words beside the
+tower ("shuttered", "no oil", "flare") and adds "too much" to an
+unaffordable preview. Ten scripted screens (nights 4–8 and 12 mid-night,
+shuttered, dry, charging with and without the oil) pass contrast, colour
+and text. The same scripted screens showed the motion cell's blind spot:
+mid-night the old file *failed* (1.2–2.1% idle, setting ignored) while
+the default run read "partial".
+
+*Evidence: audit on scripted copies, old and new; L\* by number for each
+state (normal, deutan, protan).*
+
+## A bearing in words needs the beam's resolution
+
+Lighthouse Keeper v4. The live region gives places as clock bearings
+from the lamp (12 straight out to sea, 9 and 3 along the coast). The
+first draft used whole hours. Ships arrive along the top edge, which
+spans about 35° seen from the lamp, so every arrival was "11 o'clock" or
+"12 o'clock". "Turning to the ship at 11 o'clock" was followed by "Beam
+at 12 o'clock", because both were rounding the same ~11.5. The beam is
+0.3 rad (17°) wide, so a word has to resolve about half of that. Quarter
+hours ("quarter past 11", 7.5° steps) do. A keys-only bot that held an
+arrow for the heard difference (quarter hours × 0.131 s, at the lamp's
+1 rad/s) turned onto ships by words alone.
+
+The second lesson was what to speak. Ships flip between seeing and blind
+all the time: the beam sweeps past, fog banks drift, and under the
+lit-once rule a ship that saw holds a safe course while blind. Speaking
+every flip would be a stream of noise. v4 speaks a ship going blind only
+when its heading meets a reef or the shore within 10 s ("Ship at
+quarter to 12, far out, is blind: rocks ahead in 5 s"), and it speaks
+the ship again when it sees or its course clears. Each change has to
+hold for 0.7 s, at most one line per ship per 2 s. N jumps to the most
+urgent of those ships. Plain blindness is in the I status. Four 6-minute
+runs by the keys-only bot (only `page.keyboard`, deciding only from
+`#say`) won nights 1–4 or 1–5 on the first try (balance novice: median 5
+nights).
+
+*Evidence: keys-only bot, 4 runs at 1280×800; balance old×2 and new
+identical (9 bots × 50 runs).*

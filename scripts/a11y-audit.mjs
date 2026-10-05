@@ -437,7 +437,7 @@ const KEY_COVER = {
   "counterfeit-scale": ["Arrows or 1-9 pick a coin, L / R load it, T back to tray, M mark, Space weigh, A accuse, H hint, Esc clear", ALL],
   "coat-check": ["Arrows pick a hook, Enter hangs the coat or opens the door, hold P to peek, Enter for the next shift", ALL],
   "mycelium": ["Arrows move the cursor, Enter marks a knot then Enter grows to the cursor, Space pulses, X cuts", ALL],
-  "lighthouse-keeper": ["← → turn the beam, S shutters or opens the lamp, hold Space to charge a flare", ALL],
+  "lighthouse-keeper": ["← → turn the beam · N next ship in the dark · S shutter · hold Space: flare · I status · Enter next night", ALL],
   "surprise-party": ["Arrows move · Enter whispers, next house · hold O: door · G guest, D door, B birthday · Space wait · U undo · R restart", ALL],
   "geode": ["← → temperature · T switches arrows to a cursor · S/Enter seed · hold C cleave · I foreign ion · H harvest · M sound", ALL],
   "island-census": ["Arrows pick a meadow · Enter/Space release rabbits · F then an arrow picks a path, F fences/unfences it · N next season", ALL],

@@ -81,13 +81,20 @@
     border-radius: 6px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
   }
   button:active { transform: scale(0.97); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* Screen-reader only: the live region (#say). */
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) {
+    button:active { transform: none; }
+  }
 </style>
 </head>
 <body>
-  <p id="msg" role="status"></p>
+  <p id="msg" aria-hidden="true"></p>
+  <p id="say" class="sr" role="status" aria-live="polite"></p>
   <div id="field">
     <div id="stage">
-      <canvas id="sea" role="img" aria-label="Lighthouse Keeper. Drag across the sea to turn the beam, tap or click the lighthouse to open or shutter the lamp, hold it to charge a flare."></canvas>
+      <canvas id="sea" role="img" aria-label="Lighthouse Keeper. Drag across the sea to turn the beam, tap or click the lighthouse to open or shutter the lamp, hold it to charge a flare. Keys: ← → turn the beam, N next ship in the dark, S shutter, hold Space for a flare, I status."></canvas>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -170,8 +177,16 @@
   const canvas = document.getElementById('sea');
   const ctx = canvas.getContext('2d');
   const msgEl = document.getElementById('msg');
+  const sayEl = document.getElementById('say');
   const touchy = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
   const TAP = touchy ? 'Tap' : 'Click', HOLD = touchy ? 'Hold' : 'Click and hold', DRAG = 'Drag';
+  // Reduced motion: the ships, the fog and the beam are the game and keep
+  // moving; the swell, the surf's wobble, the blind ships' blinking, the
+  // flare's burst and the home and wreck rings are decoration, drawn still.
+  // Decoration runs on its own clock (deco), frozen under the setting.
+  const motionQ = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const still = () => !!(motionQ && motionQ.matches);
+  let deco = 0;
 
   // Achievements: announced to the Emergent Arcade gallery when embedded.
   const unlocked = new Set();
@@ -191,17 +206,21 @@
     const msg = { type: 'arcade:result', game: GAME_ID, outcome: won ? 'win' : 'loss',
       time: r1(t), level: night, run: runId, attempt, score: total,
       stats: { home: st.home, wrecks: st.wrecks, ships: spec.ships, oil: r1(oil), dark_s: r1(st.darkS), shut_s: r1(st.shutS),
-        flares: st.flares, flare_oil: r1(st.flareOil), lit_s: r1(st.litS), blind_s: r1(st.blindS), first_input: r1(st.firstInput) } };
+        flares: st.flares, flare_oil: r1(st.flareOil), lit_s: r1(st.litS), blind_s: r1(st.blindS), first_input: r1(st.firstInput), jumps: st.jumps } };
     if (!won) msg.reason = st.dryS > 5 ? 'oil' : 'wrecks';
     window.parent.postMessage(msg, '*');
   }
 
   const field = document.getElementById('field');
   const stage = document.getElementById('stage');
+  // fs(px): a font size in game units that shows at least px CSS px (12 px+ on a 360 px phone).
+  let cssW = W;
+  const fs = px => Math.max(11, px * W / cssW);
   function fitSea() {
     const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
     const w = Math.max(80, Math.floor(W * scale)), h = Math.max(110, Math.floor(H * scale));
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    cssW = w;
     stage.style.width = w + 'px';
     stage.style.height = h + 'px';
     canvas.width = Math.round(w * dpr);
@@ -215,7 +234,7 @@
   window.addEventListener('message', evt => {
     const d = evt.data;
     if (!d) return;
-    if (d.type === 'arcade:pause') { paused = true; press = null; charging = -1; spaceStale = spaceDown; }
+    if (d.type === 'arcade:pause') { paused = true; press = null; charging = -1; spaceStale = spaceDown; keyTurn = 0; }
     if (d.type === 'arcade:resume') paused = false;
     if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {
       const b = Number(d.bests.main); if (b > 0 && b < 1e5) best = Math.round(b);
@@ -233,7 +252,11 @@
   const fogCtx = fogCanvas.getContext('2d');
   let night, spec, t, oil, total, state, runId, attempt, snap, st, lockUntil = 0, tnow = 0;
   let beam = -Math.PI / 2, aim = -Math.PI / 2, open = true, charging = -1, flareFx = null;
-  let ships = [], reefs = [], banks = [], schedule = [], fx = [], hinted = {};
+  let ships = [], reefs = [], banks = [], schedule = [], fx = [], hinted = {}, lastFlare = null;
+  // Keyboard and speech bookkeeping (§ speech); never read by the simulation.
+  const kb = { used: false, settle: false, held: false, jump: null, jumpT: 9, full: false, open: true, dry: false, oilStep: 99, arrivals: [], arriveT: 0 };
+  // A hint's words: the pointer's, or the keys' once the player has used keys.
+  const how = (ptr, keys) => kb.used ? keys : ptr;
   const runEarned = new Set(), roundEarned = new Set();
 
   function ri(n) { return Math.floor(Math.random() * n); }
@@ -263,7 +286,7 @@
     if (state !== 'playing') return;
     touch();
     if (!open || oil > 0) open = !open;
-    if (!open && !hinted.shut) { hinted.shut = 1; say(`Shuttered: no oil burns, but the sea goes dark. ${TAP} the lighthouse to open it again.`, 5); }
+    if (!open && !hinted.shut) { hinted.shut = 1; say(`Shuttered: no oil burns, but the sea goes dark. ${how(`${TAP} the lighthouse`, 'Press S')} to open it again.`, 5); }
   }
   function flare(c) {
     if (state !== 'playing') return false;
@@ -277,8 +300,10 @@
     const fx0 = LH.x + Math.cos(beam) * r * 0.9, fy0 = LH.y + Math.sin(beam) * r * 0.9;
     // Starburst: one flare gives sight back to 6 ships that were sailing blind.
     let n = 0;
-    for (const s of ships) if (!s.done && !canSee(s) && Math.hypot(s.x - fx0, s.y - fy0) < r) n++;
+    let all = 0;
+    for (const s of ships) if (!s.done && Math.hypot(s.x - fx0, s.y - fy0) < r) { all++; if (!canSee(s)) n++; }
     if (n >= 6) unlock('starburst');
+    lastFlare = { c, cost, all, blind: n };
     for (let cy = 0; cy < GY; cy++) for (let cx = 0; cx < GX; cx++) {
       const d = Math.hypot((cx + 0.5) * CELL - fx0, (cy + 0.5) * CELL - fy0);
       if (d < r) fog[cy * GX + cx] = Math.min(fog[cy * GX + cx], -FLARE_CLEAR * (1 - 0.5 * d / r));
@@ -353,13 +378,13 @@
     ships = ships.filter(s => !s.done || s.fade < 1.5);
     for (const s of ships) if (s.done) s.fade += dt;
     if (!hinted.aim && t > 6 && ships.some(s => !s.done && !canSee(s))) {
-      hinted.aim = 1; say(`Ships in thick fog sail blind and drift. ${DRAG} across the sea to turn the beam onto them.`, 6);
+      hinted.aim = 1; say(`Ships in thick fog sail blind and drift. ${how(`${DRAG} across the sea to turn the beam onto them.`, '← → turn the beam; N turns it to the next ship in the dark.')}`, 6);
     }
     if (!hinted.flare && night >= 3 && t > 12) {
-      hinted.flare = 1; say(`${HOLD} the lighthouse to charge a flare: it clears a wide patch of fog where the beam points. Bigger flares cost more oil.`, 7);
+      hinted.flare = 1; say(`${how(`${HOLD} the lighthouse`, 'Hold Space')} to charge a flare: it clears a wide patch of fog where the beam points. Bigger flares cost more oil.`, 7);
     }
     if (!hinted.shutHint && t > 15 && open && !ships.some(s => !s.done && !canSee(s))) {
-      hinted.shutHint = 1; say(`Every ship can see. ${TAP} the lighthouse to shutter the lamp and save oil.`, 5);
+      hinted.shutHint = 1; say(`Every ship can see. ${how(`${TAP} the lighthouse`, 'Press S')} to shutter the lamp and save oil.`, 5);
     }
     if (st.wrecks > WRECK_MAX) endNight(false);
     else if (!schedule.length && ships.every(s => s.done)) endNight(true);
@@ -388,7 +413,8 @@
     runId = Math.random().toString(36).slice(2, 10) || 'run';
     runEarned.clear(); hinted = {};
     beginNight();
-    say(`Ships are heading for the harbour (left). ${DRAG} across the sea to turn the beam: ships it lights can see the rocks.`, 8);
+    say(`Ships are heading for the harbour (left). ${how(`${DRAG} across the sea to turn the beam`, '← → turn the beam')}: ships it lights can see the rocks.`, 8,
+      false, kb.used ? '' : 'Ships are heading for the harbour, bottom left. ← → turn the beam, N turns it to the next ship in the dark, S shutters the lamp, hold Space for a flare, I for status.');
   }
   function setupNight() {
     spec = nightSpec(night);
@@ -446,7 +472,8 @@
     t = 0; ships = []; fx = []; flareFx = null; open = true; charging = -1;
     beam = aim = -Math.PI / 2;
     for (let cy = 0; cy < GY; cy++) for (let cx = 0; cx < GX; cx++) fog[cy * GX + cx] = baseFog((cx + 0.5) * CELL, (cy + 0.5) * CELL);
-    st = { home: 0, wrecks: 0, darkS: 0, shutS: 0, dryS: 0, flares: 0, flareOil: 0, litS: 0, blindS: 0, firstInput: -1 };
+    st = { home: 0, wrecks: 0, darkS: 0, shutS: 0, dryS: 0, flares: 0, flareOil: 0, litS: 0, blindS: 0, firstInput: -1, jumps: 0 };
+    Object.assign(kb, { settle: false, held: false, jump: null, open: true, dry: false, arrivals: [], oilStep: [5, 10, 20, 40].find(v => v > oil) || 99 });
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
@@ -494,6 +521,8 @@
     document.getElementById('endAch').textContent = got.length ? 'Earned: ' + got.join(', ') : '';
     mainBtn.textContent = won ? 'Next night' : `Retry night ${night}`;
     altBtn.hidden = won;
+    speak(`${el.textContent}. ${document.getElementById('endDetail').textContent} ${document.getElementById('endAch').textContent}` +
+      ` Press Enter for ${won ? 'the next night' : `night ${night} again, or the New run button for a new run`}.`);
     endCard.hidden = false;
     lockUntil = performance.now() + END_LOCK_MS;
     mainBtn.disabled = altBtn.disabled = true;
@@ -502,15 +531,16 @@
 
   // § messages
   let msgUntil = 0, msgMin = 0, queued = null;
-  function say(text, secs, warn) {
-    if (tnow < msgMin && !warn) { queued = [text, secs]; return; }
+  function say(text, secs, warn, spoken) {
+    if (tnow < msgMin && !warn) { queued = [text, secs, spoken]; return; }
+    speak(spoken || text);
     msgEl.textContent = text;
     msgEl.className = warn ? 'warn' : '';
     msgMin = tnow + Math.min(secs, 3);
     msgUntil = tnow + secs;
   }
   function tickMsg() {
-    if (queued && tnow >= msgMin) { const q = queued; queued = null; say(q[0], q[1]); }
+    if (queued && tnow >= msgMin) { const q = queued; queued = null; say(q[0], q[1], false, q[2]); }
     else if (msgEl.textContent && tnow >= msgUntil) msgEl.textContent = '';
   }
   function hud() {
@@ -534,7 +564,7 @@
     ctx.strokeStyle = 'rgba(120,170,210,0.08)'; ctx.lineWidth = 1;
     for (let y = 20; y < COAST; y += 26) {
       ctx.beginPath();
-      for (let x = 0; x <= W; x += 20) ctx.lineTo(x, y + Math.sin(x * 0.05 + tnow * 0.8 + y) * 2);
+      for (let x = 0; x <= W; x += 20) ctx.lineTo(x, y + Math.sin(x * 0.05 + deco * 0.8 + y) * 2);
       ctx.stroke();
     }
     // Reefs
@@ -542,15 +572,21 @@
       ctx.fillStyle = '#2d3238'; ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 7); ctx.fill();
       ctx.fillStyle = '#454c54'; ctx.beginPath(); ctx.arc(r.x - r.r * 0.3, r.y - r.r * 0.3, r.r * 0.5, 0, 7); ctx.fill();
       ctx.strokeStyle = 'rgba(220,235,245,0.35)'; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.arc(r.x, r.y, r.r + 3 + Math.sin(tnow * 2 + r.x) * 1.2, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r + 3 + Math.sin(deco * 2 + r.x) * 1.2, 0, 7); ctx.stroke();
     }
-    // Ships
+    // Ships. Without hue: a wreck is dark (L* 33) with a pale cross, a heavy
+    // ship is longer with a dark hold across its deck.
     for (const s of ships) {
-      const a = s.done ? Math.max(0, 1 - s.fade / 1.5) : 1, see = !s.done && canSee(s);
+      const a = s.done && !still() ? Math.max(0, 1 - s.fade / 1.5) : 1;
       ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.h); ctx.globalAlpha = a;
       const L = s.big ? 15 : 10, Wd = s.big ? 6 : 4.5;
-      ctx.fillStyle = s.done === 'wreck' ? '#7a4a3a' : s.big ? '#c9b48a' : '#e8e2d2';
+      ctx.fillStyle = s.done === 'wreck' ? '#6a4033' : s.big ? '#c9b48a' : '#e8e2d2';
       ctx.beginPath(); ctx.moveTo(L, 0); ctx.lineTo(-L * 0.7, Wd); ctx.lineTo(-L, 0); ctx.lineTo(-L * 0.7, -Wd); ctx.closePath(); ctx.fill();
+      if (s.big && s.done !== 'wreck') { ctx.fillStyle = '#4a4232'; ctx.fillRect(-L * 0.45, -Wd * 0.5, L * 0.5, Wd); }
+      if (s.done === 'wreck') {
+        ctx.rotate(-s.h); ctx.strokeStyle = '#f2e6dc'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(-5, -5); ctx.lineTo(5, 5); ctx.moveTo(5, -5); ctx.lineTo(-5, 5); ctx.stroke();
+      }
       ctx.restore(); ctx.globalAlpha = 1;
     }
     // Fog: one pixel per cell on a small canvas, scaled up smoothly.
@@ -572,13 +608,21 @@
     // Above the fog: the surf on the reefs and the ships' mast lights.
     for (const r of reefs) {
       ctx.strokeStyle = 'rgba(230,240,248,0.28)'; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.arc(r.x, r.y, r.r + 3 + Math.sin(tnow * 2 + r.x) * 1.2, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r + 3 + Math.sin(deco * 2 + r.x) * 1.2, 0, 7); ctx.stroke();
     }
+    // Mast lights. Seeing: a bright filled light (L* 92) with a dark rim.
+    // Blind: a dark core (L* 9) in a red ring that blinks (steady under
+    // reduced motion), so the two read by lightness and shape, not hue.
     for (const s of ships) {
       if (s.done) continue;
-      const see = canSee(s);
-      ctx.fillStyle = see ? '#7dffb0' : Math.sin(tnow * 8) > 0 ? '#ff5a4a' : '#7a2a24';
-      ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x, s.y, 4, 0, 7);
+      if (canSee(s)) {
+        ctx.fillStyle = '#0b1420'; ctx.fill();
+        ctx.fillStyle = '#7dffb0'; ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, 7); ctx.fill();
+      } else {
+        ctx.fillStyle = '#2a0805'; ctx.fill();
+        ctx.strokeStyle = still() || Math.sin(deco * 8) > 0 ? '#ff6a5a' : '#a8382e'; ctx.lineWidth = 1.6; ctx.stroke();
+      }
     }
     // Beam
     if (open && oil > 0) {
@@ -594,25 +638,32 @@
       ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(LH.x + Math.cos(aim) * 40, LH.y + Math.sin(aim) * 40); ctx.lineTo(LH.x + Math.cos(aim) * 70, LH.y + Math.sin(aim) * 70); ctx.stroke();
     }
-    // Flare
+    // Flare: a burst that grows and fades; under reduced motion, a still ring.
     if (flareFx && flareFx.t < 1.2) {
-      const a = 1 - flareFx.t / 1.2;
-      ctx.fillStyle = `rgba(255,240,200,${0.35 * a})`;
-      ctx.beginPath(); ctx.arc(flareFx.x, flareFx.y, flareFx.r * Math.min(1, flareFx.t * 4), 0, 7); ctx.fill();
+      if (still()) {
+        ctx.strokeStyle = 'rgba(255,240,200,0.6)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(flareFx.x, flareFx.y, flareFx.r, 0, 7); ctx.stroke();
+      } else {
+        const a = 1 - flareFx.t / 1.2;
+        ctx.fillStyle = `rgba(255,240,200,${0.35 * a})`;
+        ctx.beginPath(); ctx.arc(flareFx.x, flareFx.y, flareFx.r * Math.min(1, flareFx.t * 4), 0, 7); ctx.fill();
+      }
     }
+    // The flare's preview: its ring and cost; one it can't pay for is red, finely dashed and says so.
     if (charging >= 0) {
       const c = Math.min(1, (tnow - charging) / FLARE_S), r = FLARE_R0 + (FLARE_R1 - FLARE_R0) * c;
       const x = LH.x + Math.cos(beam) * r * 0.9, y = LH.y + Math.sin(beam) * r * 0.9;
-      const cost = FLARE_MIN + (FLARE_MAX - FLARE_MIN) * c;
-      ctx.strokeStyle = cost <= oil ? 'rgba(255,240,200,0.7)' : 'rgba(255,130,110,0.8)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
+      const cost = FLARE_MIN + (FLARE_MAX - FLARE_MIN) * c, ok = cost <= oil;
+      ctx.strokeStyle = ok ? 'rgba(255,240,200,0.75)' : 'rgba(255,130,110,0.85)'; ctx.setLineDash(ok ? [6, 5] : [2, 4]); ctx.lineWidth = ok ? 1.5 : 2;
       ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = ctx.strokeStyle; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(`${Math.round(cost)} oil`, x, y);
+      label(ok ? `${Math.round(cost)} oil` : `${Math.round(cost)} oil: too much`, x, Math.max(fs(16), y), ok ? '#fff0c8' : '#ffb4a8', 'center');
     }
+    // Home and wreck rings: home solid, wreck dashed; under reduced motion they don't grow.
     for (const e of fx) {
-      const a = 1 - e.t / 1.2;
+      const a = still() ? 0.9 : 1 - e.t / 1.2;
       ctx.strokeStyle = e.kind === 'home' ? `rgba(125,255,176,${a})` : `rgba(255,110,90,${a})`;
-      ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, 6 + e.t * 26, 0, 7); ctx.stroke();
+      if (e.kind !== 'home') ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, still() ? 14 : 6 + e.t * 26, 0, 7); ctx.stroke(); ctx.setLineDash([]);
     }
     // Land, harbour, lighthouse
     ctx.fillStyle = '#1b1f17';
@@ -622,17 +673,31 @@
     ctx.fillStyle = '#10243a'; ctx.fillRect(PORT.x - PORT.r, COAST - 1, PORT.r * 2, 18);
     ctx.strokeStyle = '#7dffb0'; ctx.lineWidth = 2; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.arc(PORT.x, PORT.y, PORT.r, Math.PI, 0); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#9aaab8'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('harbour', PORT.x, COAST + 32);
+    label('harbour', PORT.x, H - fs(12) * 0.45, '#b4c2ce', 'center', false);
     ctx.fillStyle = '#d9d4c7'; ctx.fillRect(LH.x - 6, LH.y - 2, 12, 32);
     ctx.fillStyle = '#b5413a'; ctx.fillRect(LH.x - 6, LH.y + 8, 12, 6);
     ctx.fillStyle = open && oil > 0 ? '#ffe39a' : '#3a4048';
     ctx.beginPath(); ctx.arc(LH.x, LH.y - 4, 7, 0, 7); ctx.fill();
     if (!open) { ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(LH.x, LH.y - 4, 11, 0, 7); ctx.stroke(); }
+    // The lamp's state in words beside the tower (lit needs none: the beam shows it).
+    const lamp = charging >= 0 ? 'flare' : !open ? 'shuttered' : oil <= 0 ? 'no oil' : '';
+    if (lamp) label(lamp, LH.x + 16, H - fs(12) * 0.45, '#e9eef2', 'left', false);
     if (press && press.mode === 'lamp') {
       const u = Math.min(1, (performance.now() - press.t0) / HOLD_MS);
       ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.arc(LH.x, LH.y - 4, 16, -Math.PI / 2, -Math.PI / 2 + u * 2 * Math.PI); ctx.stroke();
     }
+  }
+
+  // Canvas text: at least 12 CSS px, on a dark backing where it sits over the sea.
+  function label(text, x, y, color, align, back = true) {
+    ctx.font = `600 ${fs(12)}px sans-serif`; ctx.textAlign = align; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(text).width, h = fs(12) * 1.35;
+    const off = align === 'center' ? w / 2 : align === 'right' ? w : 0;
+    x = Math.max(4 + off, Math.min(W - 4 - w + off, x));
+    if (back) { ctx.fillStyle = 'rgba(8,17,29,0.86)'; ctx.fillRect(x - off - 4, y - h / 2, w + 8, h); }
+    ctx.fillStyle = color; ctx.fillText(text, x, y);
+    ctx.textBaseline = 'alphabetic';
   }
 
   // § input
@@ -670,6 +735,7 @@
     if (!a || evt.pointerId !== a.id) return;
     press = null;
     if (state !== 'playing' || paused) { charging = -1; return; }
+    if (a.mode === 'aim') kb.settle = true;
     if (a.mode === 'lamp') {
       if (charging >= 0) { flare((tnow - charging) / FLARE_S); charging = -1; }
       else if (performance.now() - a.t0 < TAP_MS) toggleShutter();
@@ -680,22 +746,206 @@
     if (press && press.mode === 'lamp' && charging < 0 && performance.now() - press.t0 >= HOLD_MS) charging = tnow;
   }
 
-  // Keyboard: ← → turn the beam, S shutters, hold Space to charge a flare.
+  // § keys: the same verbs without a pointer, outside the simulation. Hold
+  // ← → to turn the beam (the aim moves at the lamp's own turn rate), N turns
+  // it to the next ship in the dark (a jump, like a fast drag: the aim
+  // only), S shutters or opens the lamp, hold Space to charge a flare and
+  // let go to fire it, I says the status, Enter plays the next night after
+  // one ends. Tab stays free; Space/Enter on a focused button press it.
   let keyTurn = 0, spaceDown = false, spaceStale = false;
   window.addEventListener('keydown', evt => {
-    if (evt.key === ' ') { if (state !== 'playing' && !spaceDown) spaceStale = true; spaceDown = true; }
-    if (state !== 'playing' || paused) return;
-    const k = evt.key;
-    if (k === 'ArrowLeft' || k === 'ArrowRight') { keyTurn = k === 'ArrowLeft' ? -1 : 1; evt.preventDefault(); }
-    else if ((k === 's' || k === 'S') && !evt.repeat) toggleShutter();
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    if (onButton && (evt.key === 'Enter' || evt.key === ' ')) return; // the focused button presses itself
+    const k = evt.key.length === 1 ? evt.key.toLowerCase() : evt.key;
+    if (k === ' ') { if (state !== 'playing' && !spaceDown) spaceStale = true; spaceDown = true; }
+    if (paused) return;
+    if (state !== 'playing') {
+      if (k === 'Enter' && !evt.repeat) { evt.preventDefault(); onMain(); }
+      else if (k === 'i' && !evt.repeat) speak(statusWords());
+      return;
+    }
+    if (!['ArrowLeft', 'ArrowRight', 's', ' ', 'n', 'i'].includes(k)) return;
+    evt.preventDefault();
+    if (onButton) evt.target.blur();
+    kb.used = true;
+    if (k === 'ArrowLeft' || k === 'ArrowRight') { keyTurn = k === 'ArrowLeft' ? -1 : 1; kb.held = true; kb.settle = false; }
+    else if (evt.repeat) return;
+    else if (k === 's') toggleShutter();
     // A Space held through a pause (or a card) must be let go before it charges again.
-    else if (k === ' ') { evt.preventDefault(); if (charging < 0 && !spaceStale && !evt.repeat) charging = tnow; }
+    else if (k === ' ') { if (charging < 0 && !spaceStale) charging = tnow; }
+    else if (k === 'n') jumpToDark();
+    else speak(statusWords());
   });
   window.addEventListener('keyup', evt => {
-    if (evt.key === 'ArrowLeft' || evt.key === 'ArrowRight') keyTurn = 0;
+    if (evt.key === 'ArrowLeft' || evt.key === 'ArrowRight') { keyTurn = 0; if (kb.held) { kb.held = false; kb.settle = true; } }
     if (evt.key === ' ') spaceDown = spaceStale = false;
-    if (evt.key === ' ' && charging >= 0) { if (state === 'playing' && !paused) flare((tnow - charging) / FLARE_S); charging = -1; }
+    if (evt.key === ' ' && charging >= 0) { if (state === 'playing' && !paused) fireFlare(); charging = -1; }
   });
+  window.addEventListener('blur', () => { keyTurn = 0; });
+  // Pointer clicks leave no focus on a button, so Space stays the flare key.
+  for (const b of document.querySelectorAll('button')) b.addEventListener('click', e => { if (e.detail > 0) b.blur(); });
+
+  // § speech: what the screen shows, in words, for the live region (#say).
+  // Read from the state after each frame, never inside step(): a ship
+  // arriving, going blind with rocks or shore ahead, seeing again, a wreck,
+  // a ship home, the lamp shut, open or dry, oil steps, a flare's result,
+  // and where the beam points once a turn ends and the beam gets there.
+  const speech = [];
+  function speak(text) {
+    if (!text) return;
+    speech.push(text.replace(/← →/g, 'the left and right arrows'));
+    if (speech.length > 6) speech.shift();
+  }
+  function flushSpeech() {
+    if (!speech.length) return;
+    sayEl.textContent = speech.join(' ');
+    speech.length = 0;
+  }
+  const angleTo = s => Math.atan2(s.y - LH.y, s.x - LH.x);
+  // A clock bearing from the lamp: 12 straight out to sea, 9 along the coast
+  // to the left, 3 to the right, in quarter hours (7.5°, about the beam's half-width).
+  function clock(a) {
+    const q = Math.round((12 + (a + Math.PI / 2) * 6 / Math.PI) * 4), h = Math.floor(q / 4), m = q % 4;
+    const hr = x => ((x - 1) % 12 + 12) % 12 + 1;
+    return m === 0 ? `${hr(h)} o'clock` : m === 1 ? `quarter past ${hr(h)}` : m === 2 ? `half past ${hr(h)}` : `quarter to ${hr(h + 1)}`;
+  }
+  function far(s) {
+    const d = Math.hypot(s.x - LH.x, s.y - LH.y);
+    return d > RANGE ? 'out of reach' : d > 320 ? 'far out' : d > 170 ? 'halfway out' : 'near';
+  }
+  // What lies ahead on a ship's course within ~10 s: a reef, or the shore outside the harbour.
+  function ahead(s) {
+    const c = Math.cos(s.h), n = Math.sin(s.h), v = s.big ? BIG_SPEED : SPEED;
+    let best = Infinity;
+    for (const r of reefs) {
+      const rx = r.x - s.x, ry = r.y - s.y, along = rx * c + ry * n;
+      if (along > 0 && Math.abs(rx * n - ry * c) < r.r + 6) best = Math.min(best, along);
+    }
+    let what = 'rocks';
+    if (n > 0) {
+      const along = (COAST - 4 - s.y) / n, x = s.x + c * along;
+      if (along < best && Math.abs(x - PORT.x) > PORT.r) { best = along; what = 'the shore'; }
+    }
+    const sec = best / v;
+    return sec < 10 ? `${what} ahead in ${Math.max(1, Math.round(sec))} s` : '';
+  }
+  const shipName = s => `${s.big ? 'heavy ship' : 'ship'} at ${clock(angleTo(s))}, ${far(s)}`;
+  const ShipName = s => shipName(s).replace(/^./, c => c.toUpperCase());
+  const dark = () => ships.filter(s => !s.done && !canSee(s));
+  // Ships in the dark, the most urgent first (rocks soonest, then nearest; out of the beam's reach last).
+  function darkOrder() {
+    const v = s => { const a = ahead(s), m = a.match(/in (\d+) s/), d = Math.hypot(s.x - LH.x, s.y - LH.y); return (d > RANGE ? 1e6 : 0) + (m ? +m[1] : 99) * 1000 + d; };
+    return dark().sort((p, q) => v(p) - v(q));
+  }
+  function beamWords() {
+    const lamp = !open ? ' The lamp is shuttered: it lights nothing.' : oil <= 0 ? ' The lamp is dry: it lights nothing.' : '';
+    const lit = ships.filter(s => !s.done && inBeam(s.x, s.y)).length;
+    let out = `Beam at ${clock(beam)}${lamp ? '.' + lamp : `, lighting ${lit ? lit + (lit > 1 ? ' ships' : ' ship') : 'no ships'}.`}`;
+    const d = dark().sort((p, q) => Math.abs(angleTo(p) - beam) - Math.abs(angleTo(q) - beam))[0];
+    if (!d) return out + ' No ship in the dark.';
+    const da = angleTo(d) - beam, a = ahead(d);
+    return out + ` Nearest ship in the dark: ${shipName(d)}${a ? ', ' + a : ''}, turn ${da < 0 ? 'left' : 'right'}.`;
+  }
+  function statusWords() {
+    const toCome = schedule.length, d = darkOrder();
+    const lampW = !open ? 'shuttered' : oil <= 0 ? 'dry' : 'open';
+    let out = `Night ${night}, ${spec.name}. Home ${st.home} of ${spec.ships}, wrecks ${st.wrecks} of ${WRECK_MAX + 1}` +
+      `${state === 'playing' ? `, ${toCome ? toCome + ' still to come' : 'no more to come'}` : ''}. Oil ${Math.floor(oil)}, lamp ${lampW}.`;
+    if (state !== 'playing') return out;
+    out += ' ' + beamWords();
+    if (d.length) out += ` In the dark: ${d.slice(0, 4).map(s => { const a = ahead(s); return shipName(s) + (a ? ', ' + a : ''); }).join('; ')}${d.length > 4 ? `; and ${d.length - 4} more` : ''}.`;
+    return out;
+  }
+  // N: the next ship in the dark, most urgent first; pressed again within 4 s, the one after.
+  function jumpToDark() {
+    const d = darkOrder();
+    if (!d.length) return speak(ships.some(s => !s.done) ? 'No ship in the dark.' : `No ships at sea. ${schedule.length} still to come.`);
+    let i = 0;
+    if (kb.jumpT < 4 && kb.jump) { const j = d.indexOf(kb.jump); if (j >= 0) i = (j + 1) % d.length; }
+    const s = d[i];
+    kb.jump = s; kb.jumpT = 0; st.jumps++;
+    setAim(angleTo(s));
+    const a = ahead(s);
+    speak(`Turning to ${s.big ? 'heavy ship' : 'ship'} ${i + 1} of ${d.length} in the dark: ${clock(angleTo(s))}, ${far(s)}${a ? ', ' + a : ''}.`);
+    kb.settle = true;
+  }
+  function fireFlare() {
+    const c = Math.min(1, (tnow - charging) / FLARE_S);
+    lastFlare = null;
+    flare(c);
+  }
+  const seen = new WeakMap();
+  function seaWatch(dt) {
+    if (state !== 'playing' || paused) return;
+    kb.jumpT += dt;
+    // Arrivals: a convoy's ships come 0.25 s apart, so wait for the last one.
+    for (const s of ships) if (!seen.has(s)) {
+      seen.set(s, { said: canSee(s) ? 'see' : 'clear', cand: '', candT: 0, saidT: 0, done: false });
+      kb.arrivals.push({ side: s.x > W, big: s.big, a: angleTo(s) }); kb.arriveT = 0;
+    }
+    if (kb.arrivals.length && (kb.arriveT += dt) > 0.6) {
+      const A = kb.arrivals; kb.arrivals = [];
+      const big = A.filter(p => p.big).length, sides = A.filter(p => p.side).length;
+      const at = A.map(p => clock(p.a)).join(', ').replace(/, ([^,]*)$/, ' and $1');
+      const what = A.length > 1 ? `Convoy of ${A.length}${big ? `, ${big} heavy,` : ''} arriving` : `${big ? 'Heavy ship' : 'Ship'} arriving`;
+      const from = sides === A.length ? 'from the right' : sides ? `from the top and the right` : 'from the top';
+      speak(`${what} ${from} at ${at}.`);
+    }
+    // Ends of voyages.
+    const home = [], wrecked = [];
+    for (const s of ships) {
+      const w = seen.get(s);
+      if (!w || w.done || !s.done) continue;
+      w.done = true;
+      (s.done === 'home' ? home : wrecked).push(s);
+    }
+    if (wrecked.length) speak(`${wrecked.length > 1 ? wrecked.length + ' wrecks' : 'Wreck'} at ${wrecked.map(s => clock(angleTo(s))).join(' and ')}. ${st.wrecks} of ${WRECK_MAX + 1} wrecks.`);
+    if (home.length) speak(`${home.length > 1 ? home.length + ' ships' : 'Ship'} home: ${st.home} of ${spec.ships}. Oil ${Math.floor(oil)}.`);
+    // Sight: a ship going blind with rocks or the shore ahead, or seeing
+    // again after that. Held 0.7 s, at most one line per ship every 2 s.
+    const lines = [];
+    for (const s of ships) {
+      const w = seen.get(s);
+      if (!w || s.done) continue;
+      w.saidT += dt;
+      const a = canSee(s) ? '' : ahead(s), m = canSee(s) ? 'see' : a ? 'danger' : 'clear';
+      if (m !== w.cand) { w.cand = m; w.candT = 0; }
+      w.candT += dt;
+      if (m === w.said || w.candT < 0.7 || w.saidT < 2) continue;
+      const was = w.said; w.said = m;
+      if (m === 'danger') { w.saidT = 0; lines.push(`${ShipName(s)}, is blind: ${a}.`); }
+      else if (was === 'danger') { w.saidT = 0; lines.push(m === 'see' ? `${ShipName(s)}, sees again.` : `${ShipName(s)}, is blind but its course is clear.`); }
+    }
+    if (lines.length) speak(lines.slice(0, 3).join(' ') + (lines.length > 3 ? ` ${lines.length - 3} more ships changed.` : ''));
+    // The lamp: shut, open, dry; oil steps on the way down.
+    const dry = open && oil <= 0;
+    if (open !== kb.open) { kb.open = open; speak(open ? `Lamp open. Oil ${Math.floor(oil)}.` : `Lamp shuttered. Oil ${Math.floor(oil)}.`); }
+    if (dry !== kb.dry) { kb.dry = dry; if (!speech.some(t => t.startsWith('Out of oil'))) speak(dry ? 'The lamp is dry: out of oil until a ship comes home.' : open ? 'The lamp is lit again.' : ''); }
+    // Flare: full charge while held, and what it reached once fired.
+    if (charging < 0) kb.full = false;
+    else if (!kb.full && tnow - charging >= FLARE_S) {
+      kb.full = true;
+      speak(`Full charge: ${FLARE_MAX} oil${FLARE_MAX > oil ? `, more than the ${Math.floor(oil)} you have` : ''}.`);
+    }
+    if (lastFlare) {
+      const f = lastFlare; lastFlare = null;
+      speak(`Flare, ${Math.round(f.c * 100)}% charge, ${Math.round(f.cost)} oil: it reached ${f.all ? f.all + (f.all > 1 ? ' ships' : ' ship') : 'no ships'}` +
+        `${f.all ? `, ${f.blind} of them in the dark` : ''}. Oil ${Math.floor(oil)}.`);
+    }
+    // Lines that already said the oil (home, shutter, flare) count as its step.
+    // A step within 2 oil of a line that said it is skipped.
+    if (speech.some(t => /Oil \d+\.$/.test(t))) kb.oilStep = Math.min(kb.oilStep, [5, 10, 20, 40].find(v => v > oil - 2) || 99);
+    const os = [5, 10, 20, 40].find(v => oil < v && kb.oilStep > v);
+    if (os && oil > 0) { kb.oilStep = os; speak(`Oil ${Math.floor(oil)}.`); }
+    // Oil back up (a ship home, dawn): the next step below is said again.
+    if (oil > kb.oilStep + 5) kb.oilStep = [5, 10, 20, 40].find(v => v > oil) || 99;
+    // The beam, once a turn has ended and the beam has caught up with the aim.
+    if (kb.settle && !kb.held && !press && Math.abs(Math.atan2(Math.sin(aim - beam), Math.cos(aim - beam))) < 0.02) {
+      kb.settle = false;
+      speak(beamWords());
+    }
+  }
 
   function onMain() {
     if (performance.now() < lockUntil) return;
@@ -712,6 +962,7 @@
     last = now;
     if (!paused) {
       acc += d; tnow += d;
+      if (!still()) deco += d;
       if (state === 'playing') { checkHold(); if (keyTurn) setAim(aim + keyTurn * TURN * d); }
       for (const e of fx) e.t += d;
       fx = fx.filter(e => e.t < 1.2);
@@ -721,7 +972,9 @@
       if (state === 'playing' && !paused) step(STEP);
       acc -= STEP;
     }
+    seaWatch(d);
     tickMsg();
+    flushSpeech();
     hud();
     draw();
     requestAnimationFrame(frame);
@@ -735,7 +988,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap', h = fine ? 'click and hold' : 'hold';
-  document.getElementById('sea').setAttribute('aria-label', `Lighthouse Keeper. Drag across the sea to turn the beam, ${t} the lighthouse to open or shutter the lamp, ${h} it to charge a flare. Keys: ← → turn the beam, S shutters or opens the lamp, hold Space to charge a flare.`);
+  document.getElementById('sea').setAttribute('aria-label', `Lighthouse Keeper. Drag across the sea to turn the beam, ${t} the lighthouse to open or shutter the lamp, ${h} it to charge a flare. Keys: ← → turn the beam, N turns it to the next ship in the dark, S shutters or opens the lamp, hold Space to charge a flare, I says the status, Enter plays the next night.`);
 }
 </script>
 </body>
