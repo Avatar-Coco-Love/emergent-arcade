@@ -1,6 +1,6 @@
 # Hourglass Delivery: design notes
 
-**v4** (2026-10-05, canvas label; v3 2026-09-29) · playtest: https://claude.ai/artifact/UZTvK3z1uFsWPHVTETrCmx (private, republished each push) ·
+**v5** (2026-10-05, accessibility: keys, live region, reduced motion; v4 canvas label) · playtest: https://claude.ai/artifact/UZTvK3z1uFsWPHVTETrCmx (private, republished each push) ·
 balance: `node scripts/balance-hourglass-delivery.mjs 300`
 Verbs: **pour** (hold) and **knock** (flick), sharing the **sand grid**
 (100×150 cells, 4 px each: empty, loose, packed, wall). Win: 8 hourglasses
@@ -61,19 +61,21 @@ between them. Three ledges start with packed dunes of 80 grains. The glass
 mouths are at y 500, the belt at y 560. Hopper gauge top-left, order dots
 top-right (gold filled, red missed).
 
-## Balance (`node scripts/balance-hourglass-delivery.mjs 300`, ±3 pts)
+## Balance (`node scripts/balance-hourglass-delivery.mjs 300`, exact since v5)
 
 | Bot | Win | 8/8 | Median filled | Median poured / spilled |
 |---|---|---|---|---|
 | idle (no input) | 0% | 0% | 0 | 0 / 0 |
 | pour (pour down a clear column onto where the next glass will be) | 23% | 19% | 0 | 389 / 0 |
 | knock (knock the starting dunes off a ledge end onto a passing glass) | 0% | 0% | 0 | 0 / 38 |
-| both (knock piles onto glasses, pour direct, restock the shelves in between) | 70% | 43% | 7 | 1548 / 390 |
+| both (knock piles onto glasses, pour direct, restock the shelves in between) | 72% | 42% | 7 | 1560 / 396 |
 Pour-only is bimodal: wins (usually 8/8) when the level has a clear column
 from top to belt, fills nothing otherwise (it never pours onto ledges).
 Humans who learn where ledge overflow lands should do better.
-Achievement rates (both bot): First Delivery 98%, Steady Hand 53%, Full
-Order 43%, Stockpiler 22%, Landslide 12%, Not a Grain Wasted 3% (pour bot
+The harness resets the sand scan's row parity (`tick`) each run (v5), so a
+seed plays the same on any worker page; before, knock bots drifted ±2 pts
+between identical runs. Achievement rates (both bot): First Delivery 97%,
+Steady Hand 54%, Full Order 42%, Stockpiler 22%, Landslide 13%, Not a Grain Wasted 3% (pour bot
 22%: it only pours straight into glasses).
 
 ## Telemetry (v3)
@@ -93,19 +95,34 @@ Each `arcade:result` also carries (see `docs/telemetry.md`):
 Pouring alone drains the hopper about as fast as the glasses arrive (60
 grains/s against a 2000-grain hopper), so watch the `hopper` reason.
 
-## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
+## Accessibility (v5, `node scripts/a11y-audit.mjs hourglass-delivery`)
 
-v2: 1 round, **lost in 33 s** (3rd empty glass), 0 achievements: not a
-single glass filled, like the pour bot on a blocked level. 33 s is the
-earliest a round can end (3rd glass arrives at 22 s, ~11 s to cross). A
-browser check pouring continuously while sweeping emptied the hopper to 70
-grains in 32 s, caught 119 grains in total, filled nothing (best glass 86 of
-120). The bot table has no round length; add one to the balance script so
-losses can be compared.
+All six pass on the audit's screen (3/3). A scripted late copy (~38 s:
+filled, missed and half-full glasses, cursor and knock ring on) passes
+colour, contrast, text, label, keys 3/3; motion there is "reads it,
+unchanged" (0.7% → 0.6%): the glasses are the motion (below).
+- Keys (`// § keys`): arrows move a cursor while held (100 → 300 units/s
+  over 0.6 s); hold Space pours at its x (key up = finger up; the spout
+  follows the cursor); K or X, then an arrow, knocks at the cursor that
+  way (the flick's `knock()`; Esc cancels); G next glass on the belt
+  (front first, again cycles), L next ledge onto its sand (Shift+L back).
+  Enter plays again. Tab free; Space/Enter on a focused button press it.
+- Live region `#say` (`#msg` aria-hidden, `say()` speaks): where the cursor
+  stopped (grains in knock reach, where a pour lands: which ledge, a peg,
+  a glass and its count, the belt), pour start and grains poured, knock
+  result, glass rolling in / filled / delivered / empty, hopper every 500,
+  the result. `#msg` on a dark backing (it sits where sand falls).
+- Order dots keep each glass's outcome (they went back to grey 2 s after
+  a glass left); missed is a red ×, not only a red dot.
+- Reduced motion (`still()`): belt stripes, dust puffs and the knock
+  ring's swell and fade drawn still. Mid-round idle diff 1.1% → 1.0–1.1%;
+  sand hidden ~1.0%; sand and glasses hidden v4 0.05–0.07%, v5 0.00%
+  (3 seeds): what moves is the simulation.
+- No canvas text; DOM text ≥ 13.6 px, 7.9:1+. `stats.keys`: key pours/knocks.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; ignores reduced motion (small).
+- Accessibility: a real screen reader and keyboard player are the test.
 - Stockpiler counts all packed grains, including the starting dunes (240).
 - Not a Grain Wasted counts spilled starting-dune sand against your poured total.
 - The top half of the screen is mostly open (one ledge row); a third row

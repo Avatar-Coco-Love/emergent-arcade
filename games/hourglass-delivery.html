@@ -52,18 +52,25 @@
     touch-action: none;
     border-radius: 10px;
   }
+  /* A dark backing: the message sits where poured sand falls. */
   #msg {
     position: absolute;
     top: 30px;
-    left: 40px;
-    right: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 60px);
     margin: 0;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(20, 12, 14, 0.88);
     text-align: center;
     font-size: 0.85rem;
     color: #fff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     pointer-events: none;
   }
+  #msg:empty { display: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #endCard {
     position: absolute;
     left: 50%;
@@ -123,7 +130,8 @@
   <div id="field">
     <div id="stage">
       <canvas id="works" role="img" aria-label="Hourglass Delivery sand works. Hold to pour sand, flick to knock settled sand loose."></canvas>
-      <p id="msg" role="status"></p>
+      <p id="msg" aria-hidden="true"></p>
+      <p id="say" class="sr" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -218,7 +226,7 @@
       outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
       stats: { filled, missed, caught, knocked_in: knockedIn, best, poured, spilled,
         hopper, pour_s: r1(pourTime), knocks, whiffs, clear_cols: clearCols,
-        first_input: firstInput === null ? -1 : r1(firstInput) } };
+        first_input: firstInput === null ? -1 : r1(firstInput), keys: keyUses } };
     // A loss is always the LOSE_AT-th empty glass; the reason says why they were empty.
     if (result !== 'won') msg.reason = firstInput === null ? 'idle' : hopper <= 0 ? 'hopper' : 'empty';
     window.parent.postMessage(msg, '*');
@@ -245,7 +253,7 @@
   // The gallery pauses the game while one of its panels covers it.
   let paused = false;
   window.addEventListener('message', evt => {
-    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; endGesture(); }
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; endGesture(); kb.held.clear(); kb.aim = false; }
     if (evt.data && evt.data.type === 'arcade:resume') paused = false;
   });
 
@@ -264,9 +272,10 @@
   let ledges, glasses, nextGlass, hopper, poured, spilled, pourAcc, pouring, spoutX;
   let knockCool, knockSerial, knocks, filled, missed, elapsed, state, msgTimer, packedCount;
   let lastKnock, lowSandSaid;
-  let caught, knockedIn, best, pourTime, whiffs, clearCols, firstInput; // telemetry only
+  let caught, knockedIn, best, pourTime, whiffs, clearCols, firstInput, keyUses; // telemetry only
   const roundEarned = new Set();
   const puffs = [];
+  const outcome = [];                 // per glass once it leaves: true filled, false missed (the order dots)
 
   // ---------- level ----------
   function idx(cx, cy) { return cy * GW + cx; }
@@ -317,7 +326,7 @@
     hopper = HOPPER; poured = 0; spilled = 0; pourAcc = 0; pouring = false; spoutX = W / 2;
     knockCool = 0; knockSerial = 0; knocks = 0; filled = 0; missed = 0; elapsed = 0;
     packedCount = 0; lastKnock = null; lowSandSaid = false;
-    caught = 0; knockedIn = 0; best = 0; pourTime = 0; whiffs = 0; firstInput = null;
+    caught = 0; knockedIn = 0; best = 0; pourTime = 0; whiffs = 0; firstInput = null; keyUses = 0;
     // Columns with no ledge or peg from the top to the belt: pouring alone can
     // only fill glasses down these (the pour bot wins only when there is one).
     clearCols = 0;
@@ -327,10 +336,12 @@
       if (clear) clearCols++;
     }
     puffs.length = 0;
+    outcome.length = 0;
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
     endGesture();
+    heard = { glasses: new Map(), hopper: HOPPER };
     say(`Fill ${GLASSES - LOSE_AT + 1} of ${GLASSES} hourglasses.`);
   }
 
@@ -350,6 +361,7 @@
     document.getElementById('endAch').textContent = n
       ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
       : '';
+    speak(`${title.textContent} ${document.getElementById('endDetail').textContent} ${document.getElementById('endAch').textContent}`);
     playAgainBtn.disabled = true;
     endCard.hidden = false;
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
@@ -357,6 +369,7 @@
 
   function say(text) {
     msgEl.textContent = text;
+    if (text) speak(text);
     clearTimeout(msgTimer);
     msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
   }
@@ -539,6 +552,7 @@
       if (g.x - MOUTH_HW > W) {
         g.gone = true;
         best = Math.max(best, g.n);
+        outcome[g.id] = g.n >= LINE;
         if (g.n >= LINE) {
           filled++;
           unlock('first-delivery');
@@ -574,6 +588,13 @@
   const LOOSE_C = TONES.map(([r, g, b]) => rgba(r, g, b));
   const PACKED_C = TONES.map(([r, g, b]) => rgba(r * 0.78 | 0, g * 0.74 | 0, b * 0.7 | 0));
   const WALL_TOP = rgba(196, 156, 86), WALL_C = rgba(134, 100, 52);
+
+  // Reduced motion: the sand, the belt's glasses and the spout are the game
+  // and keep moving; decoration (belt stripes, dust puffs, the knock ring's
+  // swell and fade) is drawn still. No Math.random here: seeded bots
+  // reproduce exactly.
+  const motionQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const still = () => motionQ.matches;
 
   function drawGlass(g) {
     const top = MOUTH_ROW * CELL, bot = BELT_ROW * CELL, x = g.x;
@@ -643,7 +664,7 @@
     ctx.fillStyle = '#4a3a36';
     ctx.fillRect(0, by, W, 8);
     ctx.fillStyle = '#6e5a50';
-    const off = (elapsed * BELT_V) % 20;
+    const off = still() ? 0 : (elapsed * BELT_V) % 20;
     for (let x = -20 + off; x < W; x += 20) ctx.fillRect(x, by + 2, 8, 2);
     for (let x = 10; x < W; x += 40) {
       ctx.fillStyle = '#5a4842';
@@ -652,7 +673,7 @@
     for (const g of glasses) drawGlass(g);
 
     // Dust where sand hit the belt.
-    for (const p of puffs) {
+    if (!still()) for (const p of puffs) {
       ctx.fillStyle = `rgba(230,200,150,${0.5 * (1 - p.t / 0.6)})`;
       ctx.beginPath(); ctx.arc(p.x, p.y - p.t * 10, 2 + p.t * 6, 0, Math.PI * 2); ctx.fill();
     }
@@ -667,7 +688,7 @@
 
     // The last knock: a swoosh arrow that fades.
     if (lastKnock && lastKnock.t < 0.5) {
-      const a = 1 - lastKnock.t / 0.5, L = lastKnock;
+      const a = still() ? 1 : 1 - lastKnock.t / 0.5, L = lastKnock;
       ctx.strokeStyle = L.hit ? `rgba(170,215,245,${a})` : `rgba(255,255,255,${0.4 * a})`;
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(L.x, L.y, KNOCK_R * (0.7 + 0.5 * (1 - a)), 0, Math.PI * 2); ctx.stroke();
@@ -684,11 +705,18 @@
       const g = glasses.find(q => q.id === k2);
       const x = W - 12 - (GLASSES - 1 - k2) * 12, y = 14;
       let col = 'rgba(255,255,255,0.25)';
-      if (g && g.gone) col = g.n >= LINE ? '#ffd873' : '#ff7a6a';
+      if (k2 in outcome) col = outcome[k2] ? '#ffd873' : '#ff7a6a';
       else if (g) col = 'rgba(220,235,245,0.8)';
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      if (outcome[k2] === false) {
+        // Missed: a cross, so it differs from a filled dot by shape too.
+        ctx.strokeStyle = col; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 4, y + 4); ctx.moveTo(x + 4, y - 4); ctx.lineTo(x - 4, y + 4); ctx.stroke();
+      } else {
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      }
     }
+    if (kb.shown && state === 'playing') drawCursor();
 
     const fEl = document.getElementById('hudFilled'), mEl = document.getElementById('hudMissed');
     fEl.textContent = `${filled}/${GLASSES}`;
@@ -708,7 +736,7 @@
     const rect = canvas.getBoundingClientRect();
     return [(evt.clientX - rect.left) * W / rect.width, (evt.clientY - rect.top) * H / rect.height];
   }
-  function endGesture() { mode = null; activeId = null; pouring = false; }
+  function endGesture() { mode = null; activeId = null; pouring = false; kb.pour = false; }
   function startPour() { mode = 'pour'; pouring = true; spoutX = lastPt[0]; }
 
   canvas.addEventListener('pointerdown', evt => {
@@ -727,7 +755,7 @@
     if (mode === 'pending') {
       const dx = lastPt[0] - startPt[0], dy = lastPt[1] - startPt[1];
       if (performance.now() - downAt <= FLICK_MS) {
-        if (Math.hypot(dx, dy) >= FLICK_PX) { knock(startPt[0], startPt[1], dx, dy); mode = 'done'; }
+        if (Math.hypot(dx, dy) >= FLICK_PX) { knockSaid(startPt[0], startPt[1], dx, dy); mode = 'done'; }
       } else startPour();
     } else if (mode === 'pour') spoutX = Math.max(0, Math.min(W - 1, lastPt[0]));
   });
@@ -738,16 +766,209 @@
   document.getElementById('resetBtn').addEventListener('click', newRound);
   playAgainBtn.addEventListener('click', newRound);
 
+  // § live region: screen readers hear what changed, at most once a frame
+  // (glasses arriving, filled and leaving, the hopper every 500 grains, a
+  // knock's result, the cursor's place, the round's result), never the
+  // frame itself. #msg is aria-hidden; its text goes through speak() too.
+  const sayEl = document.getElementById('say');
+  let spoken = [], heard;
+  function speak(text) { spoken.push(text); }
+  function announce() {
+    if (state === 'playing' && heard) {
+      for (const g of glasses) {
+        const h = heard.glasses.get(g.id) || { seen: false, full: false, gone: false };
+        if (!h.seen) { h.seen = true; speak(`Glass ${g.id + 1} of ${GLASSES} rolling in.`); }
+        if (!h.full && g.n >= LINE && !g.gone) { h.full = true; speak(`Glass ${g.id + 1} filled to its line.`); }
+        if (!h.gone && g.gone) { h.gone = true; if (g.n >= LINE) speak(`Glass ${g.id + 1} delivered, ${filled} filled.`); }
+        heard.glasses.set(g.id, h);
+      }
+      const mark = Math.ceil(hopper / 500) * 500;
+      if (mark < heard.hopper && hopper > HOPPER * 0.15) { heard.hopper = mark; speak(`${mark} grains left in the hopper.`); }
+    }
+    if (!spoken.length) return;
+    sayEl.textContent = spoken.join(' ');
+    spoken = [];
+  }
+  // A knock from a flick or a key, then a line for screen readers.
+  function knockSaid(x, y, dx, dy) {
+    if (state !== 'playing') return 0;
+    if (knockCool > 0) { speak('Knock not ready.'); return 0; }
+    const n = knock(x, y, dx, dy);
+    // knock()'s own rule: mostly sideways shoves that way, else both ways.
+    const way = Math.abs(dx) / (Math.hypot(dx, dy) || 1) > 0.3 ? (dx > 0 ? 'right' : 'left') : 'loose both ways';
+    speak(n ? `Knocked ${n} grains ${way}.` : 'Nothing to knock there.');
+    return n;
+  }
+
+  // § keys: the same verbs without a pointer. Arrows move a cursor while held
+  // (slow at first for aiming, then faster); hold Space to pour from the top
+  // at the cursor's x (key up = finger up; the spout follows the cursor); K
+  // or X then an arrow knocks at the cursor that way, the same knock a flick
+  // that way makes. G jumps to the next glass on the belt, L (Shift+L back)
+  // to the next ledge, onto its sand. Same pouring / spoutX / knock as the
+  // pointer. Tab stays free; Space/Enter on a focused button press it.
+  const CUR_SLOW = 100, CUR_FAST = 300, CUR_RAMP = 0.6; // works units per second; seconds to full speed
+  const DIRS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  const kb = { x: W / 2, y: 150, held: new Set(), heldFor: 0, pour: false, aim: false, shown: false, ledge: -1, glass: -1 };
+  function cursorTo(x, y) {
+    kb.x = Math.max(0, Math.min(W - 1, x));
+    kb.y = Math.max(0, Math.min(BELT_ROW * CELL - 1, y));
+    if (kb.pour) spoutX = kb.x;
+  }
+  function moveCursor(dt) {
+    let dx = 0, dy = 0;
+    for (const k of kb.held) { dx += DIRS[k][0]; dy += DIRS[k][1]; }
+    if (!dx && !dy) { kb.heldFor = 0; return; }
+    kb.heldFor += dt;
+    const v = (CUR_SLOW + (CUR_FAST - CUR_SLOW) * Math.min(1, kb.heldFor / CUR_RAMP)) * dt / Math.hypot(dx, dy);
+    cursorTo(kb.x + dx * v, kb.y + dy * v);
+  }
+  // Ledges in reading order: the upper row left to right, then the lower.
+  const ledgeName = l => `${l.y < (LEDGE_ROWS[0] + LEDGE_ROWS[1]) / 2 ? 'upper' : 'lower'} ledge ${ledges.filter(q => (q.y < (LEDGE_ROWS[0] + LEDGE_ROWS[1]) / 2) === (l.y < (LEDGE_ROWS[0] + LEDGE_ROWS[1]) / 2)).indexOf(l) + 1}`;
+  function ledgeAt(cx, cy) { return ledges.find(l => cx >= l.x0 && cx <= l.x1 && cy >= l.y && cy <= l.y + 1); }
+  // What the cursor is over, in words: sand in knock reach, where a pour lands.
+  function placeWords() {
+    const c0 = Math.floor(kb.x / CELL), r0 = Math.floor(kb.y / CELL), r = KNOCK_R / CELL;
+    let n = 0;
+    for (let cy = Math.max(0, Math.floor(r0 - r)); cy <= Math.min(BELT_ROW - 1, Math.ceil(r0 + r)); cy++)
+      for (let cx = Math.max(0, Math.floor(c0 - r)); cx <= Math.min(GW - 1, Math.ceil(c0 + r)); cx++)
+        if ((cx - c0) ** 2 + (cy - r0) ** 2 <= r * r && (grid[idx(cx, cy)] === LOOSE || grid[idx(cx, cy)] === PACKED)) n++;
+    let land = null;
+    for (let cy = 0; cy < BELT_ROW && !land; cy++) {
+      if (grid[idx(c0, cy)] !== WALL) continue;
+      const l = ledgeAt(c0, cy);
+      land = l ? `on the ${ledgeName(l)}` : 'on a peg';
+    }
+    if (!land) {
+      const g = glasses.find(q => !q.gone && Math.abs(q.x - kb.x) <= MOUTH_HW);
+      land = g ? `into glass ${g.id + 1}, ${g.n} of ${LINE}` : 'on the belt';
+    }
+    return `${n ? `${n} grains in knock reach` : 'No sand in knock reach'}. A pour lands ${land}.`;
+  }
+  function nextLedge(back) {
+    if (!ledges.length) return;
+    const order = ledges.slice().sort((a, b) => a.y - b.y > 4 ? 1 : b.y - a.y > 4 ? -1 : a.x0 - b.x0);
+    const at = order.indexOf(ledges[kb.ledge]);
+    const l = order[(at + (back ? order.length - 1 : 1) + (at < 0 && back ? 1 : 0)) % order.length];
+    kb.ledge = ledges.indexOf(l);
+    // Onto the middle of its sand, if it has any.
+    const cx = (l.x0 + l.x1) >> 1;
+    let top = l.y;
+    while (top > 0 && (grid[idx(cx, top - 1)] === LOOSE || grid[idx(cx, top - 1)] === PACKED)) top--;
+    cursorTo(cx * CELL + CELL / 2, ((top + l.y) / 2 - 1) * CELL);
+    speak(`On the ${ledgeName(l)}, ${l.y - top} grains deep. ${placeWords()}`);
+  }
+  function nextGlass_() {
+    // Front-most glass still on the belt first, then the ones behind it.
+    const order = glasses.filter(g => !g.gone).sort((a, b) => b.x - a.x);
+    if (!order.length) {
+      const t = Math.max(0, FIRST + nextGlass * SPACING - elapsed);
+      return speak(nextGlass < GLASSES ? `No glass on the belt. The next one comes in ${Math.ceil(t)} seconds.` : 'No glass on the belt.');
+    }
+    const at = order.findIndex(g => g.id === kb.glass);
+    const g = order[(at + 1) % order.length];
+    kb.glass = g.id;
+    cursorTo(Math.max(0, g.x), kb.y);
+    speak(`Above glass ${g.id + 1}, ${g.n} of ${LINE} grains${g.x < 0 ? ', rolling in' : ''}. ${placeWords()}`);
+  }
+  function drawCursor() {
+    // A dark ring under a white one reads on the wall, the sand and the brass.
+    if (!pouring) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(kb.x - 12, 0); ctx.lineTo(kb.x + 12, 0); ctx.lineTo(kb.x + 3, 10); ctx.lineTo(kb.x - 3, 10); ctx.closePath();
+      ctx.stroke();
+    }
+    for (const [c, w] of [['rgba(20,12,14,0.9)', 5], ['#fff', 2]]) {
+      ctx.strokeStyle = c;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.arc(kb.x, kb.y, 6, 0, Math.PI * 2);
+      ctx.moveTo(kb.x - 12, kb.y); ctx.lineTo(kb.x - 6, kb.y);
+      ctx.moveTo(kb.x + 6, kb.y); ctx.lineTo(kb.x + 12, kb.y);
+      ctx.moveTo(kb.x, kb.y - 12); ctx.lineTo(kb.x, kb.y - 6);
+      ctx.moveTo(kb.x, kb.y + 6); ctx.lineTo(kb.x, kb.y + 12);
+      ctx.stroke();
+    }
+    if (kb.aim) {
+      // The knock's reach while it waits for a direction.
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(kb.x, kb.y, KNOCK_R, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+  function keysUp() {
+    kb.held.clear();
+    if (kb.pour) endGesture();
+  }
+  window.addEventListener('keydown', evt => {
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    const k = evt.key === ' ' ? 'space' : evt.key.toLowerCase();
+    if (onButton && (k === 'enter' || k === 'space')) return; // the focused button presses itself
+    if (evt.key in DIRS) {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (paused || state !== 'playing') return;
+      kb.shown = true;
+      if (kb.aim) {
+        if (evt.repeat) return;
+        kb.aim = false;
+        keyUses++;
+        knockSaid(kb.x, kb.y, DIRS[evt.key][0], DIRS[evt.key][1]);
+        return;
+      }
+      kb.held.add(evt.key);
+      return;
+    }
+    if (paused) return;
+    if (state !== 'playing') {
+      if (k === 'enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); playAgainBtn.click(); }
+      return;
+    }
+    if (!['space', 'k', 'x', 'g', 'l'].includes(k) && !(k === 'escape' && kb.aim)) return;
+    evt.preventDefault();
+    kb.shown = true;
+    if (evt.repeat) return;
+    if (k === 'g') nextGlass_();
+    else if (k === 'l') nextLedge(evt.shiftKey);
+    else if (k === 'escape') { kb.aim = false; speak('Knock cancelled.'); }
+    else if (k === 'k' || k === 'x') {
+      kb.aim = !kb.aim;
+      speak(kb.aim ? (knockCool > 0 ? 'Knock not ready yet. ' : '') + 'Knock: press an arrow for its direction.' : 'Knock cancelled.');
+    } else if (!mode) {               // Space, unless a pointer gesture is on
+      mode = 'pour'; pouring = true; kb.pour = true; spoutX = kb.x; keyUses++;
+      kb.pourFrom = poured;
+      speak(hopper > 0 ? `Pouring. ${placeWords().split('. ')[1]}` : 'The hopper is empty.');
+    }
+  });
+  window.addEventListener('keyup', evt => {
+    if (evt.key in DIRS) {
+      kb.held.delete(evt.key);
+      // Where the cursor stopped, once all arrows are up.
+      if (!kb.held.size && kb.shown && state === 'playing' && !kb.pour) speak(placeWords());
+    }
+    if (evt.key === ' ' && kb.pour) {
+      endGesture();
+      if (state === 'playing') speak(`Poured ${poured - kb.pourFrom}. ${hopper} left in the hopper.`);
+    }
+  });
+  window.addEventListener('blur', keysUp);
+
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   function frame(now) {
     if (mode === 'pending' && now - downAt > FLICK_MS && state === 'playing' && !paused) startPour();
-    acc += Math.min((now - last) / 1000, 0.1);
+    const dt = Math.min((now - last) / 1000, 0.1);
+    acc += dt;
     last = now;
+    if (state === 'playing' && !paused) moveCursor(dt);
     while (acc >= STEP) {
       if (state === 'playing' && !paused) step(STEP);
       acc -= STEP;
     }
+    announce();
     draw();
     requestAnimationFrame(frame);
   }
@@ -760,7 +981,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const H = fine ? 'Click and hold' : 'Hold';
-  document.getElementById('works').setAttribute('aria-label', `Hourglass Delivery sand works. ${H} to pour sand, flick to knock settled sand loose.`);
+  document.getElementById('works').setAttribute('aria-label', `Hourglass Delivery sand works. ${H} to pour sand, flick to knock settled sand loose. Keys: arrows move a cursor, hold Space to pour at it, K then an arrow knocks there that way, G jumps to the next glass, L to the next ledge.`);
 }
 </script>
 </body>

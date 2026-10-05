@@ -1045,3 +1045,39 @@ Enter → day 2; Tab not prevented; Space on ▶▶ presses it). Audit 3/3:
 5 pass, motion partial; scripted late copies (days 4–6 at 60–75 s, dusk,
 rain, cursor) contrast/colour/text 6/6 pass. Balance identical to v6
 (200 runs × 5 bots, diff empty).*
+
+## An early audit screen can miss the game's own motion
+
+Hourglass Delivery v5. The audit opens a game, taps for ~2 s and measures
+idle motion from about 3.5 s to 5.5 s. Hourglass Delivery's first glass
+rolls in at 6 s and nothing else moves without input, so v4 read "pass:
+still while idle" though it never read `prefers-reduced-motion`. A copy
+fast-forwarded to 11.5 s (a pour onto a ledge, knocks, a pour onto the
+first glass) measured 1.07–1.14% idle; with the sand hidden ~1.05% (the
+glasses on the belt); with sand and glasses hidden 0.05–0.07% in v4 (the
+belt stripes, under reduced motion too) and 0.00% in v5, which draws the
+stripes, dust puffs and knock ring still. The scripted late copy (~38 s)
+puts the audit's own verdict at "reads the setting, motion unchanged"
+(0.7% → 0.6%), the honest end state for a belt game. The same zoomed late
+screenshot showed the order dots going grey again 2 s after each glass
+left (they read the live `glasses` list, which drops gone glasses): a HUD
+that reads live objects forgets culled ones, so v5 keeps each outcome.
+
+*Evidence: hidden-pieces diff, 3 seeds × old/new × normal/reduced; audit
+3/3 early (6 pass) and 3/3 on the late copy (5 pass, motion partial).*
+
+## Run the old file twice before comparing balance
+
+Hourglass Delivery v5. The prompt's rule "balance must not move" compares
+old and new bot output. The first comparison differed (knock spilled 38
+vs 40, both bot 72% vs 70%), but so did two runs of the *old* file (knock
+first-delivery 22% vs 29% over 100 runs). Cause: the harness runs seeds
+on 8 worker pages, and `tick` (whose parity sets each row's scan
+direction) is not reset by `newRound()`, so a seed's game depended on
+which seeds its page played before. The debug copy now exposes
+`resetTick()` and calls it before each seed: old vs new and new vs new
+are identical over 300 runs × 4 bots. The game itself is unchanged (a
+player's rounds already start from whatever tick the page has).
+
+*Evidence: diffs empty after the reset; differing before it, old vs old.*
+

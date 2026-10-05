@@ -53,6 +53,9 @@ window.__seed = s => { __s = s; };
     setPour(on, x) { pouring = on; if (x !== undefined) spoutX = x; },
     grid, GW, CELL, W, BELT_V, MOUTH_ROW, MOUTH_HW, LINE, CAP, POUR_RATE, GRAV, VMAX,
     earned: roundEarned, step, knock, newRound,
+    // The sand scan's row parity carries over between rounds; reset it so a
+    // seed plays the same whichever worker page runs it.
+    resetTick() { tick = 0; stamp.fill(0); },
   };
   newRound();
 })();`);
@@ -65,6 +68,7 @@ window.__seed = s => { __s = s; };
 function playInPage({ seed, bot }) {
   const D = window.__dbg;
   window.__seed(seed);
+  D.resetTick();
   D.newRound();
   const dt = 1 / 60, C = D.CELL, GW = D.GW, G = D.grid, MR = D.MOUTH_ROW;
   const LOOSE = 1, PACKED = 2, WALL = 3;
