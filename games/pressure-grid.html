@@ -99,7 +99,7 @@
 <body>
   <div class="bar" id="levels"></div>
   <div id="boardWrap">
-    <canvas id="board" aria-label="Pressure Grid board. Tap a cell to pump, drag to a neighbour to siphon."></canvas>
+    <canvas id="board" role="img" aria-label="Pressure Grid board. Tap or click a cell to pump, drag to a neighbour to siphon."></canvas>
   </div>
   <div id="msg"></div>
   <div class="stat" id="stat"></div>
@@ -656,6 +656,13 @@
   loadLevel(0);
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', T = fine ? 'Click' : 'Tap';
+  document.getElementById('board').setAttribute('aria-label', `Pressure Grid board. ${T} a cell to pump pressure into it, drag from a cell to a neighbour to siphon. Keys: Z undo, R restart, N next level.`);
+}
 </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # Terrace Garden: design notes
 
-**v2** (2026-09-29) · playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV ·
+**v3** (2026-10-05, canvas label; v2 2026-09-29) · playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV ·
 balance: `node scripts/balance-terrace-garden.mjs 100`
 Mechanics: **tilt** (phone tilt, tilt bar, or ← → / A D) and **gate** (tap),
 sharing the **water depth in every column** of a stepped hillside. A warm-up
@@ -116,7 +116,7 @@ One `arcade:result` per garden: `level` (1 = warm-up, 2–4 = gardens 1–3),
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys tilt but can't work the gates; ignores reduced motion; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): keys tilt but can't work the gates; ignores reduced motion.
 - **Did v2 fix the first minute?** Watch warm-up win rate/time (bots 18–23
   s), garden 1 (level 2) first-try wins, `tilt_s` (v1 median 6 s), `hints`,
   mid-round quits. If players quit in the warm-up with `hints` > 0, make the

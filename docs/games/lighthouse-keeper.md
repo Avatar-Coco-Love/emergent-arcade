@@ -1,6 +1,6 @@
 # Lighthouse Keeper: design notes
 
-**v2** (2026-10-03) · playtest: https://claude.ai/artifact/KcKMZ1aX9ZqmRBDhqpCQmT ·
+**v3** (2026-10-05, canvas label; v2 2026-10-03) · playtest: https://claude.ai/artifact/KcKMZ1aX9ZqmRBDhqpCQmT ·
 balance: `node scripts/balance-lighthouse-keeper.mjs 50`
 Verbs: **turn** (drag), **shutter** (tap the lighthouse), **flare** (hold the
 lighthouse), sharing **fog per cell** and **the lamp's oil**. A run of
@@ -122,7 +122,7 @@ None yet.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): "harbour" label 8.5 px; ignores reduced motion; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): "harbour" label 8.5 px; ignores reduced motion.
 - **Flare is still short of its target:** never-flare scores ~89% of
   skilled at 0.5 s per action (target 80%), 76% at 1 s, tied at 2 s.
   It pays only on convoy nights, and only fired ~5 s before the reefs;

@@ -12,7 +12,7 @@ the games, not just play them.
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
-| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4); other games open |
+| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
@@ -68,9 +68,10 @@ canvas label, text size at 360 px), results in `docs/accessibility.md`.
 The gallery, cabinet, teacher page and classroom note pass; fixed in the
 same PR (accent and field-border contrast, small text, rating stars).
 
-Per game, picked up by its next revision (same line in its notes). Every
-game but Aqueduct also wants `role="img"` on its canvas and a label that
-says "click" on PC.
+Per game, picked up by its next revision (same line in its notes). Canvas
+labels are done for every game (2026-10-05, one batch PR): `role="img"`,
+the game and its verbs, "click" on PC, the keys. "No live region" means
+no status text in the DOM, so a screen reader hears nothing change.
 
 - murmuration: no keyboard play; ignores reduced motion; counter 10 px at 3.5:1.
 - orbit-garden: no keyboard play.
@@ -82,15 +83,15 @@ says "click" on PC.
 - loom: no keyboard play.
 - terrace-garden: keys tilt but can't work the gates; ignores reduced motion.
 - tidewright: labels 8.5 px, "flood" 1.3:1; red handles merge with the wall for protanopia.
-- pressure-grid: keys only undo/restart/next; cell numbers 2.0:1.
-- rail-yard: keeps Tab and Shift+Tab (can't leave the cabinet frame by keyboard); "Run 0" 11.5 px.
-- aqueduct: canvas has no aria-label.
+- pressure-grid: keys only undo/restart/next; cell numbers 2.0:1; no live region.
+- rail-yard: "Run 0" 11.5 px. (Tab freed in v3: Space picks a car.)
+- aqueduct: no live region.
 - bubble-glass: keys turn the box only; ignores reduced motion (small).
 - mycelium: ignores reduced motion (small).
 - lighthouse-keeper: "harbour" 8.5 px; ignores reduced motion.
-- counterfeit-scale: label only (no live region for weighings).
+- counterfeit-scale: no live region for weighings.
 - coat-check: hook letters 11 px at 4.3:1; no live region.
-- surprise-party: keys only wait/undo/restart; label doesn't name the verbs.
+- surprise-party: keys only wait/undo/restart; no live region.
 - geode: keys reach the thermostat only; labels 9.4 px; shimmer stays with reduced motion.
 
 ## 7. "I used this in class" feedback form
@@ -180,9 +181,34 @@ Revise Wildfire Line for accessibility (docs/accessibility.md, its row; docs/ide
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
+## Prompt used for the canvas-label batch (done, 2026-10-05)
+
+Picked by the user between Wildfire Line v4 and Tidewright: one cheap fix
+every game shared (label "partial" on 18 rows, a fail on Aqueduct), plus
+Rail Yard's Tab trap. Still no classroom reports (0).
+
+```
+Fix the canvas label on every game in one PR (docs/accessibility.md, the label column; docs/ideas/teachers.md, idea 6), plus Rail Yard's Tab trap. No gameplay change in any game except Rail Yard's car-picking key. Read CLAUDE.md first and follow it.
+
+1. Read docs/accessibility.md (the label check and the paragraph under the checks), docs/games/wildfire-line.md ("Accessibility", the label pattern to copy), docs/findings.md (Accessibility section), docs/adding-a-game.md ("Tap or click", keyboard line), docs/games/rail-yard.md, and run node scripts/fetch-feedback.mjs --classroom. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting. Use a subagent for the bulk edits if the reading grows large (one line per game back).
+
+2. Label, every game but Wildfire Line (already done): the main canvas gets role="img" and an aria-label, set at load like Wildfire Line's: the game's title, both or all verbs from its manifest in plain words, "click" with (pointer: fine) and "tap" otherwise, and its keys if it has a keyboard line. Aqueduct has no label at all; give it one. Surprise Party's label must name its verbs. Keep the static HTML attribute as a sensible fallback ("tap or click"). Games with no status text in the DOM: note it in their open-ideas line (live region), don't build one here.
+
+3. Rail Yard: it keeps Tab and Shift+Tab, so keyboard players can't leave the cabinet frame. Move car picking to another key (pick one that doesn't clash with its existing keys), leave Tab to the browser, update its keyboard line and its KEY_COVER entry in scripts/a11y-audit.mjs, and make sure the keyboard check passes without "takes Tab".
+
+4. Each game is a revision: bump version and updated, add a changes entry ("No gameplay change. Screen readers now get a description of the game and its controls." or similar; Rail Yard says which key changed). score.epoch stays. Same constants everywhere, so balance can't move; don't run balance scripts except node scripts/balance-rail-yard.mjs if its input code changed.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs (all games), node scripts/a11y-audit.mjs --table (label passes for every game; no other cell gets worse; keyboard passes for Rail Yard). Run the long jobs in the background with a time limit.
+
+6. Update docs/accessibility.md (label column and the paragraph about it, from --table), each game's accessibility line in docs/games/<id>.md "Open ideas" (drop the label part, keep the rest), the game lines and status in docs/ideas/teachers.md (idea 6), docs/games/rail-yard.md (the new key), and add to docs/findings.md only if the batch teaches something new. Push, open the PR (template checklist; one line per game is too much, so summarize), publish Rail Yard as the playtest artifact (the only input change; reuse the link in its notes file if there is one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
 ## Next: Tidewright accessibility revision (prompt below)
 
-Chosen 2026-10-05, after Wildfire Line v4. Still no classroom reports (0),
+Chosen 2026-10-05, after Wildfire Line v4; still next after the label batch
+(its canvas label is done). Still no classroom reports (0),
 so 3 vs 4 keeps waiting. Tidewright now has the worst row: three fails,
 one of them a label nobody can read ("flood" at 1.3:1), text at 8.5 px,
 and red handles that vanish into the wall for protanopia. Its keyboard
@@ -190,7 +216,7 @@ already passes, so this is the colour, contrast and canvas-text half of
 the Wildfire Line pattern. If classroom reports have arrived, read them first.
 
 ```
-Revise Tidewright for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: readable canvas labels (contrast and size), colour-blind-safe sluice handles, reduced motion, canvas role and label. Read CLAUDE.md first and follow it.
+Revise Tidewright for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: readable canvas labels (contrast and size), colour-blind-safe sluice handles, reduced motion. Read CLAUDE.md first and follow it.
 
 1. Read docs/games/tidewright.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "Effects carry a state into another's lightness band" and "Canvas text shrinks with the board"), docs/games/wildfire-line.md ("Accessibility", the pattern), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game tidewright. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
 
@@ -198,7 +224,7 @@ Revise Tidewright for accessibility (docs/accessibility.md, its row; docs/ideas/
 
 3. Colour: sluice handles, wall, sand and water told apart by lightness or shape, not hue (protanopia: red handle ≈ brown wall). Colour must pass on several runs (the meadow-style randomness made one pass luck for Wildfire Line). Screenshot before and after at 360×740, normal and simulated protanopia.
 
-4. Reduced motion: the audit row says pass but the notes say it ignores the setting; find out which, and with prefers-reduced-motion stop decorative motion (shimmer, foam, waves) while the tide and sand (the game) stay. Canvas gets role="img" and a label that says "click" on PC (pointer: fine) and names its verbs. Keep the keyboard line working and Tab free; update KEY_COVER only if the line changes.
+4. Reduced motion: the audit row says pass but the notes say it ignores the setting; find out which, and with prefers-reduced-motion stop decorative motion (shimmer, foam, waves) while the tide and sand (the game) stay. The canvas label is done (2026-10-05); keep it in step if the keys change. Keep the keyboard line working and Tab free; update KEY_COVER only if the line changes.
 
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs tidewright, node scripts/balance-tidewright.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly), node scripts/a11y-audit.mjs tidewright (all six pass). Bump version and updated, score.epoch only if the score's meaning changed.
 

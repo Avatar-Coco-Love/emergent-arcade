@@ -87,7 +87,7 @@
   <p id="msg" role="status"></p>
   <div id="field">
     <div id="stage">
-      <canvas id="sea" aria-label="Lighthouse Keeper. Drag across the sea to turn the beam, tap the lighthouse to open or shutter the lamp, hold it to charge a flare."></canvas>
+      <canvas id="sea" role="img" aria-label="Lighthouse Keeper. Drag across the sea to turn the beam, tap or click the lighthouse to open or shutter the lamp, hold it to charge a flare."></canvas>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -730,6 +730,13 @@
   newRun();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', h = fine ? 'click and hold' : 'hold';
+  document.getElementById('sea').setAttribute('aria-label', `Lighthouse Keeper. Drag across the sea to turn the beam, ${t} the lighthouse to open or shutter the lamp, ${h} it to charge a flare. Keys: ← → turn the beam, S shutters or opens the lamp, hold Space to charge a flare.`);
+}
 </script>
 </body>
 </html>

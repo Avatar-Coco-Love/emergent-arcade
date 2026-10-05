@@ -4,10 +4,15 @@
       "id": "pressure-grid",
       "title": "Pressure Grid",
       "file": "pressure-grid.html",
-      "version": 9,
+      "version": 10,
       "added": "2026-09-26",
-      "updated": "2026-10-01",
+      "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 10,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
           "version": 9,
           "date": "2026-10-01",
@@ -123,10 +128,15 @@
       "id": "orbit-garden",
       "title": "Orbit Garden",
       "file": "orbit-garden.html",
-      "version": 6,
+      "version": 7,
       "added": "2026-09-26",
-      "updated": "2026-09-28",
+      "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 7,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
           "version": 6,
           "date": "2026-09-28",
@@ -222,10 +232,15 @@
       "id": "murmuration",
       "title": "Murmuration",
       "file": "murmuration.html",
-      "version": 4,
+      "version": 5,
       "added": "2026-09-27",
-      "updated": "2026-09-27",
+      "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 5,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
           "version": 4,
           "date": "2026-09-27",
@@ -316,10 +331,15 @@
       "id": "ant-trails",
       "title": "Ant Trails",
       "file": "ant-trails.html",
-      "version": 5,
+      "version": 6,
       "added": "2026-09-27",
-      "updated": "2026-09-29",
+      "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 6,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
           "version": 5,
           "date": "2026-09-29",
@@ -530,10 +550,15 @@
       "id": "hourglass-delivery",
       "title": "Hourglass Delivery",
       "file": "hourglass-delivery.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-09-27",
-      "updated": "2026-09-29",
+      "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 4,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
           "version": 3,
           "date": "2026-09-29",
@@ -612,10 +637,15 @@
       "id": "hot-iron",
       "title": "Hot Iron",
       "file": "hot-iron.html",
-      "version": 4,
+      "version": 5,
       "added": "2026-09-27",
-      "updated": "2026-09-29",
+      "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 5,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
           "version": 4,
           "date": "2026-09-29",
@@ -696,9 +726,9 @@
       "id": "island-census",
       "title": "Island Census",
       "file": "island-census.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-09-29",
-      "updated": "2026-09-29",
+      "updated": "2026-10-05",
       "blurb": "Keep rabbits and foxes in balance on a small island for two years, one season at a time.",
       "goal": "Get through 8 seasons (two years) with both rabbits and foxes alive. Every season that ends with either species outside its band on the census meters is a strike; three strikes, or either species dying out, ends the round.",
       "howToPlay": "The island is a set of meadows joined by paths. Each season you get 2 moves, then {press} Next season to watch it play out. {Tap} a meadow to release 8 rabbits there. Drag across a path to put up a fence: foxes can't cross it, but rabbits slip under it. You can have 3 fences up at once, and dragging across a fence takes it down for free. Rabbits eat grass (meadows turn brown when grazed bare), breed fastest in spring and not at all in winter, and move away from foxes and crowding. Foxes eat rabbits, raise cubs when well fed, starve when not, and follow the rabbits: the orange arrows on the paths show where they're heading next. Numbers under each meadow are its rabbits (white) and foxes (orange). The meters at the top show both totals against their green band. Protect rabbits too well and the foxes starve; leave the foxes free and they eat the island bare. The second year brings one surprise, announced a season ahead.",
@@ -751,6 +781,11 @@
       ],
       "changes": [
         {
+          "version": 2,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
+        {
           "version": 1,
           "date": "2026-09-29",
           "text": "First version."
@@ -768,9 +803,9 @@
       "id": "loom",
       "title": "Loom",
       "file": "loom.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-09-29",
-      "updated": "2026-09-29",
+      "updated": "2026-10-05",
       "blurb": "Stretch a knotted net onto a dotted silhouette and pin it there before the pins pop or the strands snap.",
       "goal": "Hold seven shapes in a row: cover every dot with a knot at once and keep it there for a second. Three slips (a pin popping loose or a strand snapping) lose the shape (one frayed strand snapping loses it at once), and snapped strands stay snapped for the rest of the run.",
       "howToPlay": "Drag a knot to pull the net: the knot follows your {finger}, and the further your {finger} leads it, the harder you pull. {Tap} a knot to pin it where it is (up to 4 pins); {tap} a pin to take it out, or drag it to pull it out and move that knot. A knot you let go of without a pin slides back as the net relaxes, so pin it quickly. Strands turn from linen to gold to red as they stretch; a red strand that stays red snaps. The ring around a pin fills with the load it holds, and a red ring shakes and then pops the pin. While you pull, the same ring around your knot shows the load a pin would hold if you pinned it there. A dot only needs a knot somewhere inside its circle, so the near edge needs less stretch than the middle. A taut edge between two pins lines up the knots along it, which can cover extra dots without extra pins. Later shapes add twists: a blue dot only counts under the blue knot, and dashed frayed strands tear at a third of the usual stretch, so keep them slack. Shapes are mirrored at random each run.",
@@ -823,6 +858,11 @@
       ],
       "changes": [
         {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
+        {
           "version": 2,
           "date": "2026-09-29",
           "text": "Three new shapes with new twists: a dyed knot that only its own dot accepts, and frayed strands that tear at a light stretch. Shapes are mirrored at random. Two new achievements."
@@ -846,9 +886,9 @@
       "id": "terrace-garden",
       "title": "Terrace Garden",
       "file": "terrace-garden.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-09-29",
-      "updated": "2026-09-29",
+      "updated": "2026-10-05",
       "blurb": "Tilt a terraced hillside to slosh water where each plant wants it, and open the gates to let it down the slope.",
       "goal": "Make every plant bloom in a short warm-up and then three gardens in a row, before the spring's water runs out. Each plant needs its own depth of water. Water that spills off the bottom terrace, leaks away or is drunk never comes back.",
       "howToPlay": "{Tap} the spring's valve at the top to let water out, and {tap} a gate at the end of a terrace to open or close it: an open gate lets water down to the terrace below. Tilt to slosh all the water at once: toward the gates to send it down, away to hold it back, or to pile it up at one end. On a phone, tilt the phone (however you hold it when a garden starts counts as level), or {slide} the bar under the hillside if tilt is off (on a computer, drag the bar or use the keys). Each plant has a stake with a green band: it grows while the water over it is inside the band, and drinks as it grows. Too shallow and it waits, too deep and it bubbles. An open gate still keeps a shallow puddle behind it, which only a tilt will bring down. There's no clock: take your time. If the hillside goes still, an arrow or a pulsing gate shows a move that helps. Spring water left over when a garden blooms carries on to the next one.",
@@ -887,6 +927,11 @@
       ],
       "changes": [
         {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
+        {
           "version": 2,
           "date": "2026-09-29",
           "text": "New warm-up garden that teaches tilting, then a gate plus a tilt. When the hillside goes still, a hint shows a move that helps. The tilt bar now shows on computers too, and each plant's stake marks how deep its water is."
@@ -910,10 +955,15 @@
       "id": "bubble-glass",
       "title": "Bubble Glass",
       "file": "bubble-glass.html",
-      "version": 5,
+      "version": 6,
       "added": "2026-09-29",
-      "updated": "2026-10-03",
+      "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 6,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
           "version": 3,
           "date": "2026-09-30",
@@ -1005,9 +1055,9 @@
       "id": "tidewright",
       "title": "Tidewright",
       "file": "tidewright.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-09-30",
-      "updated": "2026-09-30",
+      "updated": "2026-10-05",
       "blurb": "Flick sand onto a seawall and work the sluice gates to keep the village dry, wave after wave.",
       "goal": "Keep the water behind the wall below the flood line for as many waves as you can. Every 6 waves a season is won and the wall carries over.",
       "howToPlay": "You look out from the village at your sand wall, with the sea behind it. The white line shows how high the next wave will reach; the timer says when. Flick (a quick {swipe}) anywhere above a column to throw sand onto it: a faster {swipe} throws more, and a sideways {swipe} spreads it that way. Sand comes from a pile that refills slowly. Water that gets over or through the wall pools at its foot and softens it, and sand thrown into standing water mostly washes away. {Tap} a gate handle to open that sluice: it drains the pooled water out while the sea is low, but lets the sea pour in when a wave comes or on a spring tide, when the blue sea line stands above the gates. Drain in the calm, shut before the crest, build on dry sand. From wave 3 the sea seeps through the wall; later waves bring rogue waves, rain, spring tides, double waves and storms.",
@@ -1065,6 +1115,11 @@
       },
       "changes": [
         {
+          "version": 2,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
+        {
           "version": 1,
           "date": "2026-09-30",
           "text": "First version."
@@ -1075,13 +1130,13 @@
       "id": "rail-yard",
       "title": "Rail Sorting Yard",
       "file": "rail-yard.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-09-30",
-      "updated": "2026-10-01",
+      "updated": "2026-10-05",
       "blurb": "A turn-based shunting puzzle: set switches and flick cars down the tracks to build the outbound train in order. Cars couple only at the right speed, and gravel, full sidings and one-way gates get in the way.",
       "goal": "Build the outbound train on the gold departure track, in the order shown at the top (buffer end first), in ten yards over two chapters. Nothing moves until you flick and there is no clock. Each yard has a par, the fewest flicks that can do it: your score is 100 points per yard at par, 10 fewer per extra move, summed over the run.",
       "howToPlay": "Drag a car along its track and let go to flick it: the farther you drag, the faster it rolls (speed 1 to 15, shown while you aim). Every car length of plain track costs 1 speed; gravel (brown, double ticks) costs 2. A rolling car that meets another at impact 2 to 4 couples to it; slower only touches, faster bounces back. A flick moves the car and everything coupled in front of it, and lets go of the cars behind. A switch sends a car rolling in from its point end down one track or the other: drag its lever toward a track, or {tap} it. Switch changes are free; only flicks count as moves. Sidings hold as many cars as their label says. Chapter 2 adds tank cars, whose round couplers repel the square ones on box cars and hoppers (the flat car’s double coupler takes both), blue one-way gates, and amber 1× gates that drop for good once the cars that used them clear the gateway. Undo is unlimited, but the undone flick still counts; a hint shows the next move for +2 moves; Restart is always there.",
-      "keyboard": "Tab picks a car · 1–9, + − speed · arrows flick · A–D switches · Z undo · H hint · X restart",
+      "keyboard": "Space picks a car (Shift+Space back) · 1–9, + − speed · arrows flick · A–D switches · Z undo · H hint · X restart",
       "mechanics": [
         {
           "name": "switch",
@@ -1170,6 +1225,11 @@
       },
       "changes": [
         {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Space now picks a car (Shift+Space the previous one) instead of Tab, so Tab moves out of the game again; screen readers get a description of the game and its controls."
+        },
+        {
           "version": 2,
           "date": "2026-10-01",
           "text": "No gameplay change. Every yard now fits the screen when you pick it, tips and hints sit above the yard instead of over it, gravel sidings draw as one bed, and siding labels stay clear of the tracks."
@@ -1185,10 +1245,15 @@
       "id": "aqueduct",
       "title": "Aqueduct",
       "file": "aqueduct.html",
-      "version": 6,
+      "version": 7,
       "added": "2026-10-02",
-      "updated": "2026-10-02",
+      "updated": "2026-10-05",
       "changes": [
+        {
+         "version": 7,
+         "date": "2026-10-05",
+         "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
          "version": 6,
          "date": "2026-10-02",
@@ -1284,11 +1349,16 @@
       "id": "counterfeit-scale",
       "title": "Counterfeit Scale",
       "file": "counterfeit-scale.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-10-02",
-      "updated": "2026-10-04",
+      "updated": "2026-10-05",
       "daily": { "from": "2026-10-04" },
       "changes": [
+        {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
           "version": 2,
           "date": "2026-10-04",
@@ -1365,11 +1435,16 @@
       "id": "coat-check",
       "title": "Coat Check",
       "file": "coat-check.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-10-03",
-      "updated": "2026-10-04",
+      "updated": "2026-10-05",
       "daily": { "from": "2026-10-04" },
       "changes": [
+        {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
           "version": 2,
           "date": "2026-10-04",
@@ -1451,9 +1526,9 @@
       "id": "mycelium",
       "title": "Mycelium",
       "file": "mycelium.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-10-03",
-      "updated": "2026-10-03",
+      "updated": "2026-10-05",
       "blurb": "Grow a fungal network through the soil to reach food, keep its far threads fed, and fruit mushrooms before the frost.",
       "goal": "Grow each season's mushrooms before the frost. Your nutrient pool carries over; after 8 seasons the seasons keep coming, leaner each time. Score: mushrooms over the run.",
       "howToPlay": "The glowing spore in the middle is your network's heart. Drag from it (or from any knot of your network) to a leaf patch to grow a thread there; each new knot costs nutrient from your pool, and every knot costs a little upkeep each second (shown next to the pool). A patch your thread reaches feeds the pool until it is used up. {Tap} a knot to pulse: a surge of nutrient leaves the pool and runs out along the thread, refilling every knot on the way; what reaches a patch grows a mushroom there, and what reaches any other knot is spilled. Knots more than 3 threads from the spore or a feeding patch slowly fade: pulse them, or they starve, and a thread that starves while attached rots back toward the spore. {Hold} a knot to cut the thread into it: everything beyond withers harmlessly and stops costing upkeep, and growing into it again reconnects it. When the pool is empty the network eats its own farthest tips. Later seasons bring an old log far out, dry soil (4× upkeep), rival moulds racing you to food ({hold} a rival knot to cut it), stones and patches that fall mid-season; from season 5 every knot costs more upkeep, so cut what no longer feeds you.",
@@ -1521,6 +1596,11 @@
       },
       "changes": [
         {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
+        {
           "version": 2,
           "date": "2026-10-03",
           "text": "Cutting matters more: upkeep rises from season 5 and a pulse no longer heals rot. Seasons 4 and 5 are gentler, season 8 richer. Fixes: the old log draws on older Safari, a retry resets everything, clearer keyboard and cut messages."
@@ -1536,9 +1616,9 @@
       "id": "lighthouse-keeper",
       "title": "Lighthouse Keeper",
       "file": "lighthouse-keeper.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-10-03",
-      "updated": "2026-10-03",
+      "updated": "2026-10-05",
       "blurb": "Turn the lighthouse beam through the fog so ships can see the rocks, and ration the oil to last the night.",
       "goal": "Bring each night's ships into the harbour with no more than 2 wrecks. Oil carries over; after 8 nights the nights keep coming, foggier and busier. Score: ships brought home over the run.",
       "howToPlay": "Ships sail out of the dark toward the harbour (bottom left). In thick fog a ship can't see and holds its course, drifting, straight onto any rocks in its way; its mast light flashes red. Drag across the sea to turn the beam: it burns the fog away where it points, and a ship it lights (green mast light) sees the rocks and steers home around them. The fog drifts back within seconds once the beam moves on. The open lamp burns oil, and every ship that docks brings a little more. {Tap} the lighthouse to shutter the lamp (no oil burns, but the sea goes dark) and {tap} it again to open it. {Hold} the lighthouse to charge a flare and let go to fire it where the beam points: it clears a wide patch of fog for several seconds, and a bigger flare costs more oil. A third wreck loses the night. Later nights bring drifting fog banks, ships from the right, heavy ships that turn slowly, convoys and storms.",
@@ -1606,6 +1686,11 @@
       },
       "changes": [
         {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
+        {
           "version": 2,
           "date": "2026-10-03",
           "text": "Convoys now arrive together, spread wide, with a reef ahead of every ship: flare them as they near the rocks. Faster ships, ~1 min nights, thirstier lamp, gentler nights 3-5. Fixes: a drag from the lighthouse aims, side ships sail in, reefs clear of arrivals, smoother fog."
@@ -1621,9 +1706,9 @@
       "id": "surprise-party",
       "title": "Surprise Party",
       "file": "surprise-party.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-10-04",
-      "updated": "2026-10-04",
+      "updated": "2026-10-05",
       "daily": { "from": "2026-10-04" },
       "blurb": "Spread the word about the party through the house as a ripple of whispers, and steer it with doors so the birthday person doesn't hear before 8:00.",
       "goal": "Get every guest in each house to hear about the party by 8:00 while the birthday person hears nothing before then. 15 houses in three chapters (stars for envelopes saved), then Party Season: endless new houses, envelopes carry over, and the score is the parties you pull off before they run out.",
@@ -1677,6 +1762,11 @@
       },
       "changes": [
         {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
+        {
           "version": 2,
           "date": "2026-10-04",
           "text": "Daily Challenge: the arcade's daily banner opens a seeded Party Season, the same houses for everyone that day. Your first season goes on the daily board."
@@ -1692,9 +1782,9 @@
       "id": "geode",
       "title": "Geode",
       "file": "geode.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-10-04",
-      "updated": "2026-10-04",
+      "updated": "2026-10-05",
       "blurb": "Grow a crystal that rings like a bell: seed, warm and chip away the flaws before they crack it.",
       "goal": "Grow each crystal to its quota and harvest it, as big and as clear as you dare, before its pool runs dry. Flaws spread by themselves; a crack that reaches the core shatters the crystal and you lose what was unbanked. Three lost geodes end the run.",
       "howToPlay": "{Tap} beside the crystal to place an ion where you want it. Drag the thermostat under the pool: cold grows fast but strains the crystal, the middle glow heals strain without growing much, and too hot melts your corners. The ring on the thermostat is the real temperature; it follows your setting slowly. Strain shows as amber and red, thick outlines and cross-hatching, and it spreads to neighbours; at full strain an ion cracks and shocks the ones around it. Dark foreign ions swap into the crystal and creep toward bursting (watch the arc around them): {hold} on one to snap it out, and the gap heals cleanly. Harvest once the bar reaches the quota: a bigger, clearer crystal is worth more carats, but the pool ages, impurities come faster and the ring around the pool drains. Later geodes bring cold snaps, heat waves and salt flushes. Listen: a clear crystal sounds like a chord, strain sounds out of tune (sound is optional).",
@@ -1764,6 +1854,11 @@
         "epoch": 1
       },
       "changes": [
+        {
+          "version": 2,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
+        },
         {
           "version": 1,
           "date": "2026-10-04",

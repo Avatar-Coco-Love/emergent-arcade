@@ -1,6 +1,6 @@
 # Coat Check: design notes
 
-**v2** (2026-10-04) · playtest: https://claude.ai/artifact/U4NaLDKJ5bL7NjHZnrcDZU (private, republished each push) ·
+**v3** (2026-10-05, canvas label; v2 2026-10-04) · playtest: https://claude.ai/artifact/U4NaLDKJ5bL7NjHZnrcDZU (private, republished each push) ·
 balance: `node scripts/balance-coat-check.mjs 300` (~12 s)
 Verbs: **hang** (drag), **fetch** (tap) and **peek** (hold), sharing **the hooks
 and the peek budget**. A cloakroom of identical closed doors: where you hang a
@@ -125,7 +125,7 @@ unpaused seconds per action. `purity` 75 ≈ random placement, not 0.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): hook letters 11 px at 4.3:1; no live region; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): hook letters 11 px at 4.3:1; no live region.
 - The memory model is a guess (k most recent, no chunking). Calibrate k from
   the first playtest: compare `wrong`, `peeks`, `purity` with the cap rows.
 - ⇄ tickets: a peek can't confirm the friend's own coat unless you remember

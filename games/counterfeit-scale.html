@@ -67,7 +67,7 @@
 <body>
   <div id="top"><div><span id="caseName"></span> · <span class="rule" id="rule"></span></div>
     <div class="side"><span class="pips" id="pips"></span> <span id="score"></span></div></div>
-  <div id="boardWrap"><canvas id="board" aria-label="Counterfeit Scale: drag coins onto the pans, hold the beam to weigh, tap coins to mark them, accuse the fake."></canvas></div>
+  <div id="boardWrap"><canvas id="board" role="img" aria-label="Counterfeit Scale: drag coins onto the pans, hold the beam to weigh, tap or click coins to mark them, accuse the fake."></canvas></div>
   <div class="strip" id="hint"></div>
   <div class="strip" id="msg"></div>
   <div class="bar">
@@ -863,6 +863,13 @@
   newRun();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', h = fine ? 'click and hold' : 'hold';
+  document.getElementById('board').setAttribute('aria-label', `Counterfeit Scale: drag coins onto the pans, ${h} the beam to weigh, ${t} coins to mark them, accuse the fake. Keys: arrows or 1 to 9 pick a coin, L / R load it, T back to tray, M mark, Space weigh, A accuse, H hint, Esc clear.`);
+}
 </script>
 </body>
 </html>

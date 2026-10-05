@@ -1,6 +1,6 @@
 # Geode: design notes
 
-**v1** (2026-10-04) · playtest: https://claude.ai/artifact/CS1Gj1PNQ3xcjPJbhAEdKn (private, republished each push) ·
+**v2** (2026-10-05, canvas label; v1 2026-10-04) · playtest: https://claude.ai/artifact/CS1Gj1PNQ3xcjPJbhAEdKn (private, republished each push) ·
 balance: `node scripts/balance-geode.mjs 200`
 Verbs: **seed** (tap), **warm** (drag the thermostat), **cleave** (hold),
 sharing **strain per site, pool saturation σ and temperature T**. Endless
@@ -118,7 +118,7 @@ None yet.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys reach the thermostat only (seed, cleave need a pointer); labels 9.4 px; idle shimmer stays with reduced motion; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): keys reach the thermostat only (seed, cleave need a pointer); labels 9.4 px; idle shimmer stays with reduced motion.
 - Skilled runs are ~21 min (target 10-20): bots are optimistic and every
   lost geode lasts the full pool life (200 s). Check telemetry before
   shortening `POOL_LIFE` or adding steeper escalation.

@@ -1,6 +1,6 @@
 # Ant Trails: design notes
 
-**v5** (2026-09-29) · playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG ·
+**v6** (2026-10-05, canvas label; v5 2026-09-29) · playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG ·
 balance: `node scripts/balance-ant-trails.mjs 200`
 Verbs: **trail** (drag) and **wash** (hold), sharing **scent per ground cell**
 (40×60 grid, 10 px cells, 0–1). A run of six days, each a round with its own
@@ -114,7 +114,7 @@ and `stats`:
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys only fast-forward (drag, hold need a pointer); ignores reduced motion; bonus line 11.5 px; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): keys only fast-forward (drag, hold need a pointer); ignores reduced motion; bonus line 11.5 px.
 - After v5: does `ff_s` show up (which days, how much), and does the share of
   sessions reaching day 2 rise vs v4?
 - Not hand-played on a real phone yet (only rendered headlessly at 390×760).

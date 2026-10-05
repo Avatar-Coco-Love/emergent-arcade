@@ -110,7 +110,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="sky" aria-label="Orbit Garden sky. Tap to place a planet, drag upward to fling a seed."></canvas>
+      <canvas id="sky" role="img" aria-label="Orbit Garden sky. Tap or click to place a planet, drag upward to fling a seed."></canvas>
       <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
@@ -514,6 +514,13 @@
   newGarden();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', T = fine ? 'Click' : 'Tap';
+  document.getElementById('sky').setAttribute('aria-label', `Orbit Garden sky. ${T} to place a planet, drag upward to fling a seed.`);
+}
 </script>
 </body>
 </html>

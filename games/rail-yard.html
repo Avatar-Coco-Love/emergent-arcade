@@ -105,7 +105,7 @@
   <p id="msg" role="status"></p>
   <div id="field">
     <div id="stage">
-      <canvas id="yard" aria-label="Rail yard. Drag a switch lever to set its route; flick a car along the track to send it rolling."></canvas>
+      <canvas id="yard" role="img" aria-label="Rail yard. Drag a switch lever to set its route; flick a car along the track to send it rolling."></canvas>
       <div id="card" hidden></div>
     </div>
   </div>
@@ -1340,7 +1340,8 @@
   canvas.addEventListener('pointerup', e => endPress(e, false));
   canvas.addEventListener('pointercancel', e => endPress(e, true));
 
-  // Keyboard: Tab picks a car, 1-9 set the speed, arrows flick it, A-D switches.
+  // Keyboard: Space picks a car, 1-9 set the speed, arrows flick it, A-D switches.
+  // Tab stays the browser's, so keyboard players can leave the cabinet frame.
   window.addEventListener('keydown', e => {
     if (!Y || paused) return;
     const key = e.key;
@@ -1348,7 +1349,7 @@
       if (key === 'Enter' || key === ' ') { const b = card.querySelector('button[data-act]:not([disabled])'); if (b && performance.now() >= cardLock) b.click(); e.preventDefault(); }
       return;
     }
-    if (key === 'Tab') {
+    if (key === ' ' && !(e.target instanceof HTMLButtonElement)) {
       const cars = []; for (let c = 0; c < Y.n; c++) if (typ(st, c)) cars.push(c);
       if (!cars.length) return;
       const i = cars.indexOf(selCar);
@@ -1389,6 +1390,13 @@
   fitYard();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap';
+  document.getElementById('yard').setAttribute('aria-label', `Rail yard. Drag a switch lever, or ${t} it, to set its route; flick a car along the track to send it rolling. Keys: Space picks a car (Shift+Space the previous one), 1 to 9, plus and minus set its speed, arrows flick it, A to D switches, Z undo, H hint, X restart.`);
+}
 </script>
 </body>
 </html>

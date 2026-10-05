@@ -1,6 +1,6 @@
 # Mycelium: design notes
 
-**v2** (2026-10-03) · playtest: https://claude.ai/artifact/JtevwSxyXLnDnbA9AeVd6e ·
+**v3** (2026-10-05, canvas label; v2 2026-10-03) · playtest: https://claude.ai/artifact/JtevwSxyXLnDnbA9AeVd6e ·
 balance: `node scripts/balance-mycelium.mjs 100`
 Verbs: **grow** (drag), **pulse** (tap), **prune** (hold), sharing **one
 nutrient pool** and **sap per knot**. A run of seasons: 8 campaign seasons,
@@ -125,7 +125,7 @@ None yet.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): ignores reduced motion (small); canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): ignores reduced motion (small).
 - The novice's wall moved from seasons 4–5 to season 6 (56% → 6%; 26%
   with 4 retries), where the ×1.7 upkeep and stones hit. If players stall
   there, try ×1.5 in season 6 (noprune rises to ~70%) or nearer late

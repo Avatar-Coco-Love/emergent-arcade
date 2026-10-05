@@ -89,7 +89,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="pool" aria-label="Geode: a crystal grows in a cooling pool. Tap beside it to seed an ion, drag the thermostat under the pool to set the temperature, hold on an ion to cleave it off."></canvas>
+      <canvas id="pool" role="img" aria-label="Geode: a crystal grows in a cooling pool. Tap or click beside it to seed an ion, drag the thermostat under the pool to set the temperature, hold on an ion to cleave it off."></canvas>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -946,6 +946,13 @@
   newRun();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', T = fine ? 'Click' : 'Tap', h = fine ? 'click and hold' : 'hold';
+  document.getElementById('pool').setAttribute('aria-label', `Geode: a crystal grows in a cooling pool. ${T} beside it to seed an ion, drag the thermostat under the pool to set the temperature, ${h} on an ion to cleave it off. Keys: ← → set the temperature, H harvest, M sound.`);
+}
 </script>
 </body>
 </html>

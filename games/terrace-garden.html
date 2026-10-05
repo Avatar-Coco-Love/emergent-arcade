@@ -160,7 +160,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="hill" aria-label="Terrace Garden. Tilt to slosh the water, tap a gate to open or close it."></canvas>
+      <canvas id="hill" role="img" aria-label="Terrace Garden. Tilt to slosh the water, tap or click a gate to open or close it."></canvas>
       <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
@@ -968,6 +968,13 @@
   newRun();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap';
+  document.getElementById('hill').setAttribute('aria-label', `Terrace Garden. Tilt ${fine ? 'with the bar under the hillside' : 'the phone (or slide the bar under the hillside)'} to slosh the water, ${t} a gate to open or close it. Keys: ← → or A / D to tilt.`);
+}
 </script>
 </body>
 </html>

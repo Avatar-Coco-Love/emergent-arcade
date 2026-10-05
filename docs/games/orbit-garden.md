@@ -1,6 +1,6 @@
 # Orbit Garden: design notes
 
-**v6** (2026-09-28) · playtest: https://claude.ai/artifact/LgWCoWvU5hTLxUqGUDbWms ·
+**v7** (2026-10-05, canvas label; v6 2026-09-28) · playtest: https://claude.ai/artifact/LgWCoWvU5hTLxUqGUDbWms ·
 balance: `node scripts/balance-orbit-garden.mjs 200`
 Mechanics: **place** (tap the sky: a planet) and **fling**
 (drag up from anywhere: a seed from the launcher), sharing **planet mass**.
@@ -93,7 +93,7 @@ No v6 data yet.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play.
 - Check v6 with telemetry: win rate should drop well below 2/2, and a round
   under ~20 s would mean spamming still pays for humans.
 - A first-time player who aims straight will lose (naive 1%). The preview

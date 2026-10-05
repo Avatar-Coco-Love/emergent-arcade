@@ -113,7 +113,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="sea" aria-label="Island Census. Tap a meadow to release rabbits, drag across a path to fence it against foxes."></canvas>
+      <canvas id="sea" role="img" aria-label="Island Census. Tap or click a meadow to release rabbits, drag across a path to fence it against foxes."></canvas>
       <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
@@ -819,6 +819,13 @@
   newIsland();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', T = fine ? 'Click' : 'Tap';
+  document.getElementById('sea').setAttribute('aria-label', `Island Census. ${T} a meadow to release rabbits, drag across a path to fence it against foxes.`);
+}
 </script>
 </body>
 </html>

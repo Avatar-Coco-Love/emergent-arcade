@@ -1,6 +1,6 @@
 # Bubble Glass: design notes
 
-**v5** (2026-10-03; levels 13, 14, 16 revised, `score.epoch` 3) · playtest: https://claude.ai/artifact/BXC2MQc3e4rf6x2wPUxZVR ·
+**v6** (2026-10-05, canvas label; v5 2026-10-03, levels 13, 14, 16 revised, `score.epoch` 3) · playtest: https://claude.ai/artifact/BXC2MQc3e4rf6x2wPUxZVR ·
 balance: `node scripts/balance-bubble-glass.mjs 8 [bots] [levels]`
 Liquid-motion sand toy in a sealed box. Verbs: **turn** (drag, tilt opt-in, ← →),
 **melt** ({hold} sand into glass), **shatter** ({tap} glass). 21 levels, 3 chapters.
@@ -109,7 +109,7 @@ big-bubble (merged bubble leaves, v3); clockwork (chapter finished on the clock,
 
 ## Open ideas
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys turn the box only (hold, tap need a pointer); ignores reduced motion (small); canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): keys turn the box only (hold, tap need a pointer); ignores reduced motion (small).
 - v3 playtest (next): does anyone play a whole chapter? Use `fetch-telemetry.mjs` and
   chapter leaderboards; humans were faster than `hinted` in v2.
 - Chapter 1 fixes in v3 (were open): level 1 second beat (novice 9→44 s, reader 5 s);

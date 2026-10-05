@@ -1,6 +1,6 @@
 # Counterfeit Scale: design notes
 
-**v2** (2026-10-04) · playtest: https://claude.ai/artifact/SYLhAXySXMqp9oH6aC5y5k (private, republished each push) ·
+**v3** (2026-10-05, canvas label; v2 2026-10-04) · playtest: https://claude.ai/artifact/SYLhAXySXMqp9oH6aC5y5k (private, republished each push) ·
 balance: `node scripts/balance-counterfeit-scale.mjs 400`
 Verbs: **load** (drag), **mark** (tap) and **weigh** (hold), sharing **the coins'
 marks and the weighing budget**. 12 campaign cases (2 per rule), then Endless
@@ -108,7 +108,7 @@ strikes hint`.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no live region for weighings; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no live region for weighings.
 - File is 45 KB (brief aimed at ~40).
 - Make spring cases break thirds harder (two spring cases in a row already
   cost habit a case about half the time).
