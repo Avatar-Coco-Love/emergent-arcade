@@ -119,6 +119,7 @@ blooming, 9 seeds, seeds in flight, hint on; cursor or aim preview on).
 - Bots reproduce v7 exactly (200 runs × 13 bots; old file twice first).
   Keys-only playthrough (live region only): 40 flings, 31 landed, all
   31 "reaches" shots hit; 9 at a planet past preview reach all missed.
+  With that planet lower: won, 18 of 18 landed, 22 seeds left.
 
 ## Open ideas / known limits
 

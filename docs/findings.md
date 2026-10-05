@@ -344,6 +344,7 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   it ends ("40 units above planet 3"). Saying where the whole shot lands
   would be the search bot, not a player. A keys bot aiming by those words
   alone landed 31 of 31 "reaches" shots; the 9 at a planet past the
-  preview's reach all missed, as they would by eye. Aim is two values: a
+  preview's reach all missed, as they would by eye (with it lower: won,
+  18/18). Aim is two values: a
   tap steps 1° or 1%, a held key ramps after 0.3 s. *Say what the preview
   shows, not where the shot lands.* Orbit Garden v8. keys-only playthrough.

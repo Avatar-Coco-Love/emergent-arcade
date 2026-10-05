@@ -1102,7 +1102,8 @@ at a planet placed near the top, beyond the preview's reach; the bot
 ignored the distance words and all 9 missed, so that planet withered and
 the round was lost at 2 of 3 blooming. A sighted player who puts a planet
 out of preview range has the same problem, so this is the game, not the
-key path. (A rerun with that planet lower: KEYS_RERUN.)
+key path. A rerun with that planet lower won on keys alone: 18 flings, 18 landed,
+22 seeds left (Frugal).
 
 Two smaller lessons. The motion cell's pass was a state pass: the only
 idle decoration (the petals' spin) exists only once a planet blooms, and
