@@ -1081,3 +1081,38 @@ player's rounds already start from whatever tick the page has).
 
 *Evidence: diffs empty after the reset; differing before it, old vs old.*
 
+## Say what the preview shows, not where the shot lands
+
+Orbit Garden v8. Fling is an aimed drag whose only guide is the dotted
+preview (1.2 s of path); v6 balance showed reading it is the skill
+(straight aim 1%, preview reader 100% at σ 2°). A keyboard player gets
+the same preview (Space switches the arrows to angle and strength), and a
+screen reader player gets it in words when the arrows settle: "Aim 12°
+left, strength 70%. The dotted line reaches planet 2", or "ends 40 units
+above planet 3", or "leaves the sky". The words are computed with the
+same steps as `drawAim`, so they say exactly what is drawn. A line saying
+where the whole shot lands would be the `search` bot (100% at σ 0, every
+Gravity Assist), which is more than any sighted player gets.
+
+The keys-only bot read nothing but the live region and the HUD: N to
+read every planet's mass and point straight at the lightest, then one
+arrow tap at a time until the words said "reaches" it. 40 flings, 31
+landed, and all 31 were "reaches" shots (31/31). The 9 others were aimed
+at a planet placed near the top, beyond the preview's reach; the bot
+ignored the distance words and all 9 missed, so that planet withered and
+the round was lost at 2 of 3 blooming. A sighted player who puts a planet
+out of preview range has the same problem, so this is the game, not the
+key path. A rerun with that planet lower won on keys alone: 18 flings, 18 landed,
+22 seeds left (Frugal).
+
+Two smaller lessons. The motion cell's pass was a state pass: the only
+idle decoration (the petals' spin) exists only once a planet blooms, and
+the audit's screen never has one. With 2 blooming, v7 moved 0.71–0.94%
+under reduced motion, v8 0.00%, planets hidden 0.00% (3 runs). And a
+background job reading a file you are about to edit reads the edit: the
+old-file balance baseline ran from a frozen copy (scripts and game in a
+scratch dir), twice, identical, then identical to v8 (200 runs × 13 bots).
+
+*Evidence: keys-only playthrough (desktop, keys only); idle diff with 2
+blooming × old/new × normal/reduced × planets hidden, 3 runs; audit 3/3
+plus 2/2 on two scripted late rounds; balance old×2 and new identical.*

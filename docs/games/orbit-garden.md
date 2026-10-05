@@ -1,6 +1,6 @@
 # Orbit Garden: design notes
 
-**v7** (2026-10-05, canvas label; v6 2026-09-28) · playtest: https://claude.ai/artifact/LgWCoWvU5hTLxUqGUDbWms ·
+**v8** (2026-10-05, keys, live region, reduced motion; v7 canvas label; v6 2026-09-28) · playtest: https://claude.ai/artifact/LgWCoWvU5hTLxUqGUDbWms ·
 balance: `node scripts/balance-orbit-garden.mjs 200`
 Mechanics: **place** (tap the sky: a planet) and **fling**
 (drag up from anywhere: a seed from the launcher), sharing **planet mass**.
@@ -82,20 +82,53 @@ Achievements (preview2): Green Thumb 100%, Frugal 79%, Gravity Assist 53%
 (search bots 100%, since they choose swing shots). Full Sky is never
 earned by these bots (they place only 3).
 
-## Player data (2026-09-28: `fetch-telemetry.mjs`)
+## Player data (2026-10-05: `fetch-telemetry.mjs`)
 
-v5: 2 rounds, 2 wins, both on a first try. One tester (touch) won in
-**23 s**, faster than every bot (naive 32 s, perfect 35 s at a 1.5 s fling
-gap), as the "fast play wins easily" idea predicted. A second player won in
-**52 s** with all 4 achievements (First Bloom, Green Thumb, Full Sky,
-Garden Complete). Both were never in danger, and that is why v6 was made.
-No v6 data yet.
+v6: 7 players, 10 rounds, human win rate 70%, win median 35 s, loss
+median 46 s, first win after 2 rounds (median). v7: 2 rounds, 1 win (43 s).
+Sessions median 70 s: far from the 10-minute target. v5 data: history.
+
+## Accessibility (v8, `node scripts/a11y-audit.mjs orbit-garden`)
+
+All six pass (3/3), and 2/2 on scripted late rounds (4 planets, 2
+blooming, 9 seeds, seeds in flight, hint on; cursor or aim preview on).
+- Keys (`// § keys`): arrows move a cursor while held (100 → 300 units/s
+  over 0.6 s); Enter places a planet there (`placePlanet`). Space (or A)
+  switches the arrows to aiming: ← → angle (±75°), ↑ ↓ strength (10–100%
+  of `MAX_DRAG`); a tap steps 1° / 1%, held 0.3 s ramps 10 → 60 per s; the
+  dotted preview shows. Space (or Enter) then flings the same drag vector
+  (`fling`); aiming stays on for the next shot. N jumps to the next
+  planet (aiming: points straight at it, a start, not a hit). Esc or A back
+  to the cursor; Enter plays again. Tab free; Space/Enter on a focused
+  button press it.
+- Live region `#say` (`#msg` aria-hidden; `say()` speaks): planet placed
+  (numbered 1–5, lowest free), what the cursor is on or whether a planet
+  fits there, the aim once arrows are up ("Aim 12° left, strength 70%. The
+  dotted line reaches planet 2" / "ends 40 units above planet 3": only
+  what the preview shows), flung / landed on planet n with its mass /
+  lost, blooming and wilting below bloom, withered away, the result.
+- `#msg` on a dark backing (planets can sit under it). DOM text only,
+  13.6 px+, 7.2:1+.
+- Reduced motion: the petals' spin is on `deco()` (0 when reduced). The
+  audit's pass was timing: petals exist only once a planet blooms. Idle,
+  2 blooming: v7 0.71–0.94% reduced; v8 0.00%; planets hidden 0.00%
+  (3 runs). Seeds and trails are the game and still fly.
+- Colour: bloom is told by petals (shape), growth by the ring's length;
+  the brown → green body ramp merges to olive for deutans and protans, but
+  carries nothing else.
+- Bots reproduce v7 exactly (200 runs × 13 bots; old file twice first).
+  Keys-only playthrough (live region only): 40 flings, 31 landed, all
+  31 "reaches" shots hit; 9 at a planet past preview reach all missed.
+  With that planet lower: won, 18 of 18 landed, 22 seeds left.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play.
-- Check v6 with telemetry: win rate should drop well below 2/2, and a round
-  under ~20 s would mean spamming still pays for humans.
+- Accessibility: a real screen reader and keyboard player are the test.
+  N aims straight at a planet, which misses (naive 1%); a blind player
+  sweeps from there by the spoken preview. A "sweep until it reaches" key
+  would aim for them, more than a sighted player gets.
+- v6 telemetry: 70% won (10 rounds), win median 35 s. Keep watching for
+  rounds under ~20 s (spamming paying for humans).
 - A first-time player who aims straight will lose (naive 1%). The preview
   shows the curve from the first shot, and a round lasts 40 flings, so there
   is time to learn. If new players lose their first round and leave, add a

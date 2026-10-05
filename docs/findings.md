@@ -338,3 +338,13 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   scan's row parity) carried over between seeds on a worker page. Reset
   it in the debug copy; then old and new matched row for row. *Run the old
   file twice before comparing balance.* Hourglass Delivery v5. bots.
+- An aimed verb whose only guide is a picture (Orbit Garden's dotted
+  preview) needs the picture in words, and no more: once the arrows are
+  let go, the live region says which planet the preview reaches, or where
+  it ends ("40 units above planet 3"). Saying where the whole shot lands
+  would be the search bot, not a player. A keys bot aiming by those words
+  alone landed 31 of 31 "reaches" shots; the 9 at a planet past the
+  preview's reach all missed, as they would by eye (with it lower: won,
+  18/18). Aim is two values: a
+  tap steps 1° or 1%, a held key ramps after 0.3 s. *Say what the preview
+  shows, not where the shot lands.* Orbit Garden v8. keys-only playthrough.

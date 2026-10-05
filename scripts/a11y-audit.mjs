@@ -443,6 +443,7 @@ const KEY_COVER = {
   "island-census": ["Arrows pick a meadow · Enter/Space release rabbits · F then an arrow picks a path, F fences/unfences it · N next season", ALL],
   "murmuration": ["Arrows move the cursor · hold Space to lure toward it · Enter or X startles at it · Enter flies again after a round", ALL],
   "hourglass-delivery": ["Arrows move the cursor · hold Space pours · K then an arrow knocks · G next glass, L next ledge · Enter plays again", ALL],
+  "orbit-garden": ["Arrows move the cursor · Enter places a planet · Space aims (arrows: angle, strength), Space flings · N next planet", ALL],
   "wildfire-line": ["Arrows move the cursor · Space starts or stops cutting along its path · Enter lights a backburn at the cursor", ALL],
 };
 

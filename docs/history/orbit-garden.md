@@ -4,6 +4,15 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/orbit-garden.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## Player data before v8 (moved 2026-10-05)
+
+v5: 2 rounds, 2 wins, both on a first try. One tester (touch) won in
+**23 s**, faster than every bot (naive 32 s, perfect 35 s at a 1.5 s fling
+gap), as the "fast play wins easily" idea predicted. A second player won in
+**52 s** with all 4 achievements (First Bloom, Green Thumb, Full Sky,
+Garden Complete). Both were never in danger, and that is why v6 was made.
+No v6 data yet.
+
 ## Notes before the split (2026-09-30)
 
 Original Balance table, with the v5 win column (superseded), and the

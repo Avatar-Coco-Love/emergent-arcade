@@ -53,18 +53,25 @@
     border-radius: 10px;
     background: #05050a;
   }
+  /* Hints sit over the sky and can sit over a planet: a dark backing. */
   #msg {
     position: absolute;
     top: 10px;
-    left: 8px;
-    right: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 16px);
     margin: 0;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(5, 5, 10, 0.88);
     text-align: center;
     font-size: 0.85rem;
     color: #d8d8e0;
-    text-shadow: 0 1px 3px #000;
     pointer-events: none;
   }
+  #msg:empty { display: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #endCard {
     position: absolute;
     left: 50%;
@@ -111,7 +118,8 @@
   <div id="field">
     <div id="stage">
       <canvas id="sky" role="img" aria-label="Orbit Garden sky. Tap or click to place a planet, drag upward to fling a seed."></canvas>
-      <p id="msg" role="status"></p>
+      <p id="msg" aria-hidden="true"></p>
+      <p id="say" class="sr" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -157,6 +165,8 @@
   const canvas = document.getElementById('sky');
   const ctx = canvas.getContext('2d');
   const msgEl = document.getElementById('msg');
+  // The word for the pointer verb on this device, in hints.
+  const TAP = window.matchMedia('(pointer: fine)').matches ? 'click' : 'tap';
 
   // Achievements: announced to the Emergent Arcade gallery when embedded
   // (it records them); harmless when the file is opened on its own.
@@ -207,7 +217,7 @@
   // The gallery pauses the game while one of its panels covers it.
   let paused = false;
   window.addEventListener('message', evt => {
-    if (evt.data && evt.data.type === 'arcade:pause') paused = true;
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; kb.held.clear(); }
     if (evt.data && evt.data.type === 'arcade:resume') paused = false;
   });
 
@@ -226,13 +236,15 @@
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
-    say('Tap the sky to place your first planet.');
+    kb.aimOn = false;
+    say(`${TAP[0].toUpperCase() + TAP.slice(1)} the sky to place your first planet.`);
   }
 
   function endGame(result) {
     state = result;
     report(result);
     msgEl.textContent = '';
+    kb.aimOn = false;
     const title = document.getElementById('endTitle');
     title.textContent = result === 'won' ? 'Garden complete!' : 'Out of seeds';
     title.className = result;
@@ -247,9 +259,13 @@
     playAgainBtn.disabled = true;
     endCard.hidden = false;
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    speak([title.textContent, document.getElementById('endDetail').textContent,
+      document.getElementById('endAch').textContent.replace('🏆 ', ''), TAP === 'click' ? 'Press Enter to play again.' : ''].filter(Boolean).join(' '));
   }
 
+  // On screen for 3 s, and spoken (#msg itself is aria-hidden).
   function say(text) {
+    speak(text);
     msgEl.textContent = text;
     clearTimeout(msgTimer);
     msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
@@ -280,8 +296,12 @@
     for (const p of planets) {
       if (Math.hypot(p.x - x, p.y - y) < radius(p) + radius(probe) + 8) return say('Too close to another planet.');
     }
-    planets.push({ x, y, mass: PLANET_START_MASS, flash: 0, bloomedOnce: false });
+    // Planets are numbered for the live region: the lowest number not in use.
+    let n = 1;
+    while (planets.some(p => p.n === n)) n++;
+    planets.push({ x, y, mass: PLANET_START_MASS, flash: 0, bloomedOnce: false, n, was: false });
     msgEl.textContent = ''; // drop any hint or warning once a planet lands
+    speak(`Planet ${n} placed, ${where(x, y)}. ${planets.length} of ${MAX_PLANETS} planets.`);
     if (planets.length >= MAX_PLANETS) unlock('full-sky');
   }
 
@@ -299,7 +319,7 @@
   function fling(dx, dy) {
     if (state !== 'playing') return;
     if (seedsLeft <= 0) return;
-    if (!planets.length) return say('Place a planet first: tap the sky.');
+    if (!planets.length) return say(`Place a planet first: ${TAP} the sky.`);
     const v = flingVelocity(dx, dy);
     if (!v) return say('Drag upward to fling a seed.');
     const [vx, vy] = v;
@@ -308,6 +328,7 @@
     // Passive system: the garden withers per seed flung, not per second, so
     // flinging faster never outruns it (docs/findings.md).
     for (const p of planets) p.mass -= WITHER_PER_FLING;
+    speak(`Seed flung, ${seedsLeft} left.`);
   }
 
   // ---------- simulation ----------
@@ -335,12 +356,14 @@
         if (streak >= 5) unlock('green-thumb');
         // Landed while heading more than 90 degrees away from where it was flung.
         if (s.vx * s.vx0 + s.vy * s.vy0 < 0) unlock('gravity-assist');
+        speak(`Seed landed on planet ${hit.n}: ${massWords(hit)}.`);
         continue;
       }
       const out = s.x < -60 || s.x > W + 60 || s.y < -60 || s.y > H + 60;
       if (out || s.t > SEED_LIFETIME) {
         seeds.splice(i, 1);
         streak = 0;
+        speak('Seed lost in space.');
       }
     }
 
@@ -352,9 +375,14 @@
         p.bloomedOnce = true;
         unlock('first-bloom');
       }
+      if (blooming(p) !== p.was) {
+        p.was = blooming(p);
+        speak(p.was ? `Planet ${p.n} is blooming. ${planets.filter(blooming).length} of ${GOAL_BLOOMS} blooming.`
+          : `Planet ${p.n} withered below blooming.`);
+      }
       if (p.mass < DEAD_MASS) {
         planets.splice(i, 1);
-        say('A planet withered away.');
+        say(`Planet ${p.n} withered away.`);
       }
     }
 
@@ -369,6 +397,12 @@
   }
 
   // ---------- drawing ----------
+  // Reduced motion: seeds and their trails are the game and keep moving;
+  // decoration (the blooming petals' slow spin) runs on its own clock, which
+  // stands still under the setting. No Math.random here.
+  const motionQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const deco = () => motionQ.matches ? 0 : performance.now();
+
   function draw() {
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
     ctx.fillStyle = '#05050a';
@@ -400,7 +434,9 @@
       ctx.fill();
     }
 
-    if (aim) drawAim();
+    if (aim) drawAim(aim.dx, aim.dy);
+    else if (kb.aimOn && state === 'playing') drawAim(...keyDrag());
+    if (kb.shown && state === 'playing' && !kb.aimOn) drawCursor();
 
     document.getElementById('hudSeeds').textContent = seedsLeft;
     document.getElementById('hudBlooms').textContent = `${planets.filter(blooming).length}/${GOAL_BLOOMS}`;
@@ -414,7 +450,7 @@
       // petals
       ctx.fillStyle = '#ff8fb8';
       for (let k = 0; k < 6; k++) {
-        const a = k * Math.PI / 3 + performance.now() / 4000;
+        const a = k * Math.PI / 3 + deco() / 4000;
         ctx.beginPath();
         ctx.arc(p.x + Math.cos(a) * (r + 4), p.y + Math.sin(a) * (r + 4), r * 0.45, 0, Math.PI * 2);
         ctx.fill();
@@ -437,8 +473,8 @@
   }
 
   // Short dotted preview: shows the first moment of the path, not the whole shot.
-  function drawAim() {
-    const v = flingVelocity(aim.dx, aim.dy);
+  function drawAim(dx, dy) {
+    const v = flingVelocity(dx, dy);
     if (!v) return;
     let [vx, vy] = v;
     let x = LAUNCH.x, y = LAUNCH.y;
@@ -498,15 +534,182 @@
   document.getElementById('resetBtn').addEventListener('click', newGarden);
   playAgainBtn.addEventListener('click', newGarden);
 
+  // § live region: what matters, in words, at most once per frame (placing,
+  // flinging, where a seed landed, blooming and withering, the cursor's place
+  // or the aim once the arrows are let go, the result), never the frame itself.
+  const sayEl = document.getElementById('say');
+  let spoken = [];
+  function speak(text) { spoken.push(text); if (spoken.length > 8) spoken.shift(); }
+  function announce() {
+    if (!spoken.length) return;
+    sayEl.textContent = spoken.join(' ');
+    spoken = [];
+  }
+  function where(x, y) {
+    const v = y < 170 ? 'top' : y < 340 ? 'middle' : 'bottom';
+    const h = x < W / 3 ? 'left' : x < W * 2 / 3 ? 'centre' : 'right';
+    return v === 'middle' && h === 'centre' ? 'centre of the sky' : `${v} ${h}`;
+  }
+  function massWords(p) {
+    return `mass ${p.mass.toFixed(1)} of ${BLOOM_MASS}, ${blooming(p) ? 'blooming' : 'not blooming'}`;
+  }
+
+  // § keys: the same verbs without a pointer. Arrows move a cursor while held
+  // (slow at first, then faster); Enter places a planet there (placePlanet).
+  // Space or A switches the arrows to aiming (← → angle, ↑ ↓ strength, the
+  // dotted preview showing); Space then flings the same seed a drag with that
+  // vector makes (fling). N jumps to the next planet (aiming: aims straight at
+  // it). Esc or A goes back to the cursor. Tab stays free; Space/Enter on a
+  // focused button press it.
+  const CUR_SLOW = 100, CUR_FAST = 300, CUR_RAMP = 0.6; // game units per second; seconds to full speed
+  const AIM_DELAY = 0.3, AIM_SLOW = 10, AIM_FAST = 60, AIM_RAMP = 1; // a tap steps 1° or 1%; held: per second
+  const MIN_POWER = 10;                                   // strength in % of MAX_DRAG
+  const DIRS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  const AIM_MAX_DEG = Math.round(MAX_AIM_ANGLE * 180 / Math.PI);
+  const kb = { x: W / 2, y: 300, held: new Set(), heldFor: 0, shown: false, aimOn: false, angle: 0, power: 60, planet: 0 };
+  function keyDrag() {
+    const a = kb.angle * Math.PI / 180, len = kb.power / 100 * MAX_DRAG;
+    return [Math.sin(a) * len, -Math.cos(a) * len];
+  }
+  function moveKeys(dt) {
+    let dx = 0, dy = 0;
+    for (const k of kb.held) { dx += DIRS[k][0]; dy += DIRS[k][1]; }
+    if (!dx && !dy) { kb.heldFor = 0; return; }
+    kb.heldFor += dt;
+    if (kb.aimOn) {
+      if (kb.heldFor < AIM_DELAY) return;
+      const r = (AIM_SLOW + (AIM_FAST - AIM_SLOW) * Math.min(1, (kb.heldFor - AIM_DELAY) / AIM_RAMP)) * dt;
+      setAim(kb.angle + dx * r, kb.power - dy * r);
+      return;
+    }
+    const v = (CUR_SLOW + (CUR_FAST - CUR_SLOW) * Math.min(1, kb.heldFor / CUR_RAMP)) * dt / Math.hypot(dx, dy);
+    kb.x = Math.max(0, Math.min(W, kb.x + dx * v));
+    kb.y = Math.max(0, Math.min(H - 1, kb.y + dy * v));
+  }
+  function setAim(angle, power) {
+    kb.angle = Math.max(-AIM_MAX_DEG, Math.min(AIM_MAX_DEG, angle));
+    kb.power = Math.max(MIN_POWER, Math.min(100, power));
+  }
+  function planetAt(x, y) { return planets.find(p => Math.hypot(p.x - x, p.y - y) < radius(p) + 6); }
+  // What the cursor is over, and whether a planet fits there (placePlanet's rules).
+  function placeWords() {
+    const p = planetAt(kb.x, kb.y);
+    if (p) return `On planet ${p.n}, ${where(p.x, p.y)}: ${massWords(p)}.`;
+    let fit = 'a planet fits here';
+    const probe = { mass: PLANET_START_MASS };
+    const near = planets.find(q => Math.hypot(q.x - kb.x, q.y - kb.y) < radius(q) + radius(probe) + 8);
+    if (kb.y > NO_PLANET_BELOW) fit = 'too close to the launcher';
+    else if (planets.length >= MAX_PLANETS) fit = 'the sky is full';
+    else if (near) fit = `too close to planet ${near.n}`;
+    return `Empty sky, ${where(kb.x, kb.y)}: ${fit}.`;
+  }
+  // The aim, and where its dotted preview goes (the same path drawAim draws).
+  function aimWords() {
+    const a = Math.round(kb.angle), dir = a < 0 ? `${-a}° left` : a > 0 ? `${a}° right` : 'straight up';
+    let words = `Aim ${dir}, strength ${Math.round(kb.power)}%.`;
+    const v = flingVelocity(...keyDrag());
+    if (!v || !planets.length) return words;
+    let [vx, vy] = v, x = LAUNCH.x, y = LAUNCH.y;
+    for (let i = 0; i < PREVIEW_STEPS; i++) {
+      const [ax, ay] = accel(x, y);
+      vx += ax * STEP * 2; vy += ay * STEP * 2;
+      x += vx * STEP * 2; y += vy * STEP * 2;
+      const hit = planets.find(p => Math.hypot(p.x - x, p.y - y) < radius(p));
+      if (hit) return `${words} The dotted line reaches planet ${hit.n}.`;
+      if (x < 0 || x > W || y < 0) return `${words} The dotted line leaves the sky.`;
+    }
+    let best = planets[0];
+    for (const p of planets) if (Math.hypot(p.x - x, p.y - y) < Math.hypot(best.x - x, best.y - y)) best = p;
+    const ex = x - best.x, ey = y - best.y, d = Math.hypot(ex, ey);
+    const side = [ey < -0.4 * d ? 'above' : ey > 0.4 * d ? 'below' : '', ex < -0.4 * d ? 'left of' : ex > 0.4 * d ? 'right of' : '']
+      .filter(Boolean).join(' and ') || 'at';
+    return `${words} The dotted line ends ${Math.round(d)} units ${side} planet ${best.n}.`;
+  }
+  function nextPlanet() {
+    if (!planets.length) return speak('No planets yet.');
+    const order = planets.slice().sort((a, b) => a.n - b.n);
+    const p = order.find(q => q.n > kb.planet) || order[0];
+    kb.planet = p.n;
+    if (kb.aimOn) {
+      setAim(Math.round(Math.atan2(p.x - LAUNCH.x, LAUNCH.y - p.y) * 180 / Math.PI), kb.power);
+      return speak(`Pointing at planet ${p.n}, ${massWords(p)}. ${aimWords()}`);
+    }
+    kb.x = p.x; kb.y = p.y;
+    speak(placeWords());
+  }
+  function aimMode(on) {
+    kb.aimOn = on;
+    kb.held.clear();
+    speak(on ? `Aiming: left and right turn, up and down set strength, Space flings, Escape goes back to the cursor. ${aimWords()}`
+      : `Cursor. ${placeWords()}`);
+  }
+  window.addEventListener('keydown', evt => {
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    const k = evt.key === ' ' ? 'space' : evt.key.toLowerCase();
+    if (onButton && (k === 'enter' || k === 'space')) return; // the focused button presses itself
+    if (evt.key in DIRS) {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (paused || state !== 'playing' || evt.repeat) return;
+      kb.shown = true;
+      kb.held.add(evt.key);
+      if (kb.aimOn) setAim(kb.angle + DIRS[evt.key][0], kb.power - DIRS[evt.key][1]);
+      return;
+    }
+    if (paused) return;
+    if (state !== 'playing') {
+      if (k === 'enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); playAgainBtn.click(); }
+      return;
+    }
+    if (!['space', 'enter', 'a', 'n'].includes(k) && !(k === 'escape' && kb.aimOn)) return;
+    evt.preventDefault();
+    if (evt.repeat) return;
+    kb.shown = true;
+    if (k === 'n') nextPlanet();
+    else if (k === 'escape') aimMode(false);
+    else if (k === 'a') aimMode(!kb.aimOn);
+    else if (k === 'enter' && !kb.aimOn) placePlanet(kb.x, kb.y);
+    else if (!kb.aimOn) {
+      if (!planets.length) return speak('Place a planet first: move the cursor and press Enter.');
+      aimMode(true);
+    } else if (!pointerDown) fling(...keyDrag());   // Space (or Enter) while aiming
+  });
+  window.addEventListener('keyup', evt => {
+    if (!(evt.key in DIRS) || !kb.held.has(evt.key)) return;
+    kb.held.delete(evt.key);
+    // Where the cursor stopped, or where the aim settled, once all arrows are up.
+    if (!kb.held.size && state === 'playing') speak(kb.aimOn ? aimWords() : placeWords());
+  });
+  window.addEventListener('blur', () => kb.held.clear());
+
+  function drawCursor() {
+    // A dark ring under a white one reads on the sky, the planets and the petals.
+    for (const [c, w] of [['rgba(5,5,10,0.9)', 5], ['#fff', 2]]) {
+      ctx.strokeStyle = c;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.arc(kb.x, kb.y, 6, 0, Math.PI * 2);
+      ctx.moveTo(kb.x - 12, kb.y); ctx.lineTo(kb.x - 6, kb.y);
+      ctx.moveTo(kb.x + 6, kb.y); ctx.lineTo(kb.x + 12, kb.y);
+      ctx.moveTo(kb.x, kb.y - 12); ctx.lineTo(kb.x, kb.y - 6);
+      ctx.moveTo(kb.x, kb.y + 6); ctx.lineTo(kb.x, kb.y + 12);
+      ctx.stroke();
+    }
+  }
+
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   function frame(now) {
-    acc += Math.min((now - last) / 1000, 0.1);
+    const dt = Math.min((now - last) / 1000, 0.1);
+    acc += dt;
     last = now;
+    if (state === 'playing' && !paused) moveKeys(dt);
     while (acc >= STEP) {
       if (state === 'playing' && !paused) step(STEP);
       acc -= STEP;
     }
+    announce();
     draw();
     requestAnimationFrame(frame);
   }
@@ -519,7 +722,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap', T = fine ? 'Click' : 'Tap';
-  document.getElementById('sky').setAttribute('aria-label', `Orbit Garden sky. ${T} to place a planet, drag upward to fling a seed.`);
+  document.getElementById('sky').setAttribute('aria-label', `Orbit Garden sky. ${T} to place a planet, drag upward to fling a seed. Keys: arrows move a cursor, Enter places a planet there, Space aims (arrows turn and set strength) and Space again flings, N jumps to the next planet.`);
 }
 </script>
 </body>
