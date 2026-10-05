@@ -120,6 +120,8 @@ warm-up's free pearl at 90° is on purpose. Placement notes: history.
    gauge readable? Warm-up too easy (novice 40%)? Level 4's "other way
    round"? Is ↻ found when mixed? Human scores for a par.
 3. Known gap: the door stays open 0.3 s (filter lag) after a cup reopens.
+4. Accessibility (`docs/accessibility.md`, 2026-10-05): the canvas has no
+   aria-label; add one (game, verbs) with `role="img"`.
 
 Level ideas: history (siphon, leak, tide room…). User,
 2026-10-02: differently shaped and open vessels; a **separator** in the

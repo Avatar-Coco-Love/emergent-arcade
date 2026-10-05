@@ -57,6 +57,7 @@ dusk for the first round, or check what share of gates the tester reached
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; ignores reduced motion; level counter 10 px at 3.5:1; canvas `role="img"`.
 - Skilled startle play finishes only ~4–5 s sooner than skilled lure play.
   Tapping nearer gates, tapping more often, or leading further after a tap
   all tied or lost. Gate 3 gains nothing from startle.

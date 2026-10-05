@@ -4,6 +4,13 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/pressure-grid.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## Moved from the notes (2026-10-05): open ideas
+
+- The leak still rarely matters (0 on solver lines); leaky cells and
+  vents are where order costs now (habit loses 1-2 on 6, 7, 9, 10).
+- Level 10's par equals 9's; its difficulty is the idea. Increment 3
+  can scale par up.
+
 ## v8 notes moved out in v9 (2026-10-01)
 
 Why 10/4/2 (first tries in the plan: threshold 12, pump 4, blast 3): with

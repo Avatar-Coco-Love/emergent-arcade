@@ -97,6 +97,7 @@ v3 raises the bar to 125.
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): the fire's orange glow on grass and plain olive grass merge for deuteranopia (where is it burning?); no keyboard play; ignores reduced motion; canvas `role="img"`.
 - Input takes only the first pointer down, so a resting palm or finger
   can't add strokes.
 - Hold the Line counts expected main-fire spread attempts into cut ground

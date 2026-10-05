@@ -6,7 +6,8 @@ line; the evidence and the full story are in `docs/findings-log.md` under
 the heading in *italics* (grep it, don't read the whole log).
 
 Evidence tags: **bots** = balance bots only (provisional), **players** =
-telemetry or feedback agrees, **n** = players behind it.
+telemetry or feedback agrees, **n** = players behind it, **audit** =
+`scripts/a11y-audit.mjs` ([accessibility.md](accessibility.md)).
 
 Adding one: write the full entry at the bottom of `docs/findings-log.md`,
 then add one line here under the right theme. If a later result confirms or
@@ -217,3 +218,20 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   then move those (a sweep along one wall took 2 of 3). One free pickup on
   the first level teaches what they are. *A collectible must sit off the
   solution's lanes.* Aqueduct. bots.
+
+## Accessibility
+
+- A keyboard line can list only housekeeping keys (undo, restart): read
+  it verb by verb; every verb needs a key path, and Tab stays the
+  browser's. 10 of 20 games need a pointer for every verb. *A keyboard
+  line can hide that no verb has a key.* audit.
+- Reduced motion: keep the simulation, stop the decoration (flicker,
+  smoke, shimmer). Only 1 game reads the setting. *Most games ignore
+  reduced motion; idle turn-based games pass for free.* audit.
+- Canvas text in a 400 px design space shrinks to 8–9 px at 360 px wide
+  and loses contrast over the scene: size it from the CSS width (12 px+),
+  give labels a backing. *Canvas text shrinks with the board.* audit.
+- State told by hue alone (fire glow on grass, red handle on brown wall,
+  yellow vs grey stars) merges for colour-blind players: add lightness or
+  shape. *Colour ramps that carry state merge for colour-blind players.*
+  audit.

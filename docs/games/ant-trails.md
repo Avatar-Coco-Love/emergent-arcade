@@ -112,15 +112,9 @@ and `stats`:
 `first_input` shows reading time on day 1. v5 shifts `level` by one (old day
 1 is now level 2): compare v4 and v5 data by day name, not number.
 
-## Player data (latest: 2026-09-29, same friend, on v4)
-
-"level 1 takes way too long to want to sit and see the next days. Maybe a
-fast forward feature would help, or maybe starting with a single pile close
-to home to let players get the feel. You gotta hook a player before they
-will stay and try others." v5 does both. (Earlier data in history.)
-
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): keys only fast-forward (drag, hold need a pointer); ignores reduced motion; bonus line 11.5 px; canvas `role="img"`.
 - After v5: does `ff_s` show up (which days, how much), and does the share of
   sessions reaching day 2 rise vs v4?
 - Not hand-played on a real phone yet (only rendered headlessly at 390×760).

@@ -17,4 +17,4 @@ design lives in `docs/games/<id>.md`.
 | `surprise-party.md` | turn-based contagion: whisper + door, news spreads as a wave | proposed (go/no-go next) |
 | `cipher-bench.md`, `gear-lock.md`, `deduction-grid.md`, `lights-out-gf2.md`, `factor-forge.md` | generated puzzles (see `puzzle-ideas.md`) | ideas, not built |
 | `geode.md` | simulation: seed, warm, cleave a growing crystal | built (v1), stub points to history |
-| `teachers.md` | seven ideas to help teachers use the arcade (teacher page, classroom mode, feedback form, per-game notes, class challenge, subject download, accessibility); 1, 2, 7 built 2026-10-05 | 1, 2, 7 built; 3–6 ideas |
+| `teachers.md` | seven ideas to help teachers use the arcade (teacher page, classroom mode, feedback form, per-game notes, class challenge, subject download, accessibility); 1, 2, 7 built 2026-10-05; 6 audited 2026-10-05 (`docs/accessibility.md`), per-game fixes listed; next: Wildfire Line accessibility revision (ready prompt) | 1, 2, 7 built; 6 audited, gallery fixed; 3–5 ideas |

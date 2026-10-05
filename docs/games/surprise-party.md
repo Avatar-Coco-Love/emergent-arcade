@@ -116,6 +116,7 @@ pool (season: envelopes left).
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): keys only wait/undo/restart (whisper, doors need a pointer); label doesn't name the verbs; no live region; canvas `role="img"`.
 - Novice (no undo, random slips) after 2 wrong taps: chapter 3 median 29%
   (3-4 *Long way round* 14%). Undo and the spoil warning are the safety net;
   watch human retries and undos per house in telemetry.

@@ -109,6 +109,7 @@ big-bubble (merged bubble leaves, v3); clockwork (chapter finished on the clock,
 
 ## Open ideas
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): keys turn the box only (hold, tap need a pointer); ignores reduced motion (small); canvas `role="img"`.
 - v3 playtest (next): does anyone play a whole chapter? Use `fetch-telemetry.mjs` and
   chapter leaderboards; humans were faster than `hinted` in v2.
 - Chapter 1 fixes in v3 (were open): level 1 second beat (novice 9→44 s, reader 5 s);

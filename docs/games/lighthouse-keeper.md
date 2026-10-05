@@ -122,6 +122,7 @@ None yet.
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): "harbour" label 8.5 px; ignores reduced motion; canvas `role="img"`.
 - **Flare is still short of its target:** never-flare scores ~89% of
   skilled at 0.5 s per action (target 80%), 76% at 1 s, tied at 2 s.
   It pays only on convoy nights, and only fired ~5 s before the reefs;

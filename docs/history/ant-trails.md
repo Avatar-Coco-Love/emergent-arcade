@@ -4,6 +4,15 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/ant-trails.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## Moved from the notes (2026-10-05)
+
+## Player data (latest: 2026-09-29, same friend, on v4)
+
+"level 1 takes way too long to want to sit and see the next days. Maybe a
+fast forward feature would help, or maybe starting with a single pile close
+to home to let players get the feel. You gotta hook a player before they
+will stay and try others." v5 does both. (Earlier data in history.)
+
 ## History
 
 - v1: first version.

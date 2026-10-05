@@ -115,6 +115,7 @@ and `stats`:
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; canvas `role="img"`.
 - Not hand-played on a real phone yet (rendered headlessly with mouse input
   at 390×700).
 - Bots win each shape in 6–12 s once they know the plan; a human's time goes

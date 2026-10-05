@@ -105,6 +105,7 @@ losses can be compared.
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; ignores reduced motion (small); canvas `role="img"`.
 - Stockpiler counts all packed grains, including the starting dunes (240).
 - Not a Grain Wasted counts spilled starting-dune sand against your poured total.
 - The top half of the screen is mostly open (one ledge row); a third row

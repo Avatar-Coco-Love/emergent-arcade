@@ -111,16 +111,9 @@ Wins carry `score` (run total). Losses: `reason` `restart` or `leave`
 (picked another level). `stats`: `moves`, `par`, `hints`, `undos`,
 `switches` (lever changes), `bounces`, `couples`.
 
-## Player data
-
-v1 (2026-10-01): 1 player (touch), 4 sessions, 7 rounds, all wins (L1-L3,
-L3 7 moves vs par 4); 4/4 sessions left mid-round ~18 s in. Feedback (the
-maintainer): hint text over OUT, yard not fully on screen until a
-full-screen toggle, gravel beds overlapping, tip shown under the level
-card. All fixed in v2.
-
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): takes Tab and Shift+Tab, so keyboard users can't leave the cabinet frame; "Run 0" 11.5 px; canvas `role="img"`.
 - Score ceiling: par is the optimum, so 10 levels cap the run at 1000.
   The uncapped mode is the Daily yard below.
 - Progress (side goals, badges, reached level) only lasts the visit in

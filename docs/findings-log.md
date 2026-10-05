@@ -751,3 +751,61 @@ most careful bot to the end of each round; if it can't finish and can't
 lose, the round needs a clock or a loss.
 
 *Evidence: bots. Provisional.*
+
+## A keyboard line can hide that no verb has a key
+
+Accessibility audit, 2026-10-05 (`docs/accessibility.md`). 13 of 20 games
+have a `keyboard` line, but read against the verbs, three of them (Pressure
+Grid, Ant Trails, Surprise Party) list only housekeeping keys (undo,
+restart, next, fast-forward, wait): every verb still needs a pointer.
+Three more reach one verb of two or three (Terrace Garden tilts but can't
+work gates, Bubble Glass turns but can't melt or shatter, Geode sets the
+thermostat but can't seed or cleave). Seven have no keys at all. So 10
+of 20 can't be played at all without a pointer and 3 only in part,
+though the gallery shows a "keys" row for 13. Rail Yard reaches every verb but uses Tab to pick a
+car, which keeps a keyboard user inside the cabinet's frame. Check: write
+the keyboard line verb by verb (one key path per verb), leave Tab to the
+browser, and add the game to the audit's `KEY_COVER`.
+
+*Evidence: audit script, keyboard lines read against each key handler.*
+
+## Most games ignore reduced motion; idle turn-based games pass for free
+
+Same audit. One game (Geode) reads `prefers-reduced-motion`, and its idle
+shimmer still moves. Games that wait for the player (Pressure Grid, Coat
+Check, Rail Yard, Surprise Party) are still while idle and pass without
+doing anything; simulations (Wildfire Line, Terrace Garden, Murmuration)
+keep 1–5% of the screen moving. A simulation's motion is the game and
+stays; what the setting should stop is decoration: flicker, drifting
+smoke, shimmer, screen shake. Check: list each animation in the draw code
+as rule or decoration, and gate the decoration on the media query.
+
+*Evidence: audit script (idle frame diffs with and without the setting).*
+
+## Canvas text shrinks with the board
+
+Same audit. Every small or faint text left after the gallery fixes was
+canvas text: labels drawn at a fixed size in the game's 400 px design
+space come out at 8.5–9.4 px on a 360 px phone (Tidewright's "flood",
+Lighthouse Keeper's "harbour", Island Census's HUD, Geode's labels), and
+labels drawn over the scene (Tidewright's "flood" on sand, Pressure
+Grid's 0s on brown cells) drop to 1.3–2.0:1. The DOM side was fixed with
+a handful of CSS lines. Check: size canvas text from the CSS width (at
+least 12 CSS px at 360 px wide), and draw labels on their own backing or
+strip, not over the scene (same rule as messages: *Text over the board
+and a stale fit read as broken*).
+
+*Evidence: audit script (canvas `fillText` calls sampled against the screenshot).*
+
+## Colour ramps that carry state merge for colour-blind players
+
+Same audit. Wildfire Line's fire glow (orange over grass) and its olive
+high-fuel grass merge for deuteranopia: a player can't see where it burns.
+Tidewright's red gate handles merge with the brown wall for protanopia.
+Both are hue-only differences of similar lightness. The gallery had the
+same issue in its rating stars (yellow on, grey off), now hollow vs filled.
+Check: simulate deuteranopia and protanopia on a screenshot (the audit
+does); anything a player must read gets a lightness or shape difference,
+not only a hue.
+
+*Evidence: audit script (Machado 2009 simulation, colour pairs by screen share).*

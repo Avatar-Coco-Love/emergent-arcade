@@ -5,10 +5,13 @@ depend on any of it (each one still plays when its file is opened
 directly). Read this file, not old PR bodies, before changing the gallery.
 Check changes with `node scripts/smoke-gallery.mjs` (Playwright, one line
 per check at 360×740, 740×360 and 1280×800; screenshots go to `--out`).
+Accessibility: `node scripts/a11y-audit.mjs --gallery` (below, CI runs it).
 
 Playtest (private artifact, feedback/telemetry disabled in that copy):
 https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
-(republished for the teacher page PR: footer "For teachers", the
+(republished for the accessibility audit PR: darker light-theme accent,
+field borders, 12 px minimum text, hollow/filled rating stars. Before
+that, for the teacher page PR: footer "For teachers", the
 classroom link (`?class=1` doesn't reach inside the artifact frame, so try
 classroom mode with the note's Turn off after opening the copied link
 elsewhere, or locally); the form falls back to a GitHub issue there.
@@ -273,6 +276,26 @@ logs a `share` row with `from: "gallery"`.
   `window.parent` as a stand-in that receives `arcade:achievement`, saves it
   under the same key the gallery uses, and shows a toast. It does nothing
   inside a frame. The output passes `scripts/self-contained.mjs`.
+
+## Accessibility
+
+Audited by `scripts/a11y-audit.mjs` (results and checks:
+[accessibility.md](accessibility.md)); the gallery, cabinet (every panel),
+teacher page and classroom note must pass, and CI fails if they don't.
+Rules the audit enforces, from its first run (2026-10-05):
+
+- Text is AA (4.5:1) in both themes. Light `--accent` is `#006fa6`
+  (links, pills, chips; the old `#0a84c6` was 3.7:1), `--good` `#1a7a43`,
+  `--star` `#a87700`.
+- Form fields use `--field-border` (light `#7c7c8a`, dark `#737380`, 3:1+);
+  `--border` stays for cards and panels, where it's decoration.
+- No text under 12 px (0.75rem) at phone width.
+- State is never colour alone: rating stars are hollow when off, pressed
+  chips are filled.
+- Every Tab stop shows a 3:1 focus ring; Play puts focus in the game frame
+  and Shift+Tab leaves it (unless the game keeps Tab: Rail Yard).
+- `prefers-reduced-motion` turns off every animation and transition (the
+  `@media (prefers-reduced-motion: reduce)` block in `gallery.css`).
 
 ## Content Security Policy
 
