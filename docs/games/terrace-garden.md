@@ -1,6 +1,6 @@
 # Terrace Garden: design notes
 
-**v4** (2026-10-05, accessibility; v3 canvas label, v2 2026-09-29) · playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV ·
+**v4** (2026-10-05, accessibility, PR #106; v3 canvas label, v2 2026-09-29) · playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV ·
 balance: `node scripts/balance-terrace-garden.mjs 100`
 Mechanics: **tilt** (phone tilt, tilt bar, or ← → / A D) and **gate** (tap, or keys),
 sharing the **water depth in every column** of a stepped hillside. A warm-up
