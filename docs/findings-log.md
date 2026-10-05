@@ -949,3 +949,37 @@ go round); a pick among a fixed set must cover the set.
 
 *Evidence: reachability script over 500 seeded islands: 0 meadows and 890
 → 0 paths unreachable.*
+
+## When the simulation is the motion, a motion partial is the end state
+
+Murmuration v6. The audit's motion check passes a game that reads
+`prefers-reduced-motion` only if idle motion drops below 60% of normal.
+Murmuration read the setting and froze its decoration (the lure's pulse,
+the startle ring's spread, on a `still()` clock), and the cell stayed at
+"reads the setting, motion unchanged (0.9% → 0.9%)". A copy that skipped
+drawing the birds measured 0.00% idle change over the same five frame
+pairs, so every changed pixel was the flock, which the brief makes the
+game. Slowing the simulation would change balance and timing. Record the
+cell as partial by design, and measure with the moving game pieces hidden
+before spending effort on decoration.
+
+*Evidence: idle diff 1.39–1.42% with birds, 0.00% without (reduced
+motion, the audit's taps); audit 3/3 runs motion partial, other 5 pass.*
+
+## A held key verb needs a cursor that can get ahead
+
+Murmuration v6. Keys: arrows move a cursor while held, Space held lures
+toward it, Enter or X startles at it. The lure spooks birds within 30
+units, so where the cursor sits when the hold starts matters. It first
+started at the flock's edge: screenshots with Space held showed the flock
+flushing red. A keys-only bot that held Space from the start, with the
+cursor lagging, cleared 1 gate in 3 runs and lost birds every run.
+Holding Space only once the cursor was ahead of the flock, starting it
+clear of the birds (170, 430) and ramping its speed while an arrow is held
+(110 → 260 units/s over 0.6 s; a calm bird flies up to 100) cleared 1–2
+gates in 4/4 runs. The pointer never had this problem: a finger can land
+anywhere at once.
+
+*Evidence: keys-only bot (only `page.keyboard`), 4 runs per variant;
+screenshots at 360×740.*
+

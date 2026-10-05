@@ -441,6 +441,7 @@ const KEY_COVER = {
   "surprise-party": ["Space or W to wait, U to undo, R to restart, Enter for the next house", []],
   "geode": ["← → set the temperature · H harvest · M sound", ["drag"]],
   "island-census": ["Arrows pick a meadow · Enter/Space release rabbits · F then an arrow picks a path, F fences/unfences it · N next season", ALL],
+  "murmuration": ["Arrows move the cursor · hold Space to lure toward it · Enter or X startles at it · Enter flies again after a round", ALL],
   "wildfire-line": ["Arrows move the cursor · Space starts or stops cutting along its path · Enter lights a backburn at the cursor", ALL],
 };
 

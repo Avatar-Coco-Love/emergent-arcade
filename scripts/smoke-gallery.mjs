@@ -176,7 +176,8 @@ for (const vp of VIEWPORTS) {
     assert((await page.locator(".game-card .chips").first().textContent()).includes(`· ${W("tap")}`), "card chip verb");
     assert((await page.locator("#arcadeInfoDialog [data-verb]").textContent()) === W("tap"), "About the arcade verb");
     // Every game's About panel: filled placeholders, translated verb tags.
-    const g = games.find((x) => x.mechanics.some((m) => m.verb === "hold") && /\{finger\}/.test(JSON.stringify(x)));
+    // A game without a keyboard line, so the keyboard row must stay hidden.
+    const g = games.find((x) => !x.keyboard && x.mechanics.some((m) => m.verb === "hold") && /\{finger\}/.test(JSON.stringify(x)));
     await page.goto(`${base}#/play/${g.id}`);
     await page.waitForSelector("#panel:not([hidden])");
     const tags = await page.locator("#aboutControls .verb-tag").allTextContents();
