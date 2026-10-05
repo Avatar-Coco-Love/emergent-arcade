@@ -27,6 +27,9 @@ ideas", and in `ideas/teachers.md`, idea 6).
 
 Motion numbers (share of the screen changing while idle) vary between runs
 with what the audit's taps started; "ignores the setting" is the finding.
+When the moving thing is the game itself (Murmuration's flock: 0.00% idle
+motion with the birds hidden), "reads the setting, motion unchanged" is
+the honest end state, not a fix still owed.
 
 ## Results
 
@@ -36,7 +39,7 @@ with what the audit's taps started; "ignores the setting" is the finding.
 | cabinet | pass | pass | pass (stars fixed) | pass | pass | pass (fixed) |
 | teacher page | pass | pass (fixed) | pass | pass | pass | pass |
 | classroom note | pass | pass | pass | pass | pass | pass |
-| murmuration | partial: ignores it, flock moves | partial: counter 3.5:1 | pass | fail: none | pass (labelled) | partial: 10 px |
+| murmuration | partial (v6: reads it; all idle motion is the flock) | pass (v6: backings) | pass | pass (v6: cursor, hold Space, X) | pass (v6, live region) | pass (v6) |
 | orbit-garden | pass | pass | pass | fail: none | pass (labelled) | pass |
 | wildfire-line | pass (v4) | pass | pass (v4: lightness bands) | pass (v4: cursor) | pass (v4) | pass |
 | ant-trails | partial: ignores it | pass | pass | fail: fast-forward only | pass (labelled) | partial: 11.5 px |

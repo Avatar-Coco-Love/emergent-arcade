@@ -11,6 +11,9 @@ top of the relevant section; sessions don't read this file by default.
 - v4: no gameplay change. Posts `arcade:result` when a round ends, for play
   telemetry. Bot numbers above still apply; compare humans with
   `node scripts/fetch-telemetry.mjs --game murmuration` (see `docs/telemetry.md`).
+- v5: canvas label (role, verbs, device word). v6: accessibility (keys,
+  live region, gate count 12.5 px+ on a backing, reduced motion read); no
+  gameplay change, bots reproduce v5 exactly.
 
 ## Gate 4 (v3 change)
 

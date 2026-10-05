@@ -55,15 +55,21 @@
   #msg {
     position: absolute;
     top: 10px;
-    left: 8px;
-    right: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 16px);
     margin: 0;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(13, 11, 22, 0.82); /* white text over a sunset sky was under 4.5:1 */
     text-align: center;
     font-size: 0.85rem;
     color: #fff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
     pointer-events: none;
   }
+  #msg:empty { display: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #endCard {
     position: absolute;
     left: 50%;
@@ -110,8 +116,9 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="sky" role="img" aria-label="Murmuration sky. Hold to lure the flock, tap or click to startle it."></canvas>
-      <p id="msg" role="status"></p>
+      <canvas id="sky" role="img" aria-label="Murmuration sky. Hold to lure the flock, tap or click to startle it. Keys: arrows move a cursor, hold Space to lure, Enter or X startles."></canvas>
+      <p id="msg" aria-hidden="true"></p>
+      <p id="say" class="sr" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -203,6 +210,9 @@
   // Drawing always uses W x H game units (draw() sets the transform).
   const field = document.getElementById('field');
   const stage = document.getElementById('stage');
+  // Canvas text in sky units, never under 12.5 CSS px (cssK: CSS px per unit).
+  let cssK = 1;
+  const fs = n => Math.max(n, Math.ceil(12.5 / cssK));
   function fitSky() {
     const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
     const w = Math.max(80, Math.floor(W * scale));
@@ -210,6 +220,7 @@
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     stage.style.width = w + 'px';
     stage.style.height = h + 'px';
+    cssK = w / W;
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
   }
@@ -220,7 +231,7 @@
   // The gallery pauses the game while one of its panels covers it.
   let paused = false;
   window.addEventListener('message', evt => {
-    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; releaseLure(); }
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; releaseLure(); keysUp(); }
     if (evt.data && evt.data.type === 'arcade:resume') paused = false;
   });
 
@@ -228,7 +239,7 @@
   const hudDusk = document.getElementById('hudDusk');
   const playAgainBtn = document.getElementById('playAgain');
 
-  let birds, gate, passed, startles, elapsed, state, msgTimer, lure, rings, shock;
+  let birds, gate, passed, startles, elapsed, state, msgTimer, lure, rings, shock, lastClear = 0;
   const roundEarned = new Set();
 
   function newFlock() {
@@ -256,6 +267,8 @@
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
+    heard = { gate: 0, birds: START_BIRDS, lostAt: 0, light: 0 };
+    [kb.x, kb.y] = CUR_START;
     say('Guide the flock through the glowing gate before night falls.');
   }
 
@@ -280,6 +293,7 @@
     // Taps that were already on their way must not skip this.
     playAgainBtn.disabled = true;
     endCard.hidden = false;
+    speak(`${title.textContent}. ${document.getElementById('endDetail').textContent}${n ? ' ' + document.getElementById('endAch').textContent.replace('🏆 ', '') + '.' : ''} Enter to fly again.`);
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
   }
 
@@ -290,8 +304,44 @@
 
   function say(text) {
     msgEl.textContent = text;
+    speak(text);
     clearTimeout(msgTimer);
     msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
+  }
+
+  // § live region: screen readers hear what changed, at most once a frame
+  // (gates, birds lost, light left, the result), never the frame itself.
+  const sayEl = document.getElementById('say');
+  let spoken = [], heard;
+  function speak(text) { spoken.push(text); }
+  function flushSpeech() {
+    if (!spoken.length) return;
+    sayEl.textContent = spoken.join(' ');
+    spoken = [];
+  }
+  const LIGHT_MARKS = [30, 15, 5];  // seconds of light left worth a line
+  function announce() {
+    if (state !== 'playing') return flushSpeech();
+    if (gate > heard.gate) {
+      heard.gate = gate;
+      const left = GATES.length - gate;
+      speak(`Gate ${gate} cleared with ${lastClear} birds. ${left} gate${left === 1 ? '' : 's'} left.`);
+    }
+    // Losses come in bursts: say the new size once it has held for a second.
+    if (birds.length < heard.birds) {
+      if (!heard.lostAt) heard.lostAt = elapsed;
+      if (elapsed - heard.lostAt >= 1) {
+        heard.birds = birds.length;
+        heard.lostAt = 0;
+        speak(`Flock down to ${birds.length} birds${birds.length < GATE_NEED + 5 ? `; a gate needs ${GATE_NEED}` : ''}.`);
+      }
+    }
+    const left = DUSK - elapsed;
+    while (heard.light < LIGHT_MARKS.length && left <= LIGHT_MARKS[heard.light]) {
+      if (left > LIGHT_MARKS[heard.light] - 1) speak(`${LIGHT_MARKS[heard.light]} seconds of light left.`);
+      heard.light++;
+    }
+    flushSpeech();
   }
 
   function gateEnds(g) {
@@ -312,7 +362,7 @@
   // ---------- mechanic 1: lure (hold) ----------
   // Calm birds are drawn to the lure; fear cancels its pull. Packing the
   // flock tight around it raises fear through crowding (see step()).
-  function releaseLure() { lure = null; }
+  function releaseLure() { lure = null; kb.lure = false; }
 
   // ---------- mechanic 2: startle (tap) ----------
   // Writes fear directly and shoves nearby birds away from the tap.
@@ -451,6 +501,7 @@
     rings = rings.filter(r => r.t < 0.5);
 
     if (passed.size >= GATE_NEED) {
+      lastClear = passed.size;
       gate++;
       passed = new Map();
       if (gate === 1) unlock('first-gate');
@@ -475,6 +526,10 @@
   function mix([a, b], t) {
     return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
   }
+  // Reduced motion: the flock is the game and keeps flying; decoration (the
+  // lure's pulse, the startle ring's spread) runs on its own clock, frozen.
+  const motionQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const still = () => motionQ.matches;
   const STARS = [];
   for (let i = 0; i < 40; i++) STARS.push([Math.random() * W, Math.random() * H * 0.6, 0.5 + Math.random() * 0.8]);
   function draw() {
@@ -508,12 +563,22 @@
         ctx.strokeStyle = '#ffd166';
         ctx.lineWidth = 4;
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t); ctx.stroke();
-        ctx.fillStyle = '#fff';
-        ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        // Count beside the gate line, not on it, on a dark backing: white on
+        // the sunset sky was 3.5:1, and birds fly behind it.
+        const f = fs(12), label = `${passed.size}/${GATE_NEED}`;
+        ctx.font = `600 ${f}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         ctx.textAlign = 'center';
-        // Label beside the gate line, not on it.
-        const a = GATES[k].a * Math.PI / 180;
-        ctx.fillText(`${passed.size}/${GATE_NEED}`, GATES[k].x + Math.sin(a) * 16, GATES[k].y - Math.cos(a) * 16 + 4);
+        ctx.textBaseline = 'middle';
+        const a = GATES[k].a * Math.PI / 180, off = 10 + f * 0.6;
+        const lx = GATES[k].x + Math.sin(a) * off, ly = GATES[k].y - Math.cos(a) * off;
+        const bw = ctx.measureText(label).width + f * 0.8, bh = f * 1.5;
+        ctx.fillStyle = 'rgba(13,11,22,0.85)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(lx - bw / 2, ly - bh / 2, bw, bh, f * 0.4); else ctx.rect(lx - bw / 2, ly - bh / 2, bw, bh);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, lx, ly + 1);
+        ctx.textBaseline = 'alphabetic';
       }
       ctx.fillStyle = '#fff';
       for (const [px, py] of [[x1, y1], [x2, y2]]) {
@@ -523,15 +588,17 @@
     }
 
     // Startle shockwaves.
+    // (Reduced motion: the ring shows the startle's reach and fades, no spread.)
     for (const r of rings) {
       ctx.strokeStyle = `rgba(255,255,255,${0.7 * (1 - r.t / 0.5)})`;
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(r.x, r.y, STARTLE_R * (0.3 + 0.7 * r.t / 0.5), 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(r.x, r.y, STARTLE_R * (still() ? 1 : 0.3 + 0.7 * r.t / 0.5), 0, Math.PI * 2); ctx.stroke();
     }
 
     // Lure.
     if (lure && lure.on) {
-      const pulse = 10 + 3 * Math.sin(performance.now() / 150);
+      const tm = still() ? 0 : performance.now();
+      const pulse = 10 + 3 * Math.sin(tm / 150);
       ctx.strokeStyle = 'rgba(255,255,255,0.75)';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(lure.x, lure.y, pulse, 0, Math.PI * 2); ctx.stroke();
@@ -564,6 +631,8 @@
       ctx.restore();
     }
 
+    if (kb.shown && state === 'playing') drawCursor();
+
     document.getElementById('hudBirds').textContent = birds.length;
     document.getElementById('hudGate').textContent = `${Math.min(gate + 1, GATES.length)}/${GATES.length}`;
     document.getElementById('hudStartles').textContent = startles;
@@ -582,6 +651,7 @@
 
   canvas.addEventListener('pointerdown', evt => {
     evt.preventDefault();
+    kb.shown = false;
     if (state !== 'playing' || paused) return;
     canvas.setPointerCapture(evt.pointerId);
     pointerDown = true;
@@ -618,15 +688,101 @@
   document.getElementById('resetBtn').addEventListener('click', newFlock);
   playAgainBtn.addEventListener('click', newFlock);
 
+  // § keys: the same verbs without a pointer. Arrows move a cursor over the
+  // sky while held (slow at first for aiming a startle, then fast enough to
+  // lead the flock), Space held lures toward it (letting go stops, like
+  // lifting a finger), Enter or X startles at it. Same startle() and lure as
+  // the pointer, so the simulation can't tell the difference.
+  const CUR_SLOW = 110, CUR_FAST = 260, CUR_RAMP = 0.6; // sky units per second; seconds to full speed
+  const DIRS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  // The cursor starts between the flock and gate 1, clear of the birds (a
+  // lure on top of them spooks them).
+  const CUR_START = [170, 430];
+  const kb = { x: CUR_START[0], y: CUR_START[1], held: new Set(), heldFor: 0, lure: false, shown: false };
+  function keysUp() {
+    kb.held.clear();
+    if (kb.lure) { kb.lure = false; releaseLure(); }
+  }
+  function moveCursor(dt) {
+    let dx = 0, dy = 0;
+    for (const k of kb.held) { dx += DIRS[k][0]; dy += DIRS[k][1]; }
+    if (!dx && !dy) { kb.heldFor = 0; }
+    else {
+      kb.heldFor += dt;
+      const v = (CUR_SLOW + (CUR_FAST - CUR_SLOW) * Math.min(1, kb.heldFor / CUR_RAMP)) * dt / Math.hypot(dx, dy);
+      kb.x = Math.max(0, Math.min(W, kb.x + dx * v));
+      kb.y = Math.max(0, Math.min(H, kb.y + dy * v));
+    }
+    if (kb.lure && lure) { lure.x = kb.x; lure.y = kb.y; }
+  }
+  function drawCursor() {
+    // A dark ring under a white one reads on the sunset and the night sky;
+    // the dashed circle is the startle's reach.
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(kb.x, kb.y, STARTLE_R, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    for (const [c, w] of [['rgba(13,11,22,0.9)', 5], ['#fff', 2]]) {
+      ctx.strokeStyle = c;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.arc(kb.x, kb.y, 8, 0, Math.PI * 2);
+      ctx.moveTo(kb.x - 14, kb.y); ctx.lineTo(kb.x - 8, kb.y);
+      ctx.moveTo(kb.x + 8, kb.y); ctx.lineTo(kb.x + 14, kb.y);
+      ctx.moveTo(kb.x, kb.y - 14); ctx.lineTo(kb.x, kb.y - 8);
+      ctx.moveTo(kb.x, kb.y + 8); ctx.lineTo(kb.x, kb.y + 14);
+      ctx.stroke();
+    }
+  }
+  window.addEventListener('keydown', evt => {
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    const k = evt.key === ' ' ? 'space' : evt.key.toLowerCase();
+    if (onButton && (k === 'enter' || k === 'space')) return; // the focused button presses itself
+    if (evt.key in DIRS) {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (paused || state !== 'playing') return;
+      kb.held.add(evt.key);
+      kb.shown = true;
+      return;
+    }
+    if (paused) return;
+    if (state !== 'playing') {
+      if (k === 'enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); newFlock(); }
+      return;
+    }
+    if (k === 'space') {
+      evt.preventDefault();
+      kb.shown = true;
+      if (evt.repeat || kb.lure || pointerDown) return;
+      kb.lure = true;
+      lure = { x: kb.x, y: kb.y, on: true };
+    } else if (k === 'enter' || k === 'x') {
+      evt.preventDefault();
+      kb.shown = true;
+      if (!evt.repeat) startle(kb.x, kb.y);
+    }
+  });
+  window.addEventListener('keyup', evt => {
+    if (evt.key in DIRS) kb.held.delete(evt.key);
+    if (evt.key === ' ' && kb.lure) { kb.lure = false; releaseLure(); }
+  });
+  window.addEventListener('blur', keysUp);
+
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   function frame(now) {
-    acc += Math.min((now - last) / 1000, 0.1);
+    const dt = Math.min((now - last) / 1000, 0.1);
+    acc += dt;
     last = now;
+    if (state === 'playing' && !paused) moveCursor(dt);
     while (acc >= STEP) {
       if (state === 'playing' && !paused) step(STEP);
       acc -= STEP;
     }
+    announce();
     draw();
     requestAnimationFrame(frame);
   }
@@ -639,7 +795,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap', H = fine ? 'Click and hold' : 'Hold';
-  document.getElementById('sky').setAttribute('aria-label', `Murmuration sky. ${H} to lure the flock, ${t} to startle it.`);
+  document.getElementById('sky').setAttribute('aria-label', `Murmuration sky. ${H} to lure the flock, ${t} to startle it. Keys: arrows move a cursor, hold Space to lure, Enter or X startles.`);
 }
 </script>
 </body>

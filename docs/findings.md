@@ -291,3 +291,17 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   least-turn matching (≤ 24 orders for 4), cycle extras on a repeat.
   Cursor moves can stay nearest-wins. *Picking by arrow direction needs a
   matching, not a nearest.* Island Census v3. reachability script.
+- Before chasing the motion cell, hide the game's moving pieces and
+  measure again: Murmuration's idle motion was 0.9% with the flock and
+  0.00% without it, so freezing decoration (lure pulse, startle ring)
+  couldn't move the number. When the simulation is the motion, "reads
+  it, unchanged" is the honest end state. *When the simulation is the
+  motion, a motion partial is the end state.* Murmuration v6. audit +
+  hidden-birds diff.
+- A held verb that punishes closeness (the lure spooks birds within 30)
+  needs a cursor placed before the hold: the cursor started on the
+  flock's edge, so Space spooked it at once, and a keys bot holding
+  Space while the cursor lagged scattered the flock. Start the cursor
+  clear of the target, and let it speed up while held (110 → 260 units/s
+  vs a flock at 100) so it can get ahead. *A held key verb needs a cursor
+  that can get ahead.* Murmuration v6. keys-only bot.

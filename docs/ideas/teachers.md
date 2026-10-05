@@ -12,7 +12,7 @@ the games, not just play them.
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
-| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
+| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
@@ -73,7 +73,7 @@ labels are done for every game (2026-10-05, one batch PR): `role="img"`,
 the game and its verbs, "click" on PC, the keys. "No live region" means
 no status text in the DOM, so a screen reader hears nothing change.
 
-- murmuration: no keyboard play; ignores reduced motion; counter 10 px at 3.5:1.
+- murmuration: done (v6, 2026-10-05): a cursor that moves while an arrow is held, hold Space to lure, Enter or X to startle, gate count 12.5 px+ on a backing, a live region (gates, losses, light left), reduced motion read (decoration frozen; the flock still flies, so motion stays partial) (`docs/games/murmuration.md`, "Accessibility").
 - orbit-garden: no keyboard play.
 - wildfire-line: done (v4, 2026-10-05): ground told apart by lightness, keyboard cursor for both verbs, reduced motion, role and label. The pattern for the others (`docs/games/wildfire-line.md`, "Accessibility").
 - ant-trails: keys only fast-forward; ignores reduced motion; bonus line 11.5 px.
@@ -288,7 +288,7 @@ Revise Island Census for accessibility (docs/accessibility.md, its row; docs/ide
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Murmuration accessibility revision (prompt below)
+## Prompt used for the Murmuration accessibility revision (done, v6)
 
 Chosen 2026-10-05, after Island Census v3. Still no classroom reports
 (0), so 3 vs 4 keeps waiting on what teachers ask for. Murmuration now has
@@ -313,6 +313,34 @@ Revise Murmuration for accessibility (docs/accessibility.md, its row; docs/ideas
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs murmuration, node scripts/balance-murmuration.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly), node scripts/a11y-audit.mjs murmuration (all six pass, several runs), and a keys-only playthrough that clears at least one gate. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/murmuration.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/murmuration.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Geode accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Murmuration v6. Still no classroom reports (0),
+so 3 vs 4 keeps waiting on what teachers ask for. Geode now has the most
+serious row left: 3 of 6 not passing, including a fail (8 of 14 labels
+under 12 px, smallest 9.4 px), keys that reach only the thermostat (seed
+is a tap, cleave a hold) and a shimmer that stays with reduced motion
+although the game reads the setting. Its ← → are already the thermostat,
+so the cursor needs a scheme that doesn't take them over silently.
+
+```
+Revise Geode for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: seed and cleave on keys, readable labels, reduced motion that stills the shimmer. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/geode.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "A motion pass can mean small, not still", "When the simulation is the motion, a motion partial is the end state", "A held key verb needs a cursor that can get ahead" and "Canvas text shrinks with the board"), docs/games/murmuration.md and docs/games/island-census.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game geode. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Text and contrast: the labels (8 of 14 texts under 12 px, smallest 9.4 px "grow" at 360 px wide) and every other canvas label at least 12 CSS px at 360 px wide (size from the CSS width, an fs() like Island Census and Murmuration), 4.5:1 against what is behind them, with backings where text sits over the crystal or the glow. Check with node scripts/a11y-audit.mjs geode: contrast and text must pass.
+
+3. Reduced motion: Geode already reads prefers-reduced-motion, but the shimmer stays (1.2% → 0.9%). First measure what moves while idle with the crystal's growth hidden (findings, "When the simulation is the motion…"): growth is the game, shimmer and glow pulses are decoration. Give decoration its own clock and freeze it. Colour must still pass on several runs, including a screen late in a round; screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+4. Keyboard: the thermostat already has ← →; add seed and cleave without a pointer: a cursor over the crystal's open sites and ions (arrow keys, but ← → are taken: pick a scheme with no chords, e.g. a key that switches the arrows between thermostat and cursor, or a cursor that steps site to site on its own keys), Enter or S seeds at the cursor's open site, and cleave as a hold (e.g. hold C on an ion; releasing early cancels, like lifting a finger). Keys call the same functions as the pointer. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what matters, short and not on every frame (what is under the cursor, a seed placed, what a cleave removed, strain or melt warnings, the result). Update the keyboard line in the manifest, the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs geode, node scripts/balance-geode.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly), node scripts/a11y-audit.mjs geode (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that seeds and cleaves. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/geode.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/geode.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```

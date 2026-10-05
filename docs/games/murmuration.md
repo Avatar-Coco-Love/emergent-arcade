@@ -1,6 +1,6 @@
 # Murmuration: design notes
 
-**v5** (2026-10-05, canvas label; v4 2026-09-27) · playtest: none · balance: `node scripts/balance-murmuration.mjs 300`
+**v6** (2026-10-05, accessibility: keys, live region, readable count, reduced motion; v5 canvas label) · playtest: https://claude.ai/artifact/WM5YoxYKzykKTMw9nFuLQm · balance: `node scripts/balance-murmuration.mjs 300`
 **Lure** (hold) and **startle** (tap), sharing **fear per bird**. v4 = v3 gameplay
 (PR #10) plus `arcade:result` telemetry.
 
@@ -9,6 +9,32 @@
 Win: 15+ birds through each of 5 gates, in order, within `GATE_WINDOW` s of each
 other, before night (`DUSK`). Lose: night falls, or the flock drops below 15.
 7 achievements (in `games/games.json`); Swift = finish with `SPARE` s of light left.
+
+## Accessibility (v6, `node scripts/a11y-audit.mjs murmuration`: 5 pass, motion partial by design, 3/3 runs)
+
+- Gate count `n/15` from `fs(12)` (≥ 12.5 CSS px; 15 sky units at 360 px
+  wide, was 10.2 px) on a dark backing (`rgba(13,11,22,0.85)`): lowest
+  text 7.5:1 (was 3.5:1, white on the sunset sky). `#msg` on the same
+  backing. Colour passes early and at dusk (51 s), cursor and lure showing.
+- Keys (`// § keys`): arrows move a cursor while held (110 → 260 sky
+  units/s over 0.6 s: slow to aim a startle, faster than a calm bird's 100
+  to get ahead of the flock), hold Space lures toward it (key up = finger
+  up), Enter or X startles at it, Enter after a round flies again. Same
+  `lure` / `startle()` as the pointer. The cursor (dashed ring = startle
+  reach) starts at 170, 430, clear of the flock: on the flock's edge,
+  Space at once spooked it. Tab free; Space/Enter on a focused button
+  press the button. A pointer press hides the cursor.
+- Live region `#say` (hidden; `#msg` is `aria-hidden`, its text goes
+  through `say()`): gate cleared with how many birds and gates left, flock
+  size once a loss has held 1 s (adds "a gate needs 15" under 20), 30/15/5
+  s of light, the result. Written once a frame from state, not from
+  `step()` (one capture: `lastClear`).
+- Reduced motion: read; the lure stops pulsing, the startle ring shows its
+  reach and fades without spreading. Motion stays **partial**: with birds
+  hidden the idle diff is 0.00%, so all of it (~0.9%) is the flock, which
+  is the game (findings, "When the simulation is the motion…").
+- Balance bots reproduce v5 exactly (no render `Math.random`); keys-only
+  bot (cursor + Space, one X) cleared 1–2 gates in 4/4 runs.
 
 ## Key constants (`games/murmuration.html`, top of the script)
 
@@ -45,7 +71,12 @@ Grep `const [A-Z_]* = ` for the rest (flocking, edges, input timing).
 Compare humans with `node scripts/fetch-telemetry.mjs --game murmuration`
 (`docs/telemetry.md`).
 
-## Player data (2026-09-28: one tester, touch; `fetch-telemetry.mjs`)
+## Player data (`fetch-telemetry.mjs`)
+
+2026-10-05: v4 7 players, 14 rounds, 36% won (win median 33 s); v5 3
+players, 4 rounds, 25%. Bots at 60 s: 47–89%. Still below every bot.
+
+2026-09-28 (one tester, touch):
 
 v4: 2 rounds (two sessions), **both lost at 60 s** (nightfall). Bots at
 60 s: lure80 79%, smart90 89%, even lure60 47%. So the tester was slower
@@ -57,7 +88,9 @@ dusk for the first round, or check what share of gates the tester reached
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; ignores reduced motion; level counter 10 px at 3.5:1.
+- Accessibility: done in v6 except motion (the flock). A keyboard player
+  can't see where the next gate is relative to the cursor by ear; a
+  "next gate up and left" line on demand (e.g. G) would help.
 - Skilled startle play finishes only ~4–5 s sooner than skilled lure play.
   Tapping nearer gates, tapping more often, or leading further after a tap
   all tied or lost. Gate 3 gains nothing from startle.
