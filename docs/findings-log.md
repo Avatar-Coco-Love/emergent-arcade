@@ -1206,8 +1206,8 @@ sign it is about to pop. Reduced motion stops the shake, blink, flash,
 lint and flying pins (their `Math.random` calls stay; 16 bots × 100 seeds
 identical). The motion cell was a state pass again: a settled net is
 0.00% idle in any setting, and the decoration only moves around a loose
-pin or an over-limit strand (frozen scene: v3 0.13–0.17% in either
-setting, v4 0.41% → 0.00% under it).
+pin or an over-limit strand (frozen scene: v3 0.13–0.19% in either
+setting, v4 0.39–0.41% → 0.00% under it).
 
 *Evidence: L* by number, v3 vs v4; screenshots at 360×740 normal,
 deutan, protan, before and after; audit colour on 2 scripted late

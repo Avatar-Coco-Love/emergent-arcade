@@ -106,8 +106,8 @@ Achievement rates: `docs/history/loom.md`, "Shapes (v2)".
   2 scripted late screens too.
 - Reduced motion (`still()`): no flash, shake, blink, lint, flying pins
   (`Math.random` calls kept). v3's pass was a state pass (settled net
-  0.00% idle); a frozen loose-pin + over-limit scene moves 0.13–0.17% in
-  v3 either way, 0.41% → 0.00% in v4. `#msg` on a backing, 6.9:1, 13.6 px.
+  0.00% idle); a frozen loose-pin + over-limit scene moves 0.13–0.19% in
+  v3 either way, 0.39–0.41% → 0.00% in v4. `#msg` on a backing, 6.9:1, 13.6 px.
 - Balance identical to v3 (16 bots × 100, old file twice first). Keys-only
   bot (live region only, 3 runs): Tablecloth 7–8 s, Banner 10–11 s, 0
   slips; Sail lost (its corner plan misses the taut-edge dots).
