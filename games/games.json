@@ -665,10 +665,15 @@
       "id": "hot-iron",
       "title": "Hot Iron",
       "file": "hot-iron.html",
-      "version": 5,
+      "version": 6,
       "added": "2026-09-27",
       "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 6,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Keys now heat and strike (arrows move a cursor along the bar), screen readers hear the bar's heat and each blow, dull red shows a crack mark and white-hot a flame, and reduced motion stills the sparks and shake."
+        },
         {
           "version": 5,
           "date": "2026-10-05",
@@ -697,7 +702,8 @@
       ],
       "blurb": "Heat an iron bar and hammer it into shape: heat decides where the metal goes.",
       "goal": "Hammer the bar until every segment matches the dashed outline. Three cracks, or running out of fuel with nothing left hot enough to work, ends the round.",
-      "howToPlay": "{Hold} anywhere above or below the bar to heat the part under your {finger} ({slide} to move the heat); it burns fuel from the gauge at the top. Heat spreads along the bar and always fades, and thin metal heats and cools faster. {Tap} to strike a segment once a small hammer mark shows above it. Temperature shows as colour: black iron is too cold to move (the hammer just bounces off), and striking dull red (no hammer mark yet) cracks the bar; from bright cherry through orange and yellow each blow thins the segment, hotter blows thin it more; white-hot metal burns away. The metal you knock out of a segment flows into its neighbours, mostly into the hotter one: a cold neighbour takes almost nothing. So to thicken a segment, get it hotter than the segment on the other side and strike the segment next to it. Arrows under a hot segment show where its metal will go if you strike it now. A green dot under a segment means it matches the outline. The legend at the bottom shows the working range. There is no clock: take your time, but fuel spent on metal that cools off is wasted.",
+      "howToPlay": "{Hold} anywhere above or below the bar to heat the part under your {finger} ({slide} to move the heat); it burns fuel from the gauge at the top. Heat spreads along the bar and always fades, and thin metal heats and cools faster. {Tap} to strike a segment once a small hammer mark shows above it. Temperature shows as colour: black iron is too cold to move (the hammer just bounces off), and striking dull red (a grey crack mark, no hammer yet) cracks the bar; from bright cherry through orange and yellow each blow thins the segment, hotter blows thin it more; white-hot metal (a flame over the hammer) burns away. The metal you knock out of a segment flows into its neighbours, mostly into the hotter one: a cold neighbour takes almost nothing. So to thicken a segment, get it hotter than the segment on the other side and strike the segment next to it. Arrows under a hot segment show where its metal will go if you strike it now. A green dot under a segment means it matches the outline. The legend at the bottom shows the working range. There is no clock: take your time, but fuel spent on metal that cools off is wasted.",
+      "keyboard": "← → move the cursor (Shift: half) · hold Space heats there · Enter or H strikes · O next off the outline · S status",
       "mechanics": [
         {
           "name": "heat",

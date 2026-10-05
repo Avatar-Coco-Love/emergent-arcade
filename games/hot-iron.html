@@ -58,13 +58,19 @@
     top: 13%;
     left: 8px;
     right: 8px;
-    margin: 0;
+    width: fit-content;
+    max-width: calc(100% - 16px);
+    margin: 0 auto;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(12, 9, 8, 0.88);
     text-align: center;
     font-size: 0.85rem;
     color: #f1e4da;
-    text-shadow: 0 1px 3px #000;
     pointer-events: none;
   }
+  #msg:empty { visibility: hidden; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #endCard {
     position: absolute;
     left: 50%;
@@ -110,8 +116,9 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="forge" role="img" aria-label="Hot Iron forge. Hold to heat the bar, tap or click to strike a segment."></canvas>
-      <p id="msg" role="status"></p>
+      <canvas id="forge" role="img" aria-label="Hot Iron forge. Hold to heat the bar, tap or click to strike a segment. Keys: left and right arrows move a cursor, hold Space to heat at it, Enter or H strikes there."></canvas>
+      <p id="msg" aria-hidden="true"></p>
+      <p id="say" class="sr" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -212,7 +219,7 @@
       outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
       stats: { profile, off, err: r1(100 * err), strikes, cracks, clangs, stuck, hints,
         heat_s: r1(heatTime), fuel: r1(fuel), burned: r1(100 * (N - segs.reduce((a, s) => a + s.th, 0)) / N),
-        thin: segs.filter(s => s.th <= TH_MIN).length, first_input: firstInput === null ? -1 : r1(firstInput) } };
+        thin: segs.filter(s => s.th <= TH_MIN).length, first_input: firstInput === null ? -1 : r1(firstInput), keys: keyUses } };
     if (reason) msg.reason = reason;
     window.parent.postMessage(msg, '*');
   }
@@ -250,6 +257,7 @@
   let clangs, stuck, heatTime, firstInput; // telemetry only
   let sparks = [], flows = [], rings = [], shake = 0, legendPulse = 0, readyPulse = 0;
   let hints, thickenHinted; // telemetry: hints shown this round
+  let keyUses = 0, heardFuel = 0; // telemetry: key heats + key strikes; live region: fuel steps said
 
   function newBar(p) {
     profile = p === undefined ? (profile + 1) % PROFILES.length : p;
@@ -261,6 +269,7 @@
     elapsed = 0;
     clangs = 0; stuck = 0; heatTime = 0; firstInput = null;
     hints = 0; thickenHinted = false; readyPulse = 0;
+    keyUses = 0; heardFuel = 0;
     heatX = null;
     sparks = []; flows = []; rings = [];
     roundEarned.clear();
@@ -268,6 +277,8 @@
     endCard.hidden = true;
     msgEl.textContent = '';
     document.getElementById('hudShape').textContent = PROFILES[profile].name;
+    kb.seen.clear();
+    speak(`New bar: ${PROFILES[profile].name}.`);
   }
 
   function endGame(result, why, reason) {
@@ -284,12 +295,14 @@
     const n = roundEarned.size;
     document.getElementById('endAch').textContent = n
       ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round` : '';
+    speak(`${title.textContent} ${document.getElementById('endDetail').textContent} ${document.getElementById('endAch').textContent} Enter for the next bar.`);
     playAgainBtn.disabled = true;
     endCard.hidden = false;
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
   }
 
   function say(text, ms = 2500) {
+    speak(text);
     msgEl.textContent = text;
     clearTimeout(msgTimer);
     msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms);
@@ -432,11 +445,20 @@
   }
 
   // ---------- drawing ----------
-  // Classic forge colours; the only way the player reads temperature.
+  // Classic forge colours. v6: lightness carries the bands too (black stays
+  // near the anvil's dark, dull red is dim, and the working range starts with
+  // a jump to bright cherry at T_WORK), and each band has a mark above the
+  // segment (none, crack, hammer, hammer + flame), so no band is told by hue
+  // alone.
   const RAMP = [
-    [0, 44, 40, 38], [0.25, 60, 34, 28], [0.31, 104, 26, 16], [0.37, 138, 26, 14],
-    [0.40, 190, 34, 18], [0.6, 238, 92, 22], [0.75, 255, 196, 60], [0.9, 255, 246, 222], [1.3, 255, 255, 255],
+    [0, 44, 40, 38], [0.25, 58, 38, 34], [0.2501, 92, 30, 22], [0.38, 128, 30, 18],
+    [0.3801, 214, 64, 30], [0.6, 240, 112, 30], [0.75, 255, 196, 60], [0.9, 255, 246, 222], [1.3, 255, 255, 255],
   ];
+  // Reduced motion: the bar's heat and shape are the game and keep changing;
+  // shake, sparks and the blinking of the marks and legend are decoration,
+  // drawn still or not at all. Math.random calls stay the same.
+  const motionQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const still = () => motionQ.matches;
   function heatColor(T) {
     if (T <= 0) return `rgb(${RAMP[0][1]},${RAMP[0][2]},${RAMP[0][3]})`;
     for (let k = 1; k < RAMP.length; k++) {
@@ -464,7 +486,10 @@
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
     ctx.fillStyle = '#110d0c';
     ctx.fillRect(0, 0, W, H);
-    if (shake > 0) ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4);
+    if (shake > 0) {
+      const sx = Math.random() - 0.5, sy = Math.random() - 0.5;
+      if (!still()) ctx.translate(sx * 6, sy * 4);
+    }
 
     // Fuel gauge (top left) and cracks (top right).
     ctx.fillStyle = '#2a201c';
@@ -560,14 +585,18 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // v4 ready marks: a small hammer above every segment hot enough to strike
-    // (dull red has none). They flash for a few seconds after a crack.
+    // v4 ready marks: a small hammer above every segment hot enough to strike.
+    // They flash for a few seconds after a crack (steady under reduced motion).
+    // v6: dull red gets a grey crack mark, white-hot a flame over its hammer.
     if (state === 'playing') {
-      const flash = readyPulse > 0 && Math.sin(readyPulse * 12) > 0;
+      const flash = readyPulse > 0 && (still() || Math.sin(readyPulse * 12) > 0);
       for (let i = 0; i < N; i++) {
-        if (segs[i].T < T_WORK) continue;
-        const y = BAR_Y - Math.max(segs[i].th, target[i]) * PX_PER_TH / 2 - 13;
-        drawHammer(segX(i), y, flash ? '#fff1c2' : '#f2c46b', flash ? 1 : 0.75);
+        const T = segs[i].T;
+        if (T < T_COLD) continue;
+        const x = segX(i), y = BAR_Y - Math.max(segs[i].th, target[i]) * PX_PER_TH / 2 - 13;
+        if (T < T_WORK) { drawCrack(x, y - 5, '#9a8c84'); continue; }
+        drawHammer(x, y, flash ? '#fff1c2' : '#f2c46b', flash ? 1 : 0.75);
+        if (T >= T_BURN) drawFlame(x, y - 6, 4, 1);
       }
     }
 
@@ -610,9 +639,9 @@
 
     // A blow on black iron: a grey ring where the hammer bounced.
     for (const r of rings) {
-      ctx.strokeStyle = `rgba(190,200,215,${r.t * 2})`;
+      ctx.strokeStyle = `rgba(190,200,215,${still() ? 0.8 : r.t * 2})`;
       ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(r.x, BAR_Y, 8 + (0.4 - r.t) * 60, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(r.x, BAR_Y, still() ? 14 : 8 + (0.4 - r.t) * 60, 0, Math.PI * 2); ctx.stroke();
     }
 
     // Per-segment marks: lit when the segment matches the outline.
@@ -625,22 +654,24 @@
     // cold and the burning white.
     const ly = H - 44, lx = 40, lw = W - 80;
     const lg = ctx.createLinearGradient(lx, 0, lx + lw, 0);
-    for (let k = 0; k <= 20; k++) lg.addColorStop(k / 20, heatColor(k / 20 * 1.05));
+    for (let k = 0; k <= 60; k++) lg.addColorStop(k / 60, heatColor(k / 60 * 1.05));
     ctx.fillStyle = lg;
     roundRect(lx, ly, lw, 10, 5); ctx.fill();
     const wx0 = lx + lw * T_WORK / 1.05, wx1 = lx + lw * T_BURN / 1.05;
-    ctx.strokeStyle = legendPulse > 0 && Math.sin(legendPulse * 16) > 0 ? '#ffd27a' : '#d8ccc4';
+    ctx.strokeStyle = legendPulse > 0 && (still() || Math.sin(legendPulse * 16) > 0) ? '#ffd27a' : '#d8ccc4';
     ctx.lineWidth = legendPulse > 0 ? 2.5 : 1.5;
     ctx.beginPath(); ctx.moveTo(wx0, ly + 16); ctx.lineTo(wx0, ly + 20); ctx.lineTo(wx1, ly + 20); ctx.lineTo(wx1, ly + 16); ctx.stroke();
     drawHammer((wx0 + wx1) / 2, ly + 30, '#f2c46b'); // same as the ready marks
-    ctx.strokeStyle = '#8a7a72';
-    const cx = lx + lw * (T_COLD + T_WORK) / 2 / 1.05; // crack glyph under dull red
-    ctx.beginPath();
-    ctx.moveTo(cx - 2, ly + 18); ctx.lineTo(cx + 2, ly + 24); ctx.lineTo(cx - 3, ly + 29); ctx.lineTo(cx + 1, ly + 35); ctx.stroke();
+    ctx.lineWidth = 1.5;
+    drawCrack(lx + lw * (T_COLD + T_WORK) / 2 / 1.05, ly + 18, '#9a8c84'); // same as the dull-red marks
     drawFlame(lx + lw - 6, ly + 36, 6, 0.8); // burn glyph under white
 
+    if (kb.shown && state === 'playing') drawCursor();
+
     for (const p of sparks) {
-      ctx.fillStyle = `rgba(255,${200 + Math.round(55 * Math.random())},120,${Math.min(1, p.life * 3)})`;
+      const g = Math.round(55 * Math.random());
+      if (still()) continue; // decoration: none under reduced motion
+      ctx.fillStyle = `rgba(255,${200 + g},120,${Math.min(1, p.life * 3)})`;
       ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
     }
   }
@@ -661,6 +692,13 @@
       ctx.quadraticCurveTo(x - 1.2 * rr, yy - 1.3 * rr, x + rr * 0.3, yy - 2.6 * rr);
       ctx.fill();
     }
+  }
+  // A zigzag crack, 17 units tall from y down.
+  function drawCrack(x, y, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x - 2, y); ctx.lineTo(x + 2, y + 6); ctx.lineTo(x - 3, y + 11); ctx.lineTo(x + 1, y + 17); ctx.stroke();
   }
   function drawHammer(x, y, color = '#b8aca4', k = 1) {
     ctx.fillStyle = color;
@@ -683,7 +721,7 @@
 
   canvas.addEventListener('pointerdown', evt => {
     evt.preventDefault();
-    if (pointerId !== null || state !== 'playing' || paused) return;
+    if (pointerId !== null || kb.heat || state !== 'playing' || paused) return;
     pointerId = evt.pointerId;
     canvas.setPointerCapture(evt.pointerId);
     downPx = [evt.clientX, evt.clientY];
@@ -705,7 +743,7 @@
     pointerId = null;
     clearTimeout(holdTimer);
     const moved = Math.hypot(evt.clientX - downPx[0], evt.clientY - downPx[1]) > TAP_SLOP_PX;
-    if (!heating && !cancelled && !moved && state === 'playing' && !paused) strike(Math.min(N - 1, Math.floor(downX)));
+    if (!heating && !cancelled && !moved && state === 'playing' && !paused) hammer(Math.min(N - 1, Math.floor(downX)));
     heating = false;
     heatX = null;
   }
@@ -715,17 +753,203 @@
   document.getElementById('resetBtn').addEventListener('click', () => newBar(profile));
   playAgainBtn.addEventListener('click', () => newBar());
 
+  // § live region: screen readers hear what changed, never the frame itself:
+  // the cursor's segment when it stops (heat band in words, thickness against
+  // the outline, what the flow preview shows), its band changing, a blow's
+  // result, fuel at steps, the round's result. #msg is aria-hidden; say()
+  // sends its text here too.
+  const sayEl = document.getElementById('say');
+  let spoken = [];
+  function speak(text) { if (text) spoken.push(text); }
+  const BANDS = [
+    [T_COLD, 'black, too cold: a blow bounces'], [T_WORK, 'dull red, too cool: a blow cracks'],
+    [0.6, 'cherry, ready to strike'], [0.75, 'orange, ready to strike'], [T_BURN, 'yellow, ready to strike'],
+    [Infinity, 'white-hot, burning away'],
+  ];
+  const band = T => BANDS.findIndex(b => T < b[0]);
+  const FUEL_STEPS = [75, 50, 45, 25, 10];
+  function thickWords(i) {
+    const t = Math.round(100 * segs[i].th), o = Math.round(100 * target[i]);
+    return `thickness ${t}, outline ${o}, ${onTarget(i) ? 'on the outline' : t < o ? `${o - t} too thin` : `${t - o} too thick`}`;
+  }
+  // The flow preview's arrows in words: where a blow would send the metal now.
+  function flowWords(i) {
+    const wl = i > 0 ? softness(segs[i - 1].T) : 0, wr = i < N - 1 ? softness(segs[i + 1].T) : 0, ws = wl + wr;
+    if (ws <= 0) return 'Its neighbours are cold: a blow has nowhere to send the metal.';
+    const l = Math.round(10 * wl / ws) * 10;
+    return l >= 100 ? 'A blow sends its metal left.' : l <= 0 ? 'A blow sends its metal right.'
+      : `A blow sends ${l}% of its metal left, ${100 - l}% right.`;
+  }
+  function segWords(i) {
+    const b = band(segs[i].T);
+    return `Segment ${i + 1}: ${BANDS[b][1]}, ${thickWords(i)}.${b >= 2 ? ' ' + flowWords(i) : ''}`;
+  }
+  function placeWords() {
+    if (kb.p % 2) return segWords((kb.p - 1) / 2);
+    const r = kb.p / 2, l = r - 1;
+    return `Seam between segments ${l + 1} and ${r + 1}: heat here warms both. ` +
+      `${l + 1} ${BANDS[band(segs[l].T)][1].split(',')[0]}, ${r + 1} ${BANDS[band(segs[r].T)][1].split(',')[0]}.`;
+  }
+  // A blow from a tap or a key, then its result in words (strike() says
+  // clangs, cracks and stuck blows itself).
+  function hammer(i) {
+    if (state !== 'playing') return;
+    const before = segs.map(s => s.th), c0 = cracks;
+    strike(i);
+    if (cracks > c0) {
+      if (state === 'playing') speak(`${MAX_CRACKS - cracks} crack${MAX_CRACKS - cracks === 1 ? '' : 's'} left before the bar splits.`);
+      return;
+    }
+    const d = before[i] - segs[i].th;
+    if (d <= 0 || state !== 'playing') return; // a winning blow: the result says it
+    const l = i > 0 ? segs[i - 1].th - before[i - 1] : 0, r = i < N - 1 ? segs[i + 1].th - before[i + 1] : 0;
+    const way = l > 0 && r > 0 ? `${Math.round(100 * l / d)}% left, ${Math.round(100 * r / d)}% right` : l > 0 ? 'all left' : 'all right';
+    const on = segs.filter((s, k) => onTarget(k)).length;
+    speak(`Thinned segment ${i + 1}: ${thickWords(i)}. Metal went ${way}. ${on} of ${N} on the outline.`);
+  }
+  function announce() {
+    if (state === 'playing' && segs) {
+      const pct = 100 * fuel / FUEL_MAX;
+      let k = heardFuel;
+      while (k < FUEL_STEPS.length && pct < FUEL_STEPS[k]) k++;
+      if (k > heardFuel) {
+        heardFuel = k;
+        if (fuel > 0) speak(`Fuel ${FUEL_STEPS[k - 1]}% left${FUEL_STEPS[k - 1] === 45 ? ', below the Thrifty mark' : ''}.`);
+      }
+      // The band of the segment(s) under the cursor, once it has stopped.
+      if (kb.shown && !kb.held.size) {
+        for (const i of kb.p % 2 ? [(kb.p - 1) / 2] : [kb.p / 2 - 1, kb.p / 2]) {
+          const b = band(segs[i].T);
+          if (kb.seen.has(i) && kb.seen.get(i) !== b) speak(`Segment ${i + 1} now ${BANDS[b][1]}.`);
+          kb.seen.set(i, b);
+        }
+      }
+    }
+    if (!spoken.length) return;
+    sayEl.textContent = spoken.join(' ');
+    spoken = [];
+  }
+
+  // § keys: the same verbs without a pointer. ← → move a segment cursor, one
+  // segment a press, then faster while held (Shift: half a segment, onto the
+  // seam between two). Hold Space to heat at the cursor (key up = finger up;
+  // the heat follows the cursor). Enter or H strikes the segment at the
+  // cursor. O jumps to the next segment off the outline, S says the status.
+  // Same setHeat / strike as the pointer. Tab stays free; Space/Enter on a
+  // focused button press it.
+  const REPEAT_AFTER = 0.3, REPEAT_SLOW = 6, REPEAT_FAST = 16, REPEAT_RAMP = 0.8; // s; segments/s
+  const kb = { p: N - 1, held: [], heldFor: 0, acc: 0, half: false, heat: false, shown: false, seen: new Map() };
+  function moveBy(dir, half) {
+    const p = kb.p;
+    kb.p = Math.max(1, Math.min(2 * N - 1, half ? p + dir : p % 2 ? p + 2 * dir : p + dir));
+    if (kb.p === p) return;
+    kb.seen.clear();
+    if (kb.heat) setHeat(kb.p / 2);
+  }
+  function moveCursor(dt) {
+    if (!kb.held.length) return;
+    kb.heldFor += dt;
+    if (kb.heldFor < REPEAT_AFTER) return;
+    kb.acc += dt * (REPEAT_SLOW + (REPEAT_FAST - REPEAT_SLOW) * Math.min(1, (kb.heldFor - REPEAT_AFTER) / REPEAT_RAMP));
+    for (; kb.acc >= 1; kb.acc--) moveBy(kb.held[kb.held.length - 1] === 'ArrowLeft' ? -1 : 1, kb.half);
+  }
+  function stopKeyHeat() {
+    if (!kb.heat) return;
+    kb.heat = false;
+    heatX = null;
+  }
+  function drawCursor() {
+    // Brackets above and below the column (or a narrow one on a seam): a dark
+    // stroke under a white one reads on the anvil and on white-hot metal.
+    const x = X0 + kb.p / 2 * SW, hw = kb.p % 2 ? SW / 2 : 4, y0 = BAR_Y - 96, y1 = BAR_Y + 108;
+    for (const [c, w] of [['rgba(10,7,6,0.9)', 4], ['#fff', 1.6]]) {
+      ctx.strokeStyle = c;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.moveTo(x - hw, y0 + 9); ctx.lineTo(x - hw, y0); ctx.lineTo(x + hw, y0); ctx.lineTo(x + hw, y0 + 9);
+      ctx.moveTo(x - hw, y1 - 9); ctx.lineTo(x - hw, y1); ctx.lineTo(x + hw, y1); ctx.lineTo(x + hw, y1 - 9);
+      ctx.stroke();
+    }
+  }
+  window.addEventListener('keydown', evt => {
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    const k = evt.key === ' ' ? 'space' : evt.key.toLowerCase();
+    if (onButton && (k === 'enter' || k === 'space')) return; // the focused button presses itself
+    if (evt.key === 'ArrowLeft' || evt.key === 'ArrowRight') {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (paused || state !== 'playing' || evt.repeat) return;
+      kb.shown = true;
+      kb.held = kb.held.filter(h => h !== evt.key).concat(evt.key);
+      kb.heldFor = 0; kb.acc = 0; kb.half = evt.shiftKey;
+      moveBy(evt.key === 'ArrowLeft' ? -1 : 1, evt.shiftKey);
+      return;
+    }
+    if (paused) return;
+    if (state !== 'playing') {
+      if (k === 'enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); playAgainBtn.click(); }
+      return;
+    }
+    if (!['space', 'enter', 'h', 'o', 's'].includes(k)) return;
+    evt.preventDefault();
+    if (evt.repeat) return;
+    kb.shown = true;
+    if (k === 'space') {
+      if (pointerId !== null || kb.heat) return;
+      kb.heat = true;
+      keyUses++;
+      if (fuel <= 0) say('Out of fuel.');
+      else speak(`Heating at ${kb.p % 2 ? `segment ${(kb.p + 1) / 2}` : `the seam between ${kb.p / 2} and ${kb.p / 2 + 1}`}.`);
+      setHeat(kb.p / 2);
+    } else if (k === 'enter' || k === 'h') {
+      if (kb.p % 2 === 0) return speak('On a seam: step onto a segment to strike.');
+      keyUses++;
+      hammer((kb.p - 1) / 2);
+    } else if (k === 'o') {
+      const from = Math.floor(kb.p / 2), dir = evt.shiftKey ? -1 : 1;
+      for (let n = 1; n <= N; n++) {
+        const i = ((from + dir * n) % N + N) % N;
+        if (onTarget(i)) continue;
+        kb.p = 2 * i + 1; kb.seen.clear();
+        if (kb.heat) setHeat(kb.p / 2);
+        return speak(placeWords());
+      }
+      speak('Every segment is on the outline.');
+    } else {
+      const on = segs.filter((s, i) => onTarget(i)).length;
+      speak(`${PROFILES[profile].name}: ${on} of ${N} segments on the outline. Fuel ${Math.round(100 * fuel / FUEL_MAX)}% left. ` +
+        `${cracks} of ${MAX_CRACKS} cracks. ${placeWords()}`);
+    }
+  });
+  window.addEventListener('keyup', evt => {
+    if (evt.key === 'ArrowLeft' || evt.key === 'ArrowRight') {
+      const had = kb.held.length;
+      kb.held = kb.held.filter(h => h !== evt.key);
+      kb.heldFor = 0; kb.acc = 0;
+      // Where the cursor stopped, once the arrows are up.
+      if (had && !kb.held.length && state === 'playing') speak(placeWords());
+    }
+    if (evt.key === ' ' && kb.heat) {
+      stopKeyHeat();
+      if (state === 'playing') speak(placeWords());
+    }
+  });
+  window.addEventListener('blur', () => { kb.held = []; stopKeyHeat(); });
+
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   function frame(now) {
     const dt = Math.min((now - last) / 1000, 0.1);
     acc += dt;
     last = now;
+    if (state === 'playing' && !paused) moveCursor(dt);
     while (acc >= STEP) {
       if (state === 'playing' && !paused) step(STEP);
       acc -= STEP;
     }
     if (!paused) effects(dt);
+    announce();
     draw();
     requestAnimationFrame(frame);
   }
@@ -738,7 +962,9 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap', H = fine ? 'Click and hold' : 'Hold', p = fine ? 'pointer' : 'finger';
-  document.getElementById('forge').setAttribute('aria-label', `Hot Iron forge. ${H} to heat the bar under the ${p}, ${t} to strike a segment.`);
+  document.getElementById('forge').setAttribute('aria-label', `Hot Iron forge. ${H} to heat the bar under the ${p}, ${t} to strike a segment. ` +
+    'Keys: left and right arrows move a cursor along the bar, Shift for half a segment, hold Space to heat at it, ' +
+    'Enter or H strikes there, O jumps to the next segment off the outline, S says the status.');
 }
 </script>
 </body>

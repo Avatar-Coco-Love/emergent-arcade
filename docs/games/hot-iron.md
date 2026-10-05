@@ -91,20 +91,12 @@ target| × 100), `strikes`, `cracks`, `clangs`, `stuck`, `hints`, `heat_s`,
 `fuel` (s left), `burned` (%), `thin`, `first_input` (s, −1 if none).
 `node scripts/fetch-telemetry.mjs --game hot-iron`. Reset posts no result.
 
-## Player data (v3, 2026-09-29: one new player, touch, 5 rounds in 2 min)
+## Player data
 
-| Round | Shape | Length | Strikes | Cracks | Clangs | Heat s | Off / err at loss (start) |
-|---|---|---|---|---|---|---|---|
-| 1 | Waisted | 25.2 s | 6 | 3 | 0 | 16.5 | 12 / 14.3 (12 / 14.3) |
-| 2 | Chisel | 24.6 s | 12 | 3 | 0 | 8.8 | 3 / 7.2 (3 / 8.2) |
-| 3 | Double taper | 34.8 s | 6 | 3 | 1 | 22.5 | 11 / 17.6 (12 / 14.3) |
-| 4 | Leaf | 12.5 s | 3 | 3 | 0 | 7.0 | 13 / 14.2 (13 / 14.2) |
-| 5 | Waisted | 13.4 s | 8 | 3 | 0 | 3.8 | 12 / 13.4 (12 / 14.3) |
-
-All lost to cracks, first input ~1 s, 0 stuck. They heat before striking
-(0 clangs); ~40% of blows cracked (can't tell dull red from cherry); shape
-barely moved; Steer unlocked once; heat per strike is bimodal (0.5–0.7 s
-vs 2.3–3.7 s). The missing rule was when to strike. v4 was made from this.
+v3 (one new touch player, 5 rounds, all lost to cracks, ~40% of blows on
+dull red) is in `docs/history/hot-iron.md`; v4 was made from it. v4 + v5
+(2026-10-05): 5 players, 6 rounds, 0 wins, all lost to cracks (median 3
+cracks in 19–38 strikes, 33–49 s, `hints` 3.5–4). Not enough rounds to judge v4 yet.
 
 ## Open ideas / known limits
 

@@ -445,6 +445,7 @@ const KEY_COVER = {
   "hourglass-delivery": ["Arrows move the cursor · hold Space pours · K then an arrow knocks · G next glass, L next ledge · Enter plays again", ALL],
   "orbit-garden": ["Arrows move the cursor · Enter places a planet · Space aims (arrows: angle, strength), Space flings · N next planet", ALL],
   "wildfire-line": ["Arrows move the cursor · Space starts or stops cutting along its path · Enter lights a backburn at the cursor", ALL],
+  "hot-iron": ["← → move the cursor (Shift: half) · hold Space heats there · Enter or H strikes · O next off the outline · S status", ALL],
 };
 
 async function auditGame(g) {
