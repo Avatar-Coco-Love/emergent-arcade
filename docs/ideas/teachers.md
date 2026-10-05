@@ -12,7 +12,7 @@ the games, not just play them.
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
-| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
+| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6), Geode (v3); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
@@ -317,7 +317,7 @@ Revise Murmuration for accessibility (docs/accessibility.md, its row; docs/ideas
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Geode accessibility revision (prompt below)
+## Prompt used for the Geode accessibility revision (done, v3)
 
 Chosen 2026-10-05, after Murmuration v6. Still no classroom reports (0),
 so 3 vs 4 keeps waiting on what teachers ask for. Geode now has the most
@@ -341,6 +341,33 @@ Revise Geode for accessibility (docs/accessibility.md, its row; docs/ideas/teach
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs geode, node scripts/balance-geode.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly), node scripts/a11y-audit.mjs geode (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that seeds and cleaves. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/geode.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/geode.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Ant Trails accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Geode v3. Still no classroom reports (0), so 3
+vs 4 keeps waiting on what teachers ask for. Ant Trails now has the most
+cells left: 3 of 6 not passing, including a keyboard fail (trail is a
+drag, wash a hold, keys only fast-forward), reduced motion ignored and an
+11.5 px bonus line. Its trail is a path verb drawn while moving, so the
+cursor moves while an arrow is held (Murmuration) and trail is a held key.
+
+```
+Revise Ant Trails for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: trail and wash on keys, reduced motion, readable labels. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/ant-trails.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "A held key verb needs a cursor that can get ahead", "When the simulation is the motion, a motion partial is the end state", "Late screens grow their own greys" and "Canvas text shrinks with the board"), docs/games/geode.md and docs/games/murmuration.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game ant-trails. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: trail is a drag (a path laid in scent) and wash a hold; F already fast-forwards. Add a cursor (arrows, moving while held and speeding up, like Murmuration) and a no-chord key per verb: e.g. Space held lays trail along the cursor's path (key up = finger up), hold W washes under the cursor (letting go early cancels like lifting a finger). Keys call the same functions as the pointer. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what matters, short and not on every frame (cursor over the nest or food, trail laid, a wash, crumbs home, colony size warnings, raids, the day's result). Update the keyboard line in the manifest, the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: Ant Trails ignores prefers-reduced-motion. First measure what moves while idle with the ants hidden (findings, "When the simulation is the motion…"): the ants and the scent are the game; give decoration its own clock and freeze it. Record motion as partial if what's left is the simulation, measured, several runs.
+
+4. Text and contrast: the bonus line (11.5 px) and every other canvas label at least 12 CSS px at 360 px wide (an fs() from the CSS width), 4.5:1 against what is behind them, with backings where text sits over the ground or scent. Colour must still pass on several runs, including a fast-forwarded screen late in a day (a scripted copy, findings "Late screens grow their own greys"); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs ant-trails, node scripts/balance-ant-trails.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly; compare old and new output), node scripts/a11y-audit.mjs ant-trails (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that lays a trail and washes. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/ant-trails.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/ant-trails.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
