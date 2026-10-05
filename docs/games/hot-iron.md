@@ -1,6 +1,6 @@
 # Hot Iron: design notes
 
-**v5** (2026-10-05, canvas label; v4 2026-09-29) · playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz ·
+**v6** (2026-10-05, accessibility; v4 2026-09-29 last gameplay change) · playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz ·
 balance: `node scripts/balance-hot-iron.mjs 300`
 **Heat** (hold) and **strike** (tap) share **temperature and thickness per
 bar segment** (16 segments, thickness starts at 1). Win: every segment within
@@ -24,8 +24,10 @@ is fuel, not time.
   FLOW_SPAN)^FLOW_POW`. Neighbours' total softness under `FLOW_NEED`: less
   moves (both cold: none). Volume conserved. To thicken a segment, heat it
   and strike the neighbour; holding on a seam heats both.
-- Colours (only temperature display): black < 0.25, dull red, cherry
-  0.37–0.40 (step at the crack line), orange 0.6, yellow 0.75, white 0.9+.
+- Colours: black < 0.25, dim dull red, then a jump to bright cherry at
+  `T_WORK` (L* 28 → 50; v5 had ~1 there), orange 0.6, yellow 0.75, white
+  0.9+. Each band also has a mark above the segment: none (black), grey
+  crack (dull red), gold hammer (working), hammer + flame (white-hot).
   Legend strip brackets the working range (flashes after a bounce/crack).
 - Flow preview: arrows under every working-range segment show where its
   metal would go if struck now (weight = share, hidden below 15%).
@@ -78,8 +80,7 @@ Bots: `glow-red` (telemetry match: 1.5 s think, strikes at 0.27–0.47),
 | blind / blind-seam / habit-nb | 0% | fuel out 90–100% |
 | idle | 0% | never ends |
 
-More cracks allowed (`MAX_CRACKS` 5–6) only takes glow-red to 13–15%;
-narrowing the crack band (T_WORK 0.38) does. Achievements (reader): Forged
+Achievements (reader): Forged
 99%, Clean Work 93%, Thrifty 28% at the 45% mark (40% → 52%, 50% → 8%),
 Steer 100%. glow-hinted: Clean 21%, Thrifty 34%.
 
@@ -91,24 +92,48 @@ target| × 100), `strikes`, `cracks`, `clangs`, `stuck`, `hints`, `heat_s`,
 `fuel` (s left), `burned` (%), `thin`, `first_input` (s, −1 if none).
 `node scripts/fetch-telemetry.mjs --game hot-iron`. Reset posts no result.
 
-## Player data (v3, 2026-09-29: one new player, touch, 5 rounds in 2 min)
+## Accessibility (v6, `node scripts/a11y-audit.mjs hot-iron`)
 
-| Round | Shape | Length | Strikes | Cracks | Clangs | Heat s | Off / err at loss (start) |
-|---|---|---|---|---|---|---|---|
-| 1 | Waisted | 25.2 s | 6 | 3 | 0 | 16.5 | 12 / 14.3 (12 / 14.3) |
-| 2 | Chisel | 24.6 s | 12 | 3 | 0 | 8.8 | 3 / 7.2 (3 / 8.2) |
-| 3 | Double taper | 34.8 s | 6 | 3 | 1 | 22.5 | 11 / 17.6 (12 / 14.3) |
-| 4 | Leaf | 12.5 s | 3 | 3 | 0 | 7.0 | 13 / 14.2 (13 / 14.2) |
-| 5 | Waisted | 13.4 s | 8 | 3 | 0 | 3.8 | 12 / 13.4 (12 / 14.3) |
+All six pass (3/3), and contrast, colour and text pass on 2 scripted late
+screens (every band on the bar, 2 cracks, flows, cursor, hint showing).
+- Keys (`// § keys`): ← → move a segment cursor, one per press, held 0.3 s
+  repeats 6 → 16 segments/s; Shift steps half a segment onto a seam (heat
+  there warms both). Hold Space heats at the cursor (key up = finger up;
+  heat follows the cursor); Enter or H strikes (`hammer` → `strike`, same
+  as a tap; on a seam it says to step onto a segment). O / Shift+O next
+  segment off the outline, S status. Enter plays again. Tab free;
+  Space/Enter on a focused button press it. `stats.keys`: key heats + strikes.
+- Live region `#say` (`#msg` aria-hidden, `say()` speaks): the cursor's
+  segment when the arrows are up ("Segment 5: cherry, ready to strike,
+  thickness 92, outline 110, 18 too thin. A blow sends 70% of its metal
+  left, 30% right": the flow preview, nothing more), its band changing
+  ("Segment 5 now cherry, ready to strike"), each blow ("Thinned segment
+  5 … Metal went all left. 9 of 16 on the outline"; clang, crack + cracks
+  left, stuck), fuel at 75/50/45 (Thrifty)/25/10%, the result.
+- Reduced motion (`still()`): no shake, no sparks (their `Math.random`
+  calls stay), ready marks and legend highlight steady instead of
+  blinking, bounce ring still. The old pass was timing: sparks live < 1 s
+  after a blow (0.00% idle 6.5 s later, any setting), but a white-hot bar
+  throws them while it burns: 0.18% → 0.11% under the setting, = 0.11%
+  with sparks hidden (3 runs): the rest is the bar cooling and burning.
+- `#msg` on a dark backing; no canvas text. DOM text 13.6 px+, 6.9:1+.
+- Bots identical to v5 (21 bots × 200 runs; old file twice first).
+- Keys-only bot (live region only, strikes when the words say ready): 0
+  cracks in 122 blows; Double taper forged (236 s, Clean Work), Chisel
+  lost to fuel at 15/16.
 
-All lost to cracks, first input ~1 s, 0 stuck. They heat before striking
-(0 clangs); ~40% of blows cracked (can't tell dull red from cherry); shape
-barely moved; Steer unlocked once; heat per strike is bimodal (0.5–0.7 s
-vs 2.3–3.7 s). The missing rule was when to strike. v4 was made from this.
+## Player data
+
+v3 (one new touch player, 5 rounds, all lost to cracks, ~40% of blows on
+dull red) is in `docs/history/hot-iron.md`; v4 was made from it. v4 + v5
+(2026-10-05): 5 players, 6 rounds, 0 wins, all lost to cracks (median 3
+cracks in 19–38 strikes, 33–49 s, `hints` 3.5–4). Not enough rounds to judge v4 yet.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play.
+- Accessibility: a real screen reader and keyboard player are the test.
+  Black vs dull red differ little in lightness (L* 18 vs 21); the crack
+  mark carries it.
 - v4 telemetry to watch: cracks per strike (v3 ~40%), first-try wins, round
   length (v3 12–35 s), `hints`. If losses are still cracks within 30 s, add
   a warm-up first bar teaching one verb at a time (strike locked until a
@@ -117,11 +142,6 @@ vs 2.3–3.7 s). The missing rule was when to strike. v4 was made from this.
   gap, but bots can't model reading them.
 - If humans still lose to fuel, 70 s is the next step (novice-slow 25% →
   more with BURN 0.2; not yet swept).
-- If too easy for returning players, harden achievements, not the round:
-  Thrifty at 50%, or a par on strikes.
-- Reaction time matters less now (slow-hands 99% vs v1 62%).
-- Steer the Metal is too easy once learned; could require a 3-segment chain.
-- Idle play never ends (no clock); telemetry only sees won/lost rounds.
 - Not yet hand-played on a phone: can a player tell dull red from cherry
   under room light, and does a thumb below the bar feel natural?
 

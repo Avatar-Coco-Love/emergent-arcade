@@ -44,7 +44,7 @@ the honest end state, not a fix still owed.
 | wildfire-line | pass (v4) | pass | pass (v4: lightness bands) | pass (v4: cursor) | pass (v4) | pass |
 | ant-trails | partial (v7: reads it; legs and raindrops still; all idle motion is the ants and scent) | pass (v7: backings) | pass (v7, late screens too) | pass (v7: cursor, hold Space trail, hold W wash) | pass (v7, live region) | pass (v7) |
 | hourglass-delivery | pass (v5: reads it; stripes, dust, knock ring still. Mid-round partial by design: the glasses are the motion, 0.00% hidden) | pass (v5: backing) | pass (v5: missed = ×, late screens too) | pass (v5: cursor, hold Space pours, K + arrow knocks, G/L jumps) | pass (v5, live region) | pass |
-| hot-iron | pass | pass | pass | fail: none | pass (labelled) | pass |
+| hot-iron | pass (v6: reads it; no sparks or shake. The old pass was timing: a burning bar throws sparks, 0.18% → 0.11% = sparks hidden) | pass (v6: backing) | pass (v6: a mark per heat band + a lightness jump at the crack line, late screens too) | pass (v6: segment cursor, hold Space heats, Enter/H strikes, O next off the outline) | pass (v6, live region) | pass |
 | island-census | pass | pass (v3: backings) | pass (v3: lightness bands + shape) | pass (v3: cursor, F fences) | pass (v3, live region) | pass (v3) |
 | loom | pass | pass | pass | fail: none | pass (labelled) | pass |
 | terrace-garden | fail: ignores it | pass | pass | partial: tilt, not gates | pass (labelled) | pass |

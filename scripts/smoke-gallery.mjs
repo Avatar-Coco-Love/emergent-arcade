@@ -176,10 +176,18 @@ for (const vp of VIEWPORTS) {
     assert((await page.locator(".game-card .chips").first().textContent()).includes(`· ${W("tap")}`), "card chip verb");
     assert((await page.locator("#arcadeInfoDialog [data-verb]").textContent()) === W("tap"), "About the arcade verb");
     // Every game's About panel: filled placeholders, translated verb tags.
-    // A game without a keyboard line, so the keyboard row must stay hidden.
-    const g = games.find((x) => !x.keyboard && x.mechanics.some((m) => m.verb === "hold") && /\{finger\}/.test(JSON.stringify(x)));
+    // A hold game served without its keyboard line (every hold game has
+    // one by now), so the keyboard row must stay hidden.
+    const g = games.find((x) => x.mechanics.some((m) => m.verb === "hold") && /\{finger\}/.test(JSON.stringify(x)));
+    await page.route("**/games/games.json", async (route) => {
+      const data = JSON.parse(JSON.stringify(manifest));
+      delete data.games.find((x) => x.id === g.id).keyboard;
+      await route.fulfill({ json: data });
+    });
+    await page.goto("about:blank");
     await page.goto(`${base}#/play/${g.id}`);
     await page.waitForSelector("#panel:not([hidden])");
+    await page.unroute("**/games/games.json");
     const tags = await page.locator("#aboutControls .verb-tag").allTextContents();
     assert(tags.includes(W("hold")), `verb tags: ${tags.join(", ")}`);
     const about = await page.locator("#panel").textContent();

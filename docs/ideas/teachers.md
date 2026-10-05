@@ -78,7 +78,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - wildfire-line: done (v4, 2026-10-05): ground told apart by lightness, keyboard cursor for both verbs, reduced motion, role and label. The pattern for the others (`docs/games/wildfire-line.md`, "Accessibility").
 - ant-trails: done (v7, 2026-10-05): a cursor that moves while an arrow is held, hold Space lays a trail along its path, hold W washes, H/N jump to the nest or the next food, text on backings at 12.8 px, a live region, reduced motion read (legs and raindrops still; the ants still walk, so motion stays partial) (`docs/games/ant-trails.md`, "Accessibility").
 - hourglass-delivery: done (v5, 2026-10-05): a cursor that moves while an arrow is held, hold Space pours at it, K or X then an arrow knocks there, G/L jump to the next glass or ledge, a live region (what the cursor is over, where a pour lands, knocks, glasses, hopper), `#msg` on a backing, order dots keep outcomes (missed = ×), reduced motion read (belt stripes and dust still; the glasses still roll, so mid-round motion stays partial) (`docs/games/hourglass-delivery.md`, "Accessibility").
-- hot-iron: no keyboard play.
+- hot-iron: done (v6, 2026-10-05): a segment cursor (← →, Shift for a seam), hold Space heats at it, Enter or H strikes, O jumps to the next segment off the outline, a live region (the band in words, thickness against the outline, the flow preview, each blow, fuel steps), a mark per heat band (crack, hammer, hammer + flame) and a lightness jump at the crack line, reduced motion read (no sparks or shake) (`docs/games/hot-iron.md`, "Accessibility").
 - island-census: done (v3, 2026-10-05): meadows, turf, paths and sand in their own lightness bands (plus grass tufts), counts and strikes told by shape, HUD 12.5 px+, a keyboard cursor (Enter releases, F then an arrow picks a path), a live region (`docs/games/island-census.md`, "Accessibility").
 - loom: no keyboard play.
 - terrace-garden: keys tilt but can't work the gates; ignores reduced motion.
@@ -428,7 +428,7 @@ Revise Orbit Garden for accessibility (docs/accessibility.md, its row; docs/idea
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Hot Iron accessibility revision (prompt below)
+## Prompt used for the Hot Iron accessibility revision (done, v6)
 
 Chosen 2026-10-05, after Orbit Garden v8. Still no classroom reports (0),
 so 3 vs 4 keeps waiting on what teachers ask for. Three games still have
@@ -455,6 +455,35 @@ Revise Hot Iron for accessibility (docs/accessibility.md, its row; docs/ideas/te
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs hot-iron, node scripts/balance-hot-iron.mjs (balance must not move: same constants; keep Math.random calls equal so seeded bots reproduce exactly; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs hot-iron (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that heats and hammers. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/hot-iron.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/hot-iron.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Loom accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Hot Iron v6. Still no classroom reports (0), so
+3 vs 4 keeps waiting on what teachers ask for. Two games still have no
+keyboard play for their verbs (loom; surprise party has wait/undo only),
+the worst cell left. Loom's verbs are a drag that leads a knot (the pull
+grows with how far the finger leads it) and a tap that pins a knot: a
+knot picker plus a held pull key whose lead the arrows set. Its other
+cells pass, but they were read on the audit's first seconds: check them
+on a stretched net late in a round too.
+
+```
+Revise Loom for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: pull and pin on keys, a live region, reduced motion checked. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/loom.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "Picking by arrow direction needs a matching, not a nearest", "A held key verb needs a cursor that can get ahead", "Say what the preview shows, not where the shot lands", "An early audit screen can miss the game's own motion", "Late screens grow their own greys", "A band's step belongs on the rule's line, not near it" and "Run the old file twice before comparing balance"), docs/games/hot-iron.md and docs/games/island-census.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game loom. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: pull is a drag on a knot (the pull grows with how far the finger leads it) and pin a tap on a knot (up to 4; a tap on a pin takes it out); there are no keys at all. Add a knot picker (arrows pick the knot in that direction, every knot reachable, findings "Picking by arrow direction needs a matching") and a no-chord key per verb: e.g. Enter or P pins or unpins the picked knot; hold Space grabs it and the arrows then lead it (a lead point that moves while held and speeds up; key up = finger up), the same pull a drag with that lead makes. Keys call the same functions as the pointer. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what matters, short and not on every frame: the picked knot (pinned or not, the tension of its strands in words), a pull's lead and the strands it strains, a pin popping loose, a strand snapping, the round's result. Update the keyboard line in the manifest (120 characters at most), the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: the audit passes Loom's motion cell; check whether that's a threshold or timing pass (grep for prefers-reduced-motion; measure idle motion on a stretched net past the first pull, with the net hidden, then decoration). Decoration gets its own clock and freezes under the setting; keep every Math.random call the bots depend on. Record motion as partial only if what's left is the simulation, measured, several runs.
+
+4. Text and colour: every label at least 12 CSS px at 360 px wide (an fs() from the CSS width for canvas text), 4.5:1 against what is behind it, with backings where text sits over the net. If tension is shown by colour, it must read without hue (lightness steps on the rule's thresholds, or a mark), checked by number. Colour must still pass on several runs, including a stretched net late in a round (a scripted copy, findings "Late screens grow their own greys"); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs loom, node scripts/balance-loom.mjs (balance must not move: same constants; keep Math.random calls equal so seeded bots reproduce exactly; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs loom (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that pulls and pins, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/loom.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/loom.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
