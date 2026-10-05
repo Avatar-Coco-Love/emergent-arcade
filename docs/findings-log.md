@@ -829,6 +829,38 @@ push each state into; run the colour audit on several seeds.
 
 *Evidence: audit script, 4 runs before the smoke fix, 8 after.*
 
+## A motion pass can mean small, not still
+
+Tidewright v3 (2026-10-05). The audit row said motion "pass (still while
+idle)", while the notes said the game ignored reduced motion. Both were
+true: the sea shimmer (±0.6 height units), the sea line's ripple and the
+gate streaks changed under 0.2% of the screen between frames, below the
+audit's idle limit, and the file had no `prefers-reduced-motion` query.
+In a busy wave (rain, an open gate, seepage) the same scene changed 0.54%
+of the canvas every 0.4 s. v3 draws decoration from `tm = still() ? 0 :
+tnow` and swaps moving streaks for a still arrow: 0.12% (countdown and
+rain filling the water, which is the game). Check: grep for the media
+query; a pass with no query is luck of scale.
+
+*Evidence: audit (still while idle, before and after); canvas diff in a
+debug copy at wave 5, normal vs reduced.*
+
+## A hue fix moves the merge to the next neighbour
+
+Tidewright v3 (2026-10-05). Protan merge: shut handle red `#a8453a` ≈
+the brown ground strip `#6d5a3a`. First fix: pale face, dark red rim
+`#8f2c22`. The audit then flagged the rim against the green ground
+`#2f4a2e`: protanopia maps both red and green to olive, so a dark red and
+a dark green of the same lightness are one colour. A near-black rim
+(`#4a1510`) passed 4/4 runs. The red house roofs on the green ground had
+the same problem (under the audit's share limit, but plain in the
+simulated screenshot). Check: when changing a colour, compare its
+lightness with everything it touches, not just the pair that was
+flagged; and look at a simulated screenshot, not only the verdict.
+
+*Evidence: audit runs (fail, fail on the rim, then 4 passes); protan
+screenshots before and after.*
+
 ## A cursor gives point and path verbs a key path
 
 Wildfire Line v4. Both verbs were pointer-only: cut (a drag path) and
