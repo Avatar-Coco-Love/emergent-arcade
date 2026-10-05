@@ -385,10 +385,11 @@ overturns a rule, update its tag here and add the evidence to its log entry.
 - A real-time game can't speak per frame or per sim event: read the state
   after each frame and speak settled changes (a plant's mood held 0.7 s,
   at most one line per plant per 2 s; a tilt at the press and once the
-  water settles after release). Words must never contradict the state
-  ("14 deep, too shallow, wants 14" was 13.6: say "just under 14"), and an
-  aimed verb needs the target's place (left … right): a keys bot reading
-  only the region tilted a centre plant's water away from it. *A
+  water settles after release). Word numbers from the state, never
+  against it ("too shallow: 14 deep, wants 14" was 13.6; "growing: just
+  under 6" had drunk since the last step), and an aimed verb needs the
+  target's place (left … right): a keys bot reading only the region
+  tilted a centre plant's water away from it. *A
   real-time live region speaks settled changes.* Terrace Garden v4.
   keys-only bot.
 - The audit's screen is a warm-up with no spring, so the spring's label

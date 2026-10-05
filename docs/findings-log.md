@@ -1268,7 +1268,10 @@ A keys-only bot that reads only `#say` (S status, ↑ ↓ to read a
 terrace, digits for gates) found two faults a sighted check missed. The
 words contradicted the state: "too shallow: 14 deep, wants 14 to 28" was
 13.6 rounded, so the bot (and a listener) waited for a plant that would
-never grow; v4 says "just under 14". And an aimed verb needs the
+never grow; and "growing, 23%: just under 6 deep" was a plant that had
+drunk itself under its band since the last step (its mood updates on the
+next). v4 words the number from the state: "just under 14" when too
+shallow, the band's edge while growing. And an aimed verb needs the
 target's place: with one plant per terrace the first draft said only
 "terrace 2's plant", so the bot could not tell which way to tilt; then it held
 a centre-left plant's water at the left wall, away from it. Every plant

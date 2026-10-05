@@ -950,10 +950,13 @@
   const plantName = p => `terrace ${p.t + 1}'s ${where(p.c)} ${p.dry ? 'cactus' : 'plant'}`;
   // Depth in whole px, never contradicting the plant's state ("just under
   // 14" rather than "14 deep, too shallow, wants 14 to 28").
+  // The state is the truth: water can move between a sim step and the words.
   function depth(p) {
-    const v = terraces[p.t].h[p.c], d = Math.round(v);
-    if (!p.dry && v < p.lo && d >= p.lo) return `just under ${p.lo}`;
-    if (!p.dry && v > p.hi && d <= p.hi) return `just over ${p.hi}`;
+    const d = Math.round(terraces[p.t].h[p.c]);
+    if (p.dry || p.bloom) return `${d}`;
+    if (p.mood === 'ok') return `${Math.max(p.lo, Math.min(p.hi, d))}`;
+    if (p.mood === 'dry' && d >= p.lo) return `just under ${p.lo}`;
+    if (p.mood === 'deep' && d <= p.hi) return `just over ${p.hi}`;
     return `${d}`;
   }
   function plantWords(p) {
