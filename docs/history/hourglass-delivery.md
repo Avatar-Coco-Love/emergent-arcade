@@ -6,6 +6,9 @@ top of the relevant section; sessions don't read this file by default.
 
 ## History
 
+- v5: no gameplay change. Keys (cursor, hold Space pours, K + arrow
+  knocks, G/L jumps), a live region, reduced motion for decoration, order
+  dots keep outcomes. Notes: "Accessibility" in the design notes.
 - v1: first version.
 - v2: no gameplay change. Posts `arcade:result` when a round ends, for play
   telemetry. Bot numbers above still apply; compare humans with

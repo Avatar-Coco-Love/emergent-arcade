@@ -442,6 +442,7 @@ const KEY_COVER = {
   "geode": ["← → temperature · T switches arrows to a cursor · S/Enter seed · hold C cleave · I foreign ion · H harvest · M sound", ALL],
   "island-census": ["Arrows pick a meadow · Enter/Space release rabbits · F then an arrow picks a path, F fences/unfences it · N next season", ALL],
   "murmuration": ["Arrows move the cursor · hold Space to lure toward it · Enter or X startles at it · Enter flies again after a round", ALL],
+  "hourglass-delivery": ["Arrows move the cursor · hold Space pours · K then an arrow knocks · G next glass, L next ledge · Enter plays again", ALL],
   "wildfire-line": ["Arrows move the cursor · Space starts or stops cutting along its path · Enter lights a backburn at the cursor", ALL],
 };
 

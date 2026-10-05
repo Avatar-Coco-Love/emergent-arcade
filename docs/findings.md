@@ -326,3 +326,15 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   0.00–0.05% with the ants hidden (carriers' scent), 0.00% with the scent
   hidden as well. *Jump keys give a path verb its ends.* Ant Trails v7.
   keys-only playthrough + hidden-pieces diff.
+- The audit's idle window (seconds 3–6) can end before the game starts
+  moving: Hourglass Delivery's first glass arrives at 6 s, so the motion
+  cell read "still while idle" while a mid-round screen moves 1.1%. Check
+  when the game's first mover appears and measure past it (a fast-forwarded
+  copy), hiding pieces one at a time. *An early audit screen can miss the
+  game's own motion.* Hourglass Delivery v5. audit + mid-round diff.
+- "Balance identical" needs an identical baseline: run the old file twice
+  first. Hourglass Delivery's knock bots drifted ±2 pts between two runs
+  of the same file, because state `newRound()` doesn't reset (the sand
+  scan's row parity) carried over between seeds on a worker page. Reset
+  it in the debug copy; then old and new matched row for row. *Run the old
+  file twice before comparing balance.* Hourglass Delivery v5. bots.

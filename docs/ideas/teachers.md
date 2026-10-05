@@ -77,7 +77,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - orbit-garden: no keyboard play.
 - wildfire-line: done (v4, 2026-10-05): ground told apart by lightness, keyboard cursor for both verbs, reduced motion, role and label. The pattern for the others (`docs/games/wildfire-line.md`, "Accessibility").
 - ant-trails: done (v7, 2026-10-05): a cursor that moves while an arrow is held, hold Space lays a trail along its path, hold W washes, H/N jump to the nest or the next food, text on backings at 12.8 px, a live region, reduced motion read (legs and raindrops still; the ants still walk, so motion stays partial) (`docs/games/ant-trails.md`, "Accessibility").
-- hourglass-delivery: no keyboard play; ignores reduced motion (small).
+- hourglass-delivery: done (v5, 2026-10-05): a cursor that moves while an arrow is held, hold Space pours at it, K or X then an arrow knocks there, G/L jump to the next glass or ledge, a live region (what the cursor is over, where a pour lands, knocks, glasses, hopper), `#msg` on a backing, order dots keep outcomes (missed = ×), reduced motion read (belt stripes and dust still; the glasses still roll, so mid-round motion stays partial) (`docs/games/hourglass-delivery.md`, "Accessibility").
 - hot-iron: no keyboard play.
 - island-census: done (v3, 2026-10-05): meadows, turf, paths and sand in their own lightness bands (plus grass tufts), counts and strikes told by shape, HUD 12.5 px+, a keyboard cursor (Enter releases, F then an arrow picks a path), a live region (`docs/games/island-census.md`, "Accessibility").
 - loom: no keyboard play.
@@ -372,7 +372,7 @@ Revise Ant Trails for accessibility (docs/accessibility.md, its row; docs/ideas/
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Hourglass Delivery accessibility revision (prompt below)
+## Prompt used for the Hourglass Delivery accessibility revision (done, v5)
 
 Chosen 2026-10-05, after Ant Trails v7. Still no classroom reports (0), so
 3 vs 4 keeps waiting on what teachers ask for. Five games still have no
@@ -396,6 +396,34 @@ Revise Hourglass Delivery for accessibility (docs/accessibility.md, its row; doc
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs hourglass-delivery, node scripts/balance-hourglass-delivery.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly; compare old and new output), node scripts/a11y-audit.mjs hourglass-delivery (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that pours and knocks. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/hourglass-delivery.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/hourglass-delivery.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Orbit Garden accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Hourglass Delivery v5. Still no classroom reports
+(0), so 3 vs 4 keeps waiting on what teachers ask for. Four games still
+have no keyboard play for their verbs (orbit-garden, hot-iron, loom;
+surprise party has wait/undo only), the worst cell left: a keyboard player
+can't play at all. Orbit Garden's verbs are a point (place) and an aimed
+drag from a fixed launcher (fling), both covered by patterns we have (a
+cursor + Enter; a switch key for aiming, like Geode's T).
+
+```
+Revise Orbit Garden for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: place and fling on keys, a live region, reduced motion checked. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/orbit-garden.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "A switch key keeps an arrow binding players know", "An early audit screen can miss the game's own motion", "Late screens grow their own greys" and "Run the old file twice before comparing balance"), docs/games/hourglass-delivery.md and docs/games/geode.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game orbit-garden. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: place is a tap on the sky (a planet at that point) and fling a drag from the launcher (direction and strength set the seed's launch); there are no keys at all. Add a cursor (arrows, moving while held and speeding up, like Hourglass Delivery) and a no-chord key per verb: e.g. Enter places a planet at the cursor; for fling, a key that switches the arrows to aiming (← → angle, ↑ ↓ strength, the aim preview showing) and Space launches the same seed a drag with that vector makes, or another no-chord scheme if it plays better. Jump keys to the places that matter (the launcher, the next planet) if aiming by arrows alone is slow. Keys call the same functions as the pointer. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what matters, short and not on every frame (what is under the cursor, the aim's angle and strength when it settles, where a seed landed and which planet grew, planets withering, the round's result). Update the keyboard line in the manifest (120 characters at most), the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: the audit passes Orbit Garden's motion cell; check whether that's a threshold or timing pass (grep for prefers-reduced-motion; measure idle motion past the moment the first thing moves on its own, with seeds and planets hidden, then decoration). Give decoration its own clock and freeze it under the setting; record motion as partial only if what's left is the simulation, measured, several runs.
+
+4. Text and contrast: every label at least 12 CSS px at 360 px wide (an fs() from the CSS width for canvas text), 4.5:1 against what is behind it, with backings where text sits over the sky or planets. Colour must still pass on several runs, including a screen late in a round (a scripted copy, findings "Late screens grow their own greys"); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs orbit-garden, node scripts/balance-orbit-garden.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs orbit-garden (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that places and flings. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/orbit-garden.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/orbit-garden.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
