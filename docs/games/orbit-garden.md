@@ -117,7 +117,8 @@ blooming, 9 seeds, seeds in flight, hint on; cursor or aim preview on).
   the brown → green body ramp merges to olive for deutans and protans, but
   carries nothing else.
 - Bots reproduce v7 exactly (200 runs × 13 bots; old file twice first).
-  Keys-only playthrough: KEYS_RESULT.
+  Keys-only playthrough (live region only): 40 flings, 31 landed, all
+  31 "reaches" shots hit; 9 at a planet past preview reach all missed.
 
 ## Open ideas / known limits
 
