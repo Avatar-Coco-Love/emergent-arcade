@@ -91,7 +91,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - lighthouse-keeper: "harbour" 8.5 px; ignores reduced motion.
 - counterfeit-scale: no live region for weighings.
 - coat-check: hook letters 11 px at 4.3:1; no live region.
-- surprise-party: keys only wait/undo/restart; no live region.
+- surprise-party: done (v4, 2026-10-05): a tile cursor (arrows, G/D/B jump to the next guest who hasn't heard, the next door, the birthday person), Enter whispers, hold O on a door shuts or opens it, a live region (the tile in words, each move and its tick, result and stars), guest states and the danger zone by lightness and marks, reduced motion read (no pulse or growing ripple) (`docs/games/surprise-party.md`, "Accessibility").
 - geode: done (v3, 2026-10-05): T switches the arrows between thermostat and a site-to-site cursor, S/Enter seeds, hold C cleaves, I finds a foreign ion; labels 12.8 px+; reduced motion stills shimmer, pulses and motes (growth still moves, so motion stays partial); a near-grey anneal zone fixes a late-screen colour merge; a live region (`docs/games/geode.md`, "Accessibility").
 
 ## 7. "I used this in class" feedback form

@@ -1757,14 +1757,14 @@
       "id": "surprise-party",
       "title": "Surprise Party",
       "file": "surprise-party.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-10-04",
       "updated": "2026-10-05",
       "daily": { "from": "2026-10-04" },
       "blurb": "Spread the word about the party through the house as a ripple of whispers, and steer it with doors so the birthday person doesn't hear before 8:00.",
       "goal": "Get every guest in each house to hear about the party by 8:00 while the birthday person hears nothing before then. 15 houses in three chapters (stars for envelopes saved), then Party Season: endless new houses, envelopes carry over, and the score is the parties you pull off before they run out.",
       "howToPlay": "It's 6:00 and the party starts at 8:00; every move takes 15 minutes. {Tap} a guest to whisper the news (it costs one envelope). Anyone who just heard tells everyone within 2 steps on the next quarter hour, then goes quiet and puts on a party hat, so the news moves as a ripple and never comes back. Walls and shut doors stop it. {Hold} a door to shut or open it, or press Wait to let the clock move on. Dashed rings show who hears next; the pink tint is the birthday person's 2-step danger zone. News that reaches them exactly at 8:00 is fine: that's the surprise. Undo is free in the campaign; in Party Season an undone whisper stays spent.",
-      "keyboard": "Space or W to wait, U to undo, R to restart, Enter for the next house",
+      "keyboard": "Arrows move · Enter whispers, next house · hold O: door · G guest, D door, B birthday · Space wait · U undo · R restart",
       "mechanics": [
         {
           "name": "whisper",
@@ -1812,6 +1812,11 @@
         "epoch": 1
       },
       "changes": [
+  {
+   "version": 4,
+   "date": "2026-10-05",
+   "text": "Play by keyboard: arrows move a cursor, Enter whispers, hold O on a door, G/D/B jump to guests, doors and the birthday person. Screen readers hear each move. Just-heard guests get a dark ring, hats an outline, the danger zone stripes; reduced motion stops the pulse."
+  },
         {
           "version": 3,
           "date": "2026-10-05",

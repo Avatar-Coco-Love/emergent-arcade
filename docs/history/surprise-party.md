@@ -4,6 +4,25 @@ Older versions, superseded balance tables and rationale. Current design:
 `docs/games/surprise-party.md`. Add new entries at
 the top; sessions don't read this file by default.
 
+## Party Season economy, v1 (moved from the notes, v4)
+
+Party Season (30 runs, cap 40 parties): finding par every house 40; 90% of
+houses 27 (p10 9); 75% 11 (p10 7, 50% reach 10 = Party Planner); 50% 5.
+Slowest house generation 1.9 s (rare); typical under 0.3 s.
+
+## Changes from the brief (moved from the notes, v4)
+
+- Door is a `{hold}`, not a tap: `validate.mjs` needs distinct verbs, and a
+  hold guards against toggling a door by accident (each costs 15 minutes).
+- Party Season allows Undo but an undone whisper stays spent (no undo made
+  one wrong tap end a season: 2 parties median for a bot with 1 slip per
+  house); the score then measures finding par.
+- "Open house" is earned on 2-4 *Trust the clock*, the one chapter 2–3 house
+  whisper-only can win; every other one needs a door.
+- Fresh for 1 turn (tells once). Fresh for 2 lets a door hold a wave a turn
+  (3-1's par 2 → 1) but barely helps the novice and solves 4× slower: a
+  candidate later chapter.
+
 ## Go/no-go re-run: chapter 3 rebuilt (2026-10-04)
 
 The hallway houses are now built like 2-1: a junction guest sits in the room

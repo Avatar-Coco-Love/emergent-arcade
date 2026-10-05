@@ -1,6 +1,6 @@
 # Surprise Party: design notes
 
-v3 (2026-10-05, canvas label; v2 2026-10-04 Daily Challenge). Brief: `docs/ideas/surprise-party.md`. Go/no-go runs and
+v4 (2026-10-05, accessibility; v3 canvas label; v2 2026-10-04 Daily Challenge). Brief: `docs/ideas/surprise-party.md`. Go/no-go runs and
 superseded house designs: `docs/history/surprise-party.md`.
 Harness: `node scripts/balance-surprise-party.mjs [trials] [1|2|both]`
 (cuts the `// § sim` block out of the game; `show <id>`, `gen [n] [k]` dev
@@ -90,9 +90,7 @@ decisions (except 2-1 intro, 2-4); every achievement reachable by a bot
 open-house on 2-4); novice median 54% after 2 wrong taps, 53% after 3.
 The median is carried by chapters 1–2: **chapter 3 alone is 29% / 18%**.
 
-Party Season (30 runs, cap 40 parties): finding par every house 40; 90% of
-houses 27 (p10 9); 75% 11 (p10 7, 50% reach 10 = Party Planner); 50% 5.
-Slowest house generation 1.9 s (rare); typical under 0.3 s.
+Party Season economy (v1, 30 runs): `docs/history/surprise-party.md`.
 
 ## Telemetry fields
 
@@ -101,22 +99,38 @@ Slowest house generation 1.9 s (rare); typical under 0.3 s.
 doors, waits, undos, par, env, guests, heard, stars, ch, turn (moves made),
 pool (season: envelopes left).
 
-## Changes from the brief
+## Accessibility (v4, `node scripts/a11y-audit.mjs surprise-party`: all 6 pass, 3/3)
 
-- Door is a `{hold}`, not a tap: `validate.mjs` needs distinct verbs, and a
-  hold guards against toggling a door by accident (each costs 15 minutes).
-- Party Season allows Undo but an undone whisper stays spent (no undo made
-  one wrong tap end a season: 2 parties median for a bot with 1 slip per
-  house); the score then measures finding par.
-- "Open house" is earned on 2-4 *Trust the clock*, the one chapter 2–3 house
-  whisper-only can win; every other one needs a door.
-- Fresh for 1 turn (tells once). Fresh for 2 lets a door hold a wave a turn
-  (3-1's par 2 → 1) but barely helps the novice and solves 4× slower: a
-  candidate later chapter.
+- Keys (`// § keys`, outside the sim): arrows move a tile cursor over the
+  house in screen directions (turned houses too); held keys repeat. G /
+  Shift+G next / previous guest who hasn't heard, D door, B birthday
+  person. Enter = the pointer's `tapCell` (whisper); hold O on a
+  door = the pointer's press object (same ring, 0.32 s; key up early
+  cancels). Space/W wait, U undo, R restart, S status, Enter next house.
+  Tab free; Space/Enter on a focused button press it.
+- Live region `#say` (`#msg` aria-hidden): the tile under the cursor
+  (guest state, door open/shut, walking steps to the birthday person), one
+  line per move from its result ("7:00. Whispered to guest 4. 3 heard:
+  guests 3, 5 and 12. 4 more hear next. The news is 2 steps from the
+  birthday person. 1 envelope, 4 moves left."), spoken after the deferred
+  solver check so a warning joins the line; start, result, stars.
+- Without hue (L* normal/deutan/protan; floors 90–93): hears next = dashed
+  ring 54; just heard = gold disc + solid ring 16; quiet = hat with an
+  outline 13; hasn't heard = no hat, no ring. Danger zone: tint 82–85 +
+  stripes 63–65. Red ring on a dark rim. Doors by shape (plank across or
+  aside). `#rule` 12 px in landscape (was 11.8).
+- Reduced motion (`still()`): no pulse, no growing ripple (a fixed ring
+  fades), no pop. v3's pass was a state pass: only a warn screen moves
+  (the red ring pulses, 0.10–0.14% idle), and the audit's taps never reach
+  one. v4: 0.10–0.11% → 0.00% (3 runs); after a ripple 0.00%.
+- Balance identical (old file twice, then new). Keys bot (live region
+  only): 15/15 houses ★★★ at 1280×800 and 360×740 (turned). Late-house
+  mid-ripple copy: colour passes 2/2.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys only wait/undo/restart (whisper, doors need a pointer); no live region.
+- Accessibility: done in v4 (above). Not checked with a real screen reader
+  or colour-blind player; are row/column positions enough on big houses?
 - Novice (no undo, random slips) after 2 wrong taps: chapter 3 median 29%
   (3-4 *Long way round* 14%). Undo and the spoil warning are the safety net;
   watch human retries and undos per house in telemetry.
