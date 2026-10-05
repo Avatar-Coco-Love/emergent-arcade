@@ -1055,7 +1055,7 @@
       "id": "tidewright",
       "title": "Tidewright",
       "file": "tidewright.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-09-30",
       "updated": "2026-10-05",
       "blurb": "Flick sand onto a seawall and work the sluice gates to keep the village dry, wave after wave.",
@@ -1114,6 +1114,11 @@
         "epoch": 1
       },
       "changes": [
+        {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Bigger labels on dark backings, sluice handles told apart by shape and brightness (pale + when shut, green × when open), a pale line on standing water, and with reduced motion the sea, gate streaks, drips and rain hold still."
+        },
         {
           "version": 2,
           "date": "2026-10-05",
@@ -1251,7 +1256,7 @@
       "changes": [
         {
          "version": 7,
-         "date": "2026-10-05",
+          "date": "2026-10-05",
          "text": "No gameplay change. Screen readers now get a description of the game and its controls, worded for your device."
         },
         {

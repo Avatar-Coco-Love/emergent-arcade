@@ -6,7 +6,21 @@ section; sessions don't read this file by default.
 
 ## History
 
+- v3 (2026-10-05): accessibility (labels, handles, reduced motion), no gameplay change.
+- v2 (2026-10-05): canvas label.
 - v1 (2026-09-30): first version, from `docs/ideas/tidewright.md`.
+
+## v2 balance notes (moved from the design notes in v3, still current)
+
+Sweeps (skilled): lag 0.6 / 1.0 s → median 20 / 20; think 0.2 / 0.8 /
+1.5 s → 20 / 20 / 16, so speed doesn't win, but one action per 1.5 s or
+slower costs ~4 waves. Novice with lag 1.2, think 2 s: median 8.
+
+Not met: novice 4-6 (brief). An honest novice holds 10. It loses where it
+doesn't read (spring tides, forgotten gates, wet flicks: 55 of 106 flicks
+whiffed), but each mistake is recoverable by design (findings: 2-3 wrong
+taps must be survivable). Bots are optimistic for first-timers
+(findings); check telemetry before tuning harder.
 
 ## v1: departures from the brief and why
 

@@ -82,7 +82,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - island-census: no keyboard play; HUD 9.4 px; meadow colours close for deuteranopia.
 - loom: no keyboard play.
 - terrace-garden: keys tilt but can't work the gates; ignores reduced motion.
-- tidewright: labels 8.5 px, "flood" 1.3:1; red handles merge with the wall for protanopia.
+- tidewright: done (v3, 2026-10-05): labels 12 px+ on backings, handles told apart by lightness and shape, a surface line on water, reduced motion read (`docs/games/tidewright.md`, "Accessibility").
 - pressure-grid: keys only undo/restart/next; cell numbers 2.0:1; no live region.
 - rail-yard: "Run 0" 11.5 px. (Tab freed in v3: Space picks a car.)
 - aqueduct: no live region.
@@ -205,7 +205,7 @@ Fix the canvas label on every game in one PR (docs/accessibility.md, the label c
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Tidewright accessibility revision (prompt below)
+## Prompt used for the Tidewright accessibility revision (done, v3)
 
 Chosen 2026-10-05, after Wildfire Line v4; still next after the label batch
 (its canvas label is done). Still no classroom reports (0),
@@ -229,6 +229,34 @@ Revise Tidewright for accessibility (docs/accessibility.md, its row; docs/ideas/
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs tidewright, node scripts/balance-tidewright.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly), node scripts/a11y-audit.mjs tidewright (all six pass). Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/tidewright.md (what changed, open ideas), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md. Push, open the PR (template checklist), publish the playtest artifact, watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Pressure Grid accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Tidewright v3. Still no classroom reports (0),
+so 3 vs 4 keeps waiting on what teachers ask for. Pressure Grid now has
+the most serious row left: its cell numbers (the whole puzzle state) are
+2.0:1 on brown, neither verb has a key (only undo/restart/next), and
+nothing in the DOM changes, so a screen reader hears no move. Turn-based,
+so motion already passes; this is the Wildfire Line keyboard pattern
+plus Tidewright's contrast half, plus a live region.
+
+```
+Revise Pressure Grid for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: readable cell numbers, both verbs on keys, a live region. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/pressure-grid.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "A hue fix moves the merge to the next neighbour" and "Canvas text shrinks with the board"), docs/games/wildfire-line.md and docs/games/tidewright.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game pressure-grid. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Contrast and text: cell numbers and every other canvas label 4.5:1 against the cell behind them at every pressure (check the darkest and lightest cell colours, and near-burst cells), at least 12 CSS px at 360 px wide (size from the CSS width). Check with node scripts/a11y-audit.mjs pressure-grid: contrast and text must pass. Screenshot before and after at 360×740, normal and simulated protanopia; colour must still pass on several runs.
+
+3. Keyboard: both verbs without a pointer: an arrow-key cursor over the cells, a key that pumps the cell under it, and a key path for siphon (e.g. a key that starts a siphon, then an arrow picks the neighbour; no chords). Keys call the same functions as the pointer. Tab stays free; Space/Enter on a focused button press the button. Update the keyboard line in the manifest, the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+4. Live region: a DOM status line (role="status") that says what a move did (pumped to N, siphoned N into a neighbour, a burst chain and how many rings are left, level solved), short and not on every frame.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs pressure-grid, node scripts/balance-pressure-grid.mjs and node scripts/playthrough-pressure-grid.mjs (balance must not move: same constants and levels), node scripts/a11y-audit.mjs pressure-grid (all six pass). Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/pressure-grid.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/pressure-grid.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md. Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```

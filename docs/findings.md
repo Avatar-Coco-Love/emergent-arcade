@@ -253,3 +253,14 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   Label the canvas at load with the device's word and the keys.
   *A picker key must leave Tab and focused buttons alone.* Rail Yard v3.
   audit.
+- A motion "pass" can be a threshold pass: Tidewright's shimmer moved
+  under the audit's idle limit, but the game never read the setting.
+  Grep for `prefers-reduced-motion` before trusting the cell, and freeze
+  decoration by giving it its own clock (`tm = still() ? 0 : tnow`).
+  *A motion pass can mean small, not still.* Tidewright v3. audit.
+- Protanopia folds red and green onto one olive axis, so a fix in hue
+  moves the merge: the red handle left the brown strip, then its dark red
+  rim matched the green ground. Pick each state's lightness against every
+  neighbour (near-black rim, pale face), and check decoration too (red
+  roofs on grass vanished). Shape (+ vs ×) carries open/shut on its own.
+  *A hue fix moves the merge to the next neighbour.* Tidewright v3. audit.

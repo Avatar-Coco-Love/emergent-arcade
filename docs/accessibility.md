@@ -45,7 +45,7 @@ with what the audit's taps started; "ignores the setting" is the finding.
 | island-census | pass | pass | partial: meadows (deutan, borderline) | fail: none | pass (labelled) | fail: 9.4 px HUD |
 | loom | pass | pass | pass | fail: none | pass (labelled) | pass |
 | terrace-garden | fail: ignores it | pass | pass | partial: tilt, not gates | pass (labelled) | pass |
-| tidewright | pass | fail: "flood" 1.3:1 | fail: handles ≈ wall (protan) | pass | pass (labelled) | fail: 8.5 px |
+| tidewright | pass (v3: reads it) | pass (v3: backings) | pass (v3: shape + lightness) | pass | pass (labelled) | pass (v3) |
 | pressure-grid | pass | fail: cell numbers 2.0:1 | pass | fail: undo/restart only | pass (labelled) | pass |
 | rail-yard | pass | pass | pass | pass (v3: Space picks a car) | pass (labelled) | partial: 11.5 px |
 | aqueduct | pass | pass | pass | pass | pass (labelled) | pass |

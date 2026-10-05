@@ -49,10 +49,12 @@
   #stage { position: relative; }
   #shore { display: block; width: 100%; height: 100%; touch-action: none; border-radius: 10px; }
   #msg {
-    position: absolute; top: 34px; left: 24px; right: 24px; margin: 0;
+    position: absolute; top: 34px; left: 24px; right: 24px;
     text-align: center; font-size: 0.85rem; line-height: 1.3; color: #fff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95); pointer-events: none;
+    width: fit-content; margin: 0 auto; padding: 4px 10px; border-radius: 8px;
+    background: rgba(10, 25, 35, 0.82); pointer-events: none;
   }
+  #msg:empty { padding: 0; background: none; }
   #msg.warn { color: #ffb4a2; font-weight: 600; }
   #endCard {
     position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
@@ -190,6 +192,17 @@
     window.parent.postMessage(msg, '*');
   }
 
+  // Canvas text is sized from the CSS width: at least TEXT_CSS px on screen
+  // (the 400 px design shrinks to 0.85 at 360 px wide), never below its design size.
+  const TEXT_CSS = 12.5;
+  let cssScale = 1;
+  const fs = n => Math.max(n, Math.ceil(TEXT_CSS / cssScale));
+  const rowH = () => fs(13) + 11;
+  // Reduced motion: decorative motion (sea shimmer, the sea line's ripple,
+  // gate streaks, drips, rain) stands still; the tide and the sand still move.
+  const stillMQ = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const still = () => !!(stillMQ && stillMQ.matches);
+
   const field = document.getElementById('field');
   const stage = document.getElementById('stage');
   function fitShore() {
@@ -200,6 +213,8 @@
     stage.style.height = h + 'px';
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
+    cssScale = w / W;
+    msgEl.style.top = Math.round((2 * rowH() + 6) * cssScale) + 'px';
   }
   new ResizeObserver(fitShore).observe(field);
   window.addEventListener('resize', fitShore);
@@ -492,9 +507,24 @@
     const A = p(a), B = p(b);
     return `rgb(${A.map((v, j) => Math.round(v + (B[j] - v) * t)).join(',')})`;
   }
+  // A canvas label on a dark backing, so it reads over sky, sea, sand or water.
+  // (x, yb) is the text's anchor and baseline; returns the backing's top.
+  function tag(text, x, yb, align, color, size) {
+    ctx.font = `bold ${size}px sans-serif`;
+    ctx.textAlign = align;
+    const w = ctx.measureText(text).width;
+    const x0 = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+    const top = yb - size * 0.8 - 3;
+    ctx.fillStyle = 'rgba(10,25,35,0.88)';
+    ctx.fillRect(x0 - 4, top, w + 8, size + 4);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, yb);
+    return top;
+  }
   function draw() {
     const s = canvas.width / W;
     ctx.setTransform(s, 0, 0, s, 0, 0);
+    const tm = still() ? 0 : tnow; // clock for decorative motion only
     const dark = spec.rain || spec.storm.length ? 1 : 0;
     const sky = ctx.createLinearGradient(0, 0, 0, GY);
     sky.addColorStop(0, dark ? '#2a3a48' : '#3d6f93');
@@ -504,14 +534,14 @@
     if (spec.rain) {
       ctx.strokeStyle = 'rgba(200,225,240,0.5)'; ctx.lineWidth = 1;
       ctx.beginPath();
-      for (let j = 0; j < 40; j++) { const rx = (j * 97 + tnow * 40) % W, ry = (j * 53 + tnow * 300) % GY; ctx.moveTo(rx, ry); ctx.lineTo(rx - 2, ry + 8); }
+      for (let j = 0; j < 40; j++) { const rx = (j * 97 + tm * 40) % W, ry = (j * 53 + tm * 300) % GY; ctx.moveTo(rx, ry); ctx.lineTo(rx - 2, ry + 8); }
       ctx.stroke();
     }
     // Sea behind the wall.
     ctx.beginPath();
     ctx.moveTo(0, GY);
     for (let i = 0; i <= NC; i++) {
-      const c = Math.min(i, NC - 1), sw = Math.sin(tnow * 1.7 + i * 0.7) * 0.6;
+      const c = Math.min(i, NC - 1), sw = Math.sin(tm * 1.7 + i * 0.7) * 0.6;
       ctx.lineTo(i * COLW, y(sea[c] + sw));
     }
     ctx.lineTo(W, GY);
@@ -542,7 +572,11 @@
       if (gateOpen[g] && Math.abs(Wd[c] - sea[c]) > 0.3 && Math.max(Wd[c], sea[c]) > SILL) {
         ctx.fillStyle = 'rgba(140,200,240,0.8)';
         const fl = Wd[c] > sea[c] ? 'out' : 'in';
-        for (let j = 0; j < 3; j++) {
+        if (still()) {
+          // A still arrow instead of moving streaks: up = draining out, down = sea in.
+          const mx = x + COLW / 2, my = GY - gh / 2, d = fl === 'out' ? -1 : 1;
+          ctx.beginPath(); ctx.moveTo(mx - 4, my - 3 * d); ctx.lineTo(mx + 4, my - 3 * d); ctx.lineTo(mx, my + 5 * d); ctx.fill();
+        } else for (let j = 0; j < 3; j++) {
           const yy = GY - 3 - ((tnow * 30 + j * 9) % 24);
           ctx.fillRect(x + 3 + j * 2.5, fl === 'out' ? yy : GY - gh + (GY - 3 - yy), 1.5, 3);
         }
@@ -556,13 +590,13 @@
         ctx.fillRect(x + 1, y(Hh[i]) - 2, COLW - 2, y(Math.max(Wd[i], 0)) - y(Hh[i]) + 2);
       }
       if (wave >= LEAK_FROM && sea[i] > baseSea() + 1) {
-        const r = (tnow * (1 + (sea[i] - baseSea()) / 20) + i * 0.37) % 1;
+        const r = still() ? 0.5 : (tnow * (1 + (sea[i] - baseSea()) / 20) + i * 0.37) % 1;
         ctx.fillStyle = 'rgba(120,190,235,0.9)';
         ctx.fillRect(x + COLW / 2 - 1, GY - 6 * K + r * 6 * K, 2, 3);
       }
       if (wave >= LEAK_FROM && Wd[i] > WET_D && i % 2 === 0) {
         ctx.fillStyle = 'rgba(80,50,25,0.8)';
-        const ty = y(Hh[i]) - 7 + ((tnow * 6) % 3);
+        const ty = y(Hh[i]) - 7 + ((tm * 6) % 3);
         ctx.beginPath(); ctx.moveTo(x + COLW / 2 - 3, ty); ctx.lineTo(x + COLW / 2 + 3, ty); ctx.lineTo(x + COLW / 2, ty + 4); ctx.fill();
       }
     }
@@ -574,16 +608,20 @@
     ctx.closePath();
     ctx.fillStyle = 'rgba(70,150,210,0.62)';
     ctx.fill();
+    // A pale surface line: water is told from wet sand by shape, not only hue.
+    ctx.strokeStyle = 'rgba(225,245,255,0.9)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < NC; i++) if (Wd[i] > 0.3) { ctx.moveTo(i * COLW, y(Wd[i])); ctx.lineTo((i + 1) * COLW, y(Wd[i])); }
+    ctx.stroke();
     // Sea level, seen through the wall.
     if (Math.max(...sea) < HMAX) {
       ctx.strokeStyle = 'rgba(40,120,190,0.9)'; ctx.lineWidth = 2;
       ctx.beginPath();
       for (let x = 0; x <= W; x += 4) {
         const i = Math.min(NC - 1, Math.floor(x / COLW));
-        ctx.lineTo(x, y(sea[i]) + Math.sin(x / 9 + tnow * 3) * 1.5);
+        ctx.lineTo(x, y(sea[i]) + Math.sin(x / 9 + tm * 3) * 1.5);
       }
       ctx.stroke();
-      if (sea[0] > -2) { ctx.font = 'bold 10px sans-serif'; ctx.fillStyle = '#1f5f96'; ctx.textAlign = 'left'; ctx.fillText('sea', 3, y(sea[0]) - 4); }
     }
     // Flood level: ticks at both edges.
     ctx.fillStyle = '#ff7b66';
@@ -598,14 +636,16 @@
       ctx.stroke();
     }
     ctx.setLineDash([]);
-    ctx.font = 'bold 10px sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#ffd2c8';
-    ctx.fillText('flood', W - 3, y(FLOOD_D) - 5);
-    if (phase === 'calm' || pt < RISE) {
-      ctx.fillStyle = warn || phase === 'wave' ? '#ffb070' : '#fff';
-      ctx.textAlign = 'left';
-      ctx.fillText('next crest', 3, y(crestAt(0)) - 5);
+    // Labels on backings: "flood" at the right edge, "next crest" and "sea"
+    // at the left (the sea's label moves above the crest's when they meet).
+    const lf = fs(10);
+    tag('flood', W - 3, y(FLOOD_D) - 5, 'right', '#ffc4b8', lf);
+    let crestTop = Infinity;
+    if (phase === 'calm' || pt < RISE) crestTop = tag('next crest', 3, y(crestAt(0)) - 5, 'left', warn || phase === 'wave' ? '#ffb070' : '#fff', lf);
+    if (Math.max(...sea) < HMAX && sea[0] > -2) {
+      let sb = y(sea[0]) - 4;
+      if (sb > crestTop - 2 && sb - lf - 6 < crestTop + lf + 4) sb = crestTop - 4;
+      tag('sea', 3, sb, 'left', '#9fd4f5', lf);
     }
     // Keyboard cursor.
     if (kbUsed) {
@@ -626,23 +666,27 @@
       const cx = (c + 0.5) * COLW;
       ctx.strokeStyle = '#8a9096'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(cx, GY + 4); ctx.lineTo(cx, HANDLE_Y - HANDLE_R); ctx.stroke();
-      ctx.fillStyle = gateOpen[g] ? '#3fa36f' : '#a8453a';
+      // Told apart by lightness and shape, not hue: shut is a pale wheel with a
+      // dark red rim and a + of spokes; open is a mid green wheel with an ×.
+      ctx.fillStyle = gateOpen[g] ? '#3fa36f' : '#f3ece2';
       ctx.beginPath(); ctx.arc(cx, HANDLE_Y, HANDLE_R, 0, 7); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 2;
+      if (!gateOpen[g]) { ctx.strokeStyle = '#4a1510'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx, HANDLE_Y, HANDLE_R - 2, 0, 7); ctx.stroke(); }
+      ctx.strokeStyle = gateOpen[g] ? 'rgba(255,255,255,0.85)' : '#4a1510'; ctx.lineWidth = gateOpen[g] ? 2 : 3;
       const a = gateOpen[g] ? Math.PI / 4 : 0;
       for (let j = 0; j < 4; j++) {
         const t = a + j * Math.PI / 2;
         ctx.beginPath(); ctx.moveTo(cx, HANDLE_Y); ctx.lineTo(cx + Math.cos(t) * (HANDLE_R - 4), HANDLE_Y + Math.sin(t) * (HANDLE_R - 4)); ctx.stroke();
       }
-      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = 'bold 10px sans-serif';
-      ctx.fillText(gateOpen[g] ? 'OPEN' : 'SHUT', cx, HANDLE_Y + HANDLE_R + 12);
-      if (kbUsed) ctx.fillText(String(g + 1), cx + HANDLE_R + 6, HANDLE_Y - HANDLE_R + 4);
+      const gf = fs(10);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = `bold ${gf}px sans-serif`;
+      ctx.fillText(gateOpen[g] ? 'OPEN' : 'SHUT', cx, HANDLE_Y + HANDLE_R + gf + 2);
+      if (kbUsed) ctx.fillText(String(g + 1), cx + HANDLE_R + 7, HANDLE_Y - HANDLE_R + gf * 0.4);
     });
     const flood = Math.min(1, (meanW || 0) / FLOOD_D);
     for (let j = 0; j < 7; j++) {
       const hx = 12 + j * 56 + (j % 2) * 8, hy = 562, hw = 30, hh = 20;
       ctx.fillStyle = '#c9b89a'; ctx.fillRect(hx, hy, hw, hh);
-      ctx.fillStyle = '#8c3b2e';
+      ctx.fillStyle = '#dc8f70';
       ctx.beginPath(); ctx.moveTo(hx - 4, hy); ctx.lineTo(hx + hw / 2, hy - 12); ctx.lineTo(hx + hw + 4, hy); ctx.fill();
       ctx.fillStyle = '#f3d77a'; ctx.fillRect(hx + 6, hy + 6, 6, 6); ctx.fillRect(hx + 18, hy + 6, 6, 6);
     }
@@ -665,19 +709,17 @@
       }
     }
     // Top line: wave and countdown.
-    ctx.fillStyle = 'rgba(10,25,35,0.55)';
-    ctx.fillRect(0, 0, W, 26);
-    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
-    ctx.fillText(`Season ${season} · wave ${wave}`, 8, 18);
-    ctx.textAlign = 'right';
+    // The wave's events get a second row, so the text can be big enough.
+    const tf = fs(13), rh = rowH();
+    ctx.fillStyle = 'rgba(10,25,35,0.85)';
+    ctx.fillRect(0, 0, W, rh);
+    ctx.font = `bold ${tf}px sans-serif`; ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
+    ctx.fillText(`Season ${season} · wave ${wave}`, 8, rh - 8);
     ctx.fillStyle = warn || phase === 'wave' ? '#ffb070' : '#fff';
     ctx.textAlign = 'right';
-    ctx.fillText(phase === 'calm' ? `next wave in ${Math.ceil(spec.calm - pt)} s` : 'WAVE!', W - 8, 18);
+    ctx.fillText(phase === 'calm' ? `next wave in ${Math.ceil(spec.calm - pt)} s` : 'WAVE!', W - 8, rh - 8);
     const names = { rogue: 'rogue', rain: 'rain', spring: 'spring tide', double: 'double', storm: 'storm' };
-    if (spec.ev.length) {
-      ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ffe2a8';
-      ctx.fillText(spec.ev.map(e => names[e]).join(' + '), W / 2 + 10, 18);
-    }
+    if (spec.ev.length) tag(spec.ev.map(e => names[e]).join(' + '), W / 2, 2 * rh - 8, 'center', '#ffe2a8', fs(11));
   }
 
   // § input

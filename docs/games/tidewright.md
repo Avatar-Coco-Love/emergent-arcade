@@ -1,6 +1,6 @@
 # Tidewright: design notes
 
-**v2** (2026-10-05, canvas label; v1 2026-09-30) · playtest: https://claude.ai/artifact/6y3SvqHNfdbqdzaVQeVuwk (private, republished each push) ·
+**v3** (2026-10-05, accessibility; v2 canvas label; v1 2026-09-30) · playtest: https://claude.ai/artifact/6y3SvqHNfdbqdzaVQeVuwk (private, republished each push) ·
 balance: `node scripts/balance-tidewright.mjs 200`
 Verbs: **shore up** (flick) and **sluice** (tap), sharing **wall height `H`
 and standing water `W` per column** (32 columns). Endless: seasons of 6
@@ -59,7 +59,27 @@ A normal cycle is 29 s; wave 1 hits at 12 s (first wave over at 19 s).
 Wall on ground at y 440 (4.2 px per height unit, 95 max). Gate doors at
 columns 4, 12, 19, 27; their handles (r 21) at y 488 with OPEN/SHUT. Seven
 houses at y 562 fill with water as the flood meter rises. Top strip: season,
-wave, the wave's events, countdown. Bar: waves held, sand, flood.
+wave, countdown; the wave's events on a second row under it; `#msg` below
+both (top set in `fitShore`). Bar: waves held, sand, flood.
+
+## Accessibility (v3, `node scripts/a11y-audit.mjs tidewright`: all 6 pass, 4/4 runs)
+
+- Text: canvas font `fs(n) = max(n, ceil(12.5 / cssScale))` game px, so
+  ≥ 12 CSS px at 360 px wide (12.8 measured). "flood", "next crest",
+  "sea" and the events sit on dark backings (`tag()`, `rgba(10,25,35,.88)`):
+  "flood" 1.3 → 9.3:1. `#msg` has a backing too (was 4.5:1 on the sky).
+- Handles, by lightness and shape: shut = pale `#f3ece2` wheel, dark
+  `#4a1510` rim and + spokes; open = green `#3fa36f` wheel, white ×.
+  Old red `#a8453a` ≈ ground strip (protan); a dark red rim then ≈ the
+  green ground, so the rim is near-black. Roofs `#8c3b2e` → `#dc8f70`.
+- Water: a pale surface line on standing water (wet sand and water were
+  L 48 vs ~50, apart by hue only).
+- Reduced motion: the audit said "pass" only because idle motion was
+  under its threshold; the game never read the setting. Now `still()`
+  freezes the sea shimmer, the sea line's ripple, rain, drips; open gates
+  show a still arrow (up = draining, down = sea in). Tide, water, sand and
+  the countdown still move (idle change 0.54% → 0.12% of the canvas).
+- Draw has no `Math.random`, so seeded bots reproduce v2 exactly.
 
 ## Balance (`node scripts/balance-tidewright.mjs 200`)
 
@@ -76,15 +96,9 @@ Waves held p10/median/p90, share reaching wave 10/15/20, median minutes.
 
 Every bot survives waves 1-2 (100%). All four one-rule bots lose during wave 6 (the
 spring tide ends season 1), so the first win needs both verbs. Sweeps
-(skilled): lag 0.6 / 1.0 s → median 20 / 20; think 0.2 / 0.8 / 1.5 s → 20 /
-20 / 16, so speed doesn't win, but one action per 1.5 s or slower costs ~4 waves.
-Novice with lag 1.2, think 2 s: median 8.
-
-**Not met: novice 4-6 (brief).** An honest novice holds 10. It loses
-where it doesn't read (spring tides, forgotten gates, wet flicks: 55 of
-106 flicks whiffed), but each mistake is recoverable by design (findings:
-2-3 wrong taps must be survivable). Bots are optimistic for first-timers
-(findings); check telemetry before tuning harder.
+(lag, think time) and the novice story: `docs/history/tidewright.md`.
+**Not met: novice 4-6 (brief)**: an honest novice holds 10 (each mistake
+is recoverable by design); check telemetry before tuning harder.
 
 Achievements (skilled / novice): Breakwater 100 / 100%, Stand Firm (3
 clean rogue waves) 100 / 23%, Sluice Master (drain half a flood in a wave,
@@ -102,20 +116,21 @@ over gates), `flicks`, `whiffs` (no sand, or < 60% kept in water).
 
 ## Player data
 
-None yet.
+v1, 2026-10-05: 1 player (touch), 3 sessions, 2 rounds, both lost in
+season 1 (overtop 1, gate 1), longest 197 s. `whiffs` 50 of 57 flicks:
+nearly every flick went into standing water or an empty pile. Too few to
+tune on; watch `whiffs` first.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): labels 8.5 px, "flood" at 1.3:1; red sluice handles merge with the wall for protanopia; ignores reduced motion.
+- Accessibility: done in v3 (above). Not checked: a real colour-blind player, a screen reader during play (`#msg` is the live region).
 - Novice target (see Balance); watch `reason` and `whiffs` in telemetry.
 - The skilled bot's death is 85% `seep` (events it can't drain through);
   a human who pre-builds before springs may go further. Late waves are
   random combos, so a run's end is partly luck.
 - The sand pile isn't drawn in the scene (the bar has the meter).
-- The score only posts when a season ends (win at 6 waves, or a loss), so
-  a run left mid-season records nothing: a player who held 4 waves and
-  quit can still see "Your best 1". Candidate for v2: post the waves held
-  on leaving (gallery support needed), or score per wave.
+- The score only posts when a season ends, so a run left mid-season
+  records nothing. Fix: post on leaving (gallery support) or per wave.
 - Possible v2: gates that jam if opened under pressure; a second wall line.
 
 History (tuning story, why each rule exists): `docs/history/tidewright.md`
