@@ -9,7 +9,9 @@ Accessibility: `node scripts/a11y-audit.mjs --gallery` (below, CI runs it).
 
 Playtest (private artifact, feedback/telemetry disabled in that copy):
 https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
-(republished for the teacher page PR: footer "For teachers", the
+(republished for the accessibility audit PR: darker light-theme accent,
+field borders, 12 px minimum text, hollow/filled rating stars. Before
+that, for the teacher page PR: footer "For teachers", the
 classroom link (`?class=1` doesn't reach inside the artifact frame, so try
 classroom mode with the note's Turn off after opening the copied link
 elsewhere, or locally); the form falls back to a GitHub issue there.
