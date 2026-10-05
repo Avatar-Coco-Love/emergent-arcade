@@ -54,7 +54,7 @@ the honest end state, not a fix still owed.
 | aqueduct | pass | pass | pass | pass | pass (labelled) | pass |
 | bubble-glass | partial: ignores it | pass | pass | partial: turn only | pass (labelled) | pass |
 | mycelium | partial: ignores it | pass | pass | pass | pass (labelled) | pass |
-| lighthouse-keeper | partial: ignores it | pass | pass | pass | pass (labelled) | fail: 8.5 px |
+| lighthouse-keeper | partial (v4: reads it; swell, surf, blinking, flare burst still. Mid-night the old file failed, 1.2–2.1%; decoration 0.5% → 0.00%, 0.02% with ships and fog hidden: the rest is the game) | pass (v4: backings; the flare's cost was 2.3:1 while charging, off the audit's screen) | pass (v4: seeing vs blind by lightness, wreck cross, heavy hold, lamp state in words; late screens too) | pass (v4: N next ship in the dark, I status, Enter next night) | pass (v4, live region) | pass (v4: "harbour" was 8.5 px) |
 | counterfeit-scale | pass | pass | pass | pass | pass (labelled) | pass |
 | coat-check | pass | partial: letters 4.3:1 | pass | pass | pass (labelled) | partial: 11 px |
 | surprise-party | pass (v4: reads it; no pulse or growing ripple. The old pass was a state pass: only a warning screen moves, 0.10% → 0.00%) | pass | pass (v4: rings, hat outlines, zone stripes by lightness; late screens too) | pass (v4: tile cursor, Enter whispers, hold O doors, G/D/B jumps) | pass (v4, live region) | pass (v4) |

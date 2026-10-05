@@ -12,7 +12,7 @@ the games, not just play them.
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
-| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6), Geode (v3), Ant Trails (v7), Hourglass Delivery (v5), Orbit Garden (v8), Hot Iron (v6), Loom (v4), Surprise Party (v4), Terrace Garden (v4); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
+| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6), Geode (v3), Ant Trails (v7), Hourglass Delivery (v5), Orbit Garden (v8), Hot Iron (v6), Loom (v4), Surprise Party (v4), Terrace Garden (v4), Lighthouse Keeper (v4); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
@@ -88,7 +88,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - aqueduct: no live region.
 - bubble-glass: keys turn the box only; ignores reduced motion (small).
 - mycelium: ignores reduced motion (small).
-- lighthouse-keeper: "harbour" 8.5 px; ignores reduced motion.
+- lighthouse-keeper: done (v4, 2026-10-05): ← → still turn the beam, N turns it to the next ship in the dark (most urgent first), S shutter, hold Space flare, I status, Enter next night; a live region in clock bearings (quarter hours) that says arrivals, ships blind with rocks ahead, wrecks, home, oil, flares and where the beam points once it arrives; seeing vs blind ships by lightness, wrecks and heavy ships by marks, the lamp's state in words; labels 12 px (the flare's cost was 2.3:1 while charging); reduced motion read (the ships and fog still move, so motion stays partial) (`docs/games/lighthouse-keeper.md`, "Accessibility").
 - counterfeit-scale: no live region for weighings.
 - coat-check: hook letters 11 px at 4.3:1; no live region.
 - surprise-party: done (v4, 2026-10-05): a tile cursor (arrows, G/D/B jump to the next guest who hasn't heard, the next door, the birthday person), Enter whispers, hold O on a door shuts or opens it, a live region (the tile in words, each move and its tick, result and stars), guest states and the danger zone by lightness and marks, reduced motion read (no pulse or growing ripple) (`docs/games/surprise-party.md`, "Accessibility").
@@ -547,7 +547,7 @@ Revise Terrace Garden for accessibility (docs/accessibility.md, its row; docs/id
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Lighthouse Keeper accessibility revision (prompt below)
+## Prompt used for the Lighthouse Keeper accessibility revision (done, v4)
 
 Chosen 2026-10-05, after Terrace Garden v4. Still no classroom reports
 (0), so 3 vs 4 keeps waiting on what teachers ask for. Lighthouse Keeper
@@ -573,6 +573,37 @@ Revise Lighthouse Keeper for accessibility (docs/accessibility.md, its row; docs
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs lighthouse-keeper, node scripts/smoke-gallery.mjs, node scripts/balance-lighthouse-keeper.mjs (balance must not move: same constants; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs lighthouse-keeper (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that turns, shutters and flares, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/lighthouse-keeper.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/lighthouse-keeper.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Bubble Glass accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Lighthouse Keeper v4. Still no classroom
+reports (0), so 3 vs 4 keeps waiting on what teachers ask for. Bubble
+Glass is the only game left where a verb needs a pointer: ← → turn the
+box, but melt (hold on sand) and shatter (tap on glass) have no key path,
+so a keyboard player can't play past the first levels. It also ignores
+reduced motion. Its verbs aim at cells of a grid that turns, so the
+cursor has to stay on the right sand when the box turns (findings, "A
+picker over moving pieces needs a way back"). Audit the held state too:
+the melt's growing shard and any label it draws (findings, "A held
+verb's preview hides from the audit").
+
+```
+Revise Bubble Glass for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: melt and shatter on keys, a live region, reduced motion read. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/bubble-glass.md (its "Open ideas" accessibility line, the turn, melt and shatter sections), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A switch key keeps an arrow binding players know", "A held key verb needs a cursor that can get ahead", "A picker over moving pieces needs a way back", "A real-time live region speaks settled changes", "A held verb's preview hides from the audit", "A bearing in words needs the beam's resolution", "Late screens grow their own greys" and "Run the old file twice before comparing balance"), docs/games/geode.md and docs/games/lighthouse-keeper.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game bubble-glass. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: ← → / A D turn the box today; keep them (findings "A switch key keeps an arrow binding players know"). Give melt and shatter a key path without chords: e.g. T switches the arrows to a cell cursor (announced), hold Space melts at the cursor (key up = finger up, the same press object the pointer uses), Enter or X shatters the glass under it, G jumps to the next glass shard and B to the bubble's cell; the cursor follows its cell when the box turns, so it stays on the same sand. Keys call the same functions as the pointer, outside the simulation. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what matters, short and never per frame: the cell under the cursor (sand, glass, empty, the bubble; how far from the bubble and which way is up now), the box's angle once a turn settles, a shard growing (size, heat spent) and stopping at the limit, glass shattering and where the sand falls, the bubble reaching the vent or getting stuck, heat left at a few steps, the level's result. Update the keyboard line in the manifest (120 characters at most), the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: the audit marks Bubble Glass's motion cell partial (ignores it). Grep for prefers-reduced-motion; measure idle motion mid-level with sand falling, then with the sand hidden, then with the bubble hidden, then decoration (the held shard's glow, the glowing ring's pulse, the bubble's flashing rim when slowed). Decoration gets its own clock and freezes under the setting; the simulation and any Math.random calls the bots depend on must not change. Record motion as partial only if what's left is the simulation itself, measured, several runs.
+
+4. Text and colour: every label at least 12 CSS px at 360 px wide (an fs() from the CSS width for canvas text), 4.5:1 against what is behind it, with backings where text sits over sand or glass. Sand, glass, a shard being melted, the bubble (free, slowed, blocked) and the vent must read without hue (lightness steps or a mark), and the cursor must show on all of them, checked by number, not only by the audit's colour cell. Contrast, colour and text must pass on several runs, including scripted later levels and held states (a shard melting, the box mid-turn; findings "Late screens grow their own greys" and "A held verb's preview hides from the audit"); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs bubble-glass, node scripts/smoke-gallery.mjs, node scripts/balance-bubble-glass.mjs (balance must not move: same constants; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs bubble-glass (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that turns, melts and shatters, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/bubble-glass.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/bubble-glass.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```

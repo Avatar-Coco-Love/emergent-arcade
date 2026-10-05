@@ -1,6 +1,6 @@
 # Lighthouse Keeper: design notes
 
-**v3** (2026-10-05, canvas label; v2 2026-10-03) · playtest: https://claude.ai/artifact/KcKMZ1aX9ZqmRBDhqpCQmT ·
+**v4** (2026-10-05, accessibility; v2 2026-10-03 gameplay) · playtest: https://claude.ai/artifact/KcKMZ1aX9ZqmRBDhqpCQmT ·
 balance: `node scripts/balance-lighthouse-keeper.mjs 50`
 Verbs: **turn** (drag), **shutter** (tap the lighthouse), **flare** (hold the
 lighthouse), sharing **fog per cell** and **the lamp's oil**. A run of
@@ -31,9 +31,8 @@ nights: 8 scripted, then endless; oil carries over. Score = ships home.
   over `FLARE_S` sets radius `FLARE_R0`→`FLARE_R1` and cost
   `FLARE_MIN`→`FLARE_MAX` oil (the preview ring shows both). Centre 0.9 ×
   radius out along the beam. Fog in it drops to −`FLARE_CLEAR`·(1 − d/2r),
-  so the patch stays clear ~4–6 s (the beam's ~2 s). It pays only if fired
-  when the ships are ~5 s from their reefs: earlier, the patch fades before
-  they see the rock (findings: *A burst verb fired too early looks useless*).
+  so the patch stays clear ~4–6 s (the beam's ~2 s); it pays fired ~5 s
+  before the reefs.
 - **Nights:** lost → retry from its start (+`RETRY_OIL` per retry) or new
   run. Won → +`DAWN_OIL`, next night.
 
@@ -50,6 +49,32 @@ nights: 8 scripted, then endless; oil carries over. Score = ships home.
 | 9+ | Night n | 0.68+0.02e | 10+e / max(3.3, 4.8−0.15e)·g·0.75 | 5+e/2 | convoys of g = 3/4 alternating, banks, right, heavy, return +6%/night |
 
 "every" is the gap between arrivals (a convoy is one arrival), ×0.8–1.2.
+
+## Accessibility (v4; audit: 5 pass, motion partial, 3/3 runs)
+
+- Keys (`// § keys`, outside the sim): hold ← → turn; N aims at the next
+  ship in the dark (`setAim`; most urgent first, again within 4 s = the
+  next); S shutter; hold Space flare; I status; Enter next night. Tab
+  free; Space/Enter on a focused button press it.
+- Live region `#say` (`#msg` aria-hidden): `seaWatch()` reads state after
+  each frame, never in `step()`. Bearings in quarter-hour clock times
+  from the lamp (whole hours put every top arrival at 11 or 12) + near /
+  halfway / far / out of reach. Says arrivals (a convoy = one line), a
+  ship blind with rocks or shore ahead in n s and seeing again (held
+  0.7 s, ≤ 1 per ship per 2 s; plain blindness is silent: lit-once ships
+  hold a safe course), wrecks, home, lamp shut/open/dry, oil < 40/20/10/5,
+  flares (oil, ships reached), the beam once it arrives (ships lit,
+  nearest in the dark, which way), the result.
+- Without hue (L*, normal/deutan/protan alike): mast seeing 91 vs blind
+  6 core in a ring; hulls 90, heavy 74 + hold, wreck 32 + cross; lamp 91
+  vs 27 + "shuttered"/"no oil"/"flare"; preview 83 vs 59–67 + "too much".
+- `fs(12)` labels: "harbour" (was 8.5 px), lamp state, flare cost (was
+  10 px, 2.3:1 while charging). Scripted nights 4–8, 12, shut, dry,
+  charging: contrast, colour, text pass.
+- Reduced motion (`still()`, clock `deco`): night 7 decoration 0.5% →
+  0.00%; ships + fog hidden 0.02% (HUD oil): the rest is the simulation.
+- Balance identical (old ×2, new). Keys bot (`#say` only, 4 runs): won
+  nights 1–4/5 first try (N, S, arrows by bearing, flares).
 
 ## Key constants (`games/lighthouse-keeper.html`, top of the script)
 
@@ -91,13 +116,7 @@ ends its voyage; reefs clear of arrival points).
 | novice | 100/98/80/70/58/6/0/0 | 5 | 7.6 min | 23 | 14 s dark, 6 s dry |
 | novice, 4 retries | 100/98/98/96/92/34/4/4 | 5 | 11.2 min | 25 | |
 
-- Nights last ~62 s (v1 ~1.7 min). Skilled median run 11.4 min.
-- Action rate: skilled at 0.5 / 1 / 2 s per action scores 57 / 59 / 52
-  (noflare 51 / 48 / 52): no speed test, but at 2 s flares stop paying.
-- Achievements (skilled / novice): starburst 26/0, storm-keeper 56/0,
-  clear-passage 96/18, thrifty-keeper 100/20, last-drop 20/90.
-- The skilled bot flares only when 2+ fogged ships outside the beam are
-  <5 s from rock, sized to cover them (8 s was too early).
+- Nights ~62 s; skilled median run 11.4 min.
 
 ## Telemetry
 
@@ -110,37 +129,21 @@ lamp was dry 5+ s), and `stats`:
 | `home` / `ships` | ships home / ships that night | `wrecks` | wrecks |
 | `oil` | oil at the end | `dark_s` / `shut_s` | s dark (shut or dry) / s shuttered |
 | `flares` / `flare_oil` | flares fired / oil spent on them | `lit_s` / `blind_s` | ship-seconds seeing / blind |
-| `first_input` | s to the first action (-1 none) | | |
-
-`shut_s` near 0 with `dark_s` high means the player never found the
-shutter and ran dry (the noshutter pattern); `flare_oil` vs `flares` shows
-flare size.
+| `first_input` | s to the first action (-1 none) | `jumps` | N presses (v4) |
 
 ## Player data
 
-None yet.
+2026-10-05 (`fetch-telemetry --game lighthouse-keeper`): 3 players, all
+touch. Night 1 won 3/3; night 2 lost 2/2 by oil (dark 9 s, shut 1 s);
+no classroom reports.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): "harbour" label 8.5 px; ignores reduced motion.
-- **Flare is still short of its target:** never-flare scores ~89% of
-  skilled at 0.5 s per action (target 80%), 76% at 1 s, tied at 2 s.
-  It pays only on convoy nights, and only fired ~5 s before the reefs;
-  most nights skilled fires none. Tried and not enough: tighter/wider
-  convoys, a slower lamp, slower ship turns, longer patches, more oil
-  pressure. Next steps and a ready v3 prompt:
-  `docs/ideas/lighthouse-keeper-v3.md` (phone playtest first).
-- The lit-once rule is why the beam can serve a crowd: a ship that saw holds
-  its course blind (findings: *A spotlight serves a crowd one by one*).
-  Stronger flare levers if needed: blind ships that drift off course over
-  time, or convoys on more nights.
-- The skilled bot does better at 1 s per action than at 0.5 s (it switches
-  targets too eagerly); not a speed test, but the bot is not optimal.
-- Novice wall now at night 6 (Thick night, threes in fast fog). The
-  thirstier lamp (1.4/s) costs the novice ~15 pts at nights 3–5 but makes
-  the shutter matter (noshutter 89% → 77% of skilled).
-- Not hand-played on a phone yet.
-- Ideas: a lit ship signals back (morse) to say where it is; a tide that
-  covers and uncovers reefs; a second lighthouse to hand ships over to.
+- Accessibility: done in v4 (above). Not tried with a real screen reader or
+  a colour-blind player yet. Starburst's text says 5 ships, the code needs 6.
+- **Flare short of its target**: never-flare ~89% of skilled (target
+  80%); pays only on convoy nights. Details, levers and a ready prompt:
+  `docs/ideas/lighthouse-keeper-v3.md`, `docs/history/lighthouse-keeper.md`.
+- Not hand-played on a phone.
 
 History (brief, departures from it): `docs/history/lighthouse-keeper.md`

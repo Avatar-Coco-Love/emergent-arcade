@@ -397,3 +397,16 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   the text or contrast cell. Audit one scripted screen per level kind,
   at its start and late. *A warm-up hides the labels later levels add.*
   Terrace Garden v4. audit on scripted gardens.
+- The audit only taps, so a label drawn while a verb is held never meets
+  it: Lighthouse Keeper's flare cost (10 px, 2.3:1 red over fog while
+  charging) passed every default run. Script the held and rare states
+  (charging, shuttered, out of oil) and audit those screens too. *A held
+  verb's preview hides from the audit.* Lighthouse Keeper v4. audit on
+  scripted states.
+- A bearing in words needs the beam's resolution: whole-hour clock
+  bearings (30°) put every top arrival at 11 or 12 o'clock, for a beam
+  17° wide. Quarter hours (7.5°) match its half-width; a keys bot holding
+  an arrow for the heard difference turned onto the ship. Speak the
+  danger, not the state: lit-once ships sail blind and safe most of the
+  time, so "blind" speaks only with rocks ahead in n s. *A bearing in
+  words needs the beam's resolution.* Lighthouse Keeper v4. keys-only bot.

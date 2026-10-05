@@ -6,8 +6,49 @@ relevant section; sessions don't read this file by default.
 
 ## History
 
+- v4 (2026-10-05): accessibility (keys N/I/Enter, live region, reduced motion, labels, states without hue). No gameplay change.
+- v3 (2026-10-05): canvas label. No gameplay change.
 - v2 (2026-10-03): review pass: input and placement fixes, convoys, shorter nights.
 - v1 (2026-10-03): first version, from the brief below.
+
+## v2 balance notes (moved from the notes file in v4; numbers unchanged)
+
+- Action rate: skilled at 0.5 / 1 / 2 s per action scores 57 / 59 / 52
+  (noflare 51 / 48 / 52): no speed test, but at 2 s flares stop paying.
+- Achievements (skilled / novice): starburst 26/0, storm-keeper 56/0,
+  clear-passage 96/18, thrifty-keeper 100/20, last-drop 20/90.
+- The skilled bot flares only when 2+ fogged ships outside the beam are
+  <5 s from rock, sized to cover them (8 s was too early).
+- The skilled bot does better at 1 s per action than at 0.5 s (it switches
+  targets too eagerly); not a speed test, but the bot is not optimal.
+- Novice wall now at night 6 (Thick night, threes in fast fog). The
+  thirstier lamp (1.4/s) costs the novice ~15 pts at nights 3–5 but makes
+  the shutter matter (noshutter 89% → 77% of skilled).
+
+## Open ideas moved in v4
+
+- **Flare is still short of its target:** never-flare scores ~89% of
+  skilled at 0.5 s per action (target 80%), 76% at 1 s, tied at 2 s.
+  It pays only on convoy nights, and only fired ~5 s before the reefs;
+  most nights skilled fires none. Tried and not enough: tighter/wider
+  convoys, a slower lamp, slower ship turns, longer patches, more oil
+  pressure. Next steps and a ready v3 prompt:
+  `docs/ideas/lighthouse-keeper-v3.md` (phone playtest first).
+- The lit-once rule is why the beam can serve a crowd: a ship that saw holds
+  its course blind (findings: *A spotlight serves a crowd one by one*).
+  Stronger flare levers if needed: blind ships that drift off course over
+  time, or convoys on more nights.
+
+## Notes moved in v4
+
+`shut_s` near 0 with `dark_s` high means the player never found the
+shutter and ran dry (the noshutter pattern); `flare_oil` vs `flares` shows
+flare size.
+  so the patch stays clear ~4–6 s (the beam's ~2 s). It pays only if fired
+  when the ships are ~5 s from their reefs: earlier, the patch fades before
+  they see the rock (findings: *A burst verb fired too early looks useless*).
+- Ideas: a lit ship signals back (morse) to say where it is; a tide that
+  covers and uncovers reefs; a second lighthouse to hand ships over to.
 
 ## v1 nights
 

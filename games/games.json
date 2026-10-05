@@ -1672,13 +1672,13 @@
       "id": "lighthouse-keeper",
       "title": "Lighthouse Keeper",
       "file": "lighthouse-keeper.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-10-03",
       "updated": "2026-10-05",
       "blurb": "Turn the lighthouse beam through the fog so ships can see the rocks, and ration the oil to last the night.",
       "goal": "Bring each night's ships into the harbour with no more than 2 wrecks. Oil carries over; after 8 nights the nights keep coming, foggier and busier. Score: ships brought home over the run.",
       "howToPlay": "Ships sail out of the dark toward the harbour (bottom left). In thick fog a ship can't see and holds its course, drifting, straight onto any rocks in its way; its mast light flashes red. Drag across the sea to turn the beam: it burns the fog away where it points, and a ship it lights (green mast light) sees the rocks and steers home around them. The fog drifts back within seconds once the beam moves on. The open lamp burns oil, and every ship that docks brings a little more. {Tap} the lighthouse to shutter the lamp (no oil burns, but the sea goes dark) and {tap} it again to open it. {Hold} the lighthouse to charge a flare and let go to fire it where the beam points: it clears a wide patch of fog for several seconds, and a bigger flare costs more oil. A third wreck loses the night. Later nights bring drifting fog banks, ships from the right, heavy ships that turn slowly, convoys and storms.",
-      "keyboard": "← → turn the beam, S shutters or opens the lamp, hold Space to charge a flare",
+      "keyboard": "← → turn the beam · N next ship in the dark · S shutter · hold Space: flare · I status · Enter next night",
       "mechanics": [
         {
           "name": "turn",
@@ -1741,6 +1741,11 @@
         "epoch": 1
       },
       "changes": [
+        {
+          "version": 4,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Screen readers hear ships arriving, going blind near rocks, wrecks, oil, flares and where the beam points. Keys: N turns the beam to the next ship in the dark, I status. Bigger labels, states readable without colour, calmer reduced motion."
+        },
         {
           "version": 3,
           "date": "2026-10-05",
