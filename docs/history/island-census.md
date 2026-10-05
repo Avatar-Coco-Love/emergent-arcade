@@ -6,6 +6,18 @@ top of the relevant section; sessions don't read this file by default.
 
 ## History
 
+- v3 (2026-10-05): accessibility (keys, live region, lightness bands,
+  `fs()` text); see the notes file. What v2 drew, for comparison: sand
+  `#c9b27a`, turf `#5f7a45`, paths `#a88b5a`, meadows `rgb(122,98,58)` →
+  `rgb(78,150,66)` (Lab L 43 → 56, flat: grazed meadows, turf and paths
+  all one olive for deuteranopes), meter band `rgba(124,197,106,0.45)`,
+  Next season ready = green border, HUD 78 tall with 11 px text (9.4 CSS
+  px at 360 px wide), counts 12 px on a 0.65 backing, `#msg` at 15% with a
+  text shadow only (it sat over the meters). Audit v2: text fail, keyboard
+  fail, colour partial (sand ≈ green accent, deutan).
+- Open idea dropped from the notes in v3: a third verb if the round feels
+  thin (none planned; the brief allows 3, the refuge tension may be enough).
+- v2 (2026-10-05): canvas label only.
 - v1: first version.
 
 ## Tuning path and ecology findings (v1 build)

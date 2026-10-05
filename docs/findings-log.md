@@ -911,3 +911,41 @@ once (a resize still paints at once, since it clears the canvas).
 
 *Evidence: solver lines for all ten levels replayed by keys only (★★★,
 messages checked), audit 6/6, playthrough by pointer unchanged.*
+
+## A saturated colour turns into text grey for colour-blind eyes
+
+Island Census v3. After the map got lightness bands, the colour audit
+passed on its opening screen but went partial on 5 of 31 later screens:
+the meters' teal band `#3d8f86` (Lab L 54) against `#747b7a`, a grey that
+isn't drawn anywhere. It is anti-aliased text: light text on a dark
+backing (the season line, the `#msg` banner) blends into greys at every
+lightness, and once a banner is up they cover 0.2-0.4% of the screen,
+enough to count. Deuteranopia and protanopia turn any saturated
+red-green-axis colour (teal, olive, coral) into a grey of the same
+lightness, so it merges with whichever text grey matches. Darker teal
+just moved the match to another grey. The fix is to choose a colour that
+is already close to grey (`#5f8784`, normal ΔE to the greys < 20, so not
+a hue-only difference) or one with blue in it (blue survives both
+simulations). Side lesson: audit late screens, not only the first one
+(grazed meadows, fences, messages appear later); a seeded script that
+plays a few seasons by keys and runs the audit's own colour code found
+it.
+
+*Evidence: 8 seeded islands × 4 screens: 5 partial with teal, 31/31 pass
+with sage; palette ΔE table for band candidates against greys L 40-63.*
+
+## Picking by arrow direction needs a matching, not a nearest
+
+Island Census v3. The cursor moves to the nearest meadow within 80° of
+the arrow (distance weighted by angle); on 500 islands every meadow was
+reachable from the start. The same rule for fence mode (an arrow picks
+one of the meadow's paths) failed: 890 meadows had a path no arrow could
+pick, because two neighbours lay on the same side and the nearer one
+always won. With at most 4 paths per meadow, give each path its own
+arrow: the assignment with the least total squared turn over the 24
+orders. A 5th path (rare; none in 500 islands) joins its nearest arrow,
+and pressing that arrow again cycles. Cursor moves can be lossy (you can
+go round); a pick among a fixed set must cover the set.
+
+*Evidence: reachability script over 500 seeded islands: 0 meadows and 890
+→ 0 paths unreachable.*

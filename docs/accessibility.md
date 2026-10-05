@@ -42,7 +42,7 @@ with what the audit's taps started; "ignores the setting" is the finding.
 | ant-trails | partial: ignores it | pass | pass | fail: fast-forward only | pass (labelled) | partial: 11.5 px |
 | hourglass-delivery | partial: ignores it | pass | pass | fail: none | pass (labelled) | pass |
 | hot-iron | pass | pass | pass | fail: none | pass (labelled) | pass |
-| island-census | pass | pass | partial: meadows (deutan, borderline) | fail: none | pass (labelled) | fail: 9.4 px HUD |
+| island-census | pass | pass (v3: backings) | pass (v3: lightness bands + shape) | pass (v3: cursor, F fences) | pass (v3, live region) | pass (v3) |
 | loom | pass | pass | pass | fail: none | pass (labelled) | pass |
 | terrace-garden | fail: ignores it | pass | pass | partial: tilt, not gates | pass (labelled) | pass |
 | tidewright | pass (v3: reads it) | pass (v3: backings) | pass (v3: shape + lightness) | pass | pass (labelled) | pass (v3) |

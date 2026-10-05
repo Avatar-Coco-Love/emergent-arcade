@@ -440,6 +440,7 @@ const KEY_COVER = {
   "lighthouse-keeper": ["← → turn the beam, S shutters or opens the lamp, hold Space to charge a flare", ALL],
   "surprise-party": ["Space or W to wait, U to undo, R to restart, Enter for the next house", []],
   "geode": ["← → set the temperature · H harvest · M sound", ["drag"]],
+  "island-census": ["Arrows pick a meadow · Enter/Space release rabbits · F then an arrow picks a path, F fences/unfences it · N next season", ALL],
   "wildfire-line": ["Arrows move the cursor · Space starts or stops cutting along its path · Enter lights a backburn at the cursor", ALL],
 };
 

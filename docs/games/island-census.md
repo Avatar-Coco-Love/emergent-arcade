@@ -1,6 +1,6 @@
 # Island Census: design notes
 
-**v2** (2026-10-05, canvas label; v1 2026-09-29) · playtest: https://claude.ai/artifact/Tk9dtgZU1XGUsaB1vwFuGW ·
+**v3** (2026-10-05, accessibility; v2 canvas label; v1 2026-09-29) · playtest: https://claude.ai/artifact/Tk9dtgZU1XGUsaB1vwFuGW ·
 balance: `node scripts/balance-island-census.mjs 300`
 Mechanics: **release** (tap) and **fence** (drag), sharing **rabbits, foxes
 and grass per meadow** on a 7-meadow island. Turn-based: 2 moves per season,
@@ -49,12 +49,44 @@ winter (fox deaths ×1.5, rabbit deaths ×2), bumper spring (breeding ×1.5).
 
 ## Layout (400×600)
 
-HUD panel at the top (season, strikes, one meter per species with its
-green band). Meadow centres fall in an ellipse centred (200, 342), radii 122×180
+HUD panel at the top, y 8–98 (season, strikes, one meter per species with
+its band). Meadow centres fall in an ellipse centred (200, 342), radii 122×180
 (wider let the island's sand run off the canvas).
 Paths: shortest non-crossing links under `PATH_MAX`, max 4 per meadow,
 then the shortest link that joins any separate groups.
 
+
+## Accessibility (v3, `node scripts/a11y-audit.mjs island-census`: all 6 pass, 3/3 runs)
+
+Each surface has its own lightness band (Lab L), so they hold under
+deuteranopia/protanopia (v2: turf, paths and grazed meadows all one olive):
+
+| surface | colour | L |
+|---|---|---|
+| sea / turf | `#0f2d3d` / `#1e3019` (blue vs olive) | 17 / 18 |
+| meadow, bare → full | `rgb(97,77,52)` → `rgb(134,196,96)`, + a tuft per eighth of grass | 34 → 73 |
+| path / sand | `#d2bd92` / `#e3d3a4` | 77 / 85 |
+
+- Marks by shape: fox arrows and hopping rabbits outlined dark; counts
+  after a dot (rabbits) or a triangle (foxes); strikes filled with a ✕ vs
+  rings; meter numbers say "low"/"high" outside the band; Next season
+  turns light (not green) when moves are used. Meter band `#5f8784`, low
+  saturation: a teal band matched anti-aliased text grey for deutan
+  (findings, "A saturated colour…").
+- Text from `fs(n)` (≥ 12.5 CSS px; 15 board units at 360 px wide), HUD
+  backing 0.92, count backings 0.88, `#msg` on a backing under the HUD.
+- Keys (`// § keys`): arrows move a cursor between meadows (nearest
+  within 80° of the arrow), Enter/Space release, F starts fencing, an arrow
+  picks a path (each path gets its own arrow: the least-turn assignment
+  over ≤ 24 orders; same arrow again cycles), F or Enter fences or takes
+  it down, Esc cancels, N next season, Enter after the end = new island.
+  Same `release()` / `toggleFence()` as the pointer. Checked on 500
+  islands: every meadow and every path reachable by keys.
+- Live region `#say` (hidden): meadow readout ("Meadow 4, centre: 10
+  rabbits, 2 foxes, grass 80%. Paths to 1, 3, 5. Foxes heading here from
+  3."), release/fence results, one line per season, the end. Meadows are
+  numbered in reading order, labels only (array order unchanged).
+- Balance bots reproduce v2 exactly (no render `Math.random`).
 
 ## Balance (v1, `node scripts/balance-island-census.mjs 300`)
 
@@ -93,7 +125,9 @@ One `arcade:result` per round, `reason` for a loss (`census` = 3 strikes,
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; HUD text 9.4 px at 360 px wide; meadow colours close for deuteranopia.
+- Accessibility: done in v3 (above). Not tried with a screen reader or by
+  a colour-blind player; do keyboard players find F? Meadow numbers exist
+  only in speech: draw them if sighted keyboard players ask "which is 4?".
 - Not hand-played on a real phone yet (only rendered headlessly).
 - Too many foxes (band top 16) almost never triggers: fox totals peak
   around 12–15. It is there so the meter reads as a band, and for the
@@ -108,7 +142,5 @@ One `arcade:result` per round, `reason` for a loss (`census` = 3 strikes,
 - Idea for depth: carry the island into a third year with a new event per
   year (Ant Trails-style carry-over), or let the player choose which
   meadow to survey (hide counts elsewhere).
-- Candidate third verb if the round feels thin: none planned; the brief
-  allows 3, but the refuge tension may be enough.
 
 History (older versions, balance tables, playtests): `docs/history/island-census.md`

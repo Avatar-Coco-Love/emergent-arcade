@@ -12,7 +12,7 @@ the games, not just play them.
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
-| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
+| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
@@ -79,7 +79,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - ant-trails: keys only fast-forward; ignores reduced motion; bonus line 11.5 px.
 - hourglass-delivery: no keyboard play; ignores reduced motion (small).
 - hot-iron: no keyboard play.
-- island-census: no keyboard play; HUD 9.4 px; meadow colours close for deuteranopia.
+- island-census: done (v3, 2026-10-05): meadows, turf, paths and sand in their own lightness bands (plus grass tufts), counts and strikes told by shape, HUD 12.5 px+, a keyboard cursor (Enter releases, F then an arrow picks a path), a live region (`docs/games/island-census.md`, "Accessibility").
 - loom: no keyboard play.
 - terrace-garden: keys tilt but can't work the gates; ignores reduced motion.
 - tidewright: done (v3, 2026-10-05): labels 12 px+ on backings, handles told apart by lightness and shape, a surface line on water, reduced motion read (`docs/games/tidewright.md`, "Accessibility").
@@ -261,7 +261,7 @@ Revise Pressure Grid for accessibility (docs/accessibility.md, its row; docs/ide
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Island Census accessibility revision (prompt below)
+## Prompt used for the Island Census accessibility revision (done, v3)
 
 Chosen 2026-10-05, after Pressure Grid v11. Still no classroom reports
 (0), so 3 vs 4 keeps waiting on what teachers ask for. Island Census now
@@ -284,6 +284,35 @@ Revise Island Census for accessibility (docs/accessibility.md, its row; docs/ide
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs island-census, node scripts/balance-island-census.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly), node scripts/a11y-audit.mjs island-census (all six pass). Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/island-census.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/island-census.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Murmuration accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Island Census v3. Still no classroom reports
+(0), so 3 vs 4 keeps waiting on what teachers ask for. Murmuration now has
+the most serious row left: 4 of 6 checks not passing (no keyboard play,
+ignores reduced motion, a level counter at 3.5:1, the only contrast
+finding left in a game, and 10 px text). It is the first real-time game
+with a held verb in this series: lure is hold-and-move, startle a tap, so
+the cursor moves while an arrow is held (Wildfire Line) and lure needs a
+hold key, not a toggle.
+
+```
+Revise Murmuration for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: both verbs on keys, reduced motion read, a readable counter. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/murmuration.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "A motion pass can mean small, not still", "A saturated colour turns into text grey for colour-blind eyes" and "Canvas text shrinks with the board"), docs/games/wildfire-line.md and docs/games/island-census.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game murmuration. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Text and contrast: the level counter (3.5:1, 10 px at 360 px wide) and every other canvas label at least 12 CSS px at 360 px wide (size from the CSS width, an fs() like Island Census and Tidewright), 4.5:1 against the sky behind it at every time of day (dusk darkens it), with backings where text sits over the sky or the flock. Check with node scripts/a11y-audit.mjs murmuration: contrast and text must pass.
+
+3. Reduced motion: read prefers-reduced-motion and keep the simulation (the flock is the game) but stop or slow whatever moves that isn't the game (find what the audit's idle motion sees first; the flock idling counts as the game, decoration does not); give decoration its own clock. Grep for prefers-reduced-motion before trusting the motion cell. Colour must still pass on several runs, including a screen late in a round (dusk); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+4. Keyboard: both verbs without a pointer: an arrow-key cursor over the sky that moves while an arrow is held (tune its speed against the flock's), a held key that lures toward the cursor (e.g. hold Space; releasing it stops, like lifting a finger), and a key that startles at the cursor (e.g. Enter or X; no chords). Keys call the same functions as the pointer. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what matters, short and not on every frame (gate passed and how many birds, gates left, flock size when it drops, light left at milestones, round result). Update the keyboard line in the manifest, the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs murmuration, node scripts/balance-murmuration.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly), node scripts/a11y-audit.mjs murmuration (all six pass, several runs), and a keys-only playthrough that clears at least one gate. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/murmuration.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/murmuration.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```

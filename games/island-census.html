@@ -53,18 +53,24 @@
     border-radius: 10px;
     background: #0f2d3d;
   }
+  /* Just under the HUD (98 of 600 board units), on a backing so it reads
+     over sand, turf or a meadow. */
   #msg {
     position: absolute;
-    top: 15%;
+    top: 17%;
     left: 8px;
     right: 8px;
     margin: 0;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(8, 20, 26, 0.88);
     text-align: center;
     font-size: 0.85rem;
     color: #f4f1e6;
-    text-shadow: 0 1px 3px #000, 0 0 6px #000;
     pointer-events: none;
   }
+  #msg:empty { padding: 0; background: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #endCard {
     position: absolute;
     left: 50%;
@@ -107,13 +113,14 @@
   button:active { transform: scale(0.97); }
   button:disabled { opacity: 0.45; }
   #nextBtn { font-weight: 600; }
-  #nextBtn.ready { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  /* Out of moves: the button turns light (a lightness cue, not a hue). */
+  #nextBtn.ready { background: #e9efe6; color: #0b1d28; border-color: #e9efe6; }
 </style>
 </head>
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="sea" role="img" aria-label="Island Census. Tap or click a meadow to release rabbits, drag across a path to fence it against foxes."></canvas>
+      <canvas id="sea" role="img" aria-label="Island Census. Tap or click a meadow to release rabbits, drag across a path to fence it against foxes. Keys: arrows pick a meadow, Enter releases rabbits, F then an arrow picks a path and F fences it, N plays the season."></canvas>
       <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
@@ -128,6 +135,7 @@
     <button id="nextBtn">Next season ▸</button>
     <button id="resetBtn">New island</button>
   </div>
+  <div class="sr" id="say" role="status" aria-live="polite"></div>
 
 <script>
 (function() {
@@ -312,7 +320,26 @@
     pendingMsg = '';
     endCard.hidden = true;
     say('');
+    nameMeadows();
     updateHud();
+  }
+
+  // Names for keys and the live region: numbered in reading order (top to
+  // bottom, then left to right), with a compass word from the island centre.
+  // Labels only: the meadows array keeps its order, so balance can't move.
+  let names = [];
+  const COMPASS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];
+  function nameMeadows() {
+    const order = meadows.map((_, i) => i).sort((a, b) => (meadows[a].y - meadows[b].y) || (meadows[a].x - meadows[b].x));
+    names = [];
+    order.forEach((i, k) => {
+      const m = meadows[i], dx = (m.x - CX) / RX, dy = (m.y - CY) / RY;
+      const dir = hyp(dx, dy) < 0.35 ? 'centre' : COMPASS[(Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8];
+      names[i] = { n: k + 1, dir };
+    });
+    let mid = 0;
+    meadows.forEach((m, i) => { if (hyp(m.x - CX, m.y - CY) < hyp(meadows[mid].x - CX, meadows[mid].y - CY)) mid = i; });
+    kb.i = mid; kb.fence = false; kb.path = null;
   }
 
   const totR = () => Math.round(R.reduce((a, b) => a + b, 0));
@@ -483,11 +510,18 @@
       comeback: 'Comeback', 'long-winter': 'Long Winter', 'light-touch': 'Light Touch' };
     endAch.textContent = roundEarned.size ? 'Earned: ' + [...roundEarned].map(id => titles[id]).join(', ') : '';
     endCard.hidden = false;
+    speak(`${endTitle.textContent}. ${endDetail.textContent} ${endAch.textContent ? endAch.textContent + '.' : ''} Enter for a new island.`);
     playAgainBtn.disabled = true;
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
     updateHud();
   }
 
+  // The season just played, for the live region (strikes and events are in #msg).
+  function seasonReport() {
+    const r = totR(), f = totF(), band = (v, lo, hi) => v < lo ? ' (too few)' : v > hi ? ' (too many)' : '';
+    return `${seasonLabel(season - 1)[0].toUpperCase() + seasonLabel(season - 1).slice(1)} over: ${r} rabbits${band(r, R_BAND_LO, R_BAND_HI)}, ` +
+      `${f} foxes${band(f, F_BAND_LO, F_BAND_HI)}, ${strikes} strike${strikes === 1 ? '' : 's'}. ${SEASON_NAMES[season % 4]}: ${MOVES} moves.`;
+  }
   function seasonLabel(s) { return `${SEASON_NAMES[s % 4].toLowerCase()} of year ${Math.floor(s / 4) + 1}`; }
 
   // ---------- HUD ----------
@@ -498,11 +532,18 @@
     nextBtn.disabled = state !== 'planning';
     nextBtn.classList.toggle('ready', state === 'planning' && moves === 0);
   }
+  // The screen reader's line (#say, hidden): one per key, move or season.
+  const sayEl = document.getElementById('say');
+  function speak(t) { sayEl.textContent = t; }
   function say(t, ms = 3200) {
     msgEl.textContent = t;
     clearTimeout(msgTimer);
     if (t) msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms);
   }
+
+  // Canvas text in board units, never under 12.5 CSS px (cssK: CSS px per unit).
+  let cssK = 1;
+  const fs = n => Math.max(n, Math.ceil(12.5 / cssK));
 
   // ---------- fitting ----------
   const field = document.getElementById('field');
@@ -512,6 +553,7 @@
     const w = Math.max(100, Math.floor(W * scale));
     const h = Math.max(150, Math.floor(H * scale));
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    cssK = w / W;
     stage.style.width = w + 'px';
     stage.style.height = h + 'px';
     canvas.width = Math.round(w * dpr);
@@ -589,12 +631,148 @@
   canvas.addEventListener('pointerup', evt => up(evt, false));
   canvas.addEventListener('pointercancel', evt => up(evt, true));
 
-  nextBtn.addEventListener('click', () => { if (!paused) runSeason(); updateHud(); });
+  nextBtn.addEventListener('click', () => nextSeason());
   document.getElementById('resetBtn').addEventListener('click', () => {
     if (performance.now() < lockUntil) return;
     newIsland();
   });
   playAgainBtn.addEventListener('click', () => newIsland());
+
+  // § keys
+  // Arrows move a cursor between meadows, Enter/Space release rabbits under
+  // it, F then an arrow picks one of its paths (F or Enter fences it or
+  // takes it down, Escape cancels), N plays the season. The same release()
+  // and toggleFence() as the pointer. Tab is the browser's; Space/Enter on a
+  // focused button press the button.
+  const kb = { on: false, i: 0, fence: false, path: null };
+  const DIRS = { ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1], ArrowLeft: [-1, 0] };
+  const DIR_WORDS = { ArrowUp: 'up', ArrowRight: 'right', ArrowDown: 'down', ArrowLeft: 'left' };
+  const nm = i => `Meadow ${names[i].n}`;
+  const other = (p, i) => p.a === i ? p.b : p.a;
+  // The meadow (of those given) best lying in direction d from meadow i:
+  // within 80° of it, nearest after weighting by how far off-axis it is.
+  function toward(i, d, cands) {
+    let best = -1, bs = Infinity;
+    for (const j of cands) {
+      if (j === i) continue;
+      const dx = meadows[j].x - meadows[i].x, dy = meadows[j].y - meadows[i].y, dist = hyp(dx, dy);
+      const ang = Math.acos(Math.max(-1, Math.min(1, (dx * d[0] + dy * d[1]) / dist)));
+      if (ang > 1.4) continue;
+      const sc = dist * (1 + 2 * ang);
+      if (sc < bs) { bs = sc; best = j; }
+    }
+    return best;
+  }
+  // In fence mode each of a meadow's paths gets its own arrow: the
+  // assignment with the least total turn from each path's direction (up to
+  // 4 paths, 24 orders). A 5th path joins its nearest arrow's list, and a
+  // repeated press steps through the list.
+  const ARROW_ORDER = ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'];
+  function pathArrows(i) {
+    const nb = neighbours(i);
+    const ang = (p, a) => {
+      const m = meadows[other(p, i)], d = DIRS[a], dx = m.x - meadows[i].x, dy = m.y - meadows[i].y;
+      return Math.acos(Math.max(-1, Math.min(1, (dx * d[0] + dy * d[1]) / hyp(dx, dy))));
+    };
+    const main = nb.slice(0, 4), lists = { ArrowUp: [], ArrowRight: [], ArrowDown: [], ArrowLeft: [] };
+    let best = null, bc = Infinity;
+    const perm = (left, used, cost, pick) => {
+      if (!left.length) { if (cost < bc) { bc = cost; best = pick.slice(); } return; }
+      for (const a of ARROW_ORDER) if (!used.has(a)) {
+        used.add(a); pick.push(a);
+        perm(left.slice(1), used, cost + ang(left[0], a) ** 2, pick);
+        used.delete(a); pick.pop();
+      }
+    };
+    perm(main, new Set(), 0, []);
+    main.forEach((p, k) => lists[best[k]].push(p));
+    for (const p of nb.slice(4)) {
+      const a = ARROW_ORDER.reduce((x, y) => ang(p, x) <= ang(p, y) ? x : y);
+      lists[a].push(p);
+    }
+    return lists;
+  }
+  function meadowInfo(i) {
+    const g = Math.round(10 * Math.max(0, Math.min(1, G[i] / meadows[i].K))) * 10;
+    const ps = neighbours(i).map(p => names[other(p, i)].n + (p.fence ? ' fenced' : '')).sort((a, b) => parseInt(a) - parseInt(b));
+    let t = `${nm(i)}, ${names[i].dir}: ${Math.round(R[i])} rabbits, ${Math.round(F[i])} foxes, grass ${g}%. Paths to ${ps.join(', ')}.`;
+    const fi = state === 'planning' ? foxIntent() : [];
+    const come = fi.filter(x => x.to === i).map(x => names[x.from].n), go = fi.filter(x => x.from === i).map(x => names[x.to].n);
+    if (come.length) t += ` Foxes heading here from ${come.join(', ')}.`;
+    if (go.length) t += ` Foxes heading to ${go.join(', ')}.`;
+    return t;
+  }
+  function pathInfo(p) {
+    const fi = foxIntent().find(x => (x.from === p.a && x.to === p.b) || (x.from === p.b && x.to === p.a));
+    const here = kb.i, there = other(p, here);
+    if (p.fence) return `Path to ${nm(there)}: fenced. F or Enter takes it down (free).`;
+    return `Path to ${nm(there)}: open` + (fi ? `, foxes heading to ${nm(fi.to)}` : '') + '. F or Enter fences it (uses a move).';
+  }
+  const movesLeft = () => `${moves} move${moves === 1 ? '' : 's'} left`;
+  function keyArrow(key) {
+    const d = DIRS[key];
+    if (kb.fence) {
+      const list = pathArrows(kb.i)[key];
+      if (!list.length) { speak(`No path ${DIR_WORDS[key]} from ${nm(kb.i)}.`); return; }
+      const at = list.indexOf(kb.path);
+      kb.path = list[(at + 1) % list.length];
+      speak(pathInfo(kb.path));
+      return;
+    }
+    if (!kb.on) { kb.on = true; speak(meadowInfo(kb.i) + ' Enter releases rabbits, F fences a path.'); return; }
+    const j = toward(kb.i, d, meadows.map((_, k) => k));
+    if (j < 0) { speak(`No meadow further ${DIR_WORDS[key]}.`); return; }
+    kb.i = j;
+    speak(meadowInfo(j));
+  }
+  function keyRelease() {
+    if (!kb.on) { kb.on = true; speak(meadowInfo(kb.i) + ' Enter releases rabbits, F fences a path.'); return; }
+    if (state !== 'planning') return;
+    if (release(kb.i)) speak(`Released ${RELEASE} rabbits into ${nm(kb.i)}: now ${Math.round(R[kb.i])}. ${movesLeft()}.`);
+  }
+  function keyFence() {
+    kb.on = true;
+    if (!kb.fence) {
+      kb.fence = true; kb.path = null;
+      speak(`Fence a path from ${nm(kb.i)}: pick one with an arrow. Escape cancels.`);
+      return;
+    }
+    if (!kb.path) { kb.fence = false; speak('Fencing cancelled.'); return; }
+    const p = kb.path, there = nm(other(p, kb.i)), was = p.fence;
+    kb.fence = false; kb.path = null;
+    if (toggleFence(p)) {
+      const up = paths.filter(q => q.fence).length;
+      speak(was ? `Fence taken down between ${nm(kb.i)} and ${there}. ${up} fence${up === 1 ? '' : 's'} up.`
+        : `Fence up between ${nm(kb.i)} and ${there}. ${movesLeft()}, ${up} of ${MAX_FENCES} fences up.`);
+    }
+  }
+  function nextSeason() { if (!paused) runSeason(); updateHud(); }
+  window.addEventListener('keydown', evt => {
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    if (evt.key in DIRS) {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (!paused && meadows) keyArrow(evt.key);
+      return;
+    }
+    const k = evt.key.toLowerCase();
+    if (paused || (onButton && (k === 'enter' || k === ' '))) return;
+    const over = state === 'won' || state === 'lost';
+    if (over) {
+      if ((k === 'enter' || k === 'n') && performance.now() >= lockUntil && !playAgainBtn.disabled) { evt.preventDefault(); newIsland(); speak('New island. ' + meadowInfo(kb.i)); }
+      return;
+    }
+    if (k === 'enter' || k === ' ') {
+      evt.preventDefault();
+      if (evt.repeat) return;
+      if (!kb.fence) keyRelease();
+      else if (kb.path) keyFence();
+      else speak('Pick a path with an arrow first, or Escape.');
+    } else if (k === 'f' && !evt.repeat) keyFence();
+    else if (k === 'escape' && kb.fence) { kb.fence = false; kb.path = null; speak('Fencing cancelled.'); }
+    else if (k === 'n' && !evt.repeat) { kb.fence = false; kb.path = null; nextSeason(); }
+  });
 
   // ---------- drawing ----------
   let ripples = [];
@@ -639,8 +817,10 @@
     if (!meadows) return;
     const v = view();
     // Island: sand, then turf, around the meadows (the hull fills the gaps
-    // between paths so there are no lakes).
-    for (const [pad, col] of [[34, '#c9b27a'], [24, '#5f7a45']]) {
+    // between paths so there are no lakes). Each surface has its own
+    // lightness band, so colour-blind players tell them apart (Lab L): sea
+    // 17, turf 18 (blue vs olive), meadows 34-73, paths 77, sand 85.
+    for (const [pad, col] of [[34, '#e3d3a4'], [24, '#1e3019']]) {
       ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       for (const m of meadows) { ctx.beginPath(); ctx.arc(m.x, m.y, m.r + pad, 0, Math.PI * 2); ctx.fill(); }
       ctx.lineWidth = 2 * pad + 20;
@@ -651,7 +831,7 @@
     ctx.lineCap = 'round';
     for (const p of paths) {
       const a = meadows[p.a], b = meadows[p.b];
-      ctx.strokeStyle = '#a88b5a'; ctx.lineWidth = 7;
+      ctx.strokeStyle = '#d2bd92'; ctx.lineWidth = 7;
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
     // Fox intent arrows (planning only)
@@ -669,6 +849,7 @@
           ctx.lineTo(cx - ux * sz * 0.3, cy - uy * sz * 0.3);
           ctx.lineTo(cx - ux * sz + uy * sz, cy - uy * sz - ux * sz);
           ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#2a1206'; ctx.lineWidth = 1.2; ctx.stroke();
         }
       }
     }
@@ -678,20 +859,45 @@
       const a = meadows[p.a], b = meadows[p.b];
       const d = hyp(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / d, uy = (b.y - a.y) / d;
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      ctx.strokeStyle = '#3b2616'; ctx.lineWidth = 5;
+      ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = 5;
       ctx.beginPath(); ctx.moveTo(mx - uy * 16, my + ux * 16); ctx.lineTo(mx + uy * 16, my - ux * 16); ctx.stroke();
       ctx.strokeStyle = '#e7c890'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(mx - uy * 16, my + ux * 16); ctx.lineTo(mx + uy * 16, my - ux * 16); ctx.stroke();
       ctx.fillStyle = '#e7c890';
       for (const o of [-15, 0, 15]) { ctx.beginPath(); ctx.arc(mx - uy * o, my + ux * o, 3, 0, Math.PI * 2); ctx.fill(); }
     }
-    // Meadows: grass colour shows how much is left
+    // Meadows: how much grass is left, told twice without hue: lightness
+    // (dark bare earth L 34 to bright grass L 73) and tufts (one per eighth).
     meadows.forEach((m, i) => {
       const g = Math.max(0, Math.min(1, v.G[i] / m.K));
-      ctx.fillStyle = `rgb(${Math.round(lerp(122, 78, g))},${Math.round(lerp(98, 150, g))},${Math.round(lerp(58, 66, g))})`;
+      ctx.fillStyle = `rgb(${Math.round(lerp(97, 134, g))},${Math.round(lerp(77, 196, g))},${Math.round(lerp(52, 96, g))})`;
       ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(20,30,15,0.5)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = 'rgba(10,18,8,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = '#1c3a14'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+      for (let k = 0; k < 8 && g > (k + 0.5) / 8; k++) {
+        const p = spot(m, k * 5 + 2, 0.5);
+        ctx.beginPath();
+        ctx.moveTo(p.x - 3, p.y - 3); ctx.lineTo(p.x, p.y + 3); ctx.lineTo(p.x, p.y - 4);
+        ctx.moveTo(p.x + 3, p.y - 3); ctx.lineTo(p.x, p.y + 3);
+        ctx.stroke();
+      }
     });
+    // The key cursor: a light ring on a dark one, and in fence mode the
+    // picked path drawn over in dashes.
+    if (kb.on && state !== 'won' && state !== 'lost') {
+      const m = meadows[kb.i];
+      if (kb.fence && kb.path) {
+        const a = meadows[kb.path.a], b = meadows[kb.path.b];
+        ctx.lineCap = 'butt';
+        ctx.strokeStyle = '#0b1d28'; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.setLineDash([8, 6]);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+        ctx.lineCap = 'round';
+      }
+      ctx.strokeStyle = '#0b1d28'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(m.x, m.y, m.r + 5, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5; ctx.setLineDash(kb.fence ? [6, 5] : []);
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.r + 5, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    }
     // Animals
     meadows.forEach((m, i) => {
       const nr = Math.round(v.R[i]), nf = Math.round(v.F[i]);
@@ -704,16 +910,22 @@
         const p = spot(m, j * 3 + 1, 0);
         drawFox(p.x, p.y);
       }
-      // counts under the meadow
-      ctx.font = 'bold 12px -apple-system, Segoe UI, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      const ty = m.y + m.r + 3;
-      const tr = String(nr), tf = String(nf);
-      ctx.fillStyle = 'rgba(8,20,26,0.65)';
-      const wv = ctx.measureText(tr + '  ' + tf).width + 12;
-      roundRect(m.x - wv / 2, ty - 1, wv, 16, 5); ctx.fill();
-      ctx.textAlign = 'right'; ctx.fillStyle = '#f3ecdc'; ctx.fillText(tr, m.x - 3, ty + 1);
-      ctx.textAlign = 'left'; ctx.fillStyle = '#ff9a55'; ctx.fillText(tf, m.x + 3, ty + 1);
+      // counts under the meadow, each after its animal's shape (dot rabbits,
+      // triangle foxes), so they read without the colour
+      const f = fs(12), ic = f * 0.5;
+      ctx.font = `bold ${f}px -apple-system, Segoe UI, sans-serif`;
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      const tr = String(nr), tf = String(nf), wr = ctx.measureText(tr).width, wf = ctx.measureText(tf).width;
+      const wv = 6 + ic + 3 + wr + 9 + ic + 3 + wf + 6, ty = m.y + m.r + 3, cy = ty + (f + 4) / 2;
+      let x = m.x - wv / 2;
+      ctx.fillStyle = 'rgba(8,20,26,0.88)';
+      roundRect(x, ty, wv, f + 4, 5); ctx.fill();
+      x += 6;
+      ctx.fillStyle = '#f3ecdc'; ctx.beginPath(); ctx.arc(x + ic / 2, cy, ic * 0.42, 0, Math.PI * 2); ctx.fill();
+      x += ic + 3; ctx.fillText(tr, x, cy + 1); x += wr + 9;
+      ctx.fillStyle = '#ff9a55'; ctx.beginPath();
+      ctx.moveTo(x + ic / 2, cy + ic * 0.45); ctx.lineTo(x, cy - ic * 0.45); ctx.lineTo(x + ic, cy - ic * 0.45); ctx.closePath(); ctx.fill();
+      x += ic + 3; ctx.fillText(tf, x, cy + 1);
     });
     // Animals on the move
     if (anim && anim.t < ANIM_S) {
@@ -725,7 +937,7 @@
           const t = Math.min(1, v.f + c * 0.12);
           const x = lerp(a.x, b.x, 0.2 + 0.6 * t), y = lerp(a.y, b.y, 0.2 + 0.6 * t);
           if (h.fox) drawFox(x, y);
-          else { ctx.fillStyle = '#f3ecdc'; ctx.beginPath(); ctx.arc(x, y, 2.3, 0, Math.PI * 2); ctx.fill(); }
+          else { ctx.fillStyle = '#f3ecdc'; ctx.strokeStyle = '#1e3019'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 2.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
         }
       }
     }
@@ -755,44 +967,56 @@
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
   }
 
-  // Top: season, strikes, and one band meter per species.
+  // Top: season, strikes, and one band meter per species. Text from fs(),
+  // so it stays 12.5 CSS px or more on a phone; the backing is near opaque
+  // where sand reaches under it.
   function drawHud(v) {
-    ctx.fillStyle = 'rgba(8,20,26,0.7)';
-    roundRect(8, 8, W - 16, 78, 8); ctx.fill();
+    const f1 = fs(15), f2 = fs(12), y1 = 15, y2 = y1 + f1 + 3, ym = y2 + f2 + 9, yf = ym + f2 + 7;
+    ctx.fillStyle = 'rgba(8,20,26,0.92)';
+    roundRect(8, 8, W - 16, yf + 8 + f2 / 2 + 4 - 8, 8); ctx.fill();
     const shown = Math.min(season, SEASONS - 1);
     const sIdx = state === 'planning' ? shown : Math.max(0, season - 1);
     ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-    ctx.font = 'bold 14px -apple-system, Segoe UI, sans-serif';
+    ctx.font = `bold ${f1}px -apple-system, Segoe UI, sans-serif`;
     ctx.fillStyle = '#e9efe6';
-    ctx.fillText(`${SEASON_NAMES[sIdx % 4]} · Year ${Math.floor(sIdx / 4) + 1}`, 18, 15);
-    ctx.font = '11px -apple-system, Segoe UI, sans-serif';
-    ctx.fillStyle = '#93a8a8';
-    ctx.fillText(`season ${sIdx + 1} of ${SEASONS}` + (eventSeason() === sIdx ? ` · ${event === 'bumper' ? 'bumper spring' : event === 'harsh' ? 'hard winter' : event}` : ''), 18, 33);
-    // strikes
-    ctx.textAlign = 'right'; ctx.fillStyle = '#93a8a8'; ctx.fillText('strikes', W - 72, 17);
+    ctx.fillText(`${SEASON_NAMES[sIdx % 4]} · Year ${Math.floor(sIdx / 4) + 1}`, 18, y1);
+    ctx.font = `${f2}px -apple-system, Segoe UI, sans-serif`;
+    ctx.fillStyle = '#a9bcbc';
+    ctx.fillText(`season ${sIdx + 1} of ${SEASONS}` + (eventSeason() === sIdx ? ` · ${event === 'bumper' ? 'bumper spring' : event === 'harsh' ? 'hard winter' : event}` : ''), 18, y2);
+    // strikes: filled with a cross when taken, a ring when not (shape, not hue)
+    const sy = y1 + f1 / 2;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText('strikes', W - 18 - MAX_STRIKES * 20 - 4, sy + 1);
     for (let k = 0; k < MAX_STRIKES; k++) {
-      const x = W - 58 + k * 18, y = 23;
-      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2);
-      if (k < strikes) { ctx.fillStyle = '#ff6b5a'; ctx.fill(); }
-      else { ctx.strokeStyle = '#4b6a74'; ctx.lineWidth = 2; ctx.stroke(); }
+      const x = W - 18 - 8 - (MAX_STRIKES - 1 - k) * 20;
+      ctx.beginPath(); ctx.arc(x, sy, 7, 0, Math.PI * 2);
+      if (k < strikes) {
+        ctx.fillStyle = '#ff6b5a'; ctx.fill();
+        ctx.strokeStyle = '#2a0a06'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x - 3.5, sy - 3.5); ctx.lineTo(x + 3.5, sy + 3.5); ctx.moveTo(x + 3.5, sy - 3.5); ctx.lineTo(x - 3.5, sy + 3.5); ctx.stroke();
+      } else { ctx.strokeStyle = '#6d8a94'; ctx.lineWidth = 2; ctx.stroke(); }
     }
     const r = Math.round(v.R.reduce((a, b) => a + b, 0)), f = Math.round(v.F.reduce((a, b) => a + b, 0));
-    meter(18, 50, 'rabbits', r, R_BAND_LO, R_BAND_HI, 200, '#f3ecdc');
-    meter(18, 68, 'foxes', f, F_BAND_LO, F_BAND_HI, 30, '#ff9a55');
+    ctx.font = `bold ${f2}px -apple-system, Segoe UI, sans-serif`;
+    const lw = ctx.measureText('rabbits').width + 10, vw = ctx.measureText('150 high').width + 8;
+    meter(18, ym, lw, vw, f2, 'rabbits', r, R_BAND_LO, R_BAND_HI, 200, '#f3ecdc');
+    meter(18, yf, lw, vw, f2, 'foxes', f, F_BAND_LO, F_BAND_HI, 30, '#ff9a55');
   }
-  function meter(x, y, label, val, lo, hi, max, col) {
-    const bx = x + 58, bw = W - 16 - 10 - bx - 34;
-    ctx.font = '11px -apple-system, Segoe UI, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = col; ctx.fillText(label, x, y + 4);
+  // A band meter: the band is a muted sage block on a dark track (low
+  // saturation: a teal one turned into the grey of anti-aliased text for
+  // colour-blind eyes), the marker is the count; outside the band the
+  // number says "low" or "high".
+  function meter(x, y, lw, vw, size, label, val, lo, hi, max, col) {
+    const bx = x + lw, bw = W - 18 - vw - bx;
+    ctx.font = `bold ${size}px -apple-system, Segoe UI, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = col; ctx.fillText(label, x, y + 5);
     ctx.fillStyle = '#233f4b'; roundRect(bx, y, bw, 8, 4); ctx.fill();
-    ctx.fillStyle = 'rgba(124,197,106,0.45)';
+    ctx.fillStyle = '#5f8784';
     ctx.fillRect(bx + bw * lo / max, y, bw * (hi - lo) / max, 8);
     const ok = val >= lo && val <= hi;
     const mx = bx + bw * Math.min(1, val / max);
-    ctx.fillStyle = ok ? col : '#ff6b5a';
-    ctx.fillRect(mx - 1.5, y - 3, 3, 14);
-    ctx.textAlign = 'left'; ctx.font = 'bold 12px -apple-system, Segoe UI, sans-serif';
-    ctx.fillText(String(val), bx + bw + 8, y + 4);
+    ctx.fillStyle = '#0b1d28'; ctx.fillRect(mx - 3, y - 5, 6, 18);
+    ctx.fillStyle = ok ? col : '#ff6b5a'; ctx.fillRect(mx - 1.5, y - 4, 3, 16);
+    ctx.fillText(String(val) + (ok ? '' : val < lo ? ' low' : ' high'), bx + bw + 8, y + 5);
   }
 
   // ---------- loop ----------
@@ -808,7 +1032,7 @@
         anim.t += dt;
         if (anim.t >= ANIM_S) {
           if (result) showEnd();
-          else { state = 'planning'; anim = null; if (pendingMsg) say(pendingMsg, 4200); pendingMsg = ''; updateHud(); }
+          else { state = 'planning'; anim = null; if (pendingMsg) say(pendingMsg, 4200); pendingMsg = ''; updateHud(); speak(seasonReport()); }
         }
       }
     }
@@ -820,11 +1044,11 @@
   requestAnimationFrame(frame);
 })();
 // § a11y label
-// The canvas label names the verbs, with the word for this device.
+// The canvas label names the verbs, with the word for this device, and the keys.
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap', T = fine ? 'Click' : 'Tap';
-  document.getElementById('sea').setAttribute('aria-label', `Island Census. ${T} a meadow to release rabbits, drag across a path to fence it against foxes.`);
+  document.getElementById('sea').setAttribute('aria-label', `Island Census. ${T} a meadow to release rabbits, drag across a path to fence it against foxes. Keys: arrows pick a meadow, Enter releases rabbits, F then an arrow picks a path and F fences it, N plays the season.`);
 }
 </script>
 </body>
