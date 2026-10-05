@@ -382,3 +382,18 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   warning state with the sim (a short search for a line whose next wait
   spoils) and measure there. *A move's line waits for its warning.*
   Surprise Party v4. keys-only bot + warn-screen diff.
+- A real-time game can't speak per frame or per sim event: read the state
+  after each frame and speak settled changes (a plant's mood held 0.7 s,
+  at most one line per plant per 2 s; a tilt at the press and once the
+  water settles after release). Word numbers from the state, never
+  against it ("too shallow: 14 deep, wants 14" was 13.6; "growing: just
+  under 6" had drunk since the last step), and an aimed verb needs the
+  target's place (left … right): a keys bot reading only the region
+  tilted a centre plant's water away from it. *A
+  real-time live region speaks settled changes.* Terrace Garden v4.
+  keys-only bot.
+- The audit's screen is a warm-up with no spring, so the spring's label
+  (9.4 px, 2.8:1 over a full tank at every garden's start) never reached
+  the text or contrast cell. Audit one scripted screen per level kind,
+  at its start and late. *A warm-up hides the labels later levels add.*
+  Terrace Garden v4. audit on scripted gardens.

@@ -62,9 +62,12 @@
     text-align: right;
     font-size: 0.85rem;
     color: #eef6f2;
-    text-shadow: 0 1px 3px #000;
     pointer-events: none;
   }
+  /* A backing, so the line reads over the sky, the hill and the water. */
+  #msg span { background: rgba(10, 17, 19, 0.88); border-radius: 6px; padding: 2px 6px; line-height: 1.6;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #endCard {
     position: absolute;
     left: 50%;
@@ -144,6 +147,11 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(95, 184, 216, 0); border-color: #36504f; }
     50% { box-shadow: 0 0 0 5px rgba(95, 184, 216, 0.45); border-color: var(--accent); }
   }
+  /* Reduced motion: the pointed-at control gets a steady ring instead. */
+  @media (prefers-reduced-motion: reduce) {
+    .nudge { animation: none; box-shadow: 0 0 0 3px rgba(95, 184, 216, 0.6); border-color: var(--accent); }
+    button:active { transform: none; }
+  }
   #tiltThumb {
     position: absolute;
     top: 3px;
@@ -160,8 +168,9 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="hill" role="img" aria-label="Terrace Garden. Tilt to slosh the water, tap or click a gate to open or close it."></canvas>
-      <p id="msg" role="status"></p>
+      <canvas id="hill" role="img" aria-label="Terrace Garden. Tilt to slosh the water, tap or click a gate to open or close it. Keys: ← → tilt, ↑ ↓ pick a gate, Enter opens or shuts it."></canvas>
+      <p id="msg" aria-hidden="true"></p>
+      <p id="say" class="sr" role="status" aria-live="polite"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -230,6 +239,14 @@
   const canvas = document.getElementById('hill');
   const ctx = canvas.getContext('2d');
   const msgEl = document.getElementById('msg');
+  const sayEl = document.getElementById('say');
+  // Reduced motion: the water, the tilt and the plants' growth are the game
+  // and keep moving; the pulsing rings, drifting chevrons, swaying stems,
+  // rising bubbles and splashes are decoration, drawn still or not at all.
+  // Decoration runs on its own clock (deco), frozen under the setting. The
+  // splashes' Math.random calls stay the same.
+  const motionQ = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const still = () => !!(motionQ && motionQ.matches);
 
   // Achievements: announced to the Emergent Arcade gallery when embedded
   // (it records them); harmless when the file is opened on its own.
@@ -255,21 +272,25 @@
       outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
       level: level + 1, run: runId, attempt, tilt: tiltSource(),
       stats: { spilled: spilled, leaked: leaked, drunk: drunk, left: tank, start: tankStart,
-        gate_taps: gateTaps, tilt_s: tiltKeys + tiltBar + tiltMotion, bloomed: bloomedCount(),
+        gate_taps: gateTaps, gate_keys: gateKeys, tilt_s: tiltKeys + tiltBar + tiltMotion, bloomed: bloomedCount(),
         plants: plants.length, first_input: firstInput === null ? -1 : r1(firstInput), hints: hints } };
     if (reason) msg.reason = reason;
     window.parent.postMessage(msg, '*');
   }
 
   // Scale the hillside to the largest W:H box that fits, one canvas pixel per
-  // screen pixel. Drawing always uses W x H game units.
+  // screen pixel. Drawing always uses W x H game units; fs(px) is a font size
+  // in game units that shows at least px CSS px (12 px+ on a 360 px phone).
   const field = document.getElementById('field');
   const stage = document.getElementById('stage');
+  let cssW = W;
+  const fs = px => Math.max(11, px * W / cssW);
   function fitStage() {
     const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
     const w = Math.max(100, Math.floor(W * scale));
     const h = Math.max(150, Math.floor(H * scale));
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    cssW = w;
     stage.style.width = w + 'px';
     stage.style.height = h + 'px';
     canvas.width = Math.round(w * dpr);
@@ -294,10 +315,10 @@
   // terrace k-1. The bottom terrace has no gate, only its lip.
   let terraces = [], gates = [], plants = [];
   let level, runId, attempt, carry, tank, tankStart, state, msgTimer;
-  let elapsed, spilled, leaked, drunk, gateTaps, firstInput;
+  let elapsed, spilled, leaked, drunk, gateTaps, gateKeys = 0, firstInput;
   let tilt = 0, tiltTarget = 0, tiltKeys = 0, tiltBar = 0, tiltMotion = 0;
   let stall = 0, hint = null, hints = 0;
-  let splash = [], wobble = 0;
+  let splash = [], deco = 0;
 
   function garden() { return GARDENS[level]; }
   function bloomedCount() { return plants.filter(p => p.bloom).length; }
@@ -329,7 +350,7 @@
     plants = g.plants.map(([t, c, lo, hi, dry]) => ({ t, c, lo, hi, dry: !!dry, grow: 0, bloom: false, mood: 'dry' }));
     tank = g.tank + carry;
     tankStart = tank;
-    elapsed = 0; spilled = 0; leaked = 0; drunk = 0; gateTaps = 0; firstInput = null;
+    elapsed = 0; spilled = 0; leaked = 0; drunk = 0; gateTaps = 0; gateKeys = 0; firstInput = null;
     tiltKeys = 0; tiltBar = 0; tiltMotion = 0;
     tilt = 0; tiltTarget = 0; motion.base = null;
     stall = 0; hint = null; hints = 0; nudge(null);
@@ -337,6 +358,7 @@
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
+    kbStart();
     say(`${g.name}. ${g.note}`, 4000);
     hud();
   }
@@ -382,6 +404,9 @@
     playAgainBtn.disabled = true;
     endCard.hidden = false;
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    speak(`${title.textContent} ${document.getElementById('endDetail').textContent}` +
+      (n ? ` ${n} achievement${n === 1 ? '' : 's'} earned.` : '') +
+      (why === 'restart' ? '' : ` Enter: ${playAgainBtn.textContent}.`));
     hud();
   }
 
@@ -403,10 +428,27 @@
     else startLevel(attempt);
   }
 
-  function say(text, ms) {
-    msgEl.textContent = text;
+  // say() shows a line on the hillside and speaks it; speak() only speaks.
+  // Spoken lines queue up and reach the live region once per frame, never
+  // per frame unless something happened. Symbols become words.
+  function say(text, ms, spoken) {
+    const span = document.createElement('span');
+    span.textContent = text;
+    msgEl.replaceChildren(span);
     clearTimeout(msgTimer);
     msgTimer = setTimeout(() => { msgEl.textContent = ''; }, ms || 2500);
+    speak(spoken || text);
+  }
+  const speech = [];
+  function speak(text) {
+    if (!text) return;
+    speech.push(text.replace(/◀/g, 'left').replace(/▶/g, 'right').replace(/← →/g, 'the left or right arrow'));
+    if (speech.length > 6) speech.shift();
+  }
+  function flushSpeech() {
+    if (!speech.length) return;
+    sayEl.textContent = speech.join(' ');
+    speech.length = 0;
   }
 
   // ---------- the two verbs ----------
@@ -554,7 +596,7 @@
     if (B.spill > 2 && tilt > 0.2) {
       if (!(hint && hint.spill)) {
         hint = { tilt: -1, spill: true }; hints++; nudge(hint);
-        say('Spilling off the bottom! Ease off ▶', 3000);
+        say('Spilling off the bottom! Ease off ▶', 3000, 'Spilling off the bottom! Tilt less to the right.');
       }
       stall = 0;
       return;
@@ -575,8 +617,11 @@
     if (!h) return;
     hints++;
     const how = motion.active ? 'tip your phone' : touchScreen ? 'slide the bar' : 'hold ← → or drag the bar';
-    say(h.tilt ? `Tilt ${h.tilt < 0 ? '◀' : '▶'} (${how})` : h.gate !== undefined
-      ? `${touchScreen ? 'Tap' : 'Click'} the ${h.gate ? 'gate' : 'spring'}` : 'Stuck? Restart the garden', 6000);
+    const k = h.gate, dir = h.tilt < 0 ? 'left' : 'right';
+    say(h.tilt ? `Tilt ${h.tilt < 0 ? '◀' : '▶'} (${how})` : k !== undefined
+      ? `${touchScreen ? 'Tap' : 'Click'} the ${k ? 'gate' : 'spring'}${touchScreen ? '' : ` (or press ${k})`}` : 'Stuck? Restart the garden', 6000,
+    h.tilt ? `Hint: tilt ${dir}${motion.active || touchScreen ? '' : `, hold the ${dir} arrow`}.` : k !== undefined
+      ? `Hint: ${gates[k].open ? 'shut' : 'open'} ${k ? 'gate ' + k : 'the spring'}${touchScreen ? '' : `, key ${k}`}.` : 'Hint: stuck. Restart the garden.');
   }
 
   function findHint() {
@@ -615,7 +660,7 @@
   const colX = (T, j) => T.x0 + (j + 0.5) * CW;
 
   function effects(dt) {
-    wobble += dt;
+    if (!still()) deco += dt;
     for (const s of splash) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 400 * dt; s.life -= dt; }
     splash = splash.filter(s => s.life > 0);
     if (state !== 'playing' || paused) return;
@@ -661,7 +706,8 @@
     if (hint && hint.gate !== undefined && state === 'playing') pulseValve(hint.gate);
     // The warm-up's gate pulses once it unlocks, until it's opened.
     if (garden().warm && plants[0].bloom && !gates[1].opened && state === 'playing') pulseValve(1);
-    for (const s of splash) {
+    drawPick();
+    if (!still()) for (const s of splash) {
       ctx.fillStyle = `rgba(150,215,240,${Math.min(1, s.life * 2)})`;
       ctx.fillRect(s.x - 1, s.y - 1, 2, 2);
     }
@@ -685,8 +731,15 @@
     const lvl = (bot - top) * Math.min(1, tank / cap);
     ctx.fillStyle = '#3d8fb0';
     ctx.fillRect(x, bot - lvl, w, lvl);
-    ctx.fillStyle = '#cfe6ee'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('spring', x + w / 2, top + 13);
+    // Label on a dark backing: the tank's water rises behind it.
+    const f = fs(12);
+    ctx.font = `${f}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const lw = ctx.measureText('spring').width + 10;
+    ctx.fillStyle = 'rgba(10,17,19,0.88)';
+    ctx.fillRect(x + w / 2 - lw / 2, top + 3, lw, f + 4);
+    ctx.fillStyle = '#e9f2ee';
+    ctx.fillText('spring', x + w / 2, top + 5 + f / 2);
+    ctx.textBaseline = 'alphabetic';
     // Valve over column 0, and the stream when it runs.
     const vx = colX(T, 0);
     if (g.flow > 0) {
@@ -705,7 +758,7 @@
   }
 
   function pulse(x, y) {
-    const t = (wobble % 1.2) / 1.2;
+    const t = still() ? 0.25 : (deco % 1.2) / 1.2;
     ctx.strokeStyle = `rgba(95,184,216,${1 - t})`; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(x, y, 10 + 12 * t, 0, Math.PI * 2); ctx.stroke();
   }
@@ -715,7 +768,7 @@
   function drawArrow(dir) {
     const p = plants.filter(q => !q.bloom && !q.dry).sort((a, b) => a.t - b.t)[0] || plants.find(q => q.dry);
     const T = terraces[p.t], cx = T.x0 + TW / 2, cy = T.y - BACK - 14;
-    const t = (wobble % 1) * 12;
+    const t = (deco % 1) * 12;
     ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 3; ctx.lineCap = 'round';
     for (let k = -1; k <= 1; k++) {
       const x = cx + dir * (k * 16 + t);
@@ -786,32 +839,43 @@
     // Stake with the plant's band.
     ctx.fillStyle = 'rgba(233,242,238,0.25)';
     ctx.fillRect(x + 7, y - 36, 2, 36);
+    // The band, outlined dark so its ends read on the stake and on water.
     ctx.fillStyle = p.dry ? '#e0a040' : '#6ccf6a';
-    if (p.dry) ctx.fillRect(x + 5, y - 3, 6, 3);
-    else ctx.fillRect(x + 5, y - p.hi, 6, p.hi - p.lo);
-    // How deep the water over the roots is now: a white tick on the stake.
+    ctx.strokeStyle = '#0b1412'; ctx.lineWidth = 1;
+    if (p.dry) { ctx.fillRect(x + 5, y - 3, 6, 3); ctx.strokeRect(x + 4.5, y - 3.5, 7, 4); }
+    else { ctx.fillRect(x + 5, y - p.hi, 6, p.hi - p.lo); ctx.strokeRect(x + 4.5, y - p.hi - 0.5, 7, p.hi - p.lo + 1); }
+    // How deep the water over the roots is now: a white tick with a dark
+    // edge (white L* 100 against the band's 75 and the water's 54).
     if (!p.bloom || p.dry) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(x + 3, y - Math.min(T.h[p.c], 40) - 1, 10, 2);
+      const ty = y - Math.min(T.h[p.c], 40);
+      ctx.fillStyle = '#0b1412'; ctx.fillRect(x + 2, ty - 2, 12, 4);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 3, ty - 1, 10, 2);
     }
-    const sway = Math.sin(wobble * 2 + p.c) * (p.mood === 'ok' ? 1.5 : 0.5);
+    const sway = still() ? 0 : Math.sin(deco * 2 + p.c) * (p.mood === 'ok' ? 1.5 : 0.5);
     const hgt = 8 + 26 * p.grow;
     if (p.dry) {
       // Cactus: a green column with arms, pink flower in bloom.
-      ctx.fillStyle = p.mood === 'wet' ? '#5d7d6a' : '#5fa35a';
+      ctx.fillStyle = p.mood === 'wet' ? '#3e5a4b' : '#5fa35a'; // L* 36 wet (with bubbles), 61 dry
       ctx.fillRect(x - 3, y - hgt, 6, hgt);
       if (p.grow > 0.4) { ctx.fillRect(x - 9, y - hgt * 0.6, 6, 3); ctx.fillRect(x - 9, y - hgt * 0.8, 3, hgt * 0.2); }
       if (p.bloom) { ctx.fillStyle = '#ff7eb6'; ctx.beginPath(); ctx.arc(x, y - hgt - 3, 5, 0, Math.PI * 2); ctx.fill(); }
       if (p.mood === 'wet') bubbles(x, y);
       return;
     }
-    ctx.strokeStyle = p.bloom ? '#7fd86a' : p.mood === 'dry' ? '#a08a4a' : p.mood === 'deep' ? '#4f8a7a' : '#6ccf6a';
+    // States by lightness and shape, not hue (L* normal/deutan/protan):
+    // growing and bloomed green 82, thirsty tan 60 with its head drooping,
+    // drowning dark 33 with bubbles; bloomed has petals.
+    const droop = !p.bloom && p.mood === 'dry';
+    ctx.strokeStyle = p.bloom || p.mood === 'ok' ? '#86e07e' : droop ? '#a68d55' : '#2f5249';
     ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + sway, y - hgt / 2, x + sway * 2, y - hgt); ctx.stroke();
+    const hx = x + sway * 2 + (droop ? 7 : 0), hy = y - hgt * (droop ? 0.72 : 1);
+    ctx.beginPath(); ctx.moveTo(x, y);
+    if (droop) ctx.quadraticCurveTo(x + sway, y - hgt * 1.05, hx, hy);
+    else ctx.quadraticCurveTo(x + sway, y - hgt / 2, hx, hy);
+    ctx.stroke();
     ctx.fillStyle = ctx.strokeStyle;
     ctx.beginPath(); ctx.ellipse(x - 4, y - hgt * 0.45, 4, 2, -0.5, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(x + 4, y - hgt * 0.65, 4, 2, 0.5, 0, Math.PI * 2); ctx.fill();
-    const hx = x + sway * 2, hy = y - hgt;
     if (p.bloom) {
       ctx.fillStyle = '#ffd27a';
       for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; ctx.beginPath(); ctx.arc(hx + Math.cos(a) * 5, hy + Math.sin(a) * 5, 3.5, 0, Math.PI * 2); ctx.fill(); }
@@ -828,7 +892,7 @@
   function bubbles(x, y) {
     ctx.strokeStyle = 'rgba(220,240,250,0.7)'; ctx.lineWidth = 1;
     for (let k = 0; k < 3; k++) {
-      const t = (wobble * 0.8 + k / 3) % 1;
+      const t = (deco * 0.8 + k / 3) % 1;
       ctx.beginPath(); ctx.arc(x - 4 + k * 4, y - t * 14, 1.5, 0, Math.PI * 2); ctx.stroke();
     }
   }
@@ -861,7 +925,13 @@
     if (best >= 0) tapGate(best);
   });
 
-  // Keys: hold ← → or A / D; let go and the hillside levels out.
+  // § keys: the same verbs without a pointer. Hold ← → or A / D to tilt; let
+  // go and the hillside levels out. ↑ ↓ pick a gate (stops: the spring's
+  // valve, each gate, the bottom terrace's lip), shown by a white ring on a
+  // dark one; Enter or G opens or shuts it. 0-4 pick gate k and open or shut
+  // it at once (0 = the spring). S says the status. Enter plays the next
+  // garden after one ends. Same setTilt / tapGate as the pointer, outside the
+  // simulation. Tab stays free; Space/Enter on a focused button press it.
   const keys = new Set();
   const LEFT = ['ArrowLeft', 'a', 'A'], RIGHT = ['ArrowRight', 'd', 'D'];
   function keyTilt() {
@@ -869,15 +939,164 @@
     for (const k of keys) v += LEFT.includes(k) ? -1 : 1;
     return Math.max(-1, Math.min(1, v));
   }
+  const kb = { pick: 0, shown: false, settle: -1 };
+  const firstStop = () => garden().warm ? 1 : 0;
+  function kbStart() {
+    kb.pick = firstStop();
+    kb.settle = -1;
+  }
+  // Where a plant stands on its terrace (12 columns), so a tilt can aim.
+  const where = c => c <= 2 ? 'left' : c >= 9 ? 'right' : c <= 5 ? 'centre-left' : 'centre-right';
+  const plantName = p => `terrace ${p.t + 1}'s ${where(p.c)} ${p.dry ? 'cactus' : 'plant'}`;
+  // Depth in whole px, never contradicting the plant's state ("just under
+  // 14" rather than "14 deep, too shallow, wants 14 to 28").
+  // The state is the truth: water can move between a sim step and the words.
+  function depth(p) {
+    const d = Math.round(terraces[p.t].h[p.c]);
+    if (p.dry || p.bloom) return `${d}`;
+    if (p.mood === 'ok') return `${Math.max(p.lo, Math.min(p.hi, d))}`;
+    if (p.mood === 'dry' && d >= p.lo) return `just under ${p.lo}`;
+    if (p.mood === 'deep' && d <= p.hi) return `just over ${p.hi}`;
+    return `${d}`;
+  }
+  function plantWords(p) {
+    const d = depth(p);
+    if (p.dry) return `${p.bloom ? 'in bloom' : p.mood === 'wet' ? 'wet, wilting' : `dry, ${Math.round(100 * p.grow)}% to bloom`}, ${d} deep, wants none`;
+    if (p.bloom) return 'in bloom';
+    const st = p.mood === 'ok' ? `growing, ${Math.round(100 * p.grow)}%` : p.mood === 'deep' ? 'too deep' : 'too shallow';
+    return `${st}: ${d} deep, wants ${p.lo} to ${p.hi}`;
+  }
+  // A stop and the terrace it drains: open or shut, the water on it, and
+  // each plant's depth against its band.
+  function stopWords(k) {
+    const n = terraces.length;
+    if (k === 0) return `Spring valve, ${gates[0].open ? 'open' : 'shut'}. ${Math.round(tank)} water in the spring.`;
+    const t = k - 1, T = terraces[t];
+    const head = k === n ? `Bottom terrace ${n}, no gate: water over its lip spills.`
+      : `Gate ${k}, ${locked(k) ? 'locked' : gates[k].open ? 'open' : 'shut'}, at the end of terrace ${k}.`;
+    const ps = plants.filter(p => p.t === t).sort((a, b) => a.c - b.c);
+    const lean = T.h[0] - T.h[NC - 1];
+    const side = Math.abs(lean) < 2 ? '' : `, deeper at the ${lean > 0 ? 'left' : 'right'}`;
+    return `${head} Terrace ${k}${T.leaky ? ' (cracked, leaking)' : ''} holds ${Math.round(waterOn(t))} water${side}.` +
+      (ps.length ? ' ' + ps.map(p => `${where(p.c).replace(/^./, c => c.toUpperCase())} ${p.dry ? 'cactus' : 'plant'} ${plantWords(p)}.`).join(' ') : '');
+  }
+  function statusWords() {
+    const g = garden(), left = plants.filter(p => !p.bloom || p.dry);
+    return `${g.warm ? 'Warm-up' : `Garden ${level} of ${GARDENS.length - 1}, ${g.name}`}. ${bloomedCount()} of ${plants.length} bloomed.` +
+      (g.warm ? '' : ` Spring ${Math.round(tank)}, valve ${gates[0].open ? 'open' : 'shut'}.`) +
+      ` Open gates: ${gates.map((x, k) => k && x.open ? k : '').filter(Boolean).join(', ') || 'none'}.` +
+      (left.length ? ' ' + left.map(p => `${plantName(p).replace(/^./, c => c.toUpperCase())} ${plantWords(p)}.`).join(' ') : '');
+  }
+  function toggleKey(k) {
+    if (k === terraces.length) return speak('The bottom terrace has no gate.');
+    const was = gates[k].open;
+    tapGate(k);
+    if (gates[k].open === was) return;
+    gateKeys++;
+    if (k === 0) return speak(`Spring ${gates[0].open ? `open, ${Math.round(tank)} water left` : 'shut'}.`);
+    speak(`Gate ${k} ${gates[k].open ? `open: terrace ${k} drains onto terrace ${k + 1}` : `shut: it holds terrace ${k}'s water up to the gate's top`}.`);
+  }
   window.addEventListener('keydown', evt => {
-    if (!LEFT.includes(evt.key) && !RIGHT.includes(evt.key)) return;
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    const k = evt.key.length === 1 ? evt.key.toLowerCase() : evt.key;
+    if (onButton && (k === 'Enter' || k === ' ')) return; // the focused button presses itself
+    if (LEFT.includes(evt.key) || RIGHT.includes(evt.key)) {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (state !== 'playing' || paused) return;
+      if (!keys.has(evt.key)) {
+        touched();
+        if (!keys.size) speak(`Tilting ${LEFT.includes(evt.key) ? 'left' : 'right'}.`);
+      }
+      keys.add(evt.key);
+      kb.settle = -1;
+      return;
+    }
+    if (paused) return;
+    if (state !== 'playing') {
+      if (k === 'Enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); playAgainBtn.click(); }
+      return;
+    }
+    const digit = /^[0-9]$/.test(k) ? +k : -1;
+    if (!['ArrowUp', 'ArrowDown', 'Enter', 'g', 's'].includes(k) && digit < 0) return;
     evt.preventDefault();
-    if (state !== 'playing' || paused) return;
-    if (!keys.has(evt.key)) touched();
-    keys.add(evt.key);
+    if (onButton) evt.target.blur();
+    if (evt.repeat && !k.startsWith('Arrow')) return;
+    kb.shown = true;
+    const n = terraces.length;
+    if (k === 'ArrowUp' || k === 'ArrowDown') {
+      kb.pick = Math.max(firstStop(), Math.min(n, kb.pick + (k === 'ArrowUp' ? -1 : 1)));
+      speak(stopWords(kb.pick));
+    } else if (digit >= 0) {
+      if (digit === 0 && garden().warm) return speak('The warm-up has no spring.');
+      if (digit >= n) return speak(`There is no gate ${digit}: gates 1 to ${n - 1}${garden().warm ? '' : ', 0 is the spring'}.`);
+      kb.pick = digit;
+      toggleKey(digit);
+    } else if (k === 'Enter' || k === 'g') {
+      toggleKey(kb.pick);
+    } else {
+      speak(statusWords());
+    }
   });
-  window.addEventListener('keyup', evt => { keys.delete(evt.key); });
+  window.addEventListener('keyup', evt => {
+    if (!keys.has(evt.key)) return;
+    keys.delete(evt.key);
+    if (!keys.size && state === 'playing') kb.settle = 0.9;
+  });
   window.addEventListener('blur', () => keys.clear());
+
+  // Spoken changes, read from the state after each frame (never inside the
+  // simulation): a tilt key let go (once the water settles), and a plant
+  // that starts growing, stops, drowns, blooms or wilts (held 0.7 s, at most
+  // one line per plant every 2 s, so sloshing at a band's edge stays quiet).
+  function kbWatch(dt) {
+    if (state !== 'playing' || paused) return;
+    if (kb.settle >= 0 && (kb.settle -= dt) < 0) speak(`Level again. ${stopWords(kb.pick)}`);
+    for (const p of plants) {
+      const m = p.bloom ? 'bloom' : p.dry && p.mood === 'dry' ? 'ok' : p.mood;
+      if (p.said === undefined) { p.said = m; p.cand = m; p.candT = 0; p.saidT = 9; continue; }
+      p.saidT += dt;
+      if (m !== p.cand) { p.cand = m; p.candT = 0; }
+      p.candT += dt;
+      if (m === p.said || (m !== 'bloom' && (p.candT < 0.7 || p.saidT < 2))) continue;
+      const was = p.said, name = plantName(p).replace(/^./, c => c.toUpperCase());
+      p.said = m; p.saidT = 0;
+      const d = depth(p);
+      if (p.dry) speak(m === 'bloom' ? `${name} bloomed. Keep it dry.` : was === 'bloom' ? `${name} wilted: ${d} deep.`
+        : m === 'wet' ? `${name} is wet, ${d} deep, and wilting.` : `${name} is dry again.`);
+      else if (m === 'bloom') speak(`${name} bloomed. ${bloomedCount()} of ${plants.length}.`);
+      else if (m === 'ok') speak(`${name} is growing: ${d} deep, wants ${p.lo} to ${p.hi}.`);
+      else if (m === 'deep') speak(`${name} is drowning: ${d} deep, wants at most ${p.hi}.`);
+      else if (was !== 'dry') speak(`${name} stopped growing: ${d} deep, wants at least ${p.lo}.`);
+    }
+  }
+
+  // The picked stop: a white ring on a dark one (reads on the sky, the hill
+  // and the water without hue), and each gate's key number once keys are
+  // in use.
+  function drawPick() {
+    if (!kb.shown || state !== 'playing') return;
+    const n = terraces.length;
+    const spot = k => k === 0 ? { x: colX(terraces[0], 0), y: 112 }
+      : k === n ? { x: terraces[n - 1].x0 + TW + 3, y: terraces[n - 1].y - LIP - 10 }
+      : { x: terraces[k - 1].x0 + TW + 3, y: terraces[k - 1].y - WALL - 12 };
+    const s = spot(kb.pick);
+    for (const [c, w] of [['#0b1412', 5], ['#ffffff', 2]]) {
+      ctx.strokeStyle = c; ctx.lineWidth = w;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 15, 0, Math.PI * 2); ctx.stroke();
+    }
+    const f = fs(12);
+    ctx.font = `bold ${f}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let k = firstStop(); k < n; k++) {
+      const q = spot(k), lx = k === 0 ? q.x + 24 : q.x - 2, ly = k === 0 ? q.y : q.y - 30;
+      ctx.fillStyle = 'rgba(10,17,19,0.9)';
+      ctx.fillRect(lx - f * 0.5, ly - f * 0.6, f, f * 1.2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(String(k), lx, ly + 1);
+    }
+    ctx.textBaseline = 'alphabetic';
+  }
 
   // Tilt bar: drag the thumb; let go and it springs back to level.
   const barEl = document.getElementById('tiltBar'), thumb = document.getElementById('tiltThumb');
@@ -958,6 +1177,8 @@
       acc -= STEP;
     }
     if (!paused) effects(dt);
+    kbWatch(dt);
+    flushSpeech();
     hud();
     draw(now);
     requestAnimationFrame(frame);
@@ -973,7 +1194,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap';
-  document.getElementById('hill').setAttribute('aria-label', `Terrace Garden. Tilt ${fine ? 'with the bar under the hillside' : 'the phone (or slide the bar under the hillside)'} to slosh the water, ${t} a gate to open or close it. Keys: ← → or A / D to tilt.`);
+  document.getElementById('hill').setAttribute('aria-label', `Terrace Garden. Tilt ${fine ? 'with the bar under the hillside' : 'the phone (or slide the bar under the hillside)'} to slosh the water, ${t} a gate to open or close it. Keys: hold ← → or A / D to tilt, ↑ ↓ pick a gate, Enter or G opens or shuts it, 0 to 4 open or shut gate 0 to 4 (0 is the spring), S status.`);
 }
 </script>
 </body>

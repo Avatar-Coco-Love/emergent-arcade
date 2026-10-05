@@ -1248,3 +1248,53 @@ next" ring (54), hat outlines (13), a dark rim under the red ring.
 and warn screens × 3 runs, normal vs reduced; L* by number; audit 3/3
 plus a scripted late copy 2 runs, old and new; balance old×2 and new.*
 
+
+## A real-time live region speaks settled changes
+
+Terrace Garden v4. The earlier live regions were turn-based (Pressure
+Grid, Surprise Party: one line per move from its result) or spoke what a
+cursor was on. Terrace Garden is real time: water sloshes every frame,
+a plant at its band's edge flips between growing and too shallow many
+times a second, and a gate pours while the player listens. v4 never
+speaks from inside the simulation (the balance harness runs `step()`
+without frames, and stays identical): after each frame `kbWatch()` reads
+each plant's mood, and a change speaks only once it has held 0.7 s, at
+most once per plant per 2 s (blooms at once). A tilt speaks at the press
+("Tilting left") and 0.9 s after the last tilt key is let go ("Level
+again" plus the picked terrace). Lines queue and reach `#say` once a
+frame, so two lines in one frame don't replace each other.
+
+A keys-only bot that reads only `#say` (S status, ↑ ↓ to read a
+terrace, digits for gates) found two faults a sighted check missed. The
+words contradicted the state: "too shallow: 14 deep, wants 14 to 28" was
+13.6 rounded, so the bot (and a listener) waited for a plant that would
+never grow; and "growing, 23%: just under 6 deep" was a plant that had
+drunk itself under its band since the last step (its mood updates on the
+next). v4 words the number from the state: "just under 14" when too
+shallow, the band's edge while growing. And an aimed verb needs the
+target's place: with one plant per terrace the first draft said only
+"terrace 2's plant", so the bot could not tell which way to tilt; then it held
+a centre-left plant's water at the left wall, away from it. Every plant
+now has a place (left, centre-left, centre-right, right) and each
+terrace says which end is deeper. With both fixed, the bot won the warm-up and gardens 1 and 2 on the first try (garden 2 is the crack the hint-following balance bots never pass) and lost garden 3 with an empty spring, by keys and words alone.
+
+*Evidence: keys-only bot (only `page.keyboard`, reading only `#say`) at
+1280×800; balance old×2 and new identical (16 bots × 100 runs).*
+
+## A warm-up hides the labels later levels add
+
+Terrace Garden v4. The audit opens a game and pokes it for a few
+seconds, so for Terrace Garden it always audits the warm-up, which has
+no spring. The spring's "spring" label (11 units, 9.4 CSS px at 360 px
+wide) and its contrast (`#cfe6ee` over the tank's water `#3d8fb0`, 2.8:1
+whenever the tank is full, so at every garden's start) never reached the
+text or contrast cell: both passed. A scripted copy (garden 3, full
+terraces, flows, picker shown) failed text on the old file (9.4 px) and
+passes on v4 (`fs(12)` on a dark backing, 16.7:1; gate key numbers 19:1)
+on 2 late screens × 2 runs. The motion cell had the same blind spot the
+other way: the warm-up goes 1.6% → 0.0% under reduced motion (a pass),
+while a garden with water flowing stays at 0.26% → 0.24% and is 0.00%
+with the water, plants and spring count hidden: the simulation.
+
+*Evidence: audit on scripted garden copies, old and new; idle-motion
+diff with pieces hidden, 2 runs; contrast by number.*

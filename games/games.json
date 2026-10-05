@@ -932,13 +932,13 @@
       "id": "terrace-garden",
       "title": "Terrace Garden",
       "file": "terrace-garden.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-09-29",
       "updated": "2026-10-05",
       "blurb": "Tilt a terraced hillside to slosh water where each plant wants it, and open the gates to let it down the slope.",
       "goal": "Make every plant bloom in a short warm-up and then three gardens in a row, before the spring's water runs out. Each plant needs its own depth of water. Water that spills off the bottom terrace, leaks away or is drunk never comes back.",
       "howToPlay": "{Tap} the spring's valve at the top to let water out, and {tap} a gate at the end of a terrace to open or close it: an open gate lets water down to the terrace below. Tilt to slosh all the water at once: toward the gates to send it down, away to hold it back, or to pile it up at one end. On a phone, tilt the phone (however you hold it when a garden starts counts as level), or {slide} the bar under the hillside if tilt is off (on a computer, drag the bar or use the keys). Each plant has a stake with a green band: it grows while the water over it is inside the band, and drinks as it grows. Too shallow and it waits, too deep and it bubbles. An open gate still keeps a shallow puddle behind it, which only a tilt will bring down. There's no clock: take your time. If the hillside goes still, an arrow or a pulsing gate shows a move that helps. Spring water left over when a garden blooms carries on to the next one.",
-      "keyboard": "← → or A / D to tilt",
+      "keyboard": "← → or A / D tilt · ↑ ↓ pick a gate, Enter or G opens or shuts it · 0–4 that gate (0 spring) · S status",
       "mechanics": [
         {
           "name": "tilt",
@@ -972,6 +972,11 @@
         }
       ],
       "changes": [
+        {
+          "version": 4,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Gates work from the keyboard, a screen reader hears the gates, each plant's water and every bloom, and reduced motion stills the rings, sway and splashes. Thirsty plants droop, drowning ones darken."
+        },
         {
           "version": 3,
           "date": "2026-10-05",
