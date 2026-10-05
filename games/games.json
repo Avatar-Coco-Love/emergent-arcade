@@ -843,12 +843,13 @@
       "id": "loom",
       "title": "Loom",
       "file": "loom.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-09-29",
       "updated": "2026-10-05",
       "blurb": "Stretch a knotted net onto a dotted silhouette and pin it there before the pins pop or the strands snap.",
       "goal": "Hold seven shapes in a row: cover every dot with a knot at once and keep it there for a second. Three slips (a pin popping loose or a strand snapping) lose the shape (one frayed strand snapping loses it at once), and snapped strands stay snapped for the rest of the run.",
-      "howToPlay": "Drag a knot to pull the net: the knot follows your {finger}, and the further your {finger} leads it, the harder you pull. {Tap} a knot to pin it where it is (up to 4 pins); {tap} a pin to take it out, or drag it to pull it out and move that knot. A knot you let go of without a pin slides back as the net relaxes, so pin it quickly. Strands turn from linen to gold to red as they stretch; a red strand that stays red snaps. The ring around a pin fills with the load it holds, and a red ring shakes and then pops the pin. While you pull, the same ring around your knot shows the load a pin would hold if you pinned it there. A dot only needs a knot somewhere inside its circle, so the near edge needs less stretch than the middle. A taut edge between two pins lines up the knots along it, which can cover extra dots without extra pins. Later shapes add twists: a blue dot only counts under the blue knot, and dashed frayed strands tear at a third of the usual stretch, so keep them slack. Shapes are mirrored at random each run.",
+      "howToPlay": "Drag a knot to pull the net: the knot follows your {finger}, and the further your {finger} leads it, the harder you pull. {Tap} a knot to pin it where it is (up to 4 pins); {tap} a pin to take it out, or drag it to pull it out and move that knot. A knot you let go of without a pin slides back as the net relaxes, so pin it quickly. Strands turn from linen to gold as they stretch, then darker and thicker orange to red near their limit; a strand crossed by two white bars is over it and snaps if it stays there. The ring around a pin fills with the load it holds; it turns thick and red when the pin is close to giving, and an outer white ring means it is working loose and about to pop. While you pull, the same ring around your knot shows the load a pin would hold if you pinned it there. A dot only needs a knot somewhere inside its circle, so the near edge needs less stretch than the middle. A taut edge between two pins lines up the knots along it, which can cover extra dots without extra pins. Later shapes add twists: a blue dot only counts under the blue knot, and dashed frayed strands tear at a third of the usual stretch, so keep them slack. Shapes are mirrored at random each run.",
+      "keyboard": "Arrows pick a knot · C next corner · Enter or P pins/unpins · hold Space: arrows pull it · S status · Enter next shape",
       "mechanics": [
         {
           "name": "pull",
@@ -897,6 +898,11 @@
         }
       ],
       "changes": [
+        {
+          "version": 4,
+          "date": "2026-10-05",
+          "text": "No gameplay change. Keys: arrows pick a knot, Enter or P pins it, hold Space and the arrows pull it. Screen readers hear the knot, its strands and every slip. Tension reads by lightness and marks, not only colour; reduced motion stops shaking and flashing."
+        },
         {
           "version": 3,
           "date": "2026-10-05",

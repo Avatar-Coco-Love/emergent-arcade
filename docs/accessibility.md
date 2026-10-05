@@ -46,7 +46,7 @@ the honest end state, not a fix still owed.
 | hourglass-delivery | pass (v5: reads it; stripes, dust, knock ring still. Mid-round partial by design: the glasses are the motion, 0.00% hidden) | pass (v5: backing) | pass (v5: missed = ×, late screens too) | pass (v5: cursor, hold Space pours, K + arrow knocks, G/L jumps) | pass (v5, live region) | pass |
 | hot-iron | pass (v6: reads it; no sparks or shake. The old pass was timing: a burning bar throws sparks, 0.18% → 0.11% = sparks hidden) | pass (v6: backing) | pass (v6: a mark per heat band + a lightness jump at the crack line, late screens too) | pass (v6: segment cursor, hold Space heats, Enter/H strikes, O next off the outline) | pass (v6, live region) | pass |
 | island-census | pass | pass (v3: backings) | pass (v3: lightness bands + shape) | pass (v3: cursor, F fences) | pass (v3, live region) | pass (v3) |
-| loom | pass | pass | pass | fail: none | pass (labelled) | pass |
+| loom | pass (v4: reads it; no shake, flash, blink, lint. The old pass was a state pass: a settled net is 0.00% idle either way) | pass (v4: backing) | pass (v4: lightness step at the warning line, crossbars over the snap line, thick ring near popping; late screens too) | pass (v4: knot picker, C corners, Enter/P pins, hold Space + arrows pull) | pass (v4, live region) | pass |
 | terrace-garden | fail: ignores it | pass | pass | partial: tilt, not gates | pass (labelled) | pass |
 | tidewright | pass (v3: reads it) | pass (v3: backings) | pass (v3: shape + lightness) | pass | pass (labelled) | pass (v3) |
 | pressure-grid | pass | pass (v11: lightness bands) | pass | pass (v11: cursor, S pours) | pass (v11, live region) | pass (v11) |

@@ -11,6 +11,48 @@ top of the relevant section; sessions don't read this file by default.
   blindfolded"). Pennant, Hammock and Arrow; dyed knots; frayed strands
   (a frayed snap tears the shape); random mirroring; Old Rope and True
   Colours achievements. Bots `habit` and `habit-dye`.
+- v3 (2026-10-05): canvas label.
+- v4 (2026-10-05): accessibility. Keys (picker by matching, trail back,
+  C corners, Enter/P pin, hold Space pull), live region, tension bands by
+  lightness with a step at `WARN`, crossbars and outer ring marks,
+  reduced motion. No gameplay change.
+
+## Depth ideas (open; moved from the notes in v4)
+
+- A plan-aware bot aiming at the inner edge (`inset-rule`) wins every shape,
+  v2's included; the twists change which knots go where, not the "inner
+  edge" part. Not built yet: **tacks** (knots fixed where they lie, never
+  popping): a dot below a tack is safe at its outer (tack-side) edge, so
+  aiming at the inner edge snaps the strand.
+- Load rings aren't strictly needed (inner-edge aiming wins 100%). A shape
+  where the safe spot isn't the inner edge (e.g. an extra non-dot pin to
+  split a load) would make them required.
+- Snapping rarely matters to a player who knows the plan, so carry-over
+  holes rarely matter. A shape needing strain near `SNAP` (0.6) would make
+  yanking (full grip against a pin) a real risk.
+
+## Shapes (v2, moved from the notes in v4)
+
+Achievement rates (v2 balance): Old Rope (Hammock first try): reader 100%, novice 84%. True Colours (Arrow, no slips): reader 85%, no-rings 24%, novice 33%.
+
+- Shapes (dots are `[x, y, knot]`: the third number is the knot the design
+  has in mind, read only by the balance bots):
+  - Tablecloth: 200×200 square, corners to corners (strain ~0.25).
+  - Banner: 230×120, four corner dots plus one on the top and bottom edges.
+    The four corner pins stretch those edges taut (strain ~0.44), which lines
+    the edge knots up on the two extra dots. 6 dots, 4 pins.
+  - Sail: right triangle (net corners TL, BL, BR). The left edge is taut
+    (~0.4). 5 dots, 4 pins.
+  - Pennant (v2): triangle, left edge on the corners (190 px), point at
+    (335, 245) for the dyed knot 17. 3 dots, 3 pins, about 4 s for bots.
+  - Hammock (v2): 220×110 on knots 6, 11, 24, 29 (rows 1 and 4), frayed
+    top and bottom rows.
+  - Arrow (v2): tip (200, 110) for dyed knot 2, feet (310, 330) and
+    (90, 330) on the bottom corners. The pins at the feet pop at the dots'
+    centres: rings needed (no-rings 23% first try).
+  - Kite: diamond 240×320. The net has to turn 45° (corners to the points),
+    and pins at the dot centres pop; pins at the inner edges hold (loads
+    0.36–0.5).
 
 ## v2: breaking the one trick (rationale and design principles)
 

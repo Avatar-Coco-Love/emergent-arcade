@@ -356,3 +356,20 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   (crack, hammer, hammer + flame). The motion pass was a state pass too:
   only a white-hot bar throws sparks while idle. *A band's step belongs on
   the rule's line, not near it.* Hot Iron v6. L* by number + hot-bar diff.
+- Arrows picking among pieces that move (a net's knots) stay complete
+  with a least-turn matching over each knot's net neighbours (36/36 on
+  300 pulled nets), but not reversible: once the net folds, 43% of steps
+  aren't undone by the opposite arrow, and a keys bot walking to a corner
+  by names got lost. The opposite arrow walks back a trail (40/40), and a
+  jump key reaches the pieces plans start from (C: corners). Name a target
+  the eye would skip: "dot 1, covered by another knot", then the nearest
+  open one (the bot dragged a corner onto a covered dot). *A picker over
+  moving pieces needs a way back.* Loom v4. reachability script +
+  keys-only bot.
+- A warning ramp can end at the resting state's lightness: Loom v3's
+  strands went linen → gold → red, and red (L* 58, protan 48) sat on slack
+  strands (61), so "about to snap" looked like "relaxed" without hue.
+  Thin lines are under the colour cell's area share, so it passed. v4
+  dims slack (35), steps down at `WARN` (gold 80 → orange-red 60, +1 px)
+  and marks over-limit strands with crossbars. *A warning ramp can end
+  where the resting state sits.* Loom v4. L* by number.

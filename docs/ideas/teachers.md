@@ -80,7 +80,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - hourglass-delivery: done (v5, 2026-10-05): a cursor that moves while an arrow is held, hold Space pours at it, K or X then an arrow knocks there, G/L jump to the next glass or ledge, a live region (what the cursor is over, where a pour lands, knocks, glasses, hopper), `#msg` on a backing, order dots keep outcomes (missed = ×), reduced motion read (belt stripes and dust still; the glasses still roll, so mid-round motion stays partial) (`docs/games/hourglass-delivery.md`, "Accessibility").
 - hot-iron: done (v6, 2026-10-05): a segment cursor (← →, Shift for a seam), hold Space heats at it, Enter or H strikes, O jumps to the next segment off the outline, a live region (the band in words, thickness against the outline, the flow preview, each blow, fuel steps), a mark per heat band (crack, hammer, hammer + flame) and a lightness jump at the crack line, reduced motion read (no sparks or shake) (`docs/games/hot-iron.md`, "Accessibility").
 - island-census: done (v3, 2026-10-05): meadows, turf, paths and sand in their own lightness bands (plus grass tufts), counts and strikes told by shape, HUD 12.5 px+, a keyboard cursor (Enter releases, F then an arrow picks a path), a live region (`docs/games/island-census.md`, "Accessibility").
-- loom: no keyboard play.
+- loom: done (v4, 2026-10-05): a knot picker (each neighbour its own arrow by matching, the opposite arrow walks back, C jumps corners), Enter or P pins, hold Space and the arrows lead a pull, a live region (the knot, its strands and load in words, the nearest dot, slips by name), tension bands by lightness with a step at the warning line, crossbars and an outer ring for over-limit strands and loose pins, reduced motion read (no shake, flash or blink) (`docs/games/loom.md`, "Accessibility").
 - terrace-garden: keys tilt but can't work the gates; ignores reduced motion.
 - tidewright: done (v3, 2026-10-05): labels 12 px+ on backings, handles told apart by lightness and shape, a surface line on water, reduced motion read (`docs/games/tidewright.md`, "Accessibility").
 - pressure-grid: done (v11, 2026-10-05): cells in two lightness bands (numbers 6.3:1+), labels on backings, a keyboard cursor (Enter pumps, S then an arrow aims a pour), a live region that says what each move did (`docs/games/pressure-grid.md`, "Accessibility").
@@ -459,7 +459,7 @@ Revise Hot Iron for accessibility (docs/accessibility.md, its row; docs/ideas/te
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Loom accessibility revision (prompt below)
+## Prompt used for the Loom accessibility revision (done, v4)
 
 Chosen 2026-10-05, after Hot Iron v6. Still no classroom reports (0), so
 3 vs 4 keeps waiting on what teachers ask for. Two games still have no
@@ -484,6 +484,37 @@ Revise Loom for accessibility (docs/accessibility.md, its row; docs/ideas/teache
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs loom, node scripts/balance-loom.mjs (balance must not move: same constants; keep Math.random calls equal so seeded bots reproduce exactly; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs loom (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that pulls and pins, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/loom.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/loom.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Surprise Party accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Loom v4. Still no classroom reports (0), so 3 vs
+4 keeps waiting on what teachers ask for. Surprise Party is the last game
+whose keyboard cell fails (keys only wait, undo and restart; whisper and
+doors need a pointer) and it has no live region, so a screen reader hears
+nothing of the ripple. Its verbs are a tap on a guest and a hold on a door
+on a grid house, turn by turn (each move ticks 15 minutes): a tile cursor
+plus a press key and a held key, with the live region written from each
+tick's result (findings, "A turn-based game's live region comes from its
+move result"). Its harness cuts the `// § sim` block out of the game, so
+the keys code must stay outside it.
+
+```
+Revise Surprise Party for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: whisper and doors on keys, a live region, reduced motion checked. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/surprise-party.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "A turn-based game's live region comes from its move result", "A picker over moving pieces needs a way back", "Jump keys give a path verb its ends", "An early audit screen can miss the game's own motion", "Late screens grow their own greys", "A warning ramp can end where the resting state sits" and "Run the old file twice before comparing balance"), docs/games/loom.md and docs/games/pressure-grid.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game surprise-party. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: whisper is a tap on a guest who hasn't heard and door a hold on a door (0.32 s, a ring closes); keys only wait (Space/W), undo, restart and next house. Add a tile cursor (arrows move it over the house, one tile per press, held keys repeat) with jump keys to what matters (e.g. G next guest who hasn't heard, D next door, B the birthday person), and a no-chord key per verb: e.g. Enter whispers to the guest under the cursor, hold O on a door shuts or opens it (key up early cancels, like lifting a finger; the same ring). Keep Space/W wait, U undo, R restart. Keys call the same functions as the pointer, outside the `// § sim` block. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what matters, short and once per move: the tile under the cursor (guest heard / not / party hat, door open or shut, walking steps to the birthday person), each move and its tick ("7:15. Whisper to the guest in the kitchen. 3 heard: … The news is 2 steps from the birthday person."), envelopes and moves left, the house's result and stars. Update the keyboard line in the manifest (120 characters at most), the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: the audit passes Surprise Party's motion cell; check whether that's a threshold or timing pass (grep for prefers-reduced-motion; measure idle motion mid-house, after a tick's ripple, with the ripple animation hidden, then decoration). Decoration gets its own clock and freezes under the setting; the daily seed and the solver must not change. Record motion as partial only if what's left is the game itself, measured, several runs.
+
+4. Text and colour: every label at least 12 CSS px at 360 px wide (an fs() from the CSS width for canvas text), 4.5:1 against what is behind it, with backings where text sits over the house. Guest states (hasn't heard, just heard, quiet with a party hat, birthday person) and open/shut doors must read without hue (lightness steps or a mark), checked by number, not only by the audit's colour cell. Colour must still pass on several runs, including a late house mid-ripple (a scripted copy, findings "Late screens grow their own greys"); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs surprise-party, node scripts/smoke-gallery.mjs, node scripts/test-daily.mjs, node scripts/balance-surprise-party.mjs (balance must not move: same houses and solver; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs surprise-party (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that whispers and works doors, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/surprise-party.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/surprise-party.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
