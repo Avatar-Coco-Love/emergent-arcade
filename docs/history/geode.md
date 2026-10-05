@@ -6,8 +6,27 @@ section; sessions don't read this file by default.
 
 ## History
 
+- v3 (2026-10-05): accessibility (keys for seed and cleave, labels,
+  reduced motion, colour on late screens). No balance change.
 - v1 (2026-10-04): first version, from the brief below
   (`docs/ideas/geode.md`, PR #83).
+
+## v1 balance notes (moved from the notes file, v3)
+
+Speed isn't the test (skilled, carats / geode): think 1.5 s 525 / 7;
+think 1.5 + lag 0.8 s 468 / 7 (losses shift to 63% shatter). Banking at
+1.5× quota instead of +10%: 723 (fast) and 521 (think 1.5, lag 0.8). All
+four one-rule bots (idle, spam, cold, melt) lose by geode 2; anneal-park
+pays in time (thin at geode 4); noCleave dies in geode 1 (impurity bursts).
+
+Probe (thumb parked, nothing touched, 20 runs each): no still screen at
+0, 0.35 or 0.6 (one 0.6 run of a tiny crystal); at 0.9 the crystal melts to
+the core and nothing changes until the pool dies (a hint says why).
+
+Novice: seeds kinks 70% of the time at half the skilled rate, nudges the
+thermostat +0.1 when anything is red (> 0.7), drifts back below 0.3,
+cleaves impurities only past 0.8 with 30% aimed one ion off, 3 wrong holds,
+think 1.5 s, lag 0.8 s.
 
 ## v1: departures from the brief and why (bot evidence)
 

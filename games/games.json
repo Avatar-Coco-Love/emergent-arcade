@@ -1804,13 +1804,13 @@
       "id": "geode",
       "title": "Geode",
       "file": "geode.html",
-      "version": 2,
+      "version": 3,
       "added": "2026-10-04",
       "updated": "2026-10-05",
       "blurb": "Grow a crystal that rings like a bell: seed, warm and chip away the flaws before they crack it.",
       "goal": "Grow each crystal to its quota and harvest it, as big and as clear as you dare, before its pool runs dry. Flaws spread by themselves; a crack that reaches the core shatters the crystal and you lose what was unbanked. Three lost geodes end the run.",
       "howToPlay": "{Tap} beside the crystal to place an ion where you want it. Drag the thermostat under the pool: cold grows fast but strains the crystal, the middle glow heals strain without growing much, and too hot melts your corners. The ring on the thermostat is the real temperature; it follows your setting slowly. Strain shows as amber and red, thick outlines and cross-hatching, and it spreads to neighbours; at full strain an ion cracks and shocks the ones around it. Dark foreign ions swap into the crystal and creep toward bursting (watch the arc around them): {hold} on one to snap it out, and the gap heals cleanly. Harvest once the bar reaches the quota: a bigger, clearer crystal is worth more carats, but the pool ages, impurities come faster and the ring around the pool drains. Later geodes bring cold snaps, heat waves and salt flushes. Listen: a clear crystal sounds like a chord, strain sounds out of tune (sound is optional).",
-      "keyboard": "← → set the temperature · H harvest · M sound",
+      "keyboard": "← → temperature · T switches arrows to a cursor · S/Enter seed · hold C cleave · I foreign ion · H harvest · M sound",
       "mechanics": [
         {
           "name": "seed",
@@ -1876,6 +1876,11 @@
         "epoch": 1
       },
       "changes": [
+        {
+          "version": 3,
+          "date": "2026-10-05",
+          "text": "No balance change. Seed and cleave from the keyboard: T switches the arrows to a cursor on the crystal, S or Enter seeds there, hold C cleaves. Larger labels, a screen-reader line that says what changed, and reduced motion now stills the shimmer, pulses and drifting motes."
+        },
         {
           "version": 2,
           "date": "2026-10-05",

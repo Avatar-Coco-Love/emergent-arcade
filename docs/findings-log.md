@@ -983,3 +983,38 @@ anywhere at once.
 *Evidence: keys-only bot (only `page.keyboard`), 4 runs per variant;
 screenshots at 360×740.*
 
+## Late screens grow their own greys
+
+Geode v3. The audit's colour check passed Geode v2 on its usual screen (a
+few seconds into geode 1). A copy that played a scripted round first
+(120 s, kinks seeded, foreign ions cleaved, thermostat cold then hot)
+showed a merge on 2/2 runs: deutan `#4b7960` (the anneal zone with its
+glow overlay) ≈ `#726c5c`, a grey-olive inside the crystal. Pixel search
+put it in two places: the gems' outlines (each strain colour mixed 55%
+toward near-black, so pale amber → `#716c60`) and the cyan halos under
+clean gems laid with `lighter` over the amber pool. Together they cover
+every lightness, so a lighter green (L 60) only moved the merge (protan,
+`#67a27e` ≈ `#9c9273`). A near-grey band (`#7d8a84`, L 56) is not
+"clearly different" from those greys in normal vision, and stays apart
+from the strain ramp under both simulations. The warn message (peach
+`#ffc49a`) merged with pale amber ions for deutans; amber `#ffd678`, a
+colour on the strain ramp itself, has only its ramp neighbours near it.
+
+*Evidence: late round, before: partial 2/2 (0.4%); lighter green: partial
+2/3, pass 1/3; near-grey + amber warn: pass 4/4 late, 3/3 early.*
+
+## A switch key keeps an arrow binding players know
+
+Geode v3. Geode's keyboard line already had ← → for the thermostat; seed
+(a point verb) and cleave (a hold on a point) needed a cursor, and the
+cursor needs arrows. T switches the arrows between the thermostat and a
+cursor that steps site to site (↑ ↓ zigzag around the column it came from,
+so they read as straight on the hex grid); the live region says which mode
+is on and the strip or the cursor gets a white outline. S/Enter seeds at
+the cursor in either mode (the same `tapAt` snap as a tap), and hold C
+creates the same `press` object a pointer does, so `checkHold` cleaves
+both ways and key up before 450 ms cancels like lifting a finger.
+
+*Evidence: keys-only playthrough (S at start, T, arrows + S ×33 → 6–7
+seeds, I → foreign ion, C 200 ms → "Let go early", C 650 ms → "Cleaved a
+foreign ion"); balance bots byte-identical to v2 over 200 runs × 11 bots.*
