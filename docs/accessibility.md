@@ -40,7 +40,7 @@ the honest end state, not a fix still owed.
 | teacher page | pass | pass (fixed) | pass | pass | pass | pass |
 | classroom note | pass | pass | pass | pass | pass | pass |
 | murmuration | partial (v6: reads it; all idle motion is the flock) | pass (v6: backings) | pass | pass (v6: cursor, hold Space, X) | pass (v6, live region) | pass (v6) |
-| orbit-garden | pass | pass | pass | fail: none | pass (labelled) | pass |
+| orbit-garden | pass (v8: reads it; petals still. The old pass was timing: petals spin only after a bloom, 0.00% with planets hidden) | pass (v8: hint backing) | pass (v8, late screens too) | pass (v8: cursor, Enter places, Space aims and flings, N jumps) | pass (v8, live region) | pass |
 | wildfire-line | pass (v4) | pass | pass (v4: lightness bands) | pass (v4: cursor) | pass (v4) | pass |
 | ant-trails | partial (v7: reads it; legs and raindrops still; all idle motion is the ants and scent) | pass (v7: backings) | pass (v7, late screens too) | pass (v7: cursor, hold Space trail, hold W wash) | pass (v7, live region) | pass (v7) |
 | hourglass-delivery | pass (v5: reads it; stripes, dust, knock ring still. Mid-round partial by design: the glasses are the motion, 0.00% hidden) | pass (v5: backing) | pass (v5: missed = ×, late screens too) | pass (v5: cursor, hold Space pours, K + arrow knocks, G/L jumps) | pass (v5, live region) | pass |

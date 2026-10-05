@@ -74,7 +74,7 @@ the game and its verbs, "click" on PC, the keys. "No live region" means
 no status text in the DOM, so a screen reader hears nothing change.
 
 - murmuration: done (v6, 2026-10-05): a cursor that moves while an arrow is held, hold Space to lure, Enter or X to startle, gate count 12.5 px+ on a backing, a live region (gates, losses, light left), reduced motion read (decoration frozen; the flock still flies, so motion stays partial) (`docs/games/murmuration.md`, "Accessibility").
-- orbit-garden: no keyboard play.
+- orbit-garden: done (v8, 2026-10-05): a cursor that moves while an arrow is held, Enter places a planet, Space switches the arrows to aiming (angle, strength) and flings, N jumps to the next planet, a live region that puts the aim preview into words (which planet it reaches, or where it ends), the hint on a backing, reduced motion read (petals still) (`docs/games/orbit-garden.md`, "Accessibility").
 - wildfire-line: done (v4, 2026-10-05): ground told apart by lightness, keyboard cursor for both verbs, reduced motion, role and label. The pattern for the others (`docs/games/wildfire-line.md`, "Accessibility").
 - ant-trails: done (v7, 2026-10-05): a cursor that moves while an arrow is held, hold Space lays a trail along its path, hold W washes, H/N jump to the nest or the next food, text on backings at 12.8 px, a live region, reduced motion read (legs and raindrops still; the ants still walk, so motion stays partial) (`docs/games/ant-trails.md`, "Accessibility").
 - hourglass-delivery: done (v5, 2026-10-05): a cursor that moves while an arrow is held, hold Space pours at it, K or X then an arrow knocks there, G/L jump to the next glass or ledge, a live region (what the cursor is over, where a pour lands, knocks, glasses, hopper), `#msg` on a backing, order dots keep outcomes (missed = ×), reduced motion read (belt stripes and dust still; the glasses still roll, so mid-round motion stays partial) (`docs/games/hourglass-delivery.md`, "Accessibility").
@@ -400,7 +400,7 @@ Revise Hourglass Delivery for accessibility (docs/accessibility.md, its row; doc
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Orbit Garden accessibility revision (prompt below)
+## Prompt used for the Orbit Garden accessibility revision (done, v8)
 
 Chosen 2026-10-05, after Hourglass Delivery v5. Still no classroom reports
 (0), so 3 vs 4 keeps waiting on what teachers ask for. Four games still
@@ -424,6 +424,37 @@ Revise Orbit Garden for accessibility (docs/accessibility.md, its row; docs/idea
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs orbit-garden, node scripts/balance-orbit-garden.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs orbit-garden (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that places and flings. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/orbit-garden.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/orbit-garden.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Hot Iron accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Orbit Garden v8. Still no classroom reports (0),
+so 3 vs 4 keeps waiting on what teachers ask for. Three games still have
+no keyboard play for their verbs (hot-iron, loom; surprise party has
+wait/undo only). Hot Iron's verbs are a hold at a place (heat) and a tap
+at a place (hammer) along a one-row bar: a segment cursor plus a held key
+and a press key, the simplest of the three. Its sparks and screen shake
+use render-time `Math.random`, so they are both the reduced-motion work and
+the trap for "bots reproduce exactly". Its own notes ask whether players
+can tell dull red from cherry: a colour question the audit's screen may
+not show (no hot bar early in a round).
+
+```
+Revise Hot Iron for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: heat and hammer on keys, a live region, reduced motion checked, heat told apart without hue. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/hot-iron.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "A held key verb needs a cursor that can get ahead", "Say what the preview shows, not where the shot lands", "An early audit screen can miss the game's own motion", "Late screens grow their own greys", "A lightness ramp under text needs a jump, not a slope" and "Run the old file twice before comparing balance"), docs/games/orbit-garden.md and docs/games/hourglass-delivery.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game hot-iron. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: heat is a hold on the bar (the segment under the finger heats while held) and hammer a tap on a segment; there are no keys at all. Add a segment cursor (← → move it, one segment per press, moving while held and speeding up) and a no-chord key per verb: e.g. hold Space heats at the cursor (key up = finger up; the cursor can move while heating, like the finger), Enter or H hammers the segment at the cursor. Keys call the same functions as the pointer. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what matters, short and not on every frame: the segment under the cursor (its heat band in words: too cold, working, white-hot; its thickness against the target), a strike's result (thinned, cracked, clang), fuel left at steps, the round's result. Update the keyboard line in the manifest (120 characters at most), the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: the audit passes Hot Iron's motion cell; check whether that's a threshold or timing pass (grep for prefers-reduced-motion; measure idle motion on a hot bar past the first strike, with sparks and shake hidden, then the glow). Sparks and shake are decoration: under the setting draw no shake and fewer or still sparks, but keep every Math.random call the bots depend on (call it and drop the result, or keep the spark list and skip drawing). Record motion as partial only if what's left is the simulation, measured, several runs.
+
+4. Text and colour: every label at least 12 CSS px at 360 px wide (an fs() from the CSS width for canvas text), 4.5:1 against what is behind it, with backings where text sits over the bar or the glow. Heat bands must read without hue (dull red vs cherry vs working range: lightness steps or a mark per band, findings "A lightness ramp under text needs a jump"). Colour must still pass on several runs, including a hot screen late in a round (a scripted copy, findings "Late screens grow their own greys"); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs hot-iron, node scripts/balance-hot-iron.mjs (balance must not move: same constants; keep Math.random calls equal so seeded bots reproduce exactly; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs hot-iron (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that heats and hammers. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/hot-iron.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/hot-iron.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
