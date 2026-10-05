@@ -125,6 +125,7 @@ None yet.
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): ignores reduced motion (small); canvas `role="img"`.
 - The novice's wall moved from seasons 4–5 to season 6 (56% → 6%; 26%
   with 4 retries), where the ×1.7 upkeep and stones hit. If players stall
   there, try ×1.5 in season 6 (noprune rises to ~70%) or nearer late

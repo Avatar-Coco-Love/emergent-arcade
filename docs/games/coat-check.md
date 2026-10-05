@@ -125,6 +125,7 @@ unpaused seconds per action. `purity` 75 ≈ random placement, not 0.
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): hook letters 11 px at 4.3:1; no live region; canvas `role="img"`.
 - The memory model is a guess (k most recent, no chunking). Calibrate k from
   the first playtest: compare `wrong`, `peeks`, `purity` with the cap rows.
 - ⇄ tickets: a peek can't confirm the friend's own coat unless you remember

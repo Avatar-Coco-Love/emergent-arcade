@@ -5,11 +5,12 @@
   --border: #d9d9e2;
   --text: #16161d;
   --muted: #5d5d6b;
-  --accent: #0a84c6;
+  --field-border: #7c7c8a;
+  --accent: #006fa6;
   --on-accent: #ffffff;
-  --good: #1f8a4c;
+  --good: #1a7a43;
   --bad: #c0392b;
-  --star: #e0a100;
+  --star: #a87700;
   --radius: 12px;
   --tap: 44px;
   color-scheme: light;
@@ -20,6 +21,7 @@
     --panel: #16161d;
     --panel-2: #1f1f28;
     --border: #2a2a34;
+    --field-border: #737380;
     --text: #e8e8ee;
     --muted: #9a9aa5;
     --accent: #6fd3ff;
@@ -35,6 +37,7 @@
   --panel: #16161d;
   --panel-2: #1f1f28;
   --border: #2a2a34;
+  --field-border: #737380;
   --text: #e8e8ee;
   --muted: #9a9aa5;
   --accent: #6fd3ff;
@@ -113,7 +116,7 @@ button.linkish {
 .catalog-controls input, .catalog-controls select {
   height: var(--tap);
   font: inherit; font-size: 1rem; color: var(--text);
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--field-border); border-radius: 10px;
   padding: 0 12px;
 }
 .catalog-controls input { flex: 1; min-width: 0; }
@@ -153,7 +156,7 @@ button.linkish {
 .topic-chip { flex: none; }
 .topic-kind {
   flex: none; margin: 0 2px 0 6px;
-  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
 }
 /* A mouse needs no 44 px target: smaller topic chips keep the row short. */
 @media (pointer: fine) {
@@ -185,7 +188,7 @@ button.linkish {
 }
 .continue-card .thumb { grid-row: span 2; }
 .continue-title { font-size: 0.85rem; font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.continue-meta { font-size: 0.72rem; color: var(--muted); }
+.continue-meta { font-size: 0.75rem; color: var(--muted); }
 @media (max-width: 480px) {
   .continue-card { grid-template-columns: minmax(0, 1fr); justify-items: start; row-gap: 4px; }
   .continue-card .thumb { grid-row: auto; }
@@ -250,7 +253,7 @@ button.linkish {
 .game-card h3 { margin: 0; font-size: 1.05rem; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .game-card p { margin: 4px 0 8px; color: var(--muted); font-size: 0.9rem; }
 .pill {
-  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   padding: 1px 7px; border-radius: 999px; line-height: 1.5;
 }
 .pill.new { background: var(--accent); color: var(--on-accent); }
@@ -389,7 +392,7 @@ body.playing .site-header, body.playing .site-footer { display: none; }
   position: absolute;
   right: 0;
   bottom: 1px;
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--muted);
 }
@@ -404,7 +407,7 @@ body.playing .site-header, body.playing .site-footer { display: none; }
 @media (max-width: 419px) {
   #playBtn { display: none; }
   .toolbar h1 { font-size: 0.95rem; line-height: 1.15; }
-  .toolbar .ver { display: block; font-size: 0.7rem; }
+  .toolbar .ver { display: block; font-size: 0.75rem; }
 }
 
 .screen { position: relative; flex: 1; min-height: 0; background: #07070d; }
@@ -530,7 +533,7 @@ body.playing .site-header, body.playing .site-footer { display: none; }
 .built { margin: 12px auto; font-size: 0.88rem; color: var(--muted); }
 .built summary { cursor: pointer; color: var(--text); min-height: var(--tap); display: flex; align-items: center; }
 .plays-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
-.plays-table th { text-align: left; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 0 8px 4px 0; }
+.plays-table th { text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 0 8px 4px 0; }
 .plays-table td { padding: 4px 8px 4px 0; border-top: 1px solid var(--border); white-space: nowrap; }
 .plays-table .num { text-align: right; width: 4.5em; }
 .plays-table .bar-cell { width: 45%; padding-right: 0; }
@@ -546,9 +549,10 @@ body.playing .site-header, body.playing .site-footer { display: none; }
   min-width: var(--tap); min-height: var(--tap);
   font-size: 2rem; line-height: 1; padding: 2px 4px;
   background: none; border: 0; cursor: pointer;
-  color: var(--border);
+  /* Hollow when off, filled when on: told apart by shape, not only colour. */
+  color: transparent; -webkit-text-stroke: 1.5px var(--field-border);
 }
-.stars button.on { color: var(--star); }
+.stars button.on { color: var(--star); -webkit-text-stroke-color: var(--star); }
 .stars button:focus-visible { outline: 2px solid var(--accent); border-radius: 6px; }
 .tags { border: 0; margin: 0 auto 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .tags legend { padding: 0; }
@@ -562,7 +566,7 @@ body.playing .site-header, body.playing .site-footer { display: none; }
 textarea {
   width: 100%; resize: vertical;
   font: inherit; font-size: 1rem; color: var(--text);
-  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+  background: var(--panel-2); border: 1px solid var(--field-border); border-radius: 8px; padding: 10px;
 }
 .feedback-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
 .status { font-size: 0.88rem; color: var(--muted); margin: 0; }
@@ -591,7 +595,7 @@ textarea {
 .board-pick { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
 .board-pick select {
   height: var(--tap); font: inherit; color: var(--text);
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 0 10px;
+  background: var(--panel); border: 1px solid var(--field-border); border-radius: 10px; padding: 0 10px;
   min-width: 0; max-width: 100%;
 }
 .lb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
@@ -612,7 +616,7 @@ textarea {
 .lb-name-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .lb-name-row input {
   flex: 1 1 10em; min-width: 0; height: var(--tap); font: inherit; font-size: 1rem; color: var(--text);
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 0 10px;
+  background: var(--panel); border: 1px solid var(--field-border); border-radius: 10px; padding: 0 10px;
 }
 .lb-name-row button { flex: none; }
 .lb-name-msg { margin: 4px 0 0; min-height: 1.3em; }
@@ -681,7 +685,7 @@ textarea {
 .spot-name { display: grid; gap: 4px; min-width: 0; }
 .spot-name h4 { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
 .spot-chip {
-  justify-self: start; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  justify-self: start; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--tone); border: 1px solid var(--tone); border-radius: 999px; padding: 2px 8px;
 }
 .spot-blurb { margin: 0; color: var(--muted); font-size: 0.88rem; }
@@ -716,7 +720,7 @@ textarea {
 .class-link input {
   flex: 1 1 220px; min-width: 0; min-height: var(--tap);
   font: inherit; font-size: 0.9rem; color: var(--text);
-  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 0 10px;
+  background: var(--panel-2); border: 1px solid var(--field-border); border-radius: 8px; padding: 0 10px;
 }
 .teach-table-wrap { overflow-x: auto; }
 .teach-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
@@ -737,7 +741,7 @@ textarea {
 .class-form label { display: grid; gap: 4px; font-size: 0.9rem; }
 .class-form input[type="text"] {
   min-height: var(--tap); font: inherit; font-size: 1rem; color: var(--text);
-  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; min-width: 0;
+  background: var(--panel-2); border: 1px solid var(--field-border); border-radius: 8px; padding: 0 10px; min-width: 0;
 }
 .class-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
 .class-games { border: 0; margin: 4px 0; padding: 0; min-width: 0; }

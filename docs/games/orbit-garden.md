@@ -93,6 +93,7 @@ No v6 data yet.
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; canvas `role="img"`.
 - Check v6 with telemetry: win rate should drop well below 2/2, and a round
   under ~20 s would mean spamming still pays for humans.
 - A first-time player who aims straight will lose (naive 1%). The preview

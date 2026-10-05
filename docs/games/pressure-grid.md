@@ -131,15 +131,12 @@ leak", "drip"); a press finishes the animation. Keys: Z, R, N.
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): keys only undo/restart/next (pump, siphon need a pointer); cell numbers 2.0:1 on brown; no live region; canvas `role="img"`.
 - Not hand-played on a phone yet: is the pour found without level 3's
   hint? Are the preview and the vent/valve/leaky marks read?
-- The leak still rarely matters (0 on solver lines); leaky cells and
-  vents are where order costs now (habit loses 1-2 on 6, 7, 9, 10).
 - Valve direction binds only on level 8; on 10 the valve route is an
   optional source. A level where the arrow blocks the obvious pour out
   of a ring would test it harder.
-- Level 10's par equals 9's; its difficulty is the idea. Increment 3
-  can scale par up.
 - Search cost grows on open boards and with leaky cells; keep maps
   walled or improve the bound. A scratch generator (random walled maps
   scored by `solve`/`habit`) found 7 and 9: worth a script for Daily.

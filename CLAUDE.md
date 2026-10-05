@@ -32,7 +32,8 @@
   `index.html` or `assets/`, also run `node scripts/smoke-gallery.mjs`
   (design notes: `docs/gallery.md`); after changing a game,
   `node scripts/monkey-games.mjs <id>` (random input, fails on any error).
-  CI runs both. Crash reports from players: `node scripts/fetch-errors.mjs`.
+  CI runs both, plus `node scripts/a11y-audit.mjs` (accessibility; fails
+  on the gallery side only, game rows in `docs/accessibility.md`). Crash reports from players: `node scripts/fetch-errors.mjs`.
 - Never push to `main`. Propose new or revised games as a PR (the template has
   the design checklist). Merging to `main` is what deploys.
 - Feedback readback: `node scripts/fetch-feedback.mjs` (needs

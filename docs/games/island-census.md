@@ -93,6 +93,7 @@ One `arcade:result` per round, `reason` for a loss (`census` = 3 strikes,
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; HUD text 9.4 px at 360 px wide; meadow colours close for deuteranopia; canvas `role="img"`.
 - Not hand-played on a real phone yet (only rendered headlessly).
 - Too many foxes (band top 16) almost never triggers: fox totals peak
   around 12–15. It is there so the meter reads as a band, and for the

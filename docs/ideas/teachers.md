@@ -12,7 +12,7 @@ the games, not just play them.
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
-| 6 | Accessibility audit | audit, then per-game fixes | later |
+| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; per-game fixes open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
@@ -62,11 +62,36 @@ page) for offline lab computers. No zip library is allowed by the rules
 
 ## 6. Accessibility audit
 
-Schools often have accessibility requirements. Only 3 files in `assets/` +
-`games/` mention `prefers-reduced-motion`; contrast, colour-blind-safe
-colours and keyboard play across the 20 games are unchecked. First an
-audit (one line per game per check), then fixes game by game in their own
-revision PRs.
+Schools often have accessibility requirements. Audited 2026-10-05:
+`node scripts/a11y-audit.mjs` (motion, contrast, colour-blind, keyboard,
+canvas label, text size at 360 px), results in `docs/accessibility.md`.
+The gallery, cabinet, teacher page and classroom note pass; fixed in the
+same PR (accent and field-border contrast, small text, rating stars).
+
+Per game, picked up by its next revision (same line in its notes). Every
+game but Aqueduct also wants `role="img"` on its canvas and a label that
+says "click" on PC.
+
+- murmuration: no keyboard play; ignores reduced motion; counter 10 px at 3.5:1.
+- orbit-garden: no keyboard play.
+- wildfire-line: fire glow and olive grass merge for deuteranopia; no keyboard play; ignores reduced motion.
+- ant-trails: keys only fast-forward; ignores reduced motion; bonus line 11.5 px.
+- hourglass-delivery: no keyboard play; ignores reduced motion (small).
+- hot-iron: no keyboard play.
+- island-census: no keyboard play; HUD 9.4 px; meadow colours close for deuteranopia.
+- loom: no keyboard play.
+- terrace-garden: keys tilt but can't work the gates; ignores reduced motion.
+- tidewright: labels 8.5 px, "flood" 1.3:1; red handles merge with the wall for protanopia.
+- pressure-grid: keys only undo/restart/next; cell numbers 2.0:1.
+- rail-yard: keeps Tab and Shift+Tab (can't leave the cabinet frame by keyboard); "Run 0" 11.5 px.
+- aqueduct: canvas has no aria-label.
+- bubble-glass: keys turn the box only; ignores reduced motion (small).
+- mycelium: ignores reduced motion (small).
+- lighthouse-keeper: "harbour" 8.5 px; ignores reduced motion.
+- counterfeit-scale: label only (no live region for weighings).
+- coat-check: hook letters 11 px at 4.3:1; no live region.
+- surprise-party: keys only wait/undo/restart; label doesn't name the verbs.
+- geode: keys reach the thermostat only; labels 9.4 px; shimmer stays with reduced motion.
 
 ## 7. "I used this in class" feedback form
 
@@ -98,7 +123,7 @@ Build three teacher features for the Emergent Arcade gallery in one PR: a teache
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–6 using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: idea 6, accessibility audit (prompt below)
+## Prompt used for idea 6 (audited 2026-10-05)
 
 Chosen 2026-10-05, after 1, 2 and 7 shipped. No classroom reports had
 arrived yet (`node scripts/fetch-feedback.mjs --classroom`: 0), and idea 3
@@ -122,6 +147,35 @@ Audit the Emergent Arcade for accessibility (docs/ideas/teachers.md, idea 6) in 
 5. Tests: run node scripts/validate.mjs, node scripts/smoke-gallery.mjs and node scripts/a11y-audit.mjs. Add the audit to CI only if it runs under 3 minutes and passes on the gallery checks (game checks report, not fail).
 
 6. Update docs/gallery.md (what changed), the status column in docs/ideas/teachers.md and docs/ideas/README.md, and add what the audit teaches to docs/findings.md. Push, open the PR (template checklist; "not applicable" for game items), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Wildfire Line accessibility revision (prompt below)
+
+Chosen 2026-10-05, after the audit. Still no classroom reports (0), so 3
+vs 4 keeps waiting. Wildfire Line has the worst row: a colour-blind
+student can't tell burning ground from olive grass (deuteranopia, about 1
+in 12 boys), there is no keyboard play, and the fire ignores reduced
+motion. It is also a classroom game (contagion). The fixes it needs
+(keyboard verbs, a colour-blind-safe palette, reduced motion, canvas role
+and label) are the same ones most games need, so this revision is the
+pattern for the others. If classroom reports have arrived, read them first.
+
+```
+Revise Wildfire Line for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: colour-blind-safe fire and fuel, keyboard play for both verbs, prefers-reduced-motion, canvas role and label. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/wildfire-line.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md, docs/adding-a-game.md ("Tap or click", keyboard line), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game wildfire-line. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Colour: burning, burnt and fuel must be told apart by lightness or pattern, not hue (check with node scripts/a11y-audit.mjs wildfire-line: colour must pass). Keep the meadow readable for everyone; screenshot before and after at 360×740.
+
+3. Keyboard: both verbs without a pointer (a cursor moved with the arrows; cut a firebreak along the cursor's path, light a backburn at it), plus a keyboard line in the manifest; Tab must stay free so keyboard users can leave the cabinet frame. Add it to KEY_COVER in the audit script.
+
+4. Reduced motion: with prefers-reduced-motion, no decorative flicker or drifting smoke; the fire's spread (the game) stays. Canvas gets role="img" and a label that says "click" on PC (pointer: fine) and names both verbs.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs wildfire-line, node scripts/balance-wildfire-line.mjs (balance must not move: same constants), node scripts/a11y-audit.mjs wildfire-line (motion, colour, keyboard, label pass). Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/wildfire-line.md (what changed, open ideas), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md. Push, open the PR (template checklist), publish the playtest artifact, watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```

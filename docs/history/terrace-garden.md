@@ -4,6 +4,12 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/terrace-garden.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## Moved from the notes (2026-10-05): open idea
+
+- Phone tilt: one v1 round reported `tilt: motion` (6 s), then the player
+  restarted after 10 s and used the bar. To check live: "level" feels right
+  held upright; whether 20° for full tilt is too much.
+
 ## v2: why and what (2026-09-29)
 
 v1 telemetry (4 players, 5 rounds, garden 1 only): 1 win in 5 tries, 0 of

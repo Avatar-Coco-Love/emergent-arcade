@@ -106,6 +106,7 @@ None yet.
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): labels 8.5 px, "flood" at 1.3:1; red sluice handles merge with the wall for protanopia; ignores reduced motion; canvas `role="img"`.
 - Novice target (see Balance); watch `reason` and `whiffs` in telemetry.
 - The skilled bot's death is 85% `seep` (events it can't drain through);
   a human who pre-builds before springs may go further. Late waves are

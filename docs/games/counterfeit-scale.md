@@ -108,6 +108,7 @@ strikes hint`.
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no live region for weighings; canvas `role="img"`.
 - File is 45 KB (brief aimed at ~40).
 - Make spring cases break thirds harder (two spring cases in a row already
   cost habit a case about half the time).

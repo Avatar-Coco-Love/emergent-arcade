@@ -116,6 +116,7 @@ One `arcade:result` per garden: `level` (1 = warm-up, 2–4 = gardens 1–3),
 
 ## Open ideas / known limits
 
+- Accessibility (`docs/accessibility.md`, 2026-10-05): keys tilt but can't work the gates; ignores reduced motion; canvas `role="img"`.
 - **Did v2 fix the first minute?** Watch warm-up win rate/time (bots 18–23
   s), garden 1 (level 2) first-try wins, `tilt_s` (v1 median 6 s), `hints`,
   mid-round quits. If players quit in the warm-up with `hints` > 0, make the
@@ -130,9 +131,6 @@ One `arcade:result` per garden: `level` (1 = warm-up, 2–4 = gardens 1–3),
   players can feather; the bot doesn't. `TILT_RATE` 1.2 plus more water
   didn't help. Watch `tilt: keys`; if PC players lose garden 3, try Shift
   for half tilt or a gentler lip.
-- Phone tilt: one v1 round reported `tilt: motion` (6 s), then the player
-  restarted after 10 s and used the bar. To check live: "level" feels right
-  held upright; whether 20° for full tilt is too much.
 - Bots were optimistic (v1 humans 0/4 first tries); `masher-0` matched
   humans. Compare it with each telemetry batch.
 - If long rounds still end in `restart`, tighten `hopeless()` (count only
