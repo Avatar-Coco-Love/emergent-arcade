@@ -54,7 +54,9 @@ telemetry off with `telemetry: false` in `assets/config.js` (whole site), or
 a player turns it off for their browser in the gallery's ⚙ settings
 ("Send anonymous play stats from this browser", stored as
 `arcade.telemetryOptOut`). The opt-out stops every row below, gallery events
-included, and sends nothing to say so.
+included, and sends nothing to say so. Classroom mode (a teacher's
+`?class=1` link, [gallery.md](gallery.md#classroom-mode)) does the same
+while it's on.
 
 ### Gallery events
 
@@ -65,7 +67,7 @@ common columns is in `extra`. One row per action:
 
 | `action` | when | fields |
 |---|---|---|
-| `open` | a cabinet opens a game | `game_id`, `game_version`, `from` (`list`, `continue`, `archive`, `records`, `link`, `daily`; `daily` = the date when it opened as the Daily Challenge), `position` (1-based, for cards), `sort` (`featured` or the sort), `verb` / `topic` if filtered, `searching` if a search was active |
+| `open` | a cabinet opens a game | `game_id`, `game_version`, `from` (`list`, `continue`, `archive`, `records`, `spotlight`, `teachers`, `link`, `daily`; `daily` = the date when it opened as the Daily Challenge), `position` (1-based, for cards), `sort` (`featured` or the sort), `verb` / `topic` if filtered, `searching` if a search was active |
 | `share` | Share pressed | `game_id`, `game_version`, `method` (`share` sheet, `copy`, `prompt`), `from` (`toolbar`, `menu`, `about`); the gallery header's share (the whole arcade) has `from: "gallery"` and no game fields |
 | `download` | a standalone copy was saved | `game_id`, `game_version`, `from` |
 | `sort` | the sort changed | `sort` |
@@ -75,6 +77,8 @@ common columns is in `extra`. One row per action:
 | `nudge` | the "Rate this game?" callout was answered | `game_id`, `game_version`, `result` (`rate`, `dismiss`) |
 | `about_arcade` | the "About the arcade" dialog opened | |
 | `records` | the Records view (`#/records`) opened | `mine` (1 with the "My bests" filter) |
+| `teachers` | the teacher page (`#/teachers`) opened | |
+| `classroom_link` | "Copy classroom link" pressed on the teacher page | `method` (`copy`, `select`) |
 | `daily` | the counted (first) run of a Daily Challenge ended (`arcade:final`) | `game_id`, `game_version`, `daily` (date), `score`, `levels` ([daily.md](daily.md)) |
 | `handle` | a public name picked or typed, or the leaderboard toggled, in the cabinet's Records panel or the Records view | `handle` and `name` (when listed; `name` only for a typed one), `lb` (1 or 0); `scripts/build-leaderboards.mjs` reads it ([scores.md](scores.md)) |
 

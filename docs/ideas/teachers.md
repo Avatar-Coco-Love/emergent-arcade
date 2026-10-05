@@ -7,13 +7,13 @@ the games, not just play them.
 
 | # | Idea | Size | Status |
 |---|---|---|---|
-| 1 | Teacher page on the site | small | next (prompt below) |
-| 2 | Classroom mode link (`?class=1`) | small | next (prompt below) |
+| 1 | Teacher page on the site | small | built (`#/teachers`) |
+| 2 | Classroom mode link (`?class=1`) | small | built |
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
 | 6 | Accessibility audit | audit, then per-game fixes | later |
-| 7 | "I used this in class" feedback form | small | next (prompt below) |
+| 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
 
@@ -78,7 +78,7 @@ worked, what didn't, optional contact. Send it as a new `kind` (e.g.
 that script's output if it doesn't show up. Hidden in classroom mode
 (that's for students), visible on the teacher page.
 
-## Prompt for the next conversation (ideas 1, 2 and 7)
+## Prompt used for ideas 1, 2 and 7 (built)
 
 ```
 Build three teacher features for the Emergent Arcade gallery in one PR: a teacher page on the site, a classroom mode link, and an "I used this in class" feedback form. No game changes. Read CLAUDE.md first and follow it.
@@ -96,4 +96,32 @@ Build three teacher features for the Emergent Arcade gallery in one PR: a teache
 6. Update docs/gallery.md (new route, classroom mode, form), the status column in docs/ideas/teachers.md and docs/ideas/README.md. Push, open the PR (template checklist; "not applicable" for game items), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–6 using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: idea 6, accessibility audit (prompt below)
+
+Chosen 2026-10-05, after 1, 2 and 7 shipped. No classroom reports had
+arrived yet (`node scripts/fetch-feedback.mjs --classroom`: 0), and idea 3
+vs 4 is waiting on them on purpose. The audit needs no feedback, schools
+ask about accessibility before anything else, and it is measurement, not
+new features. If classroom reports have arrived by the time this is
+picked up, read them first: one that asks for discussion notes or shared
+runs moves 3 or 4 ahead.
+
+```
+Audit the Emergent Arcade for accessibility (docs/ideas/teachers.md, idea 6) in one PR: a repeatable audit script, its results, and fixes to the gallery and cabinet only. No game changes (each game's fixes are their own revision PR later). Read CLAUDE.md first and follow it.
+
+1. Read docs/ideas/teachers.md (idea 6; 3–5 stay as ideas), docs/gallery.md (cabinet, teacher page, classroom mode), docs/findings.md, and run node scripts/fetch-feedback.mjs --classroom. If classroom reports mention accessibility (or ask for 3 or 4 instead), say so before starting.
+
+2. Write scripts/a11y-audit.mjs (Playwright, like smoke-gallery.mjs; one line per game per check, no per-run logs): prefers-reduced-motion respected (animation keeps running or not when the media query is set), text and key UI contrast (WCAG AA, sampled from the canvas and the DOM), colour-blind safety (are win/lose or team colours told apart only by hue? simulate deuteranopia/protanopia on a screenshot and compare), keyboard play (can the game be started and played without a pointer), canvas aria-label present and accurate, and the game's text size at 360 px wide. Plus the same checks for the gallery, cabinet and teacher page (axe-core is not allowed: no dependencies; write the checks).
+
+3. Save the results as docs/accessibility.md: a table, one row per game, one column per check (pass / fail / partial with a few words), the date, and how to rerun. Under 8 KB; detail goes in the script output.
+
+4. Fix what fails in index.html and assets/ (gallery, cabinet, teacher page, classroom note) in this PR. For games, add one line per failing game to docs/ideas/teachers.md (idea 6) and to that game's docs/games/<id>.md "open ideas", so its next revision picks it up.
+
+5. Tests: run node scripts/validate.mjs, node scripts/smoke-gallery.mjs and node scripts/a11y-audit.mjs. Add the audit to CI only if it runs under 3 minutes and passes on the gallery checks (game checks report, not fail).
+
+6. Update docs/gallery.md (what changed), the status column in docs/ideas/teachers.md and docs/ideas/README.md, and add what the audit teaches to docs/findings.md. Push, open the PR (template checklist; "not applicable" for game items), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```

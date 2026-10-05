@@ -702,6 +702,63 @@ textarea {
 .spot-play:hover { text-decoration: underline; }
 .spot-play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 
+/* ---------- Teacher page (assets/teachers.js) ---------- */
+
+.teach-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; margin: 0 0 8px; }
+.teach-card { padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+.teach-card h3, .teach-section h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.teach-card p { margin: 0; font-size: 0.92rem; }
+.teach-section { margin-top: 22px; }
+.teach-section > p { margin: 0 0 8px; max-width: 70ch; }
+.teach-section ul { padding-left: 20px; margin: 0; max-width: 70ch; }
+.teach-section li { margin-bottom: 6px; }
+.class-link { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+.class-link input {
+  flex: 1 1 220px; min-width: 0; min-height: var(--tap);
+  font: inherit; font-size: 0.9rem; color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 0 10px;
+}
+.teach-table-wrap { overflow-x: auto; }
+.teach-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.teach-table th, .teach-table td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-top: 1px solid var(--border); }
+.teach-table thead th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-top: 0; padding-bottom: 4px; }
+.teach-table tbody th { width: 42%; font-weight: 400; }
+.teach-table tbody th a { font-weight: 600; display: inline-block; }
+.teach-table tbody th a::first-letter { text-transform: uppercase; }
+.teach-kind th { padding-top: 14px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.teach-about { display: block; color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
+.teach-games { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.teach-games a { display: inline-block; padding: 2px 0; }
+@media (max-width: 480px) {
+  .teach-table tbody th { width: 46%; }
+}
+.class-form { display: grid; gap: 6px; max-width: 620px; }
+.class-form > p { margin: 0 0 4px; }
+.class-form label { display: grid; gap: 4px; font-size: 0.9rem; }
+.class-form input[type="text"] {
+  min-height: var(--tap); font: inherit; font-size: 1rem; color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; min-width: 0;
+}
+.class-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.class-games { border: 0; margin: 4px 0; padding: 0; min-width: 0; }
+.class-games legend { padding: 0; font-size: 0.9rem; margin-bottom: 2px; }
+.class-game-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0 12px; }
+.class-form .class-game-list label.check { display: flex; font-size: 0.9rem; min-height: 40px; }
+.class-form .comment-label { margin: 6px 0 0; }
+
+/* ---------- Classroom mode (assets/classroom.js) ---------- */
+
+.classroom-note {
+  width: calc(100% - 32px); max-width: 728px; margin: 0 auto 4px; padding: 6px 12px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  font-size: 0.85rem; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+}
+.classroom-note button.linkish { min-height: 32px; }
+/* Hidden for students: rating, leaderboard names, the teacher feedback form. */
+.classroom .toolbar [data-panel="rate"],
+.classroom .lb-name-ctl,
+.classroom .spot-rate { display: none !important; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .spinner { border-top-color: rgba(255, 255, 255, 0.15); }

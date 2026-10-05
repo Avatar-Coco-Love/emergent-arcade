@@ -9,8 +9,9 @@ surprising behavior and read each game as one self-contained file.
 Teachers get free, account-free games that also download to run offline, for lessons on systems,
 feedback loops and design. Game developers can borrow the design rules,
 balance bots and [design findings](docs/findings.md); everything is open.
-Teachers: start with the [guide for teachers](docs/teaching.md) (games by
-subject, offline copies, privacy).
+Teachers: start with the [teacher page](https://avatar-coco-love.github.io/emergent-arcade/#/teachers)
+on the site (games by subject, offline copies, privacy, a classroom mode
+link and a feedback form).
 
 **Live site:** https://avatar-coco-love.github.io/emergent-arcade/ (after the
 one-time Pages setup below)

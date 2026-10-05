@@ -714,6 +714,122 @@ for (const vp of VIEWPORTS) {
     return `${Object.entries(groups).map(([k, v]) => `${k} ${v.length}`).join(", ")}`;
   });
 
+  await check(tag("teacher page: subject table, links, play and back"), async () => {
+    await page.goto(base);
+    await page.waitForSelector(".game-card");
+    assert(await page.locator("#classroomNote").isHidden(), "classroom note shown without the link");
+    const n = rows.length;
+    await page.locator("#teachersLink").click();
+    await page.waitForSelector("#teachersView:not([hidden]) #teachTopicRows tr");
+    assert(await page.locator("#galleryView").isHidden(), "gallery still shown");
+    // The table: every topic a playable game uses, subjects then skills, its
+    // games by title, straight from games.json.
+    const live = games.filter((g) => g.status !== "archived");
+    const want = Topics.KINDS.flatMap((k) => Topics.LIST.filter((t) => t.kind === k))
+      .map((t) => [t.id, live.filter((g) => (g.topics || []).includes(t.id)).sort((a, b) => a.title.localeCompare(b.title)).map((g) => g.id)])
+      .filter(([, ids]) => ids.length);
+    const got = await page.$$eval("#teachTopicRows tr[data-topic]", (trs) => trs.map((tr) => [tr.dataset.topic, tr.querySelector("th a").getAttribute("href"), [...tr.querySelectorAll("td a")].map((a) => a.getAttribute("href").replace("#/play/", ""))]));
+    assert(JSON.stringify(got.map(([id, , ids]) => [id, ids])) === JSON.stringify(want), `table ${JSON.stringify(got.map((r) => r[0]))} vs ${JSON.stringify(want.map((r) => r[0]))}`);
+    assert(got.every(([id, href]) => href === `#/?topic=${id}`), "topic links");
+    assert(await page.locator("#classForm").isVisible(), "feedback form hidden");
+    assert((await page.locator("#classLinkText").inputValue()) === `${base}?class=1`, "classroom link");
+    assert(await noHScroll(page), "horizontal scroll");
+    await page.screenshot({ path: join(outDir, `${vp.name}-teachers.png`), fullPage: true });
+    // A game from the table, and back to the same link.
+    const first = want[0];
+    const link = page.locator(`#teachTopicRows tr[data-topic="${first[0]}"] a[href="#/play/${first[1][0]}"]`);
+    await link.click();
+    await page.waitForSelector("#cabinet:not([hidden])");
+    assert((await page.locator("#backLink").getAttribute("href")) === "#/teachers", "back link");
+    await page.locator("#backLink").click();
+    await page.waitForSelector("#teachersView:not([hidden])");
+    assert(await page.evaluate((id) => document.activeElement.getAttribute("href") === `#/play/${id}` && !!document.activeElement.closest("#teachTopicRows"), first[1][0]), "focus not back on the link");
+    // A subject link filters the gallery.
+    await page.locator(`#teachTopicRows tr[data-topic="${first[0]}"] th a`).click();
+    await page.waitForSelector("#galleryView:not([hidden])");
+    assert(await page.locator(`.topic-chip[aria-pressed="true"]`).count() === 1, "topic filter not applied");
+    // The About box links here too.
+    await page.locator("#arcadeInfoBtn").click();
+    await page.locator('#arcadeInfoDialog a[href="#/teachers"]').click();
+    await page.waitForSelector("#teachersView:not([hidden])");
+    assert(await page.locator("#arcadeInfoDialog").isHidden(), "About box still open");
+    await page.waitForTimeout(300);
+    const gal = rows.slice(n).filter((r) => r.kind === "gallery");
+    assert(gal.some((r) => r.action === "teachers") && gal.some((r) => r.action === "open" && r.from === "teachers"), `telemetry ${JSON.stringify(gal.map((r) => r.action))}`);
+    return `${got.length} topics, ${new Set(got.flatMap((r) => r[2])).size} games`;
+  });
+
+  if (!vp.mobile) {
+    await check("classroom mode: link, stats off, names and rating hidden, turn off", async () => {
+      await page.goto("about:blank");
+      await page.goto(`${base}?class=1`);
+      await page.waitForSelector(".game-card");
+      const n = rows.length;
+      assert(!(await page.evaluate(() => location.search)), "?class=1 left in the address bar");
+      assert(await page.locator("#classroomNote").isVisible(), "no classroom note");
+      assert(await page.locator("#telemetryNote").isHidden(), "play stats note shown");
+      await page.locator("#settingsBtn").click();
+      assert(await page.locator("#statsToggle").isDisabled() && !(await page.locator("#statsToggle").isChecked()), "stats toggle");
+      await page.keyboard.press("Escape");
+      await page.selectOption("#sort", "title");
+      // Persists in this browser, and carries into a game.
+      await page.goto("about:blank");
+      await page.goto(`${base}#/play/pressure-grid`);
+      await waitGame(page);
+      assert(await page.locator("#classroomNote").count() === 1 && await page.evaluate(() => document.documentElement.classList.contains("classroom")), "not kept after reload");
+      assert(await page.locator('.toolbar [data-panel="rate"]').isHidden(), "rate button shown");
+      if (await page.locator("#panel").isVisible()) await page.keyboard.press("Escape");
+      await page.locator('.toolbar [data-panel="achievements"]').click();
+      await page.waitForSelector("#panel:not([hidden])");
+      assert(await page.locator("#panel .lb-name-ctl").isHidden(), "name controls shown in the 🏆 panel");
+      const frame = page.frames().find((f) => f.url().includes("pressure-grid"));
+      await page.keyboard.press("Escape");
+      for (let i = 0; i < 3; i++) await frame.evaluate(() => parent.postMessage({ type: "arcade:result", game: "pressure-grid", outcome: "win", time: 30, score: 3 }, "*"));
+      await page.waitForTimeout(400);
+      assert(!(await page.locator(".toast.callout:has-text('rating')").count()), "rate nudge shown");
+      await page.goto(`${base}#/records`);
+      await page.waitForSelector("#recordsView:not([hidden]) .rec-row");
+      assert(await page.locator("#recordsName .lb-name-ctl").isHidden(), "name controls shown in Records");
+      await page.goto(`${base}#/teachers`);
+      await page.waitForSelector("#teachersView:not([hidden])");
+      assert(await page.locator("#classForm").isHidden() && await page.locator("#classFormOff").isVisible(), "feedback form shown");
+      await page.locator("#classLinkBtn").click();
+      const clip = await page.evaluate(() => navigator.clipboard.readText());
+      assert(clip === `${base}?class=1`, `copied ${clip}`);
+      await page.waitForTimeout(300);
+      assert(rows.length === n, `${rows.length - n} row(s) sent in classroom mode: ${rows.slice(n).map((r) => r.kind + "/" + (r.action || "")).join(" ")}`);
+      await page.locator("#classroomOff").click();
+      assert(await page.locator("#classroomNote").isHidden() && await page.locator("#classForm").isVisible(), "turn off");
+      await page.goto(`${base}#/`);
+      await page.waitForSelector(".game-card");
+      await page.selectOption("#sort", "updated");
+      await page.waitForTimeout(300);
+      assert(rows.length > n, "stats still off after turning classroom mode off");
+      await page.selectOption("#sort", "");
+      return `nothing sent; copied ${clip.replace(base, "")}`;
+    });
+
+    await check("classroom feedback form posts kind classroom", async () => {
+      await page.goto(`${base}#/teachers`);
+      await page.waitForSelector("#teachersView:not([hidden]) #classGames input");
+      assert(await page.locator("#classSend").isDisabled(), "send enabled with no text");
+      await page.fill("#classGrade", "Year 9");
+      await page.fill("#classSubject", "Physics");
+      await page.locator('#classGames input[value="hot-iron"]').check();
+      await page.locator('#classGames input[value="tidewright"]').check();
+      await page.fill("#classWorked", "They argued about heat for twenty minutes.");
+      await page.fill("#classContact", "teacher@example.org");
+      const n = rows.length;
+      await page.locator("#classSend").click();
+      await page.waitForSelector("#classStatus.ok");
+      const row = rows.slice(n).find((r) => r.kind === "classroom");
+      assert(row && row.grade === "Year 9" && row.subject === "Physics" && row.games.join() === "hot-iron,tidewright" && row.worked.startsWith("They argued") && row.didnt === "" && row.contact === "teacher@example.org" && row.client_id, JSON.stringify(row));
+      assert((await page.locator("#classWorked").inputValue()) === "" && await page.locator("#classSend").isDisabled(), "form not cleared");
+      await page.locator("#classForm").screenshot({ path: join(outDir, "1280x800-class-form.png") });
+      return `${Object.keys(row).length} fields`;
+    });
+  }
+
   await check(tag("arcade play total from 250 plays"), async () => {
     // The fixture's 19 plays stay hidden; 249 too, 250 shows (summed over games).
     const total = async (n) => {

@@ -37,7 +37,9 @@ rejected; a malformed optional field just becomes blank.
   `playtest` notes, `retire` votes): send it with a new `kind`. It lands in
   the `events` tab with the common columns (`kind`, `game_id`,
   `game_version`, `session_id`, `client_id`, `device`, `submitted_at`) plus
-  `extra`. Read with `?tab=events&kind=<kind>`.
+  `extra`. Read with `?tab=events&kind=<kind>`. Kinds in use: `gallery`,
+  `error`, `classroom` (the teacher page's "I used this in class" form,
+  [gallery.md](gallery.md#teacher-page)).
 - **Traffic growth**: send `{"batch": [row, ...], "defaults": {shared
   fields}}` (up to 200 rows, one request, one lock). The response is
   `{"ok": true, "stored": n, "errors": [{"i", "error"}]}`.

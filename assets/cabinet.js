@@ -780,7 +780,7 @@ window.ArcadeCabinet = (function () {
   function nudge() {
     const game = current;
     const key = `arcade.nudged.${game.id}.v${game.version}`;
-    if (store.get(key) || store.get(ratedKey(game)) || openPanelName) return;
+    if (store.get(key) || store.get(ratedKey(game)) || openPanelName || window.ArcadeClassroom.on()) return;
     store.set(key, "1");
     const answer = (result) => telemetry.event("nudge", { game_id: game.id, game_version: game.version, result });
     toast(`Enjoying ${game.title}? A quick rating helps tune it.`, {

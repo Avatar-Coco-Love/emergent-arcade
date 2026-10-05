@@ -3,6 +3,11 @@
 //
 // Usage:
 //   FEEDBACK_READ_KEY=... node scripts/fetch-feedback.mjs [--game <id>] [--format json|csv|summary]
+//   FEEDBACK_READ_KEY=... node scripts/fetch-feedback.mjs --classroom [--format json|csv|summary]
+//   node scripts/fetch-feedback.mjs --input rows.json   (summarize saved rows, e.g. smoke-gallery's endpoint-rows.json)
+//
+// The summary ends with the "I used this in class" reports from the teacher
+// page (kind "classroom", in the events tab); --classroom shows only those.
 //
 // The endpoint URL is read from assets/config.js (override with
 // FEEDBACK_ENDPOINT). The read key is a secret: keep it in your shell or the
@@ -20,6 +25,28 @@ const opt = (name, fallback) => {
 
 const game = opt("game", "");
 const format = opt("format", "summary");
+const input = opt("input", "");
+const classOnly = args.includes("--classroom");
+
+// "I used this in class" (docs/gallery.md, "Teacher page"): one block per report.
+function classroomSummary(rows) {
+  const list = rows.filter((r) => r.kind === "classroom");
+  console.log(`\n## classroom: ${list.length} report(s) from the teacher page`);
+  for (const r of list) {
+    const games = Array.isArray(r.games) ? r.games : tagList(r.games);
+    const when = String(r.received_at || r.submitted_at || "").slice(0, 10);
+    console.log(`- [${when}] ${r.grade || "grade ?"} · ${r.subject || "subject ?"} · games: ${games.join(", ") || "-"}${r.contact ? ` · contact: ${r.contact}` : ""}`);
+    if (String(r.worked || "").trim()) console.log(`  worked: ${r.worked}`);
+    if (String(r.didnt || "").trim()) console.log(`  didn't: ${r.didnt}`);
+  }
+}
+
+if (input) {
+  const rows = JSON.parse(readFileSync(input, "utf8"));
+  classroomSummary(rows);
+  process.exit(0);
+}
+
 const key = process.env.FEEDBACK_READ_KEY;
 let endpoint = process.env.FEEDBACK_ENDPOINT;
 if (!endpoint) {
@@ -39,6 +66,10 @@ if (!key) {
 
 const url = new URL(endpoint);
 url.searchParams.set("key", key);
+if (classOnly) {
+  url.searchParams.set("tab", "events");
+  url.searchParams.set("kind", "classroom");
+}
 if (game) url.searchParams.set("game", game);
 if (format === "csv") url.searchParams.set("format", "csv");
 
@@ -68,6 +99,10 @@ if (!data.ok) {
 }
 if (format === "json") {
   console.log(JSON.stringify(data.rows, null, 2));
+  process.exit(0);
+}
+if (classOnly) {
+  classroomSummary(data.rows);
   process.exit(0);
 }
 
@@ -107,3 +142,15 @@ for (const [k, rows] of [...groups].sort(([a], [b]) => a.localeCompare(b, "en", 
   }
 }
 if (!groups.size) console.log("No feedback yet.");
+
+// Classroom reports live in the events tab (kind "classroom").
+const ev = new URL(url);
+ev.searchParams.set("tab", "events");
+ev.searchParams.set("kind", "classroom");
+ev.searchParams.delete("game");
+try {
+  const evData = await (await fetch(ev, { redirect: "follow" })).json();
+  if (evData.ok) classroomSummary(evData.rows);
+} catch (err) {
+  console.error(`(classroom reports not read: ${err.message})`);
+}
