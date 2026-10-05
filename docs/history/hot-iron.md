@@ -6,6 +6,16 @@ top of the relevant section; sessions don't read this file by default.
 
 ## Moved out in v6 (2026-10-05)
 
+Open ideas (v5):
+- Reaction time matters less now (slow-hands 99% vs v1 62%).
+- Steer the Metal is too easy once learned; could require a 3-segment chain.
+- If too easy for returning players, harden achievements, not the round:
+  Thrifty at 50%, or a par on strikes.
+- Idle play never ends (no clock); telemetry only sees won/lost rounds.
+
+v4 balance note: more cracks allowed (`MAX_CRACKS` 5–6) only takes glow-red
+to 13–15%; narrowing the crack band (T_WORK 0.38) does.
+
 ### Player data (v3, 2026-09-29: one new player, touch, 5 rounds in 2 min)
 
 | Round | Shape | Length | Strikes | Cracks | Clangs | Heat s | Off / err at loss (start) |

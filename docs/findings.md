@@ -348,3 +348,11 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   18/18). Aim is two values: a
   tap steps 1° or 1%, a held key ramps after 0.3 s. *Say what the preview
   shows, not where the shot lands.* Orbit Garden v8. keys-only playthrough.
+- Put a ramp's lightness step on the rule's line, and check it by
+  number: Hot Iron's ramp brightened over 0.37–0.40 while cracking stops
+  at 0.38, so the two sides of the crack line differed by ~1 L*, and the
+  audit's colour cell passed anyway (it compares screen areas, not
+  bands). v6 jumps 21 L* exactly at `T_WORK` and gives each band a mark
+  (crack, hammer, hammer + flame). The motion pass was a state pass too:
+  only a white-hot bar throws sparks while idle. *A band's step belongs on
+  the rule's line, not near it.* Hot Iron v6. L* by number + hot-bar diff.
