@@ -4,6 +4,44 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/terrace-garden.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## v2 balance table (moved from the notes at v4; v4 output identical)
+
+Per garden: first-try win % / any-try win %, median s for wins, median
+spilled, spring water left. Skilled bots unchanged from v1.
+
+| Bot | Run | Warm-up | Garden 1 | Garden 2 | Garden 3 |
+|---|---|---|---|---|---|
+| reader (0.5× / 2× also 100%) | 100% | 100 18 s | 100/100 55 s | 100/100 87 s, leak 135 | 100/100 66 s |
+| slow-hands | 100% | 100 | 100 60 s | 100 99 s | 100 70 s |
+| keys | 56% | 100 | 100/100 | 98/98 | 41/57 |
+| novice | 100% | 100 | 100/100 | 100/100 | 100/100 |
+| thrifty | 100% | 100 | 100/100 43 s | 100/100 | 100/100 |
+| hinted (masher obeying hints, full tilt) | 0% | 100 | 83/99 | 0 (leak 468) | – |
+| masher (tilts 10% of decisions) | 0% | 91 | 97/97 117 s | 0/2 | – |
+| learner (masher, then reader) | 83% | 91 | 97 | 0/100 | 20/94 |
+| masher-0 / no-tilt / flood / idle | 0% | 0 (stuck) | – | – | – |
+
+Achievements: No Spill reader 89%, novice 88%, keys 14%. Full Bloom = run %.
+Gatekeeper: `thrifty` 100%. Garden 2's crack is the intended wall for
+hint-followers (gate habit parks water on the leaky terrace); a player who
+reads depths after one loss (`learner`) wins it on a retry. Full table (hinted-.5 row, v1
+comparison): history. `TRACE=1` prints state every 5 s.
+
+## Moved from the notes (2026-10-05, v4): open ideas
+
+- **Did v2 fix the first minute?** Watch warm-up win rate/time (bots 18–23
+  s), garden 1 (level 2) first-try wins, `tilt_s` (v1 median 6 s), `hints`,
+  mid-round quits. If players quit in the warm-up with `hints` > 0, make the
+  chevrons bigger or put them on the bar. Telemetry at v4 (all versions, 14
+  rounds): warm-up 6/6 won first try (28 s, `tilt_s` 19), garden 1 3 of 4
+  (60 s), gardens 2 and 3 2/2 each; v3 alone: 1 player, warm-up won on try 2.
+- The spring empties in ~17 s if left open. `SPRING_RATE` 18 → ~10 was held
+  back (water wasn't short). Revisit if `left` stays 0 at garden 1 wins.
+- Bots were optimistic (v1 humans 0/4 first tries); `masher-0` matched
+  humans. Compare it with each telemetry batch.
+- If long rounds still end in `restart`, tighten `hopeless()` (count only
+  water above the sills as reachable).
+
 ## Moved from the notes (2026-10-05): open idea
 
 - Phone tilt: one v1 round reported `tilt: motion` (6 s), then the player

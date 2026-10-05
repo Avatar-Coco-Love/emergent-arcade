@@ -1,8 +1,8 @@
 # Terrace Garden: design notes
 
-**v3** (2026-10-05, canvas label; v2 2026-09-29) · playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV ·
+**v4** (2026-10-05, accessibility; v3 canvas label, v2 2026-09-29) · playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV ·
 balance: `node scripts/balance-terrace-garden.mjs 100`
-Mechanics: **tilt** (phone tilt, tilt bar, or ← → / A D) and **gate** (tap),
+Mechanics: **tilt** (phone tilt, tilt bar, or ← → / A D) and **gate** (tap, or keys),
 sharing the **water depth in every column** of a stepped hillside. A warm-up
 and three gardens; no clock. Win a garden: every plant blooms. Lose it: the
 water that can still reach the plants can't make them bloom (spilled, leaked,
@@ -78,63 +78,61 @@ garden 3). Warm-up: floors at y 300 and 470.
 
 ## Layout (400×600)
 
-Spring tank top-left with its valve over column 0; terraces are shelves on a
-dark hill, gates are valves at their right ends (tap radius 30). Tilt gauge
-top centre, message under it. Below the canvas: tilt bar (not on phones with
-motion), Garden, Bloomed, Spring (not in warm-up), Enable tilt, Restart.
+Spring tank top-left, valve over column 0; gates are valves at terrace ends
+(tap radius 30). Tilt gauge top centre, message under it. Below: tilt bar
+(not on phones with motion), Garden, Bloomed, Spring, Enable tilt, Restart.
 
-## Balance (v2, 100 runs, up to 3 tries per garden)
+## Balance (v2 numbers, unchanged through v4; 100 runs, 3 tries per garden)
 
-Per garden: first-try win % / any-try win %, median s for wins, median
-spilled, spring water left. Skilled bots unchanged from v1.
+Run win %: reader, slow-hands, novice, thrifty 100; keys 56 (garden 3 41%
+first try: full tilt overshoots); learner 83; hinted, masher 0 (garden 2's
+crack is the intended wall for hint-followers; `learner` wins it on a
+retry). No Spill: reader 89%, keys 14%. Gatekeeper: `thrifty` 100%. Full
+table: history, "v2 balance table". `TRACE=1` prints state every 5 s.
 
-| Bot | Run | Warm-up | Garden 1 | Garden 2 | Garden 3 |
-|---|---|---|---|---|---|
-| reader (0.5× / 2× also 100%) | 100% | 100 18 s | 100/100 55 s | 100/100 87 s, leak 135 | 100/100 66 s |
-| slow-hands | 100% | 100 | 100 60 s | 100 99 s | 100 70 s |
-| keys | 56% | 100 | 100/100 | 98/98 | 41/57 |
-| novice | 100% | 100 | 100/100 | 100/100 | 100/100 |
-| thrifty | 100% | 100 | 100/100 43 s | 100/100 | 100/100 |
-| hinted (masher obeying hints, full tilt) | 0% | 100 | 83/99 | 0 (leak 468) | – |
-| masher (tilts 10% of decisions) | 0% | 91 | 97/97 117 s | 0/2 | – |
-| learner (masher, then reader) | 83% | 91 | 97 | 0/100 | 20/94 |
-| masher-0 / no-tilt / flood / idle | 0% | 0 (stuck) | – | – | – |
+## Accessibility (v4, `node scripts/a11y-audit.mjs terrace-garden`: all 6 pass, 3/3)
 
-Achievements: No Spill reader 89%, novice 88%, keys 14%. Full Bloom = run %.
-Gatekeeper: `thrifty` 100%. Garden 2's crack is the intended wall for
-hint-followers (gate habit parks water on the leaky terrace); a player who
-reads depths after one loss (`learner`) wins it on a retry. Full table (hinted-.5 row, v1
-comparison): history. `TRACE=1` prints state every 5 s.
+- Keys (`// § keys`, outside the sim): hold ← → / A D tilt. ↑ ↓ pick a
+  stop (spring, gates, bottom lip): white ring on a dark one, key numbers
+  once keys are used. Enter/G = `tapGate`; 0–4 pick + toggle (0 = spring).
+  S status, Enter next garden. Tab free; Enter/Space on a button press it.
+- Live region `#say` (`#msg` aria-hidden; `speak()` queues, flushed once a
+  frame): the stop (open/shut, water, deeper end, each plant's depth vs
+  band and place: left … right), toggles, tilt start, "Level again" 0.9 s
+  after release, plants growing/stopping/drowning/blooming/wilting (held
+  0.7 s, ≤ 1 line per plant per 2 s), hints with key numbers, the result.
+- Without hue (L* normal/deutan/protan): stems growing 82, thirsty 60 with
+  a drooping head, drowning 32 with bubbles; bloom = petals. Gates open 71
+  (|) vs shut 46 (—). Depth tick white 100 with a dark edge 6 vs band 75,
+  water 54; bands outlined dark. Cactus 61 dry, 36 wet + bubbles.
+- "spring" label `fs(12)` on a backing (was 9.4 px, unseen: the audit's
+  warm-up has no spring). Late scripted gardens: contrast/colour/text 2/2.
+- Reduced motion (`still()`, clock `deco`): no sway, splashes or drift;
+  rings, bubbles, nudge glow steady. Warm-up 1.6% → 0.0%; mid-garden,
+  water flowing, 0.26% → 0.24%, 0.00% with water, plants and spring count
+  hidden (2 runs): the rest is the simulation.
+- Balance identical (old file twice, then new: 16 bots × 100 runs). Keys
+  bot (live region only): KEYSBOT.
 
 ## Telemetry
 
 One `arcade:result` per garden: `level` (1 = warm-up, 2–4 = gardens 1–3),
 `run`, `attempt`, `reason` for a loss (`dry`, `restart`), `tilt` (`motion`,
 `bar`, `keys`) and `stats`: `spilled`, `leaked`, `drunk`, `left`, `start`
-(spring water at start incl. carry), `gate_taps`, `tilt_s`, `bloomed` /
+(spring water at start incl. carry), `gate_taps`, `gate_keys` (v4: toggles
+by key), `tilt_s`, `bloomed` /
 `plants`, `first_input` (s; −1 if none), `hints`.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys tilt but can't work the gates; ignores reduced motion.
-- **Did v2 fix the first minute?** Watch warm-up win rate/time (bots 18–23
-  s), garden 1 (level 2) first-try wins, `tilt_s` (v1 median 6 s), `hints`,
-  mid-round quits. If players quit in the warm-up with `hints` > 0, make the
-  chevrons bigger or put them on the bar.
+- Accessibility: a real screen reader and colour-blind player are the test.
 - **Garden 2 is the next wall** for hint-followers (0%, all to the crack).
   If telemetry shows it, show the crack's loss rate (drips already), or have
   the hint point at the crack's gate when most water sits on it.
-- The spring empties in ~17 s if left open. `SPRING_RATE` 18 → ~10 was held
-  back (water wasn't short). Revisit if `left` stays 0 at garden 1 wins.
-- **PC keys are the weak spot in garden 3** (`keys` 47%): full tilt only, so
-  terrace 4's plants (3–8 left, 12–24 right) and the lip get overshot. Real
-  players can feather; the bot doesn't. `TILT_RATE` 1.2 plus more water
-  didn't help. Watch `tilt: keys`; if PC players lose garden 3, try Shift
-  for half tilt or a gentler lip.
-- Bots were optimistic (v1 humans 0/4 first tries); `masher-0` matched
-  humans. Compare it with each telemetry batch.
-- If long rounds still end in `restart`, tighten `hopeless()` (count only
-  water above the sills as reachable).
+- **PC keys are the weak spot in garden 3** (`keys` 41% first try): full
+  tilt overshoots terrace 4's plants and the lip (`TILT_RATE` 1.2 + more
+  water didn't help). If `tilt: keys` players lose it, try Shift for half
+  tilt or a gentler lip.
 - Plants are small on a phone. If bands get misread, widen the stakes or
   tick the band on the terrace wall.
 

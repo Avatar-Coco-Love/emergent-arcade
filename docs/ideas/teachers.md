@@ -12,7 +12,7 @@ the games, not just play them.
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
-| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6), Geode (v3), Ant Trails (v7); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
+| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6), Geode (v3), Ant Trails (v7), Hourglass Delivery (v5), Orbit Garden (v8), Hot Iron (v6), Loom (v4), Surprise Party (v4), Terrace Garden (v4); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
@@ -81,7 +81,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - hot-iron: done (v6, 2026-10-05): a segment cursor (← →, Shift for a seam), hold Space heats at it, Enter or H strikes, O jumps to the next segment off the outline, a live region (the band in words, thickness against the outline, the flow preview, each blow, fuel steps), a mark per heat band (crack, hammer, hammer + flame) and a lightness jump at the crack line, reduced motion read (no sparks or shake) (`docs/games/hot-iron.md`, "Accessibility").
 - island-census: done (v3, 2026-10-05): meadows, turf, paths and sand in their own lightness bands (plus grass tufts), counts and strikes told by shape, HUD 12.5 px+, a keyboard cursor (Enter releases, F then an arrow picks a path), a live region (`docs/games/island-census.md`, "Accessibility").
 - loom: done (v4, 2026-10-05): a knot picker (each neighbour its own arrow by matching, the opposite arrow walks back, C jumps corners), Enter or P pins, hold Space and the arrows lead a pull, a live region (the knot, its strands and load in words, the nearest dot, slips by name), tension bands by lightness with a step at the warning line, crossbars and an outer ring for over-limit strands and loose pins, reduced motion read (no shake, flash or blink) (`docs/games/loom.md`, "Accessibility").
-- terrace-garden: keys tilt but can't work the gates; ignores reduced motion.
+- terrace-garden: done (v4, 2026-10-05): ← → still tilt, ↑ ↓ pick a gate (spring, gates, bottom lip) shown by a ring, Enter/G or 0–4 open or shut it, S status, a live region (the picked terrace's water against each plant's band, toggles, plants growing, drowning or blooming, hints with keys, the result; never per frame), plant states by lightness and shape, the spring label 12 px on a backing, reduced motion read (no sway or splashes; the water still flows, so mid-garden motion stays partial) (`docs/games/terrace-garden.md`, "Accessibility").
 - tidewright: done (v3, 2026-10-05): labels 12 px+ on backings, handles told apart by lightness and shape, a surface line on water, reduced motion read (`docs/games/tidewright.md`, "Accessibility").
 - pressure-grid: done (v11, 2026-10-05): cells in two lightness bands (numbers 6.3:1+), labels on backings, a keyboard cursor (Enter pumps, S then an arrow aims a pour), a live region that says what each move did (`docs/games/pressure-grid.md`, "Accessibility").
 - rail-yard: "Run 0" 11.5 px. (Tab freed in v3: Space picks a car.)
@@ -519,7 +519,7 @@ Revise Surprise Party for accessibility (docs/accessibility.md, its row; docs/id
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Terrace Garden accessibility revision (prompt below)
+## Prompt used for the Terrace Garden accessibility revision (done, v4)
 
 Chosen 2026-10-05, after Surprise Party v4. Still no classroom reports (0),
 so the choice between ideas 3 and 4 still waits on what teachers ask for. Terrace Garden has the
@@ -543,6 +543,36 @@ Revise Terrace Garden for accessibility (docs/accessibility.md, its row; docs/id
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs terrace-garden, node scripts/smoke-gallery.mjs, node scripts/balance-terrace-garden.mjs (balance must not move: same constants; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs terrace-garden (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that tilts and works gates, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/terrace-garden.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/terrace-garden.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Lighthouse Keeper accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Terrace Garden v4. Still no classroom reports
+(0), so 3 vs 4 keeps waiting on what teachers ask for. Lighthouse Keeper
+has the only failing cell left among the games ("harbour" 8.5 px) and
+ignores reduced motion. Its keys already reach every verb (← → turn, S
+shutter, hold Space flare), but nothing is spoken: a real-time game where
+ships move through fog while you turn the beam, so the live region must
+say what the beam finds and what changes, never per frame. Later nights
+add convoys, side arrivals and heavy ships: audit them too (findings, "A
+warm-up hides the labels later levels add").
+
+```
+Revise Lighthouse Keeper for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: labels 12 px+, a live region, reduced motion read. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/lighthouse-keeper.md (its "Open ideas" accessibility line, the turn, shutter and flare sections), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A real-time live region speaks settled changes", "A warm-up hides the labels later levels add", "A switch key keeps an arrow binding players know", "Say what the preview shows, not where the shot lands", "When the simulation is the motion, a motion partial is the end state", "An early audit screen can miss the game's own motion", "Late screens grow their own greys" and "Run the old file twice before comparing balance"), docs/games/terrace-garden.md and docs/games/murmuration.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game lighthouse-keeper. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: keys already reach every verb (← → turn the beam, S shutter, hold Space charges a flare); keep them. Check them against the pointer (same functions, outside the simulation), that Tab stays free and Space/Enter on a focused button press the button, and add what a player without sight needs to aim: e.g. N turns the beam to the next ship in the dark (a jump, like a fast turn, never a free aim the pointer can't do), S status, Enter next night. A live region (role="status") says what matters, short and never per frame: where the beam points once the arrows are let go (a clock bearing, which ships it lights, the nearest ship in the dark and which way to turn), a ship arriving and from where, a ship going blind or seeing again, a wreck, a ship home, oil at a few steps, a flare's charge on release and how many ships it reached, the night's result. Update the keyboard line in the manifest (120 characters at most) if keys change, the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: the audit marks Lighthouse Keeper's motion cell partial (ignores it). Grep for prefers-reduced-motion; measure idle motion mid-night with ships moving, then with ships hidden, then with the fog hidden, then decoration (waves, flicker, beam shimmer, flare burst). Decoration gets its own clock and freezes under the setting; the simulation and any Math.random calls the bots depend on must not change. Record motion as partial only if what's left is the simulation itself, measured, several runs.
+
+4. Text and colour: every label at least 12 CSS px at 360 px wide (an fs() from the CSS width for canvas text; "harbour" is 8.5 px), 4.5:1 against what is behind it, with backings where text sits over the sea or fog. Ship states (seeing, blind, heavy, in a convoy, wrecked) and the lamp's state (lit, shuttered, dry, charging a flare) must read without hue (lightness steps or a mark), checked by number, not only by the audit's colour cell. Contrast, colour and text must pass on several runs, including scripted later nights (convoys, side arrivals, heavy ships, thick fog; findings "Late screens grow their own greys" and "A warm-up hides the labels later levels add"); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs lighthouse-keeper, node scripts/smoke-gallery.mjs, node scripts/balance-lighthouse-keeper.mjs (balance must not move: same constants; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs lighthouse-keeper (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that turns, shutters and flares, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/lighthouse-keeper.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/lighthouse-keeper.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
