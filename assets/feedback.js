@@ -57,27 +57,81 @@ window.ArcadeFeedback = (function () {
     return `https://github.com/${config.repo}/issues/new?${params}`;
   }
 
+  // POSTs one row to the endpoint. Resolves true when the sheet stored it.
+  async function post(payload) {
+    if (!config.feedbackEndpoint) return false;
+    try {
+      // text/plain keeps this a CORS "simple request" (no preflight), which
+      // Apps Script web apps require.
+      const res = await fetch(config.feedbackEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data && data.ok) return true;
+      throw new Error((data && data.error) || "rejected");
+    } catch (err) {
+      console.warn("Feedback endpoint failed, falling back to GitHub issue:", err);
+      return false;
+    }
+  }
+
   // Resolves to { via: "sheet" } or { via: "github", url }.
   async function submit(game, rating, comment, tags) {
     const payload = buildPayload(game, rating, comment, tags);
-    if (config.feedbackEndpoint) {
-      try {
-        // text/plain keeps this a CORS "simple request" (no preflight), which
-        // Apps Script web apps require.
-        const res = await fetch(config.feedbackEndpoint, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (data && data.ok) return { via: "sheet" };
-        throw new Error((data && data.error) || "rejected");
-      } catch (err) {
-        console.warn("Feedback endpoint failed, falling back to GitHub issue:", err);
-      }
-    }
+    if (await post(payload)) return { via: "sheet" };
     return { via: "github", url: issueUrl(payload) };
   }
 
-  return { submit, clientId, buildPayload, issueUrl, MAX_COMMENT, TAGS };
+  // "I used this in class" (the teacher page, #/teachers): a kind
+  // "classroom" row, which backend v3 keeps in the events tab with no
+  // redeploy (docs/backend-api.md). Every field is optional except some
+  // text in worked or didnt. Read back with scripts/fetch-feedback.mjs.
+  const CLASS_TEXT = 500; // the backend keeps strings up to 500 chars
+  function classroomPayload(f) {
+    const text = (v, n) => String(v || "").trim().slice(0, n || CLASS_TEXT);
+    const payload = {
+      kind: "classroom",
+      grade: text(f.grade, 60),
+      subject: text(f.subject, 80),
+      games: (f.games || []).filter((id) => /^[a-z0-9-]{1,40}$/.test(id)).slice(0, 32),
+      worked: text(f.worked),
+      didnt: text(f.didnt),
+      client_id: clientId(),
+      submitted_at: new Date().toISOString(),
+    };
+    const contact = text(f.contact, 120);
+    if (contact) payload.contact = contact;
+    return payload;
+  }
+
+  // The GitHub fallback leaves the contact out: issues are public, and the
+  // teacher is signed in to GitHub anyway.
+  function classroomIssueUrl(p) {
+    const title = `[feedback] classroom: ${p.subject || "subject not given"}${p.grade ? ` (${p.grade})` : ""}`;
+    const body = [
+      `**Grade / age:** ${p.grade || "_(not given)_"}`,
+      `**Subject:** ${p.subject || "_(not given)_"}`,
+      `**Games:** ${p.games.length ? p.games.map((id) => `\`${id}\``).join(", ") : "_(not given)_"}`,
+      "",
+      "**What worked:**",
+      p.worked || "_(nothing written)_",
+      "",
+      "**What didn't:**",
+      p.didnt || "_(nothing written)_",
+      "",
+      "<!-- submitted from the Emergent Arcade teacher page -->",
+    ].join("\n");
+    const params = new URLSearchParams({ title, body, labels: "feedback" });
+    return `https://github.com/${config.repo}/issues/new?${params}`;
+  }
+
+  async function submitClassroom(fields) {
+    const payload = classroomPayload(fields);
+    if (await post(payload)) return { via: "sheet" };
+    return { via: "github", url: classroomIssueUrl(payload) };
+  }
+
+  return { submit, submitClassroom, classroomPayload, clientId, buildPayload, issueUrl, MAX_COMMENT, TAGS };
 })();

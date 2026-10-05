@@ -7,6 +7,7 @@
 //          #/?topic=fluid-dynamics          (topics: assets/topics.js)
 //          #/records, #/records?mine=1     every game's leaderboard (assets/records.js)
 //          #/spotlight                     games that need playtesters (assets/spotlight.js)
+//          #/teachers                      the teacher page (assets/teachers.js)
 //          #/daily                         today's Daily Challenge (assets/daily.js, docs/daily.md)
 (function () {
   const UI = window.ArcadeUI;
@@ -21,6 +22,8 @@
   const Wording = window.ArcadeWording;
   const Records = window.ArcadeRecords;
   const Spotlight = window.ArcadeSpotlight;
+  const Teachers = window.ArcadeTeachers;
+  const Classroom = window.ArcadeClassroom;
   const Topics = window.ArcadeTopics;
   const Daily = window.ArcadeDaily;
 
@@ -46,7 +49,6 @@
     $("repoLink").href = repo;
     $("sourceLink").href = repo;
     $("findingsLink").href = `${repo}/blob/main/docs/findings.md`;
-    $("teachingLink").href = `${repo}/blob/main/docs/teaching.md`;
   }
 
   if (config.supportUrl) {
@@ -381,6 +383,22 @@
   // ---------- routing ----------
 
   function route() {
+    if (/^#\/teachers(\?|$)/.test(location.hash)) {
+      const closing = Cabinet.current();
+      Cabinet.close();
+      Records.hide();
+      Spotlight.hide();
+      galleryView.hidden = true;
+      $("teachersBack").href = galleryHash;
+      Teachers.show(location.hash, { games });
+      if (closing) {
+        window.scrollTo(0, galleryScroll);
+        Teachers.focusGame(closing.id);
+      } else window.scrollTo(0, 0);
+      return;
+    }
+    const fromTeachers = Teachers.current();
+    Teachers.hide();
     if (/^#\/spotlight(\?|$)/.test(location.hash)) {
       const closing = Cabinet.current();
       Cabinet.close();
@@ -394,7 +412,7 @@
       } else window.scrollTo(0, 0);
       return;
     }
-    const fromSpotlight = Spotlight.current();
+    const fromSpotlight = Spotlight.current() || fromTeachers;
     Spotlight.hide();
     if (/^#\/records(\?|$)/.test(location.hash)) {
       const closing = Cabinet.current();
@@ -480,6 +498,22 @@
   });
   window.addEventListener("arcade:records-open", () => { pendingOpen = { from: "records" }; });
   window.addEventListener("arcade:spotlight-open", () => { pendingOpen = { from: "spotlight" }; });
+  window.addEventListener("arcade:teachers-open", () => { pendingOpen = { from: "teachers" }; });
+
+  // ---------- classroom mode (assets/classroom.js) ----------
+
+  function renderClassroom() {
+    $("classroomNote").hidden = !Classroom.on();
+    $("telemetryNote").hidden = !telemetry.active();
+  }
+  $("classroomOff").addEventListener("click", () => {
+    Classroom.set(false);
+    galleryToast("Classroom mode is off in this browser.");
+  });
+  window.addEventListener("arcade:classroom", () => {
+    renderClassroom();
+    if (settings.open) renderSettings();
+  });
 
   // ---------- dialogs: settings and about the arcade ----------
 
@@ -521,9 +555,12 @@
     $("settingsSummary").textContent = `🏆 ${got} of ${total} achievements, in ${played} of ${games.length} games.`;
     $("resetAchBtn").disabled = got === 0;
     const toggle = $("statsToggle");
-    toggle.disabled = !telemetry.enabled;
-    toggle.checked = telemetry.enabled && !Progress.telemetryOptedOut();
-    $("statsNote").textContent = telemetry.enabled
+    const classroom = Classroom.on();
+    toggle.disabled = !telemetry.enabled || classroom;
+    toggle.checked = telemetry.enabled && !classroom && !Progress.telemetryOptedOut();
+    $("statsNote").textContent = classroom
+      ? "Off while classroom mode is on in this browser (the note at the top of the page turns it off)."
+      : telemetry.enabled
       ? "Time played, wins and losses, scores, achievements, and which gallery buttons get used. No accounts, no cookies. The only name sent is your leaderboard name (made up, or one you typed). Turning it off only affects this browser."
       : "Play stats are switched off for the whole site.";
     $("clientIdText").textContent = `${Progress.clientIdShort() || "none yet"}…`;
@@ -646,7 +683,7 @@
 
   // ---------- boot ----------
 
-  $("telemetryNote").hidden = !telemetry.active();
+  renderClassroom();
   for (const span of document.querySelectorAll("[data-verb]")) span.textContent = Wording.verb(span.dataset.verb);
   galleryStatus.textContent = "Loading games…";
 

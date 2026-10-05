@@ -46,6 +46,8 @@
     <p class="play-total" id="playTotal" hidden></p>
   </header>
 
+  <p id="classroomNote" class="classroom-note" hidden><span>Classroom mode · no play stats, names or ratings</span> <button type="button" class="linkish" id="classroomOff">Turn off</button></p>
+
   <div id="galleryToasts" class="toasts gallery-toasts" role="status" aria-live="polite"></div>
 
   <main>
@@ -122,15 +124,107 @@
       <ol class="spot-how" aria-label="How to help">
         <li><b>Pick a game.</b> Any one on this page.</li>
         <li><b>Play until you'd stop.</b> When you'd normally put it down is the number we need.</li>
-        <li><b>Rate it</b> with the &#9733; button in the game's toolbar. One sentence about where you got stuck or bored helps most.</li>
+        <li class="spot-rate"><b>Rate it</b> with the &#9733; button in the game's toolbar. One sentence about where you got stuck or bored helps most.</li>
       </ol>
       <div id="spotlightGroups" class="spot-groups"></div>
       <p id="spotlightNote" class="muted lb-note"></p>
+    </section>
+    <!-- For teachers: the teacher guide, games by subject (built from games.json
+         and assets/topics.js), classroom mode and the "I used this in class"
+         form (assets/teachers.js). -->
+    <section id="teachersView" class="teachers-view" hidden aria-labelledby="teachersTitle">
+      <div class="records-head">
+        <a class="tool back" id="teachersBack" href="#/" aria-label="Back to all games" title="All games">&larr;</a>
+        <h2 id="teachersTitle">For teachers</h2>
+      </div>
+      <p class="spot-lede">Every game here is a small working system: a few simple rules that add up to behavior nobody wrote down directly. That makes them useful for talking about systems, feedback loops and design, in science, computing or design classes.</p>
+
+      <div class="teach-cards">
+        <section class="teach-card" aria-labelledby="teachFreeTitle">
+          <h3 id="teachFreeTitle">Free, no accounts, no installs</h3>
+          <p>A browser on a phone, tablet, Chromebook or PC is enough. Nothing to sign up for.</p>
+        </section>
+        <section class="teach-card" aria-labelledby="teachOfflineTitle">
+          <h3 id="teachOfflineTitle">Offline copies</h3>
+          <p>Open a game and choose <b>Download a copy</b>. You get one HTML file that runs in any browser with no network at all, so it works on a locked-down school network or a computer with no internet. Copies send nothing.</p>
+        </section>
+      </div>
+
+      <section class="teach-section" aria-labelledby="classModeTitle">
+        <h3 id="classModeTitle">Classroom mode</h3>
+        <p>Share this link with your class instead of the usual one. On every device that opens it, the arcade sends no play stats, hides the leaderboard name controls (everyone keeps a made-up name like "Amber Otter") and hides the rating and feedback buttons. It stays on in that browser, in every game, until someone presses <b>Turn off</b> in the note at the top of the page.</p>
+        <div class="class-link">
+          <input type="text" id="classLinkText" readonly aria-label="Classroom link">
+          <button type="button" class="primary" id="classLinkBtn">Copy classroom link</button>
+        </div>
+        <p id="classLinkStatus" class="status" role="status"></p>
+      </section>
+
+      <section class="teach-section" aria-labelledby="teachTopicsTitle">
+        <h3 id="teachTopicsTitle">Games by subject</h3>
+        <p class="muted small">From the games' own topic tags, so it's always current. A subject opens the gallery filtered to it; a game opens it.</p>
+        <div class="teach-table-wrap">
+          <table class="teach-table">
+            <thead><tr><th scope="col">Topic</th><th scope="col">Games</th></tr></thead>
+            <tbody id="teachTopicRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="teach-section" aria-labelledby="teachPrivacyTitle">
+        <h3 id="teachPrivacyTitle">Privacy</h3>
+        <ul>
+          <li><b>Anonymous play stats.</b> To tune the games, the arcade records time played, wins and losses, scores and achievements. No accounts, no cookies, no names unless a player types one. Classroom mode turns them off; so does Settings (the gear icon) for one browser, and the offline copies send nothing.</li>
+          <li><b>Leaderboards are public.</b> They show a made-up name unless a player types their own, and anyone can see it. Ask students to keep the made-up name or use a nickname, never their real name. Classroom mode hides the name controls.</li>
+          <li><b>Progress stays in the browser.</b> Bests and achievements are saved on the device, not on a server. Settings can export, import or erase them.</li>
+        </ul>
+      </section>
+
+      <section class="teach-section" aria-labelledby="teachFurtherTitle">
+        <h3 id="teachFurtherTitle">Going further</h3>
+        <ul>
+          <li><b>Read the code.</b> Each game is one self-contained HTML file in <a id="teachCodeLink" target="_blank" rel="noopener">games/</a> on GitHub. Students who know some JavaScript can find the rules that make the behavior.</li>
+          <li><b>How the games are designed:</b> the <a id="teachRulesLink" target="_blank" rel="noopener">design rules</a> and the <a id="teachFindingsLink" target="_blank" rel="noopener">design findings</a>, what worked and what didn't.</li>
+          <li><b>Reuse.</b> The code is MIT licensed and the docs are CC BY 4.0 (<a id="teachLicenseLink" target="_blank" rel="noopener">license</a>): copy, adapt and share them in class, with credit.</li>
+        </ul>
+      </section>
+
+      <section class="teach-section" aria-labelledby="classFormTitle">
+        <h3 id="classFormTitle">I used this in class</h3>
+        <p id="classFormOff" class="muted" hidden>The form is hidden while classroom mode is on in this browser. Turn it off (the note at the top) to send feedback.</p>
+        <form id="classForm" class="class-form" novalidate>
+          <p class="muted small">Tell us how it went. It goes to the arcade's maintainer and decides what gets built for classrooms next.</p>
+          <div class="class-row">
+            <label><span>Grade or age <span class="muted">(optional)</span></span>
+              <input type="text" id="classGrade" maxlength="60" placeholder="Year 9, ages 13–14" autocomplete="off">
+            </label>
+            <label><span>Subject <span class="muted">(optional)</span></span>
+              <input type="text" id="classSubject" maxlength="80" placeholder="Physics" autocomplete="off">
+            </label>
+          </div>
+          <fieldset class="class-games">
+            <legend>Games you used <span class="muted">(optional)</span></legend>
+            <div id="classGames" class="class-game-list"></div>
+          </fieldset>
+          <label for="classWorked" class="comment-label">What worked?</label>
+          <textarea id="classWorked" rows="3" maxlength="500"></textarea>
+          <label for="classDidnt" class="comment-label">What didn't?</label>
+          <textarea id="classDidnt" rows="3" maxlength="500"></textarea>
+          <label><span>Contact <span class="muted">(optional: an email if you'd like a reply; only the maintainer sees it)</span></span>
+            <input type="text" id="classContact" maxlength="120" autocomplete="email">
+          </label>
+          <div class="feedback-actions">
+            <button type="submit" class="primary" id="classSend" disabled>Send</button>
+            <span id="classStatus" class="status" role="status"></span>
+          </div>
+        </form>
+      </section>
     </section>
   </main>
 
   <footer class="site-footer">
     <p class="mission">Free games for players, students, teachers and game developers.</p>
+    <a href="#/teachers" id="teachersLink">For teachers</a> ·
     <a id="repoLink" target="_blank" rel="noopener">Source on GitHub</a>
     <span id="supportWrap" hidden> · <a id="supportLink" target="_blank" rel="noopener">Help keep these games free</a></span>
     <p class="muted" id="telemetryNote" hidden>To tune the games, the arcade records anonymous play stats: time played, wins and losses, scores, and achievements. No accounts, no cookies. Leaderboards show a made-up name like "Amber Otter" unless you type your own, and anyone can see it. <button type="button" class="linkish" id="telemetryNoteBtn">Turn off for this browser</button></p>
@@ -203,7 +297,7 @@
       <p>Part of the mission is to help people learn from these games, not just play them:</p>
       <ul>
         <li><b>Students</b>: see how a few simple rules add up to surprising behavior, then read the code. Each game is one self-contained file.</li>
-        <li><b>Teachers</b>: free, no accounts, no installs, and every game can be downloaded to run offline. Use them in class to talk about systems, feedback loops and design. Browse by subject, like <a href="#/?topic=thermodynamics" data-close>thermodynamics</a>, <a href="#/?topic=ecology" data-close>ecology</a> or <a href="#/?topic=fluid-dynamics" data-close>fluid dynamics</a>, and read the <a id="teachingLink" target="_blank" rel="noopener">guide for teachers</a>. Leaderboards show any name a player types to everyone, so ask students to use a nickname.</li>
+        <li><b>Teachers</b>: free, no accounts, no installs, and every game can be downloaded to run offline. Use them in class to talk about systems, feedback loops and design. Browse by subject, like <a href="#/?topic=thermodynamics" data-close>thermodynamics</a>, <a href="#/?topic=ecology" data-close>ecology</a> or <a href="#/?topic=fluid-dynamics" data-close>fluid dynamics</a>, and read the <a href="#/teachers" data-close>guide for teachers</a>, with a classroom mode link. Leaderboards show any name a player types to everyone, so ask students to use a nickname.</li>
         <li><b>Game developers</b>: the design rules, balance bots and findings are all open. Borrow the ideas and the method.</li>
       </ul>
       <p>The code is free to reuse under the MIT license, and the docs under CC BY 4.0. Just give credit.</p>
@@ -367,6 +461,7 @@
 
 <script src="assets/config.js"></script>
 <script src="assets/ui.js"></script>
+<script src="assets/classroom.js"></script>
 <script src="assets/wording.js"></script>
 <script src="assets/topics.js"></script>
 <script src="assets/feedback.js"></script>
@@ -382,6 +477,7 @@
 <script src="assets/cabinet.js"></script>
 <script src="assets/records.js"></script>
 <script src="assets/spotlight.js"></script>
+<script src="assets/teachers.js"></script>
 <script src="assets/gallery.js"></script>
 </body>
 </html>

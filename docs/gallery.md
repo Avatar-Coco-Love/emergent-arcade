@@ -8,9 +8,11 @@ per check at 360×740, 740×360 and 1280×800; screenshots go to `--out`).
 
 Playtest (private artifact, feedback/telemetry disabled in that copy):
 https://claude.ai/artifact/26WTJMqdPT9oZ5PcocXhuC
-(republished for the Daily Challenge PR: the banner on top, "Play today's",
-the 📅 result card after a lost run, Share and Save image. Earlier: the topic
-chips and the ⓘ panel's Topics line. No `leaderboards.json` there, so no
+(republished for the teacher page PR: footer "For teachers", the
+classroom link (`?class=1` doesn't reach inside the artifact frame, so try
+classroom mode with the note's Turn off after opening the copied link
+elsewhere, or locally); the form falls back to a GitHub issue there.
+Earlier: the Daily Challenge, the topic chips and the ⓘ panel's Topics line. No `leaderboards.json` there, so no
 play counts or boards. In that frame the share buttons can't use the share
 sheet and may not reach the clipboard, so share can do nothing there.)
 
@@ -29,11 +31,13 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/name-ctl.js` | `ArcadeNameCtl.create(prefix, { toast, onChange })`: the leaderboard name controls (show me, pick another name, type a name), used by the 🏆 panel (ids `lb…`) and the Records view (ids `rec…`) |
 | `assets/records.js` | `ArcadeRecords`: the Records view (`#/records`), every game's leaderboard on one page |
 | `assets/spotlight.js` | `ArcadeSpotlight`: the Spotlight view (`#/spotlight`), games that need playtesters, grouped from hourly play stats |
+| `assets/classroom.js` | `ArcadeClassroom`: classroom mode (`?class=1`, `on`, `set`, `link`), below |
+| `assets/teachers.js` | `ArcadeTeachers`: the teacher page (`#/teachers`), its subject table, classroom link and "I used this in class" form |
 | `assets/topics.js` | `ArcadeTopics`: the fixed topic tag list (`LIST`, `get`, `of`). Also run by the Node scripts through `scripts/topics.mjs` |
 | `assets/gallery.js` | cards, search/sort/verb and topic filters, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
-Script order in `index.html`: config, ui, wording, topics, feedback, achievements, names, scores, daily, progress,
-telemetry, thumbs, download, cabinet, records, spotlight, gallery.
+Script order in `index.html`: config, ui, classroom, wording, topics, feedback, achievements, names, scores, daily, progress,
+telemetry, thumbs, download, cabinet, records, spotlight, teachers, gallery.
 
 ## Tap or click
 
@@ -69,6 +73,11 @@ ideas).
   links here; hidden while filtering.
 - `#/spotlight`: the Spotlight view (below). A cabinet opened from it goes
   back to it, with focus on the Play link used.
+- `#/teachers`: the teacher page (below), linked from the footer ("For
+  teachers") and the About box. A cabinet opened from its table goes back
+  to it, with focus on the link used.
+- `?class=1` (query, before the `#`): turns classroom mode on (below);
+  `?class=0` turns it off. Removed from the address bar once read.
 
 ## Spotlight
 
@@ -96,6 +105,64 @@ the games on load. A revision starts its game over.
   players. Logs a `spotlight` gallery event; opens log `from: spotlight`.
 - Counts include the maintainer's own plays and skip players who turned
   off play stats, like the play counts.
+
+## Teacher page
+
+`#/teachers` (`assets/teachers.js`, `#teachersView`): what used to be
+`docs/teaching.md`, for teachers who can't reach GitHub. In order: lede,
+two cards (free, offline copies), Classroom mode (the link in a read-only
+field and **Copy classroom link**; no clipboard selects the text), Games by
+subject, Privacy, Going further (GitHub links set from `config.repo`), and
+"I used this in class".
+
+- **Games by subject**: a table built at runtime from `games.json` and
+  `assets/topics.js`: every topic some non-archived game uses, subjects
+  then skills (a "Subjects"/"Skills" row before each), in `topics.js`
+  order; each topic links to `#/?topic=<id>` and shows its `about`, its
+  games (by title) link to `#/play/<id>`. Nothing to edit when a game gets
+  topics.
+- **"I used this in class"**: grade or age, subject (free text), games
+  used (checkboxes, every non-archived game), what worked, what didn't
+  (500 chars each; Send needs one of them), optional contact.
+  `ArcadeFeedback.submitClassroom` posts `{ kind: "classroom", grade,
+  subject, games: [ids], worked, didnt, contact?, client_id, submitted_at }`
+  to the feedback endpoint; backend v3 keeps it in the `events` tab, no
+  Apps Script change ([backend-api.md](backend-api.md)). If the endpoint
+  fails: a pre-filled `[feedback] classroom: …` GitHub issue, without the
+  contact (issues are public). Sent even with play stats off (it's
+  feedback, like a rating), never in classroom mode (hidden, with a line
+  saying why). Read with `node scripts/fetch-feedback.mjs --classroom`
+  (also the last section of its default summary).
+- Logs a `teachers` gallery event on open, `classroom_link` (`method`) on
+  copy, and `open` with `from: teachers`.
+
+## Classroom mode
+
+For a class sharing a link (`assets/classroom.js`). With it on:
+
+- no play stats or gallery events (`ArcadeTelemetry.active()` is false), so
+  no score reaches a leaderboard; the ⚙ toggle shows off and disabled, the
+  footer's stats note is hidden. The player's own opt-out setting is left
+  alone;
+- the leaderboard name controls (`.lb-name-ctl`, in the 🏆 panel and the
+  Records view) are hidden: everyone keeps the made-up name;
+- the ★ button, the rate nudge, Spotlight's "Rate it" step and the teacher
+  form are hidden;
+- a note under the header: "Classroom mode · no play stats, names or
+  ratings", with **Turn off**.
+
+Decisions: it **persists per browser** (`arcade.classroom`), so a lab
+computer stays in it next lesson and a student who reloads or comes back
+from a bookmark is still covered; it lasts until someone presses Turn off
+(a student can: the cost is only that their anonymous stats resume). It
+**carries into games**: the cabinet is part of the same page, so
+`#/play/<id>` and `#/daily` keep it (CSS class `classroom` on `<html>`).
+Games themselves know nothing about it: they never send anything; the
+gallery does. Downloaded copies send nothing anyway. With storage blocked,
+the link still works for that page load. Anyone who never opened the link
+sees no change. The link is `<siteUrl>?class=1` on the published site,
+else this page's address. Smoke-tested by "teacher page" and "classroom
+mode" (`smoke-gallery.mjs`).
 
 ## Topics
 
@@ -135,6 +202,7 @@ gallery uses them in three places:
 | `arcade.recent` | up to 3 ids, newest first |
 | `arcade.clientId` | anonymous id (kept by "Reset everything"; "New anonymous id" replaces it) |
 | `arcade.telemetryOptOut` | `"1"` = send no play stats or gallery events |
+| `arcade.classroom` | `"1"` = classroom mode (above); "Reset everything" keeps it |
 
 Export (`arcade-progress.json`): `{ format: "emergent-arcade-progress",
 version: 1, exported_at, achievements, seenVersion, seenIntro, bests }`. Import

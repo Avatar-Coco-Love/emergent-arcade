@@ -12,6 +12,7 @@
 //   arcade.daily               { date: { game, first, marks, ... } }, Daily Challenge results (assets/daily.js)
 //   arcade.clientId            anonymous id for feedback/telemetry (kept on reset)
 //   arcade.telemetryOptOut     "1" = don't send play stats (kept on reset)
+//   arcade.classroom           "1" = classroom mode (assets/classroom.js, kept on reset)
 // Progress is per browser, so export/import is the only way to move it.
 window.ArcadeProgress = (function () {
   const store = window.ArcadeUI.store;

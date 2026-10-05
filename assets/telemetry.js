@@ -13,7 +13,8 @@
 //                      sort/filter, settings), sent as a kind "gallery" row
 //
 // A player can turn all of it off for their browser in the gallery's
-// settings (arcade.telemetryOptOut, see assets/progress.js).
+// settings (arcade.telemetryOptOut, see assets/progress.js), and classroom
+// mode (assets/classroom.js) turns it off while it's on.
 //
 // Each round result is sent right away (so a closed tab loses nothing), and
 // end() sends one session summary. No personal data: the only id is the
@@ -31,7 +32,9 @@ window.ArcadeTelemetry = (function () {
     return window.matchMedia && matchMedia("(pointer: coarse)").matches ? "touch" : "mouse";
   }
 
+  // Classroom mode (assets/classroom.js) sends nothing, like the opt-out.
   function active() {
+    if (window.ArcadeClassroom && window.ArcadeClassroom.on()) return false;
     return enabled && !(window.ArcadeProgress && window.ArcadeProgress.telemetryOptedOut());
   }
 
