@@ -1212,3 +1212,39 @@ setting, v4 0.39–0.41% → 0.00% under it).
 *Evidence: L* by number, v3 vs v4; screenshots at 360×740 normal,
 deutan, protan, before and after; audit colour on 2 scripted late
 screens × 2 runs, old and new; balance old×2 and new identical.*
+
+## A move's line waits for its warning
+
+Surprise Party v4. Each move ticks the clock, then the game runs its
+exact solver 30 ms later (after the frame, so the ripple starts at once)
+to warn when a spoil is unavoidable or not everyone can hear any more.
+Spoken naively, a move gives two live-region lines 30 ms apart; the
+second replaces the first before a screen reader reads it. v4 builds the
+move line from the move's result at once (who heard, by guest number in
+screen reading order; how many hear next; the shortest walk from the news
+to the birthday person; envelopes and moves left) and speaks it in the
+solver's callback with the warning appended. A keys-only bot that finds
+guests and doors with G/D jumps, reading only `#say`, played all 15
+houses at par (★★★) at 1280×800 and at 360×740, where every house is
+turned a quarter: arrows move in screen directions and positions are
+screen rows and columns, so the bot had to learn the turn by walking the
+cursor to the far corner, as a player would.
+
+The motion cell's pass was a state pass that only a warning breaks: the
+board is still unless "if the clock moves on, the birthday person hears"
+is showing, when the red ring around them pulses (0.10–0.14% idle, the
+setting ignored). The audit's five random taps never make that state. A
+breadth-first search over short lines with the sim found one on 2-2 (and
+the solver's own line on 2-5 passes through one); there v4 goes 0.10–0.11%
+→ 0.00% under reduced motion, 3/3 runs. The colour cell passed before and
+after, on the usual screen and a scripted 3-5 frozen mid-ripple, but by
+number the states leaned on hue: the danger zone was a pink tint 7–10 L*
+below pastel floors (one floor is pink), the "just heard" disc 3–5 L*.
+v4 adds marks with their own lightness: stripes in the zone (63–65), a
+solid near-black ring on just-heard guests (16) against the dashed "hears
+next" ring (54), hat outlines (13), a dark rim under the red ring.
+
+*Evidence: keys-only bot 15/15 ★★★ × 2 sizes; idle motion on mid, late
+and warn screens × 3 runs, normal vs reduced; L* by number; audit 3/3
+plus a scripted late copy 2 runs, old and new; balance old×2 and new.*
+

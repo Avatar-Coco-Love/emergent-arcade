@@ -373,3 +373,12 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   dims slack (35), steps down at `WARN` (gold 80 → orange-red 60, +1 px)
   and marks over-limit strands with crossbars. *A warning ramp can end
   where the resting state sits.* Loom v4. L* by number.
+- A turn-based game that checks for danger after the move (Surprise
+  Party's solver runs 30 ms later, so the ripple starts at once) should
+  speak the move once that check is back: one line per move with the
+  warning in it, not a move line cut off by a second one. Its motion pass
+  was a state pass of a new kind: only a warning screen moves (the red
+  ring pulses, 0.10–0.14%), and random taps never reach one. Find a
+  warning state with the sim (a short search for a line whose next wait
+  spoils) and measure there. *A move's line waits for its warning.*
+  Surprise Party v4. keys-only bot + warn-screen diff.

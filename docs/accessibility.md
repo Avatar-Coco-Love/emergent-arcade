@@ -57,7 +57,7 @@ the honest end state, not a fix still owed.
 | lighthouse-keeper | partial: ignores it | pass | pass | pass | pass (labelled) | fail: 8.5 px |
 | counterfeit-scale | pass | pass | pass | pass | pass (labelled) | pass |
 | coat-check | pass | partial: letters 4.3:1 | pass | pass | pass (labelled) | partial: 11 px |
-| surprise-party | pass | pass | pass | fail: wait/undo only | pass (labelled) | pass |
+| surprise-party | pass (v4: reads it; no pulse or growing ripple. The old pass was a state pass: only a warning screen moves, 0.10% → 0.00%) | pass | pass (v4: rings, hat outlines, zone stripes by lightness; late screens too) | pass (v4: tile cursor, Enter whispers, hold O doors, G/D/B jumps) | pass (v4, live region) | pass (v4) |
 | geode | partial (v3: reads it, decoration still; what moves is growth; 2/3 runs pass) | pass | pass (v3: near-grey anneal zone, late screens too) | pass (v3: T switches arrows to a cursor, S seeds, hold C cleaves) | pass (v3, live region) | pass (v3) |
 
 Label: every game passes since the canvas-label batch (2026-10-05; Wildfire
@@ -66,8 +66,8 @@ with the game, its verbs and its keys, saying "click" with `(pointer:
 fine)` and "tap" otherwise (the audit's note "says tap on PC" reads the
 phone context, where "tap" is right). The static attribute stays as a
 "tap or click" fallback. Games with no status text in the DOM
-(aqueduct, counterfeit-scale, coat-check, surprise-party; Pressure Grid
-has one since v11) have no live region, so a screen reader hears nothing change; that is a
+(aqueduct, counterfeit-scale, coat-check; Pressure Grid has one since v11,
+Surprise Party since v4) have no live region, so a screen reader hears nothing change; that is a
 note in their open ideas, not part of the verdict.
 
 ## Fixed in the gallery (audit PR)
