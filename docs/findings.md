@@ -305,3 +305,16 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   clear of the target, and let it speed up while held (110 → 260 units/s
   vs a flock at 100) so it can get ahead. *A held key verb needs a cursor
   that can get ahead.* Murmuration v6. keys-only bot.
+- The audit's screen is the first seconds of a round. Geode v2 passed
+  colour there and merged on a late screen: a strained crystal's outlines
+  (strain colour mixed toward black) and halos over a hot pool make olive
+  greys at every lightness, and the green anneal zone fell on them for
+  deuteranopes. Fast-forward a copy (a scripted round, then the audit) and
+  give mid-tone UI fills a near-grey, not a green. *Late screens grow their
+  own greys.* Geode v3. audit on a scripted late round.
+- A game that already has ← → on a slider keeps them: one key (T)
+  switches the arrows between the slider and a cursor, announced, and the
+  point verb (S) works in either mode. A held key verb rides the pointer's
+  own press object, so key up early cancels exactly like lifting a finger.
+  *A switch key keeps an arrow binding players know.* Geode v3. keys-only
+  playthrough.

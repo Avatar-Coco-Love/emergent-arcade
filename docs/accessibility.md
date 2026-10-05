@@ -58,7 +58,7 @@ the honest end state, not a fix still owed.
 | counterfeit-scale | pass | pass | pass | pass | pass (labelled) | pass |
 | coat-check | pass | partial: letters 4.3:1 | pass | pass | pass (labelled) | partial: 11 px |
 | surprise-party | pass | pass | pass | fail: wait/undo only | pass (labelled) | pass |
-| geode | partial: reads it, shimmer stays | pass | pass | partial: thermostat only | pass (labelled) | fail: 9.4 px |
+| geode | partial (v3: reads it, decoration still; what moves is growth; 2/3 runs pass) | pass | pass (v3: near-grey anneal zone, late screens too) | pass (v3: T switches arrows to a cursor, S seeds, hold C cleaves) | pass (v3, live region) | pass (v3) |
 
 Label: every game passes since the canvas-label batch (2026-10-05; Wildfire
 Line in v4): the main canvas has `role="img"` and a label set at load

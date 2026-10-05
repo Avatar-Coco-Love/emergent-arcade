@@ -92,7 +92,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - counterfeit-scale: no live region for weighings.
 - coat-check: hook letters 11 px at 4.3:1; no live region.
 - surprise-party: keys only wait/undo/restart; no live region.
-- geode: keys reach the thermostat only; labels 9.4 px; shimmer stays with reduced motion.
+- geode: done (v3, 2026-10-05): T switches the arrows between thermostat and a site-to-site cursor, S/Enter seeds, hold C cleaves, I finds a foreign ion; labels 12.8 px+; reduced motion stills shimmer, pulses and motes (growth still moves, so motion stays partial); a near-grey anneal zone fixes a late-screen colour merge; a live region (`docs/games/geode.md`, "Accessibility").
 
 ## 7. "I used this in class" feedback form
 

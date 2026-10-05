@@ -1,6 +1,6 @@
 # Geode: design notes
 
-**v2** (2026-10-05, canvas label; v1 2026-10-04) · playtest: https://claude.ai/artifact/CS1Gj1PNQ3xcjPJbhAEdKn (private, republished each push) ·
+**v3** (2026-10-05, accessibility; v2 canvas label; v1 2026-10-04) · playtest: https://claude.ai/artifact/CS1Gj1PNQ3xcjPJbhAEdKn (private, republished each push) ·
 balance: `node scripts/balance-geode.mjs 200`
 Verbs: **seed** (tap), **warm** (drag the thermostat), **cleave** (hold),
 sharing **strain per site, pool saturation σ and temperature T**. Endless
@@ -60,17 +60,36 @@ run of geodes; 3 lost geodes end it. Score: carats banked in the run.
 Top strip: geode, mass/quota bar (white tick = quota, bar runs to 1.5×),
 ◆ banked, 3 chamber gems (cracked when lost). Pool disc r 188 at (200, 244),
 pitch 21; tint follows T; the ring around it drains with pool life. Motes =
-σ. Thermostat strip y 450-508 (hit area 442-512): zones grow / anneal
-(pulsing) / melt (hatched), labels under it, event arrow above it, thumb =
+σ. Thermostat strip y 450-508 (hit area 442-512): zones grow (dark blue) / anneal
+(light near-grey `#7d8a84`, pulsing) / melt (dark red, hatched), labels under it, event arrow above it, thumb =
 setpoint, ring = actual T. Below the canvas: status line (own strip), then
 Harvest (shows `+carats ◆` when ready), clarity meter, sound toggle, New run.
 Strain without colour: outline weight, one hatch line > 0.35, a cross
-> 0.65, tremor > 0.7 (off with reduced motion). Impurities: dark gem, light
-outline and a fuse arc to bursting. Sound (WebAudio, from the first gesture,
-toggle persisted with try/catch): pentatonic bell per bond detuned by
-strain×60 cents, a pad beating with mean strain, hiss with T, cleave tick,
-crack thud, harvest arpeggio, shatter cluster, event tone. Every cue is
-also drawn; the game is fully playable muted.
+> 0.65, tremor > 0.7. Impurities: dark gem, light
+outline and a fuse arc to bursting. Sound (WebAudio, toggle persisted): a bell per bond
+detuned by strain, a pad beating with mean strain, hiss with T, ticks and
+thuds for cleaves and cracks. Every cue is also drawn and spoken.
+
+## Accessibility (v3, `node scripts/a11y-audit.mjs geode`)
+
+Contrast, colour, text, label, keyboard pass (3/3, plus 4/4 on a scripted
+late round: strained, hot, cursor on). Motion: 2/3 pass, 1/3 partial;
+what still moves is growth (reduced, canvas idle diff 2.05%; crystal
+hidden 0.43%; motes hidden too 0.28%, the pool-life and T rings).
+- Text from `fs(n)`: ≥ 12.5 CSS px (was 9.4 px).
+- Colour: v2's green anneal zone matched the olive of strained outlines
+  and halos on late screens (deutan): now near-grey; `#msg.warn` amber
+  `#ffd678` (a peach merged with pale amber ions).
+- Reduced motion: decoration on `deco()` (0 when reduced): shimmer and
+  pulses drawn still, motes stay put, no pop or tremor.
+- Keys (`// § keys`): T switches the arrows between thermostat and a
+  site-to-site cursor; S/Enter seeds there (`tapAt`); hold C cleaves (the
+  pointer's `press`; key up early or a move cancels); I jumps to a foreign
+  ion. Tab free; Space/Enter on a focused button press it.
+- Live region `#say` (`#msg` aria-hidden; `say()` speaks): site under the
+  cursor, seeds, what a cleave removed, cracks, foreign ions arriving or
+  near bursting, melting, hints, events, the result.
+- Bots reproduce v2 exactly; keys-only playthrough seeds and cleaves.
 
 ## Balance (`node scripts/balance-geode.mjs 200`)
 
@@ -90,20 +109,8 @@ Median geode reached (p10/p90), run minutes, carats banked, how geodes were lost
 | novice | 4 (2/4) | 97 / 87% | 13.9 | 139 | thin 89, shatter 11% |
 | skilled | 7 (7/8) | 100% | 20.8 | 545 | thin |
 
-Speed isn't the test (skilled, carats / geode): think 1.5 s 525 / 7;
-think 1.5 + lag 0.8 s 468 / 7 (losses shift to 63% shatter). Banking at
-1.5× quota instead of +10%: 723 (fast) and 521 (think 1.5, lag 0.8). All
-four one-rule bots (idle, spam, cold, melt) lose by geode 2; anneal-park
-pays in time (thin at geode 4); noCleave dies in geode 1 (impurity bursts).
-
-Probe (thumb parked, nothing touched, 20 runs each): no still screen at
-0, 0.35 or 0.6 (one 0.6 run of a tiny crystal); at 0.9 the crystal melts to
-the core and nothing changes until the pool dies (a hint says why).
-
-Novice: seeds kinks 70% of the time at half the skilled rate, nudges the
-thermostat +0.1 when anything is red (> 0.7), drifts back below 0.3,
-cleaves impurities only past 0.8 with 30% aimed one ion off, 3 wrong holds,
-think 1.5 s, lag 0.8 s.
+Sweeps, the still-screen probe and the novice bot: `docs/history/geode.md`,
+"v1 balance notes".
 
 ## Telemetry
 
@@ -118,7 +125,9 @@ None yet.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys reach the thermostat only (seed, cleave need a pointer); labels 9.4 px; idle shimmer stays with reduced motion.
+- Accessibility: motion stays partial by design (growth is the game).
+  The cursor steps one site per press; if keyboard players find it slow,
+  add a jump to the most strained ion like I.
 - Skilled runs are ~21 min (target 10-20): bots are optimistic and every
   lost geode lasts the full pool life (200 s). Check telemetry before
   shortening `POOL_LIFE` or adding steeper escalation.
