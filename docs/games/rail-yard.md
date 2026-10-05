@@ -1,6 +1,6 @@
 # Rail Sorting Yard: design notes
 
-**v2** (2026-10-01, layout fixes; v1 2026-09-30) · playtest: https://claude.ai/artifact/QKEiYegRLePYqd8EhaecPH (private, republished each push) ·
+**v3** (2026-10-05, canvas label, Space picks a car; v2 2026-10-01, layout fixes; v1 2026-09-30) · playtest: https://claude.ai/artifact/QKEiYegRLePYqd8EhaecPH (private, republished each push) ·
 balance: `node scripts/balance-rail-yard.mjs [runs=20] [bots] [level ids]`
 Turn-based shunting puzzle. Verbs: **switch** (drag a lever, or {tap}) and
 **flick** (drag a car along its track; drag length = speed). Shared state: a
@@ -55,7 +55,9 @@ drains it, what's left at impact decides couple / touch / bounce.
   under a card). Gravel is one stroked bed. Board pills (siding/OUT, hint
   speed, impact) take the first spot `labelClash` finds clear of tracks,
   other pills and the yard edge.
-- Keys: Tab car, 1–9 / + − speed, arrows flick, A–D switches, Z X H.
+- Keys: Space car (Shift+Space back; v3, was Tab, which trapped keyboard
+  players in the cabinet frame), 1–9 / + − speed, arrows flick, A–D
+  switches, Z X H. Tab stays the browser's.
 
 ## Key constants (`games/rail-yard.html`, `§ engine`, `§ constants`)
 
@@ -113,7 +115,7 @@ Wins carry `score` (run total). Losses: `reason` `restart` or `leave`
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): takes Tab and Shift+Tab, so keyboard users can't leave the cabinet frame; "Run 0" 11.5 px; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): "Run 0" 11.5 px.
 - Score ceiling: par is the optimum, so 10 levels cap the run at 1000.
   The uncapped mode is the Daily yard below.
 - Progress (side goals, badges, reached level) only lasts the visit in

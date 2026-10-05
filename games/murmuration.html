@@ -110,7 +110,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="sky" aria-label="Murmuration sky. Hold to lure the flock, tap to startle it."></canvas>
+      <canvas id="sky" role="img" aria-label="Murmuration sky. Hold to lure the flock, tap or click to startle it."></canvas>
       <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
@@ -634,6 +634,13 @@
   newFlock();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', H = fine ? 'Click and hold' : 'Hold';
+  document.getElementById('sky').setAttribute('aria-label', `Murmuration sky. ${H} to lure the flock, ${t} to startle it.`);
+}
 </script>
 </body>
 </html>

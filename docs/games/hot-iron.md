@@ -1,6 +1,6 @@
 # Hot Iron: design notes
 
-**v4** (2026-09-29) · playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz ·
+**v5** (2026-10-05, canvas label; v4 2026-09-29) · playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz ·
 balance: `node scripts/balance-hot-iron.mjs 300`
 **Heat** (hold) and **strike** (tap) share **temperature and thickness per
 bar segment** (16 segments, thickness starts at 1). Win: every segment within
@@ -108,7 +108,7 @@ vs 2.3–3.7 s). The missing rule was when to strike. v4 was made from this.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play.
 - v4 telemetry to watch: cracks per strike (v3 ~40%), first-try wins, round
   length (v3 12–35 s), `hints`. If losses are still cracks within 30 s, add
   a warm-up first bar teaching one verb at a time (strike locked until a

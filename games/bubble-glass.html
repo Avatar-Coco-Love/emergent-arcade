@@ -130,7 +130,7 @@
   <p id="msg" role="status"></p>
   <div id="field">
     <div id="stage">
-      <canvas id="board" aria-label="Bubble Glass. Turn the box to move the sand and the bubble, hold on sand to melt it into glass, tap glass to shatter it."></canvas>
+      <canvas id="board" role="img" aria-label="Bubble Glass. Drag around the box to turn it, hold on sand to melt it into glass, tap or click glass to shatter it."></canvas>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -2222,6 +2222,13 @@
   startLevel(reached);
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', h = fine ? 'click and hold' : 'hold';
+  document.getElementById('board').setAttribute('aria-label', `Bubble Glass. Drag around the box to turn it and move the sand and the bubble, ${h} on sand to melt it into glass, ${t} glass to shatter it. Keys: ← → or A / D turn the box.`);
+}
 </script>
 </body>
 </html>

@@ -89,7 +89,7 @@
   <p id="msg" role="status"></p>
   <div id="field">
     <div id="stage">
-      <canvas id="soil" aria-label="Mycelium. Drag from a knot to grow a thread, tap a knot to pulse nutrient to it, hold a knot to cut the thread there."></canvas>
+      <canvas id="soil" role="img" aria-label="Mycelium. Drag from a knot to grow a thread, tap or click a knot to pulse nutrient to it, hold a knot to cut the thread there."></canvas>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -976,6 +976,13 @@
   newRun();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', h = fine ? 'click and hold' : 'hold';
+  document.getElementById('soil').setAttribute('aria-label', `Mycelium. Drag from a knot to grow a thread, ${t} a knot to pulse nutrient to it, ${h} a knot to cut the thread there. Keys: arrows move the cursor, Enter marks a knot then Enter grows to the cursor, Space pulses, X cuts.`);
+}
 </script>
 </body>
 </html>

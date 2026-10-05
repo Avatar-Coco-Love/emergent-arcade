@@ -1,6 +1,6 @@
 # Murmuration: design notes
 
-**v4** (2026-09-27) · playtest: none · balance: `node scripts/balance-murmuration.mjs 300`
+**v5** (2026-10-05, canvas label; v4 2026-09-27) · playtest: none · balance: `node scripts/balance-murmuration.mjs 300`
 **Lure** (hold) and **startle** (tap), sharing **fear per bird**. v4 = v3 gameplay
 (PR #10) plus `arcade:result` telemetry.
 
@@ -57,7 +57,7 @@ dusk for the first round, or check what share of gates the tester reached
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; ignores reduced motion; level counter 10 px at 3.5:1; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; ignores reduced motion; level counter 10 px at 3.5:1.
 - Skilled startle play finishes only ~4–5 s sooner than skilled lure play.
   Tapping nearer gates, tapping more often, or leading further after a tap
   all tied or lost. Gate 3 gains nothing from startle.

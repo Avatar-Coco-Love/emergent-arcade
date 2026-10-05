@@ -60,7 +60,7 @@ body.side #tilt{left:auto;right:8px;top:48px;bottom:auto}
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+<canvas id="c" role="img" aria-label="Aqueduct. Drag to turn the vessel and pour the water, tap or click a cup's valve to shut or open it."></canvas>
 <div id="hud"></div>
 <div id="msg"></div>
 <button id="tilt">Enable tilt</button>
@@ -731,6 +731,13 @@ const first = LEVELS.findIndex(l => !l.free && !cleared[l.id]);
 if (!/[?&]nostart/.test(location.search)) { start(first < 0 ? 0 : first); requestAnimationFrame(frame); }
 else { load(1); window.__start = (s, lv) => { if (lv !== undefined) load(lv); reset(s || 1); }; }
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap';
+  document.getElementById('c').setAttribute('aria-label', `Aqueduct. Drag to turn the whole vessel and pour the water, ${t} a cup's valve to shut or open it. Keys: ← → turn, Space or 1 / 2 shut and open valves, R restart, L levels.`);
+}
 </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # Pressure Grid: design notes
 
-**v9** (2026-10-01) · playtest: https://claude.ai/artifact/WKBg1jZwLxZLnZ97Ben1sf ·
+**v10** (2026-10-05, canvas label; v9 2026-10-01) · playtest: https://claude.ai/artifact/WKBg1jZwLxZLnZ97Ben1sf ·
 balance: `node scripts/balance-pressure-grid.mjs` (`--level N`, `--map`, `--full`, `--count`) ·
 browser: `node scripts/playthrough-pressure-grid.mjs` (`--level N`)
 Turn-based level puzzle (plan: `docs/games/pressure-grid-plan.md`;
@@ -131,7 +131,7 @@ leak", "drip"); a press finishes the animation. Keys: Z, R, N.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys only undo/restart/next (pump, siphon need a pointer); cell numbers 2.0:1 on brown; no live region; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): keys only undo/restart/next (pump, siphon need a pointer); cell numbers 2.0:1 on brown; no live region.
 - Not hand-played on a phone yet: is the pour found without level 3's
   hint? Are the preview and the vent/valve/leaky marks read?
 - Valve direction binds only on level 8; on 10 the valve route is an

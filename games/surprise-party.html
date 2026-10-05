@@ -74,7 +74,7 @@
   <div id="rule"></div>
   <div id="msg"></div>
   <div id="hud"><span id="where"></span><span class="clk" id="clk"></span><span class="env" id="env"></span></div>
-  <div id="wrap"><canvas id="board" aria-label="Surprise Party: whisper to guests, shut doors, keep the birthday person from hearing before 8:00."></canvas><div id="menu"></div></div>
+  <div id="wrap"><canvas id="board" role="img" aria-label="Surprise Party: keep the birthday person from hearing before 8:00. Tap or click a guest to whisper the news, hold a door to shut or open it."></canvas><div id="menu"></div></div>
   <div id="bar"><button id="wait">Wait 15 min</button><button id="undo">Undo</button><button id="restart">Restart</button><button id="houses">Houses</button></div>
 
 <script>
@@ -845,6 +845,13 @@ function seasonHouse(seed, k, maxTries = 40) {
   if (DAILY) startSeason(); else playHouse(0);
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', T = fine ? 'Click' : 'Tap', h = fine ? 'click and hold' : 'hold';
+  document.getElementById('board').setAttribute('aria-label', `Surprise Party: keep the birthday person from hearing before 8:00. ${T} a guest to whisper the news, ${h} a door to shut or open it. Keys: Space or W wait, U undo, R restart, Enter for the next house.`);
+}
 </script>
 </body>
 </html>

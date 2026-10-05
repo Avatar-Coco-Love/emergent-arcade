@@ -247,3 +247,9 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   keep render `Math.random` calls equal and seeded bots reproduce
   exactly. *A cursor gives point and path verbs a key path.* Wildfire
   Line. audit + bots.
+- Never pick with Tab (it traps keyboard players in the cabinet frame).
+  Space picks (Shift+Space back), but once Tab is free players land on
+  the game's own buttons: let Space through when a button has focus.
+  Label the canvas at load with the device's word and the keys.
+  *A picker key must leave Tab and focused buttons alone.* Rail Yard v3.
+  audit.

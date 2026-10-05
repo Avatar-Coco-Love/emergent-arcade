@@ -1,6 +1,6 @@
 # Loom: design notes
 
-**v2** (2026-09-29) · playtest: https://claude.ai/artifact/85uz8o6kFYJaZRyVatPwAf ·
+**v3** (2026-10-05, canvas label; v2 2026-09-29) · playtest: https://claude.ai/artifact/85uz8o6kFYJaZRyVatPwAf ·
 balance: `node scripts/balance-loom.mjs 100`
 Verbs: **pull** (drag) and **pin** (tap), sharing **tension in every strand** of a 6×6 knotted net.
 
@@ -115,7 +115,7 @@ and `stats`:
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play.
 - Not hand-played on a real phone yet (rendered headlessly with mouse input
   at 390×700).
 - Bots win each shape in 6–12 s once they know the plan; a human's time goes

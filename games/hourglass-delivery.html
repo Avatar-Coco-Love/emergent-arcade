@@ -122,7 +122,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="works" aria-label="Hourglass Delivery sand works. Hold to pour sand, flick to knock settled sand loose."></canvas>
+      <canvas id="works" role="img" aria-label="Hourglass Delivery sand works. Hold to pour sand, flick to knock settled sand loose."></canvas>
       <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
@@ -755,6 +755,13 @@
   newRound();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const H = fine ? 'Click and hold' : 'Hold';
+  document.getElementById('works').setAttribute('aria-label', `Hourglass Delivery sand works. ${H} to pour sand, flick to knock settled sand loose.`);
+}
 </script>
 </body>
 </html>

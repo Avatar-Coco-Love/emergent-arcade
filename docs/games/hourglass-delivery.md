@@ -1,6 +1,6 @@
 # Hourglass Delivery: design notes
 
-**v3** (2026-09-29) · playtest: https://claude.ai/artifact/UZTvK3z1uFsWPHVTETrCmx (private, republished each push) ·
+**v4** (2026-10-05, canvas label; v3 2026-09-29) · playtest: https://claude.ai/artifact/UZTvK3z1uFsWPHVTETrCmx (private, republished each push) ·
 balance: `node scripts/balance-hourglass-delivery.mjs 300`
 Verbs: **pour** (hold) and **knock** (flick), sharing the **sand grid**
 (100×150 cells, 4 px each: empty, loose, packed, wall). Win: 8 hourglasses
@@ -105,7 +105,7 @@ losses can be compared.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; ignores reduced motion (small); canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; ignores reduced motion (small).
 - Stockpiler counts all packed grains, including the starting dunes (240).
 - Not a Grain Wasted counts spilled starting-dune sand against your poured total.
 - The top half of the screen is mostly open (one ledge row); a third row

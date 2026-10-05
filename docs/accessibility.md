@@ -1,6 +1,7 @@
 # Accessibility audit
 
-Run on **2026-10-05** (`teachers.md`, idea 6), after this PR's gallery fixes.
+Run on **2026-10-05** (`teachers.md`, idea 6), after the gallery fixes;
+label column and Rail Yard's keyboard rerun after the canvas-label batch.
 Rerun the audit with:
 
     node scripts/a11y-audit.mjs            # everything, ~2 min, one line per target per check
@@ -35,34 +36,38 @@ with what the audit's taps started; "ignores the setting" is the finding.
 | cabinet | pass | pass | pass (stars fixed) | pass | pass | pass (fixed) |
 | teacher page | pass | pass (fixed) | pass | pass | pass | pass |
 | classroom note | pass | pass | pass | pass | pass | pass |
-| murmuration | partial: ignores it, flock moves | partial: counter 3.5:1 | pass | fail: none | partial | partial: 10 px |
-| orbit-garden | pass | pass | pass | fail: none | partial | pass |
+| murmuration | partial: ignores it, flock moves | partial: counter 3.5:1 | pass | fail: none | pass (labelled) | partial: 10 px |
+| orbit-garden | pass | pass | pass | fail: none | pass (labelled) | pass |
 | wildfire-line | pass (v4) | pass | pass (v4: lightness bands) | pass (v4: cursor) | pass (v4) | pass |
-| ant-trails | partial: ignores it | pass | pass | fail: fast-forward only | partial | partial: 11.5 px |
-| hourglass-delivery | partial: ignores it | pass | pass | fail: none | partial | pass |
-| hot-iron | pass | pass | pass | fail: none | partial | pass |
-| island-census | pass | pass | partial: meadows (deutan, borderline) | fail: none | partial | fail: 9.4 px HUD |
-| loom | pass | pass | pass | fail: none | partial | pass |
-| terrace-garden | fail: ignores it | pass | pass | partial: tilt, not gates | partial | pass |
-| tidewright | pass | fail: "flood" 1.3:1 | fail: handles ≈ wall (protan) | pass | partial | fail: 8.5 px |
-| pressure-grid | pass | fail: cell numbers 2.0:1 | pass | fail: undo/restart only | partial | pass |
-| rail-yard | pass | pass | pass | partial: keeps Tab | partial | partial: 11.5 px |
-| aqueduct | pass | pass | pass | pass | fail: no aria-label | pass |
-| bubble-glass | partial: ignores it | pass | pass | partial: turn only | partial | pass |
-| mycelium | partial: ignores it | pass | pass | pass | partial | pass |
-| lighthouse-keeper | partial: ignores it | pass | pass | pass | partial | fail: 8.5 px |
-| counterfeit-scale | pass | pass | pass | pass | partial | pass |
-| coat-check | pass | partial: letters 4.3:1 | pass | pass | partial | partial: 11 px |
-| surprise-party | pass | pass | pass | fail: wait/undo only | partial: no verbs | pass |
-| geode | partial: reads it, shimmer stays | pass | pass | partial: thermostat only | partial | fail: 9.4 px |
+| ant-trails | partial: ignores it | pass | pass | fail: fast-forward only | pass (labelled) | partial: 11.5 px |
+| hourglass-delivery | partial: ignores it | pass | pass | fail: none | pass (labelled) | pass |
+| hot-iron | pass | pass | pass | fail: none | pass (labelled) | pass |
+| island-census | pass | pass | partial: meadows (deutan, borderline) | fail: none | pass (labelled) | fail: 9.4 px HUD |
+| loom | pass | pass | pass | fail: none | pass (labelled) | pass |
+| terrace-garden | fail: ignores it | pass | pass | partial: tilt, not gates | pass (labelled) | pass |
+| tidewright | pass | fail: "flood" 1.3:1 | fail: handles ≈ wall (protan) | pass | pass (labelled) | fail: 8.5 px |
+| pressure-grid | pass | fail: cell numbers 2.0:1 | pass | fail: undo/restart only | pass (labelled) | pass |
+| rail-yard | pass | pass | pass | pass (v3: Space picks a car) | pass (labelled) | partial: 11.5 px |
+| aqueduct | pass | pass | pass | pass | pass (labelled) | pass |
+| bubble-glass | partial: ignores it | pass | pass | partial: turn only | pass (labelled) | pass |
+| mycelium | partial: ignores it | pass | pass | pass | pass (labelled) | pass |
+| lighthouse-keeper | partial: ignores it | pass | pass | pass | pass (labelled) | fail: 8.5 px |
+| counterfeit-scale | pass | pass | pass | pass | pass (labelled) | pass |
+| coat-check | pass | partial: letters 4.3:1 | pass | pass | pass (labelled) | partial: 11 px |
+| surprise-party | pass | pass | pass | fail: wait/undo only | pass (labelled) | pass |
+| geode | partial: reads it, shimmer stays | pass | pass | partial: thermostat only | pass (labelled) | fail: 9.4 px |
 
-Label "partial" for every game but Aqueduct and Wildfire Line (fixed in v4): the canvas has an
-`aria-label` but no `role="img"` (screen readers may skip a label on a
-plain canvas), and most labels say "tap" on a PC. Games with no status
-text in the DOM have no live region, so a screen reader hears nothing
-change; that is a note, not part of the verdict.
+Label: every game passes since the canvas-label batch (2026-10-05; Wildfire
+Line in v4): the main canvas has `role="img"` and a label set at load
+with the game, its verbs and its keys, saying "click" with `(pointer:
+fine)` and "tap" otherwise (the audit's note "says tap on PC" reads the
+phone context, where "tap" is right). The static attribute stays as a
+"tap or click" fallback. Games with no status text in the DOM
+(pressure-grid, aqueduct, counterfeit-scale, coat-check, surprise-party)
+have no live region, so a screen reader hears nothing change; that is a
+note in their open ideas, not part of the verdict.
 
-## Fixed in the gallery (this PR)
+## Fixed in the gallery (audit PR)
 
 - Light theme `--accent` `#0a84c6` → `#006fa6` (3.7:1 → 5.0:1 on the page;
   links, "Updated" pills, the teacher page); `--good` `#1f8a4c` →

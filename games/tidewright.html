@@ -89,7 +89,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="shore" aria-label="Tidewright seawall. Flick to throw sand onto the wall, tap a sluice gate handle to open or shut it."></canvas>
+      <canvas id="shore" role="img" aria-label="Tidewright seawall. Flick to throw sand onto the wall, tap or click a sluice gate handle to open or shut it."></canvas>
       <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
@@ -773,6 +773,13 @@
   newRun();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap';
+  document.getElementById('shore').setAttribute('aria-label', `Tidewright seawall. Flick to throw sand onto the wall, ${t} a sluice gate handle to open or shut it. Keys: ← → pick a column, hold and release Space to throw sand (longer = more), 1 to 4 open or shut a gate.`);
+}
 </script>
 </body>
 </html>

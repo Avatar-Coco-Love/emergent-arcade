@@ -1,6 +1,6 @@
 # Island Census: design notes
 
-**v1** (2026-09-29) · playtest: https://claude.ai/artifact/Tk9dtgZU1XGUsaB1vwFuGW ·
+**v2** (2026-10-05, canvas label; v1 2026-09-29) · playtest: https://claude.ai/artifact/Tk9dtgZU1XGUsaB1vwFuGW ·
 balance: `node scripts/balance-island-census.mjs 300`
 Mechanics: **release** (tap) and **fence** (drag), sharing **rabbits, foxes
 and grass per meadow** on a 7-meadow island. Turn-based: 2 moves per season,
@@ -93,7 +93,7 @@ One `arcade:result` per round, `reason` for a loss (`census` = 3 strikes,
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; HUD text 9.4 px at 360 px wide; meadow colours close for deuteranopia; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): no keyboard play; HUD text 9.4 px at 360 px wide; meadow colours close for deuteranopia.
 - Not hand-played on a real phone yet (only rendered headlessly).
 - Too many foxes (band top 16) almost never triggers: fox totals peak
   around 12–15. It is there so the meter reads as a band, and for the

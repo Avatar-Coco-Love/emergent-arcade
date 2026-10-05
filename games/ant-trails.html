@@ -146,7 +146,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="ground" aria-label="Ant Trails ground. Drag to lay a scent trail, hold to wash scent away."></canvas>
+      <canvas id="ground" role="img" aria-label="Ant Trails ground. Drag to lay a scent trail, hold to wash scent away."></canvas>
       <p id="msg" role="status"></p>
       <p id="bonus"></p>
       <button id="ffBtn" aria-label="Game speed">▶▶ 1×</button>
@@ -1006,6 +1006,13 @@
   newRun();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const h = fine ? 'click and hold' : 'hold';
+  document.getElementById('ground').setAttribute('aria-label', `Ant Trails ground. Drag to lay a scent trail, ${h} to wash scent away. Keys: F fast-forwards (1×, 2×, 3×).`);
+}
 </script>
 </body>
 </html>

@@ -110,7 +110,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="forge" aria-label="Hot Iron forge. Hold to heat the bar under your finger, tap to strike a segment."></canvas>
+      <canvas id="forge" role="img" aria-label="Hot Iron forge. Hold to heat the bar, tap or click to strike a segment."></canvas>
       <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
@@ -733,6 +733,13 @@
   newBar(profile);
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', H = fine ? 'Click and hold' : 'Hold', p = fine ? 'pointer' : 'finger';
+  document.getElementById('forge').setAttribute('aria-label', `Hot Iron forge. ${H} to heat the bar under the ${p}, ${t} to strike a segment.`);
+}
 </script>
 </body>
 </html>

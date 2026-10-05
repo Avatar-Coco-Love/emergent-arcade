@@ -432,7 +432,7 @@ const KEY_COVER = {
   "terrace-garden": ["← → or A / D to tilt", ["tilt"]],
   "bubble-glass": ["← → or A / D to turn the box", ["drag"]],
   "tidewright": ["← → pick a column, hold and release Space to throw sand (longer = more), 1-4 open or shut a gate", ALL],
-  "rail-yard": ["Tab picks a car · 1–9, + − speed · arrows flick · A–D switches · Z undo · H hint · X restart", ALL],
+  "rail-yard": ["Space picks a car (Shift+Space back) · 1–9, + − speed · arrows flick · A–D switches · Z undo · H hint · X restart", ALL],
   "aqueduct": ["← → turn, Space or 1 / 2 shut and open valves, R restart, L levels", ALL],
   "counterfeit-scale": ["Arrows or 1-9 pick a coin, L / R load it, T back to tray, M mark, Space weigh, A accuse, H hint, Esc clear", ALL],
   "coat-check": ["Arrows pick a hook, Enter hangs the coat or opens the door, hold P to peek, Enter for the next shift", ALL],

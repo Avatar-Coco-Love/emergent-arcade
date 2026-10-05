@@ -59,7 +59,7 @@
   <div id="rule"></div>
   <div id="msg"></div>
   <div id="hud"><span id="where"></span><span><span class="x" id="cx"></span> <span class="pk" id="pk"></span></span><span id="coats"></span></div>
-  <div id="wrap"><canvas id="board" aria-label="Coat Check: drag each coat onto a hook, tap the door that holds a guest's coat, hold a door to peek."></canvas></div>
+  <div id="wrap"><canvas id="board" role="img" aria-label="Coat Check: drag each coat onto a hook, tap or click the door that holds a guest's coat, hold a door to peek."></canvas></div>
 
 <script>
 (function() {
@@ -686,6 +686,13 @@
   newRun();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', h = fine ? 'click and hold' : 'hold';
+  document.getElementById('board').setAttribute('aria-label', `Coat Check: drag each coat onto a hook, ${t} the door that holds a guest's coat, ${h} a door to peek. Keys: arrows pick a hook, Enter hangs the coat or opens the door, hold P to peek, Enter for the next shift.`);
+}
 </script>
 </body>
 </html>

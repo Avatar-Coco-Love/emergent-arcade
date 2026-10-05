@@ -1,6 +1,6 @@
 # Tidewright: design notes
 
-**v1** (2026-09-30) · playtest: https://claude.ai/artifact/6y3SvqHNfdbqdzaVQeVuwk (private, republished each push) ·
+**v2** (2026-10-05, canvas label; v1 2026-09-30) · playtest: https://claude.ai/artifact/6y3SvqHNfdbqdzaVQeVuwk (private, republished each push) ·
 balance: `node scripts/balance-tidewright.mjs 200`
 Verbs: **shore up** (flick) and **sluice** (tap), sharing **wall height `H`
 and standing water `W` per column** (32 columns). Endless: seasons of 6
@@ -106,7 +106,7 @@ None yet.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): labels 8.5 px, "flood" at 1.3:1; red sluice handles merge with the wall for protanopia; ignores reduced motion; canvas `role="img"`.
+- Accessibility (`docs/accessibility.md`, 2026-10-05): labels 8.5 px, "flood" at 1.3:1; red sluice handles merge with the wall for protanopia; ignores reduced motion.
 - Novice target (see Balance); watch `reason` and `whiffs` in telemetry.
 - The skilled bot's death is 85% `seep` (events it can't drain through);
   a human who pre-builds before springs may go further. Late waves are

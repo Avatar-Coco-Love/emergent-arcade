@@ -110,7 +110,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="table" aria-label="Loom. Drag a knot to pull the cloth, tap a knot to pin it."></canvas>
+      <canvas id="table" role="img" aria-label="Loom. Drag a knot to pull the cloth, tap or click a knot to pin it."></canvas>
       <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
@@ -750,6 +750,13 @@
   newRun();
   requestAnimationFrame(frame);
 })();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap';
+  document.getElementById('table').setAttribute('aria-label', `Loom. Drag a knot to pull the cloth, ${t} a knot to pin it.`);
+}
 </script>
 </body>
 </html>
