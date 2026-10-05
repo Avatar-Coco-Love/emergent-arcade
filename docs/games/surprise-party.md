@@ -129,7 +129,7 @@ pool (season: envelopes left).
 
 ## Open ideas / known limits
 
-- Accessibility: done in v4 (above). Not checked with a real screen reader
+- Accessibility: done in v4 (above, PR #105). Not checked with a real screen reader
   or colour-blind player; are row/column positions enough on big houses?
 - Novice (no undo, random slips) after 2 wrong taps: chapter 3 median 29%
   (3-4 *Long way round* 14%). Undo and the spoil warning are the safety net;
