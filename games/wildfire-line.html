@@ -57,13 +57,17 @@
     top: 10px;
     left: 8px;
     right: 60px;
-    margin: 0;
+    width: fit-content;
+    margin: 0 auto;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(21, 16, 13, 0.82); /* readable over bright fire and grass alike */
     text-align: center;
     font-size: 0.85rem;
     color: #fff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     pointer-events: none;
   }
+  #msg:empty { display: none; }
   #endCard {
     position: absolute;
     left: 50%;
@@ -122,7 +126,7 @@
 <body>
   <div id="field">
     <div id="stage">
-      <canvas id="meadow" aria-label="Wildfire Line meadow. Drag to cut a firebreak, tap to light a backburn."></canvas>
+      <canvas id="meadow" role="img" aria-label="Wildfire Line meadow. Drag to cut a firebreak, tap or click to light a backburn."></canvas>
       <p id="msg" role="status"></p>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
@@ -187,6 +191,8 @@
   const TAP_MS = 300;              // a press released this soon without moving is a tap
   const MOVE_PX = 10;              // moving further than this first starts a cut
   const END_INPUT_LOCK_MS = 1000;
+  const KEY_SPEED = 150;           // keyboard cursor speed (px/s) once an arrow is held
+  const KEY_HOLD_S = 0.25;         // an arrow held this long starts moving continuously
   const STEP = 1 / 60;
 
   // Cell kinds and fire states
@@ -241,7 +247,7 @@
   // The gallery pauses the game while one of its panels covers it.
   let paused = false;
   window.addEventListener('message', evt => {
-    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; endGesture(); }
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; endGesture(); arrows.clear(); }
     if (evt.data && evt.data.type === 'arcade:resume') paused = false;
   });
 
@@ -374,7 +380,8 @@
       : '';
     playAgainBtn.disabled = true;
     endCard.hidden = false;
-    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    kb.cutting = false;
+    setTimeout(() => { playAgainBtn.disabled = false; if (kb.on) playAgainBtn.focus(); }, END_INPUT_LOCK_MS);
   }
 
   function clock(sec) {
@@ -549,9 +556,11 @@
   const gctx = ground.getContext('2d');
   gctx.scale(GS, GS);
 
+  const BURN_GROUND = '#ffc260'; // lightness 83: well above grass (53-70), ash (16), cut earth (27)
+
   function grassColor(f) {
-    const t = Math.min(1, Math.max(0, (f - 0.2) / 0.8)); // straw -> deep olive
-    return `rgb(${Math.round(206 - 104 * t)},${Math.round(182 - 44 * t)},${Math.round(104 - 50 * t)})`;
+    const t = Math.min(1, Math.max(0, (f - 0.2) / 0.8)); // straw -> deep olive (lightness 70 -> 53)
+    return `rgb(${Math.round(196 - 94 * t)},${Math.round(174 - 36 * t)},${Math.round(98 - 44 * t)})`;
   }
 
   function paintMeadow() {
@@ -591,16 +600,18 @@
   function paintCell(i) {
     const x = (i % GW) * CELL + CELL / 2, y = Math.floor(i / GW) * CELL + CELL / 2;
     const jx = (Math.random() - 0.5) * 3, jy = (Math.random() - 0.5) * 3;
+    // Told apart by lightness, not hue (colour-blind players): ash darkest,
+    // cut earth dark with pale furrows, grass mid, burning ground brightest.
     if (cut[i]) {
-      gctx.fillStyle = '#80603f';
+      gctx.fillStyle = '#4f3b28';
       gctx.beginPath(); gctx.arc(x + jx, y + jy, 7.2, 0, Math.PI * 2); gctx.fill();
-      gctx.strokeStyle = 'rgba(60,40,24,0.55)';
-      gctx.lineWidth = 0.8;
+      gctx.strokeStyle = 'rgba(196,164,120,0.7)';
+      gctx.lineWidth = 1;
       gctx.beginPath();
       for (let k = -1; k <= 1; k++) { gctx.moveTo(x - 4, y + k * 3); gctx.lineTo(x + 4, y + k * 3 + 1); }
       gctx.stroke();
     } else if (fire[i] === BURNING) {
-      gctx.fillStyle = '#4a3522';
+      gctx.fillStyle = BURN_GROUND;
       gctx.beginPath(); gctx.arc(x + jx, y + jy, 7, 0, Math.PI * 2); gctx.fill();
     } else if (fire[i] === ASH) {
       gctx.fillStyle = origin[i] === WILD ? '#2c2622' : '#352c26';
@@ -612,6 +623,12 @@
 
   const smoke = [], sparks = [];
   let lastDraw = performance.now();
+
+  // Reduced motion: no flicker, no drifting smoke, a steady wind warning.
+  // The fire still spreads (that's the game).
+  const motionMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let reduced = motionMq.matches;
+  motionMq.addEventListener('change', e => { reduced = e.matches; if (reduced) smoke.length = 0; });
 
   function drawHouse(h) {
     ctx.save();
@@ -667,7 +684,7 @@
     ctx.arc(cx, cy, r + 1, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, left / WIND_EVERY));
     ctx.stroke();
     if (warn && state === 'playing') {
-      const blink = 0.45 + 0.35 * Math.sin(performance.now() / 120);
+      const blink = reduced ? 0.75 : 0.45 + 0.35 * Math.sin(performance.now() / 120);
       drawArrow(cx, cy, wind.next, 13, `rgba(255,140,110,${blink})`, true);
     }
     drawArrow(cx, cy, wind.heading, 13, '#fff7ea', false);
@@ -681,20 +698,38 @@
     ctx.setTransform(k, 0, 0, k, 0, 0);
     ctx.drawImage(ground, 0, 0, W, H);
 
-    // Flames: additive glow, flickering, shrinking as each cell burns down.
+    // Smoke drifts downwind, grows and fades. It goes under the fire, so it
+    // dims grass and ash but never darkens burning ground to grass lightness.
+    for (let s = smoke.length - 1; s >= 0; s--) {
+      const p = smoke[s];
+      if (live) { p.x += p.vx * fdt; p.y += p.vy * fdt; p.r += 7 * fdt; p.a -= 0.12 * fdt; }
+      if (p.a <= 0) { smoke.splice(s, 1); continue; }
+      ctx.fillStyle = `rgba(70,64,60,${p.a})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = BURN_GROUND;
+    for (let i = 0; i < N; i++) {
+      if (fire[i] !== BURNING) continue;
+      ctx.beginPath(); ctx.arc((i % GW) * CELL + CELL / 2, Math.floor(i / GW) * CELL + CELL / 2, 7, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Flames: additive glow over the bright burning ground, flickering, the
+    // core shrinking as each cell burns down. The glow stays inside the
+    // burning ground: an orange halo on olive grass is what colour-blind
+    // players couldn't tell from grass.
     ctx.globalCompositeOperation = 'lighter';
     const tt = now / 1000;
     const wx = Math.cos(wind.heading), wy = Math.sin(wind.heading);
     for (let i = 0; i < N; i++) {
       if (fire[i] !== BURNING) continue;
       const x = (i % GW) * CELL + CELL / 2, y = Math.floor(i / GW) * CELL + CELL / 2;
-      const life = burnLeft[i] / burnTot[i], fl = 0.75 + 0.25 * Math.sin(tt * 17 + i * 1.7);
+      const life = burnLeft[i] / burnTot[i], fl = reduced ? 0.85 : 0.75 + 0.25 * Math.sin(tt * 17 + i * 1.7);
       const lean = 2.5 * fl;
-      ctx.fillStyle = origin[i] === WILD ? `rgba(255,80,20,${0.28 * fl})` : `rgba(255,110,60,${0.24 * fl})`;
-      ctx.beginPath(); ctx.arc(x + wx * lean, y + wy * lean, 8 + 5 * heat0[i], 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = `rgba(255,190,70,${0.5 * fl * (0.4 + 0.6 * life)})`;
-      ctx.beginPath(); ctx.arc(x + wx * lean * 1.6, y + wy * lean * 1.6, 2.5 + 3.5 * life * heat0[i], 0, Math.PI * 2); ctx.fill();
-      if (live && smoke.length < 140 && Math.random() < 0.9 * fdt) {
+      ctx.fillStyle = origin[i] === WILD ? `rgba(255,80,20,${0.3 * fl})` : `rgba(255,110,60,${0.26 * fl})`;
+      ctx.beginPath(); ctx.arc(x + wx * lean * 0.4, y + wy * lean * 0.4, 4.5 + 1.5 * heat0[i], 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(255,230,170,${0.6 * fl * (0.4 + 0.6 * life)})`;
+      ctx.beginPath(); ctx.arc(x + wx * lean * 0.6, y + wy * lean * 0.6, 2 + 3 * life * heat0[i], 0, Math.PI * 2); ctx.fill();
+      if (live && !reduced && smoke.length < 140 && Math.random() < 0.9 * fdt) {
         smoke.push({ x, y, r: 4, a: 0.35, vx: wx * 18 + (Math.random() - 0.5) * 6, vy: wy * 18 + (Math.random() - 0.5) * 6 });
       }
     }
@@ -708,14 +743,6 @@
 
     for (const h of houses) drawHouse(h);
 
-    // Smoke drifts downwind, grows and fades.
-    for (let s = smoke.length - 1; s >= 0; s--) {
-      const p = smoke[s];
-      if (live) { p.x += p.vx * fdt; p.y += p.vy * fdt; p.r += 7 * fdt; p.a -= 0.12 * fdt; }
-      if (p.a <= 0) { smoke.splice(s, 1); continue; }
-      ctx.fillStyle = `rgba(70,64,60,${p.a})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-    }
 
     // Where the torch last lit, a fading ring that refills with the cooldown.
     if (lastTorch && torchCool > 0) {
@@ -734,6 +761,7 @@
     ctx.fillRect(0, 0, W, H);
 
     drawWind();
+    drawCursor();
 
     const standing = houses.filter(h => !h.burnt).length;
     hudHouses.textContent = `${standing}/4`;
@@ -758,6 +786,7 @@
   canvas.addEventListener('pointerdown', evt => {
     evt.preventDefault();
     if (state !== 'playing' || paused || mode) return;
+    kb.on = kb.cutting = false;
     canvas.setPointerCapture(evt.pointerId);
     activeId = evt.pointerId;
     mode = 'pending';
@@ -788,11 +817,103 @@
   document.getElementById('resetBtn').addEventListener('click', newRound);
   playAgainBtn.addEventListener('click', newRound);
 
+  // § keyboard
+  // A cursor moved with the arrows (one cell per press, smooth when held).
+  // Space toggles cutting: while it's on, the cursor cuts a firebreak along
+  // its path. Enter lights a backburn at the cursor. Tab stays the browser's,
+  // so keyboard players can leave the gallery's frame; Space and Enter on a
+  // focused button press the button.
+  const kb = { x: W / 2, y: 420, on: false, cutting: false, held: 0 };
+  const arrows = new Set();
+  const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+
+  function moveCursor(dx, dy) {
+    const x = Math.min(W - 1, Math.max(1, kb.x + dx)), y = Math.min(H - 1, Math.max(1, kb.y + dy));
+    if (kb.cutting) cutLine(kb.x, kb.y, x, y);
+    kb.x = x; kb.y = y;
+  }
+  function keyDir() {
+    let dx = 0, dy = 0;
+    for (const k of arrows) { dx += ARROWS[k][0]; dy += ARROWS[k][1]; }
+    return [dx, dy];
+  }
+  function keyMove(dt) {
+    if (!arrows.size || state !== 'playing' || paused) return;
+    kb.held += dt;
+    if (kb.held < KEY_HOLD_S) return;
+    const [dx, dy] = keyDir(), l = Math.hypot(dx, dy);
+    if (l) moveCursor(dx / l * KEY_SPEED * dt, dy / l * KEY_SPEED * dt);
+  }
+
+  window.addEventListener('keydown', evt => {
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    if (ARROWS[evt.code]) {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (evt.repeat || state !== 'playing' || paused) return;
+      kb.on = true;
+      arrows.add(evt.code);
+      kb.held = 0;
+      const [dx, dy] = ARROWS[evt.code];
+      moveCursor(dx * CELL, dy * CELL);
+      return;
+    }
+    if (onButton || state !== 'playing' || paused) return;
+    if (evt.code === 'Space') {
+      evt.preventDefault();
+      if (evt.repeat) return;
+      kb.on = true;
+      kb.cutting = !kb.cutting;
+      if (kb.cutting) { say('Cutting: move with the arrows. Space to stop.'); cutLine(kb.x, kb.y, kb.x, kb.y); }
+      else say('Stopped cutting.');
+    } else if (evt.code === 'Enter') {
+      evt.preventDefault();
+      if (evt.repeat) return;
+      kb.on = true;
+      if (!backburn(kb.x, kb.y) && torchCool <= 0) say('Nothing here will catch.');
+    } else if (evt.code === 'Escape' && kb.cutting) {
+      kb.cutting = false;
+      say('Stopped cutting.');
+    }
+  });
+  window.addEventListener('keyup', evt => { arrows.delete(evt.code); });
+  window.addEventListener('blur', () => arrows.clear());
+
+  function drawCursor() {
+    if (!kb.on || state !== 'playing') return;
+    ctx.save();
+    ctx.translate(kb.x, kb.y);
+    // Dark under light, so it shows on bright fire and dark ash alike.
+    for (const [w, c] of [[4, 'rgba(0,0,0,0.75)'], [2, '#ffffff']]) {
+      ctx.strokeStyle = c; ctx.lineWidth = w;
+      if (kb.cutting) {
+        // Cutting: a square on the cell being cleared.
+        const cx = Math.floor(kb.x / CELL) * CELL - kb.x, cy = Math.floor(kb.y / CELL) * CELL - kb.y;
+        ctx.strokeRect(cx - 1, cy - 1, CELL + 2, CELL + 2);
+      } else {
+        // Backburn: the torch's reach, and a cross at its center.
+        ctx.setLineDash(torchCool > 0 ? [3, 4] : []);
+        ctx.beginPath(); ctx.arc(0, 0, TORCH_R, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.moveTo(0, -5); ctx.lineTo(0, 5); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // The canvas label names both verbs, with the word for this device.
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  canvas.setAttribute('aria-label', `Wildfire Line meadow. Drag to cut a firebreak, ${fine ? 'click' : 'tap'} to light a backburn. ` +
+    'Keys: arrows move a cursor, Space starts or stops cutting along its path, Enter lights a backburn at the cursor.');
+
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   function frame(now) {
-    acc += Math.min((now - last) / 1000, 0.1);
+    const dt = Math.min((now - last) / 1000, 0.1);
+    acc += dt;
     last = now;
+    keyMove(dt);
     while (acc >= STEP) {
       if (state === 'playing' && !paused) step(STEP);
       acc -= STEP;

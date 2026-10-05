@@ -440,10 +440,15 @@
       "id": "wildfire-line",
       "title": "Wildfire Line",
       "file": "wildfire-line.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-09-27",
-      "updated": "2026-09-28",
+      "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 4,
+          "date": "2026-10-05",
+          "text": "Easier to see and play for more people: burning, burnt, cut and grassy ground now differ in brightness (colour-blind safe), keys play both verbs, and the fire stops flickering and smoking when your device asks for reduced motion. Same balance."
+        },
         {
           "version": 3,
           "date": "2026-09-28",
@@ -475,6 +480,7 @@
           "description": "{Tap} to light a small fire that burns up grass ahead of the main fire. Free, with a short cooldown, but it spreads with the wind like any fire."
         }
       ],
+      "keyboard": "Arrows move the cursor · Space starts or stops cutting along its path · Enter lights a backburn at the cursor",
       "sharedState": "Fuel (grass) per patch of ground: cutting removes it and costs stamina by how much there is, backburns and the main fire burn it to ash, and fire can only spread, and only spreads fast, where fuel is left.",
       "topics": ["contagion"],
       "accent": "#e2483d",

@@ -37,7 +37,7 @@ with what the audit's taps started; "ignores the setting" is the finding.
 | classroom note | pass | pass | pass | pass | pass | pass |
 | murmuration | partial: ignores it, flock moves | partial: counter 3.5:1 | pass | fail: none | partial | partial: 10 px |
 | orbit-garden | pass | pass | pass | fail: none | partial | pass |
-| wildfire-line | fail: ignores it | pass | fail: fire glow ≈ grass (deutan) | fail: none | partial | pass |
+| wildfire-line | pass (v4) | pass | pass (v4: lightness bands) | pass (v4: cursor) | pass (v4) | pass |
 | ant-trails | partial: ignores it | pass | pass | fail: fast-forward only | partial | partial: 11.5 px |
 | hourglass-delivery | partial: ignores it | pass | pass | fail: none | partial | pass |
 | hot-iron | pass | pass | pass | fail: none | partial | pass |
@@ -56,7 +56,7 @@ with what the audit's taps started; "ignores the setting" is the finding.
 | surprise-party | pass | pass | pass | fail: wait/undo only | partial: no verbs | pass |
 | geode | partial: reads it, shimmer stays | pass | pass | partial: thermostat only | partial | fail: 9.4 px |
 
-Label "partial" for every game but Aqueduct: the canvas has an
+Label "partial" for every game but Aqueduct and Wildfire Line (fixed in v4): the canvas has an
 `aria-label` but no `role="img"` (screen readers may skip a label on a
 plain canvas), and most labels say "tap" on a PC. Games with no status
 text in the DOM have no live region, so a screen reader hears nothing

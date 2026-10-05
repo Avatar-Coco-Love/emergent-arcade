@@ -1,6 +1,6 @@
 # Wildfire Line: design notes
 
-**v3** (2026-09-28) · playtest: https://claude.ai/artifact/RDdeAFsaKo3n12JnTu1SCW ·
+**v4** (2026-10-05, accessibility; v3 2026-09-28 balance) · playtest: https://claude.ai/artifact/RDdeAFsaKo3n12JnTu1SCW ·
 balance: `node scripts/balance-wildfire-line.mjs 300`
 Mechanics: **cut** (drag) and **backburn** (tap), sharing **fuel per ground
 cell** (40×60 grid, 10 px cells, 0–1). Win: the fire burns out with at least 3
@@ -43,7 +43,39 @@ of 4 houses standing. Lose: a second house burns (the round ends at once).
 - Backburn: lights every fresh cell with fuel within `TORCH_R` px, then
   starts a `TORCH_COOL` s cooldown (only if something caught).
 - Input: moving more than 10 px is a cut. A release within 300 ms without
-  moving is a backburn at the press point.
+  moving is a backburn at the press point. Keys (v4): arrows move a cursor
+  (one cell per press, `KEY_SPEED` 150 px/s after `KEY_HOLD_S` 0.25 s held);
+  Space toggles cutting along the cursor's path (a toggle, not a hold, so
+  one key at a time is enough); Enter backburns at the cursor; Esc stops
+  cutting. Tab is never taken; Space/Enter on a focused button press it.
+  When a round ends, a keyboard player's focus goes to Play again.
+
+## Accessibility (v4, `node scripts/a11y-audit.mjs wildfire-line`: all 6 pass)
+
+Ground states differ by lightness (Lab L), not hue, so they hold under
+deuteranopia/protanopia:
+
+| state | colour | L |
+|---|---|---|
+| ash | `#2c2622` / `#352c26` + speckles | 16 |
+| cut earth | `#4f3b28` + pale furrows (pattern) | 27 |
+| grass | straw `rgb(196,174,98)` → olive `rgb(102,138,54)` | 70 → 53 |
+| burning | `BURN_GROUND` `#ffc260`, flame glow on top | 83+ |
+
+Two effects used to carry one state's lightness into another's band:
+the flame halo (orange `lighter` glow up to 13 px, tinting grass) and
+smoke drawn over the fire (darkening burning ground to grass lightness).
+Now the glow stays inside the burning disk and smoke is drawn under the
+burning ground (it only dims grass and ash). Colour passed 8/8 random
+meadows after that; 1 of 4 before the smoke fix.
+
+- Reduced motion: no flicker (`fl` fixed at 0.85), no smoke, a steady
+  wind-warning arrow. The fire still spreads and sparks still fly.
+- Canvas `role="img"`; label set at load: "click" with `(pointer: fine)`,
+  "tap" otherwise, plus the keys. `#msg` (`role="status"`) has a dark
+  backing (white over grass was 3.1:1).
+- Render calls to `Math.random` are unchanged in number, so the seeded
+  balance bots reproduce v3 exactly.
 
 
 ## Key constants (`games/wildfire-line.html`, top of the script)
@@ -97,7 +129,10 @@ v3 raises the bar to 125.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): the fire's orange glow on grass and plain olive grass merge for deuteranopia (where is it burning?); no keyboard play; ignores reduced motion; canvas `role="img"`.
+- Accessibility left: no screen-reader narration of the fire (where it
+  is, houses under heat); only `#msg` messages are announced. The colour
+  audit sees the first ~20 s; a late round (mostly ash) is unchecked.
+  Keyboard play is untested by people; the cursor speed may want tuning.
 - Input takes only the first pointer down, so a resting palm or finger
   can't add strokes.
 - Hold the Line counts expected main-fire spread attempts into cut ground

@@ -235,3 +235,15 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   yellow vs grey stars) merges for colour-blind players: add lightness or
   shape. *Colour ramps that carry state merge for colour-blind players.*
   audit.
+- Give each state its own lightness band, then check the effects: a glow
+  halo or smoke laid over one state carries it into another's band
+  (Wildfire Line: smoke over fire = grass lightness). Draw dimming layers
+  under the brightest state, keep glows inside it, and audit several
+  random seeds (one pass can be luck). *Effects carry a state into
+  another's lightness band.* Wildfire Line. audit.
+- Keyboard pattern for point and path verbs: an arrow-key cursor, a
+  toggle key for the path verb (no chords), Enter for the point verb.
+  Keys call the same functions as the pointer, so balance can't move;
+  keep render `Math.random` calls equal and seeded bots reproduce
+  exactly. *A cursor gives point and path verbs a key path.* Wildfire
+  Line. audit + bots.
