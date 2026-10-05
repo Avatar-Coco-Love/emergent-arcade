@@ -118,7 +118,9 @@ screens (every band on the bar, 2 cracks, flows, cursor, hint showing).
   with sparks hidden (3 runs): the rest is the bar cooling and burning.
 - `#msg` on a dark backing; no canvas text. DOM text 13.6 px+, 6.9:1+.
 - Bots identical to v5 (21 bots × 200 runs; old file twice first).
-- KEYS_RESULT
+- Keys-only bot (live region only, strikes when the words say ready): 0
+  cracks in 122 blows; Double taper forged (236 s, Clean Work), Chisel
+  lost to fuel at 15/16.
 
 ## Player data
 

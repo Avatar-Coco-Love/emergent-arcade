@@ -1116,3 +1116,43 @@ scratch dir), twice, identical, then identical to v8 (200 runs × 13 bots).
 *Evidence: keys-only playthrough (desktop, keys only); idle diff with 2
 blooming × old/new × normal/reduced × planets hidden, 3 runs; audit 3/3
 plus 2/2 on two scripted late rounds; balance old×2 and new identical.*
+
+## A band's step belongs on the rule's line, not near it
+
+Hot Iron v6 (2026-10-05). Hot Iron's only temperature display is colour,
+and its v3 telemetry said players couldn't tell dull red (a blow cracks)
+from cherry (a blow works): ~40% of blows cracked. v4 narrowed the band and
+added hammer marks, and the audit's colour cell passed. But the ramp's
+steepest step ran over 0.37–0.40 while the rule's line (`T_WORK`) is 0.38,
+so the two sides of the line differed by about 1 L*: the brightening
+started before the line and finished after it. The audit could not see this.
+It compares the screen's main colours for merges, and v5 and v6 both passed
+it on the same scripted late screen (every band on the bar). v6 puts the
+step on the line (dull red L* 28 up to 0.38, cherry 50 from just above
+it) and gives every band a mark above the segment: none (black), a grey
+crack (dull red), the gold hammer (working), hammer + flame (white-hot).
+Black vs dull red stays close in lightness (18 vs 21); the crack mark carries it,
+and neither band should be struck.
+
+The motion pass was a state pass too. Sparks from a blow live under a
+second (0.00% idle 6.5 s later, any setting), but a white-hot segment
+throws sparks every frame while it burns: 0.18% idle, still under the
+audit's line, with the old file drawing them regardless of the setting.
+v6 draws no sparks or shake under reduced motion (their `Math.random`
+calls stay, so 21 bots × 200 seeds match v5 exactly): 0.11%, the same
+as with sparks hidden, which is the bar itself cooling and burning.
+
+Keys: a segment cursor with a half-step onto seams (heat there warms
+both neighbours, the thickening move), hold Space heats, Enter strikes.
+The live region gives the band in words, thickness against the outline,
+and the flow preview ("A blow sends 70% of its metal left"), and announces
+a band change on the cursor's segment ("now cherry, ready to strike"). A
+keys-only bot reading only those words struck 122 times with 0 cracks:
+the words are the hammer marks. It won one round (Double taper, 236 s) and
+lost one to fuel at 15 of 16.
+
+*Evidence: L* of the ramp at the line, v5 vs v6; audit colour on 2
+scripted late screens, old and new; hot-bar idle diff normal/reduced ×
+sparks/glow hidden, 3 runs; balance old×2 and new identical; keys-only
+bot, 2 rounds.*
+
