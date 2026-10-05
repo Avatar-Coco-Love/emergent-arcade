@@ -46,7 +46,7 @@ with what the audit's taps started; "ignores the setting" is the finding.
 | loom | pass | pass | pass | fail: none | pass (labelled) | pass |
 | terrace-garden | fail: ignores it | pass | pass | partial: tilt, not gates | pass (labelled) | pass |
 | tidewright | pass (v3: reads it) | pass (v3: backings) | pass (v3: shape + lightness) | pass | pass (labelled) | pass (v3) |
-| pressure-grid | pass | fail: cell numbers 2.0:1 | pass | fail: undo/restart only | pass (labelled) | pass |
+| pressure-grid | pass | pass (v11: lightness bands) | pass | pass (v11: cursor, S pours) | pass (v11, live region) | pass (v11) |
 | rail-yard | pass | pass | pass | pass (v3: Space picks a car) | pass (labelled) | partial: 11.5 px |
 | aqueduct | pass | pass | pass | pass | pass (labelled) | pass |
 | bubble-glass | partial: ignores it | pass | pass | partial: turn only | pass (labelled) | pass |
@@ -63,8 +63,8 @@ with the game, its verbs and its keys, saying "click" with `(pointer:
 fine)` and "tap" otherwise (the audit's note "says tap on PC" reads the
 phone context, where "tap" is right). The static attribute stays as a
 "tap or click" fallback. Games with no status text in the DOM
-(pressure-grid, aqueduct, counterfeit-scale, coat-check, surprise-party)
-have no live region, so a screen reader hears nothing change; that is a
+(aqueduct, counterfeit-scale, coat-check, surprise-party; Pressure Grid
+has one since v11) have no live region, so a screen reader hears nothing change; that is a
 note in their open ideas, not part of the verdict.
 
 ## Fixed in the gallery (audit PR)

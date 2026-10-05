@@ -264,3 +264,17 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   neighbour (near-black rim, pale face), and check decoration too (red
   roofs on grass vanished). Shape (+ vs ×) carries open/shut on its own.
   *A hue fix moves the merge to the next neighbour.* Tidewright v3. audit.
+- A smooth dark-to-bright ramp under numbers crosses the zone where
+  neither white nor black ink reaches 4.5:1 (luminance ≈ 0.18, best
+  4.6:1). Split the ramp at a rule threshold instead: Pressure Grid's 0-7
+  stay dark with white numbers, 8+ (near burst) jump to bright amber with
+  dark numbers, so every value is 6.3:1+ and "about to burst" reads by
+  lightness for colour-blind players too. *A lightness ramp under text
+  needs a jump, not a slope.* Pressure Grid v11. audit.
+- A turn-based live region can be written from the move's result, not the
+  screen: `play()` already returns waves, leaks and rings hit, so one line
+  per move ("Poured 7 left, now 10. 2 cells burst in a chain of 2 waves.
+  1 ring left.") plus one per cursor step. Event-driven draws can paint
+  twice in one frame; the audit then reads the stale first paint, so mark
+  dirty and paint once per frame. *A turn-based game's live region comes
+  from its move result.* Pressure Grid v11. audit + keys-only playthrough.

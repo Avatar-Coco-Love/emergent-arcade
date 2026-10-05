@@ -12,7 +12,7 @@ the games, not just play them.
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
-| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
+| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
@@ -83,7 +83,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - loom: no keyboard play.
 - terrace-garden: keys tilt but can't work the gates; ignores reduced motion.
 - tidewright: done (v3, 2026-10-05): labels 12 px+ on backings, handles told apart by lightness and shape, a surface line on water, reduced motion read (`docs/games/tidewright.md`, "Accessibility").
-- pressure-grid: keys only undo/restart/next; cell numbers 2.0:1; no live region.
+- pressure-grid: done (v11, 2026-10-05): cells in two lightness bands (numbers 6.3:1+), labels on backings, a keyboard cursor (Enter pumps, S then an arrow aims a pour), a live region that says what each move did (`docs/games/pressure-grid.md`, "Accessibility").
 - rail-yard: "Run 0" 11.5 px. (Tab freed in v3: Space picks a car.)
 - aqueduct: no live region.
 - bubble-glass: keys turn the box only; ignores reduced motion (small).
@@ -233,7 +233,7 @@ Revise Tidewright for accessibility (docs/accessibility.md, its row; docs/ideas/
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Pressure Grid accessibility revision (prompt below)
+## Prompt used for the Pressure Grid accessibility revision (done, v11)
 
 Chosen 2026-10-05, after Tidewright v3. Still no classroom reports (0),
 so 3 vs 4 keeps waiting on what teachers ask for. Pressure Grid now has
@@ -257,6 +257,33 @@ Revise Pressure Grid for accessibility (docs/accessibility.md, its row; docs/ide
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs pressure-grid, node scripts/balance-pressure-grid.mjs and node scripts/playthrough-pressure-grid.mjs (balance must not move: same constants and levels), node scripts/a11y-audit.mjs pressure-grid (all six pass). Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/pressure-grid.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/pressure-grid.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md. Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Island Census accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Pressure Grid v11. Still no classroom reports
+(0), so 3 vs 4 keeps waiting on what teachers ask for. Island Census now
+has the most serious row left: no keyboard play (tap a meadow, drag a
+fence), HUD text 9.4 px (fail) and meadow colours close for deuteranopia
+(partial). Its verbs are a point and a path between cells, the Pressure
+Grid pattern (cursor, Enter, a key then an arrow).
+
+```
+Revise Island Census for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: both verbs on keys, a readable HUD, meadows told apart without hue. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/island-census.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A cursor gives point and path verbs a key path", "A picker key must leave Tab and focused buttons alone", "A lightness ramp under text needs a jump, not a slope", "A hue fix moves the merge to the next neighbour" and "Canvas text shrinks with the board"), docs/games/pressure-grid.md and docs/games/wildfire-line.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game island-census. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Text and contrast: the HUD (9.4 px at 360 px wide) and every other canvas label at least 12 CSS px at 360 px wide (size from the CSS width, Tidewright's fs()), 4.5:1 against what is behind it (backings where text sits over the map). Check with node scripts/a11y-audit.mjs island-census: contrast and text must pass.
+
+3. Colour: meadows (and rabbit/fox marks, fences, strikes) told apart by lightness or shape, not hue (the audit flags meadow colours for deuteranopia, borderline). Colour must pass on several runs. Screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+4. Keyboard: both verbs without a pointer: an arrow-key cursor over the meadows, Enter/Space releases rabbits into the meadow under it, and a key path for fencing (e.g. F, then an arrow picks the path to a neighbouring meadow; F on a fenced path takes it down; no chords). Keys call the same functions as the pointer. Tab stays free; Space/Enter on a focused button press the button. A live region (role="status") says what each key and move did (meadow and its counts under the cursor, rabbits released, fence up/down, season results), short and not on every frame. Update the keyboard line in the manifest, the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs island-census, node scripts/balance-island-census.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly), node scripts/a11y-audit.mjs island-census (all six pass). Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/island-census.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/island-census.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```

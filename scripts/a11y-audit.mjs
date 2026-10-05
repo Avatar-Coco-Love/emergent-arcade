@@ -427,7 +427,7 @@ const VERB_WORDS = { tap: /\b(tap|click|press)/i, drag: /\b(drag|draw|pull|slide
 // the keyboard check says "recheck" until this table is updated.
 const ALL = "all";
 const KEY_COVER = {
-  "pressure-grid": ["Z undo · R restart · N next level", []],
+  "pressure-grid": ["Arrows move · Enter/Space pump · S then an arrow aims a pour, Enter pours · Z undo · R restart · N next level", ALL],
   "ant-trails": ["F to fast-forward (1×, 2×, 3×)", []],
   "terrace-garden": ["← → or A / D to tilt", ["tilt"]],
   "bubble-glass": ["← → or A / D to turn the box", ["drag"]],

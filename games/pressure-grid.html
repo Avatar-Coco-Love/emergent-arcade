@@ -94,15 +94,18 @@
   }
   #board { display: block; touch-action: none; }
   .stat { color: var(--muted); font-size: 0.8rem; text-align: center; }
+  /* The live region: read by screen readers, not shown. */
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
 <body>
   <div class="bar" id="levels"></div>
   <div id="boardWrap">
-    <canvas id="board" role="img" aria-label="Pressure Grid board. Tap or click a cell to pump, drag to a neighbour to siphon."></canvas>
+    <canvas id="board" role="img" aria-label="Pressure Grid board. Tap or click a cell to pump, drag to a neighbour to siphon. Keys: arrows move a cursor, Enter pumps, S then an arrow aims a pour."></canvas>
   </div>
   <div id="msg"></div>
   <div class="stat" id="stat"></div>
+  <div class="sr" id="say" role="status" aria-live="polite"></div>
   <div class="bar">
     <button id="undoBtn">Undo</button>
     <button id="restartBtn">Restart</button>
@@ -311,13 +314,17 @@
   let cur = 0, L, st, moves, siphons, maxChain, undos, restarts, history, done, playMs;
   let anim = null;            // { frames, waves, leaks, t } while an eruption plays out
   let last = performance.now();
+  // Keyboard cursor: on once a key moves it; siphon = aiming a pour (dir: 0-3 as pourDir, -1 none).
+  const kb = { on: false, cell: 0, siphon: false, dir: -1 };
 
   function loadLevel(i) {
     cur = i; L = parseLevel(LEVELS[i]);
     st = startState(L); moves = 0; siphons = 0; maxChain = 0; undos = 0; restarts = 0;
     history = []; done = false; playMs = 0; anim = null;
+    kb.cell = L.targets[0] || 0; kb.siphon = false; kb.dir = -1;
     attempts[i]++;
     fitBoard(); renderLevels(); renderUI();
+    say(`Level ${i + 1}, ${LEVELS[i].name}. ${words(LEVELS[i].hint).replace(/<[^>]*>/g, '')}`);
   }
   function snapshot() { return { st, moves, siphons, maxChain, done }; }
   function restore(s) { ({ st, moves, siphons, maxChain, done } = s); anim = null; }
@@ -339,6 +346,7 @@
     if (burst >= 3) unlock('chain-reaction');
     if (r.waves.some(w => w.some(i => L.kind[i] === SEALED && L.valve[i] < 0))) unlock('unsealed');
     if (r.waves.length || r.leaks.length || r.drips.length) anim = { frames: r.frames, waves: r.waves, leaks: r.leaks, drips: r.drips, t: 0 };
+    const said = moveWords(move, r, history[history.length - 1].st);
     if (solved(L, st)) {
       done = true;
       const s = stars(LEVELS[cur].par, moves);
@@ -347,18 +355,59 @@
       if (LEVELS.every((_, i) => best[i] === 3)) unlock('all-stars');
       postResult();
       renderLevels();
-    }
+      kb.siphon = false;
+      say(`${said} Solved in ${moves} moves, ${s} star${s > 1 ? 's' : ''}.${cur + 1 < LEVELS.length ? ' N for the next level.' : ''}`);
+    } else say(said);
     renderUI();
   }
   function undo() {
     if (!history.length || paused) return;
-    restore(history.pop()); undos++; renderUI();
+    restore(history.pop()); undos++; kb.siphon = false; renderUI();
+    say(`Undone. Moves ${moves}.`);
   }
   function restart() {
     if (paused || (!moves && !done)) return;
     history.push(snapshot());
     st = startState(L); moves = 0; siphons = 0; maxChain = 0; done = false; anim = null;
-    restarts++; renderUI();
+    restarts++; kb.siphon = false; renderUI();
+    say('Restarted.');
+  }
+
+  // § live region: one short line per move, key or level, never per frame.
+  const sayEl = document.getElementById('say');
+  function say(text) { sayEl.textContent = text; }
+  const DIR_WORDS = ['up', 'right', 'down', 'left'];
+  const STEP = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  const cellName = i => `row ${((i / L.w) | 0) + 1}, column ${i % L.w + 1}`;
+  function neighbour(i, d) {
+    const x = i % L.w + STEP[d][0], y = ((i / L.w) | 0) + STEP[d][1];
+    return x >= 0 && y >= 0 && x < L.w && y < L.h ? y * L.w + x : -1;
+  }
+  // What a cell is, for the cursor: "Row 2, column 3: 4, ring."
+  function cellInfo(i) {
+    const name = cellName(i).replace(/^r/, 'R');
+    if (L.kind[i] === WALL) return `${name}: wall.`;
+    const marks = [];
+    if (L.valve[i] >= 0) marks.push(`valve pointing ${DIR_WORDS[L.valve[i]]}`);
+    else if (L.kind[i] === SEALED) marks.push('sealed');
+    if (L.vent[i]) marks.push('vent');
+    if (L.leaky[i]) marks.push('leaky');
+    if (L.target[i]) marks.push(st.hit[i] ? 'ring, burst' : 'ring');
+    return `${name}: ${st.p[i]}${marks.length ? ', ' + marks.join(', ') : ''}.`;
+  }
+  // What a move did, from play()'s result and the state before it.
+  function moveWords(move, r, before) {
+    const out = [];
+    if (move.pump !== undefined) out.push(`Pumped to ${r.frames[0][move.pump]}.`);
+    else out.push(`Poured ${before.p[move.from] - SIPHON_LOSS} ${DIR_WORDS[pourDir(L, move.from, move.to)]}, now ${r.frames[0][move.to]}.`);
+    const n = r.waves.reduce((a, w) => a + w.length, 0);
+    if (n) out.push(n === 1 ? '1 cell bursts.' : `${n} cells burst${r.waves.length > 1 ? ` in a chain of ${r.waves.length} waves` : ''}.`);
+    if (r.waves.some(w => w.some(i => L.vent[i]))) out.push('A vent empties its neighbours.');
+    if (r.leaks.length) out.push(`${r.leaks.length} cell${r.leaks.length > 1 ? 's leak' : ' leaks'} 1.`);
+    if (r.drips.length) out.push('Leaky cells drip.');
+    const rings = L.targets.filter(t => !r.st.hit[t]).length;
+    if (rings && L.targets.some(t => r.st.hit[t] && !before.hit[t])) out.push(`${rings} ring${rings > 1 ? 's' : ''} left.`);
+    return out.join(' ');
   }
 
   // § ui: level buttons, message strip, status line
@@ -413,15 +462,35 @@
     const cw = Math.max(60, Math.floor(bw * k)), ch = Math.max(60, Math.floor(bh * k));
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
+    cssK = cw / bw;
     canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
     ctx.setTransform(canvas.width / bw, 0, 0, canvas.height / bh, 0, 0);
-    draw();
+    paint();
   }
 
+  // Two lightness bands, so a number reads 4.5:1 or more at every pressure
+  // and near-burst cells stand apart without hue: 0-7 dark (slate to
+  // brick, white numbers, 8:1+), 8+ bright amber (dark numbers, 10:1+).
   function fillFor(v) {
-    const t = Math.max(0, Math.min(v / THRESHOLD, 1));
-    const r = Math.round(34 + t * 200), g = Math.round(34 + t * 88), b = Math.round(48 - t * 20);
+    if (v >= SAFE_MAX) return v > SAFE_MAX ? '#ffe08a' : '#ffbe5c';
+    const t = Math.max(0, v) / (SAFE_MAX - 1);
+    const r = Math.round(34 + t * 104), g = Math.round(34 + t * 20), b = Math.round(48 - t * 22);
     return `rgb(${r},${g},${b})`;
+  }
+  const inkFor = v => v >= SAFE_MAX ? '#2a1500' : v > 0 ? '#ffffff' : '#a3a3b0';
+  // Canvas text in board units, never under 12.5 CSS px (cssK: CSS px per unit).
+  let cssK = 1;
+  const fs = n => Math.max(n, Math.ceil(12.5 / cssK));
+  // A label on a dark backing, readable over any cell or a burst flash.
+  function tag(text, x, y, align, base, color, size) {
+    const f = fs(size);
+    ctx.font = `bold ${f}px sans-serif`;
+    const w = ctx.measureText(text).width + 8, h = f + 6;
+    const left = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+    const top = base === 'bottom' ? y - h : base === 'top' ? y : y - h / 2;
+    ctx.fillStyle = 'rgba(16,16,22,0.92)'; ctx.fillRect(left, top, w, h);
+    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, left + w / 2, top + h / 2 + 1);
   }
 
   // What to show: the animation frame if one is playing, else the state.
@@ -431,7 +500,12 @@
     return { p: anim.frames[k], flash: k > 0 ? anim.waves[k - 1] : null, wave: k, waves: anim.waves.length };
   }
 
-  function draw() {
+  // draw() asks for a paint on the next frame, so a press and its move in
+  // one frame paint once. A refit paints at once (resizing clears the canvas).
+  let dirty = false;
+  function draw() { dirty = true; }
+  function paint() {
+    dirty = false;
     if (!L) return;
     const { p, flash, wave, waves } = shown();
     const flashSet = new Set(flash || []);
@@ -487,34 +561,35 @@
         ctx.arc(dx, dy + 4, 6, 0, Math.PI); ctx.quadraticCurveTo(dx - 7, dy, dx, dy - 9); ctx.fill();
       }
       if (L.target[i]) {
+        // a dark rim under the ring keeps it visible on bright (8+) cells
         ctx.beginPath(); ctx.arc(x + CELL / 2, y + CELL / 2, CELL * 0.36, 0, Math.PI * 2);
+        ctx.strokeStyle = '#1b1309'; ctx.lineWidth = 9; ctx.stroke();
         ctx.strokeStyle = st.hit[i] && !anim ? '#7be08a' : '#ff7a3d'; ctx.lineWidth = 5; ctx.stroke();
       }
       if (!flashSet.has(i)) {
         const v = p[i];
-        ctx.fillStyle = v ? '#ffffff' : 'rgba(255,255,255,0.28)';
-        if (v >= SAFE_MAX) ctx.fillStyle = '#ffe9a8';
-        ctx.font = `bold ${v >= SAFE_MAX ? 36 : 32}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = inkFor(v);
+        ctx.font = `bold ${fs(v >= SAFE_MAX ? 36 : 32)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(String(v), x + CELL / 2, y + CELL / 2 + 2);
       }
     }
     // leaks: after the last wave, a "-1" on each cell that leaked
     if (anim && wave === waves) {
-      ctx.fillStyle = '#9ad7ff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      for (const i of anim.leaks) ctx.fillText('−1 leak', (i % L.w) * CELL + CELL - 4, ((i / L.w) | 0) * CELL + CELL - 4);
-      for (const i of anim.drips) ctx.fillText('drip', (i % L.w) * CELL + CELL - 4, ((i / L.w) | 0) * CELL + CELL - 4);
+      for (const i of anim.leaks) tag('−1 leak', (i % L.w) * CELL + CELL - 2, ((i / L.w) | 0) * CELL + CELL - 2, 'right', 'bottom', '#9ad7ff', 18);
+      for (const i of anim.drips) tag('drip', (i % L.w) * CELL + CELL - 2, ((i / L.w) | 0) * CELL + CELL - 2, 'right', 'bottom', '#9ad7ff', 18);
     }
     // a vent that went off: its name over it while the wave shows
     if (anim && flash) {
-      ctx.fillStyle = '#c86bff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      for (const i of flash) if (L.vent[i]) ctx.fillText('vented!', (i % L.w) * CELL + CELL / 2, ((i / L.w) | 0) * CELL + 6);
+      for (const i of flash) if (L.vent[i]) tag('vented!', (i % L.w) * CELL + CELL / 2, ((i / L.w) | 0) * CELL + 4, 'center', 'top', '#d9a3ff', 18);
     }
-    if (anim && waves > 1 && wave > 0) {
-      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, 170, 34);
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillText(`chain wave ${wave}/${waves}`, 8, 17);
-    }
+    if (anim && waves > 1 && wave > 0) tag(`chain wave ${wave}/${waves}`, 4, 4, 'left', 'top', '#ffffff', 20);
     if (preview) drawPreview(preview);
+    // the keyboard cursor: black and white, seen on dark and bright cells
+    if (kb.on && !done) {
+      const x = (kb.cell % L.w) * CELL, y = ((kb.cell / L.w) | 0) * CELL;
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 7; ctx.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6);
+      ctx.strokeStyle = kb.siphon ? '#6fd3ff' : '#ffffff'; ctx.lineWidth = 3; ctx.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6);
+    }
   }
 
   // A move's preview: arrow for a pour, and on every cell it changes the
@@ -546,10 +621,7 @@
         ctx.strokeRect(x + 5, y + 5, CELL - 10, CELL - 10); ctx.setLineDash([]);
       }
       if (r.st.p[i] !== st.p[i] || erupted.has(i)) {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x + CELL - 34, y + CELL - 26, 32, 24);
-        ctx.fillStyle = erupted.has(i) ? '#ffffff' : '#9ad7ff'; ctx.font = 'bold 18px sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(erupted.has(i) && !r.st.p[i] ? '💥' : '→' + r.st.p[i], x + CELL - 18, y + CELL - 14);
+        tag(erupted.has(i) && !r.st.p[i] ? '💥' : '→' + r.st.p[i], x + CELL - 2, y + CELL - 2, 'right', 'bottom', erupted.has(i) ? '#ffffff' : '#9ad7ff', 18);
       }
     }
   }
@@ -571,6 +643,11 @@
       if (x < 0 || y < 0 || x >= L.w || y >= L.h) return { from: gesture.cell, to: -1 };
       return { from: gesture.cell, to: y * L.w + x };
     }
+    if (kb.on) {
+      if (!kb.siphon) return { pump: kb.cell };
+      const to = kb.dir < 0 ? -1 : neighbour(kb.cell, kb.dir);
+      return to < 0 ? null : { from: kb.cell, to };
+    }
     if (hoverCell >= 0 && !COARSE) return { pump: hoverCell };
     return null;
   }
@@ -588,6 +665,7 @@
     evt.preventDefault();
     if (paused) return;
     anim = null;   // a press finishes any animation, then acts as usual
+    kb.on = false; kb.siphon = false;   // the pointer takes over from the cursor
     const c = cellAt(evt);
     if (c < 0 || done) return;
     canvas.setPointerCapture(evt.pointerId);
@@ -597,7 +675,7 @@
   canvas.addEventListener('pointermove', evt => {
     if (!gesture) {
       const c = evt.pointerType === 'mouse' ? cellAt(evt) : -1;
-      if (c !== hoverCell) { hoverCell = c; draw(); }
+      if (c !== hoverCell) { hoverCell = c; if (c >= 0) kb.on = kb.siphon = false; draw(); }
       return;
     }
     const dx = evt.clientX - gesture.x0, dy = evt.clientY - gesture.y0;
@@ -629,13 +707,79 @@
   document.getElementById('undoBtn').addEventListener('click', undo);
   document.getElementById('restartBtn').addEventListener('click', restart);
   nextBtn.addEventListener('click', () => { if (cur + 1 < LEVELS.length) loadLevel(cur + 1); });
+  // Keys: arrows move a cursor, Enter/Space pump under it, S then an arrow
+  // aims a pour (Enter or S pours, Escape cancels). The same doMove as the
+  // pointer. Tab is the browser's; Space/Enter on a focused button press it.
+  const ARROWS = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 };
   window.addEventListener('keydown', evt => {
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    if (evt.key in ARROWS) {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (!paused && !done) keyArrow(ARROWS[evt.key]);
+      return;
+    }
     if (paused) return;
     const k = evt.key.toLowerCase();
     if (k === 'z' || k === 'u') undo();
     else if (k === 'r') restart();
-    else if ((k === 'n' || k === 'enter') && done && cur + 1 < LEVELS.length) loadLevel(cur + 1);
+    else if (k === 'n' && done && cur + 1 < LEVELS.length) loadLevel(cur + 1);
+    else if (onButton) return;
+    else if (k === 'enter' || k === ' ') {
+      evt.preventDefault();
+      if (evt.repeat) return;
+      if (!done) keyAct();
+      else if (k === 'enter' && cur + 1 < LEVELS.length) loadLevel(cur + 1);
+    } else if (k === 's' && !evt.repeat && !done) keySiphon();
+    else if (k === 'escape' && kb.siphon) { kb.siphon = false; kb.dir = -1; say('Pour cancelled.'); draw(); }
   });
+  function keyArrow(d) {
+    anim = null;
+    const to = neighbour(kb.cell, d);
+    if (kb.siphon) {
+      if (to < 0) { say(`No cell ${DIR_WORDS[d]}.`); return; }
+      kb.dir = d;
+      say(canSiphon(L, st, kb.cell, to) ? `Pour ${DIR_WORDS[d]} into ${cellInfo(to).replace(/^R/, 'r')} Enter pours.` : `Can't pour ${DIR_WORDS[d]}: ${whyNot(kb.cell, to)}`);
+    } else if (!kb.on) { kb.on = true; say(cellInfo(kb.cell)); }
+    else if (to >= 0) { kb.cell = to; say(cellInfo(to)); }
+    draw();
+  }
+  function whyNot(from, to) {
+    if (L.kind[to] === WALL) return 'a wall.';
+    if (st.p[from] <= SIPHON_LOSS) return `a pour needs ${SIPHON_LOSS + 1} or more.`;
+    return 'a valve only lets pours go its arrow\'s way.';
+  }
+  function keyAct() {
+    anim = null;
+    if (!kb.on) { kb.on = true; say(`${cellInfo(kb.cell)} Arrows move, Enter pumps, S pours.`); draw(); return; }
+    if (kb.siphon) {
+      if (kb.dir < 0) say('Pick a neighbour with an arrow first, or Escape.');
+      else pourKey();
+      return;
+    }
+    if (!canPump(L, st, kb.cell)) { say(L.kind[kb.cell] === WALL ? 'A wall: nothing to pump.' : 'Sealed: only a pour fills it.'); return; }
+    doMove({ pump: kb.cell });
+  }
+  function pourKey() {
+    const from = kb.cell, to = neighbour(from, kb.dir);
+    if (!canSiphon(L, st, from, to)) { say(`Can't pour ${DIR_WORDS[kb.dir]}: ${whyNot(from, to)}`); return; }
+    kb.siphon = false; kb.dir = -1;
+    doMove({ from, to });
+  }
+  function keySiphon() {
+    anim = null; kb.on = true;
+    if (kb.siphon) {
+      if (kb.dir >= 0) pourKey();
+      else { kb.siphon = false; say('Pour cancelled.'); draw(); }
+      return;
+    }
+    if (L.kind[kb.cell] === WALL) { say('A wall: nothing to pour.'); draw(); return; }
+    if (st.p[kb.cell] <= SIPHON_LOSS) { say(`Too little to pour: a pour needs ${SIPHON_LOSS + 1} or more.`); draw(); return; }
+    kb.siphon = true; kb.dir = -1;
+    say(`Pour from ${cellName(kb.cell)}, ${st.p[kb.cell]}: pick a neighbour with an arrow. Enter pours, Escape cancels.`);
+    draw();
+  }
 
   // § clock: animation and unpaused play time (for telemetry)
   function frame(now) {
@@ -648,6 +792,7 @@
         draw();
       }
     }
+    if (dirty) paint();
     requestAnimationFrame(frame);
   }
 
@@ -661,7 +806,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap', T = fine ? 'Click' : 'Tap';
-  document.getElementById('board').setAttribute('aria-label', `Pressure Grid board. ${T} a cell to pump pressure into it, drag from a cell to a neighbour to siphon. Keys: Z undo, R restart, N next level.`);
+  document.getElementById('board').setAttribute('aria-label', `Pressure Grid board. ${T} a cell to pump pressure into it, drag from a cell to a neighbour to siphon. Keys: arrows move a cursor, Enter or Space pumps, S then an arrow aims a pour and Enter pours, Z undo, R restart, N next level.`);
 }
 </script>
 </body>

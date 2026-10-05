@@ -1,6 +1,6 @@
 # Pressure Grid: design notes
 
-**v10** (2026-10-05, canvas label; v9 2026-10-01) · playtest: https://claude.ai/artifact/WKBg1jZwLxZLnZ97Ben1sf ·
+**v11** (2026-10-05, accessibility; v10 canvas label) · playtest: https://claude.ai/artifact/WKBg1jZwLxZLnZ97Ben1sf ·
 balance: `node scripts/balance-pressure-grid.mjs` (`--level N`, `--map`, `--full`, `--count`) ·
 browser: `node scripts/playthrough-pressure-grid.mjs` (`--level N`)
 Turn-based level puzzle (plan: `docs/games/pressure-grid-plan.md`;
@@ -65,7 +65,7 @@ leaks → drips. Between moves every cell is ≤ 8.
 | 10 flow | 10 | 13,251 (8) | none | 11 | 49%, med 25 | 2%, med 39 |
 
 Greedy novice: pump the fullest unburst ring, else a random move near
-one. Distinct first moves show there's more than one plan.
+one.
 
 - **Siphon is required** on levels 3-5 and 8-10; on 7 it saves 2 moves
   (the vent is a source only a pour can use). 6 is pump-only, like 1-2.
@@ -77,27 +77,13 @@ one. Distinct first moves show there's more than one plan.
 - Browser (`playthrough-pressure-grid.mjs`, 390×844, 844×390): solver
   lines get ★★★ on all ten; no scroll; pause blocks; results post.
 
-Solver: A* with an admissible bound (pressure on the board + 4 per pump
-must cover what unburst rings destroy, 10 − 2 × open neighbours; seals
-need ⌈deficit / 7⌉ pours; ≥ 1 while unsolved). Moves only within 1 step
-of an unburst ring (a step out of a valve is free); `--zone 2` agrees on
-1-4 and 10. A fast `play()` copy is checked against the game's each run.
-The proof gets half of `--budget` (120 s), then a fast search gives an
-upper bound, flagged: level 5 (~85 s). 6-10 prove in < 8 s; leaky cells
-slow it most. `solve(def)`, `habit(L)` are importable.
+Solver: A* with an admissible bound, moves within 1 step of an unburst
+ring; details in the history file ("Solver").
 
-## Adding levels (one increment = 5 levels)
+## Adding levels
 
-1. Design each map with `--map "row,row,..."` (letters as in `LEVELS`;
-   keep it walled, open 7×7 boards search slowly); `--full` shows the line.
-2. Paste it into `LEVELS` (`// § sim` block) with `par` = the solver's;
-   add new mechanics in that block too, so the solver runs them as is.
-3. `node scripts/balance-pressure-grid.mjs` (all `ok`), then
-   `node scripts/playthrough-pressure-grid.mjs` (exit 0).
-4. Update the tables and notes here (old parts to the history file);
-   bump `version`/`updated` and score max in the manifest.
-5. Last: in `docs/games/pressure-grid-plan.md`, replace "Next session
-   prompt" with the prompt for the following increment.
+Steps (map design with `--map`, `LEVELS`, par from the solver, tables
+here, manifest): history file, "Adding levels".
 
 ## Score, progress, telemetry
 
@@ -127,11 +113,31 @@ burst; sealed: steel frame + padlock; valve: pipe walls + chevron; vent:
 purple frame + grille; leaky: a drop; walls hatched. Press previews the
 pump, drag the pour (new value on each changed cell, dashed outline on
 bursts). Waves play 260 ms apart ("chain wave n/m", "vented!", "−1
-leak", "drip"); a press finishes the animation. Keys: Z, R, N.
+leak", "drip"); a press finishes the animation. Keys: below.
+
+## Accessibility (v11, `node scripts/a11y-audit.mjs pressure-grid`: all 6 pass, 3/3 runs)
+
+- Two lightness bands (`fillFor`): 0-7 dark slate to brick, white
+  numbers 8:1+ (0 grey, 6.3:1); 8+ bright amber, dark numbers 10:1+. So
+  near-burst cells differ by lightness (protan: 8 and 4 were both olive).
+  Rings get a dark rim so they show on amber.
+- Labels (chips, leak, drip, vented!, chain wave): dark backing (`tag()`),
+  `fs(n)` ≥ 12.5 CSS px.
+- Keys: arrows move a cursor (the first key shows it on the first ring),
+  Enter/Space pump, S aims a pour (an arrow picks the neighbour, with the
+  preview; Enter or S pours, Esc cancels). Same `doMove` as the pointer.
+  Tab free; Space/Enter on a focused button press it. Solver lines by
+  keys only: ★★★ on all ten.
+- Live region `#say` (`role="status"`, hidden), one line per key or move:
+  "Row 2, column 3: 4, ring."; "Poured 7 left, now 10. 2 cells burst in a
+  chain of 2 waves. 1 ring left."; solve, undo, level.
+- `draw()` marks dirty and the frame loop paints once: a press and its
+  move used to paint twice in one frame (the audit read the stale "0").
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys only undo/restart/next (pump, siphon need a pointer); cell numbers 2.0:1 on brown; no live region.
+- Accessibility: done in v11 (above). Not checked with a real screen
+  reader or colour-blind player; do keyboard players find S for pours?
 - Not hand-played on a phone yet: is the pour found without level 3's
   hint? Are the preview and the vent/valve/leaky marks read?
 - Valve direction binds only on level 8; on 10 the valve route is an
