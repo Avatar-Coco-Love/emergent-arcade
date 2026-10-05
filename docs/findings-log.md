@@ -809,3 +809,39 @@ does); anything a player must read gets a lightness or shape difference,
 not only a hue.
 
 *Evidence: audit script (Machado 2009 simulation, colour pairs by screen share).*
+
+## Effects carry a state into another's lightness band
+
+Wildfire Line v4 (2026-10-05). The fix for *Colour ramps that carry
+state merge* was to give each ground state its own lightness: ash L 16,
+cut earth L 27 (plus pale furrows), grass L 53–70, burning L 83+. That
+alone passed the audit once and then failed 2 of 4 random meadows. The
+merging pairs were not the states themselves but effects on them:
+grey smoke drawn over the fire darkened burning ground to exactly grass
+lightness, and the orange `lighter` halo (up to 13 px) tinted grass at
+the fire's edge into a red-shifted grass that protanopes can't tell from
+plain grass. Drawing smoke under the burning ground and keeping the glow
+inside the burning disk passed 8/8 meadows. The white status message,
+which had passed by luck over dark ash, then sat over brighter ground
+(3.1:1) and needed a backing. Check: after choosing bands, list every
+translucent layer (glow, smoke, haze, shadows) and ask which band it can
+push each state into; run the colour audit on several seeds.
+
+*Evidence: audit script, 4 runs before the smoke fix, 8 after.*
+
+## A cursor gives point and path verbs a key path
+
+Wildfire Line v4. Both verbs were pointer-only: cut (a drag path) and
+backburn (a tap point). Keys: arrows move a cursor (one cell per press,
+smooth after 0.25 s held), Space toggles cutting along the cursor's path,
+Enter lights a backburn at the cursor. A toggle instead of a hold means
+no chord (one key at a time, friendlier to switch and sticky-key users).
+Tab is left alone; Space/Enter on a focused button press the button; the
+end card's button gets focus for keyboard players. Because keys call the
+same `cutLine` / `backburn`, and the paint code's `Math.random` calls
+were kept equal in number, `balance-wildfire-line.mjs 300` printed the
+same lines as v3 for all four bots. The same pattern fits most games the
+audit flagged (Murmuration, Hot Iron, Loom, Island Census).
+
+*Evidence: audit keyboard check (keys cover every verb, Tab free), a
+scripted key run, balance identical before and after.*

@@ -440,6 +440,7 @@ const KEY_COVER = {
   "lighthouse-keeper": ["← → turn the beam, S shutters or opens the lamp, hold Space to charge a flare", ALL],
   "surprise-party": ["Space or W to wait, U to undo, R to restart, Enter for the next house", []],
   "geode": ["← → set the temperature · H harvest · M sound", ["drag"]],
+  "wildfire-line": ["Arrows move the cursor · Space starts or stops cutting along its path · Enter lights a backburn at the cursor", ALL],
 };
 
 async function auditGame(g) {

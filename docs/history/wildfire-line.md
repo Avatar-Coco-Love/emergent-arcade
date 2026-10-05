@@ -6,6 +6,11 @@ top of the relevant section; sessions don't read this file by default.
 
 ## History
 
+- v4 (2026-10-05): accessibility only (colour-blind-safe ground by
+  lightness, keyboard cursor, reduced motion, canvas role and label).
+  Same constants; balance bots reproduce v3 to the digit. Before the fix:
+  burning ground `#4a3522` under a wide orange `lighter` halo, cut earth
+  `#80603f` (L 43, near olive grass L 53), smoke drawn over the fire.
 - v1: first version (cut brush narrowed to one cell during PR playtest).
 - v2: no gameplay change. Posts `arcade:result` when a round ends, for play
   telemetry. Bot numbers above still apply; compare humans with

@@ -12,7 +12,7 @@ the games, not just play them.
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
 | 4 | Class challenge link (teacher-chosen seed) | medium | later |
 | 5 | Download a whole subject at once | medium | later |
-| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; per-game fixes open |
+| 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
 ## 1. Teacher page on the site
@@ -74,7 +74,7 @@ says "click" on PC.
 
 - murmuration: no keyboard play; ignores reduced motion; counter 10 px at 3.5:1.
 - orbit-garden: no keyboard play.
-- wildfire-line: fire glow and olive grass merge for deuteranopia; no keyboard play; ignores reduced motion.
+- wildfire-line: done (v4, 2026-10-05): ground told apart by lightness, keyboard cursor for both verbs, reduced motion, role and label. The pattern for the others (`docs/games/wildfire-line.md`, "Accessibility").
 - ant-trails: keys only fast-forward; ignores reduced motion; bonus line 11.5 px.
 - hourglass-delivery: no keyboard play; ignores reduced motion (small).
 - hot-iron: no keyboard play.
@@ -151,7 +151,7 @@ Audit the Emergent Arcade for accessibility (docs/ideas/teachers.md, idea 6) in 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Wildfire Line accessibility revision (prompt below)
+## Prompt used for the Wildfire Line accessibility revision (done, v4)
 
 Chosen 2026-10-05, after the audit. Still no classroom reports (0), so 3
 vs 4 keeps waiting. Wildfire Line has the worst row: a colour-blind
@@ -176,6 +176,33 @@ Revise Wildfire Line for accessibility (docs/accessibility.md, its row; docs/ide
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs wildfire-line, node scripts/balance-wildfire-line.mjs (balance must not move: same constants), node scripts/a11y-audit.mjs wildfire-line (motion, colour, keyboard, label pass). Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/wildfire-line.md (what changed, open ideas), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md. Push, open the PR (template checklist), publish the playtest artifact, watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Tidewright accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Wildfire Line v4. Still no classroom reports (0),
+so 3 vs 4 keeps waiting. Tidewright now has the worst row: three fails,
+one of them a label nobody can read ("flood" at 1.3:1), text at 8.5 px,
+and red handles that vanish into the wall for protanopia. Its keyboard
+already passes, so this is the colour, contrast and canvas-text half of
+the Wildfire Line pattern. If classroom reports have arrived, read them first.
+
+```
+Revise Tidewright for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: readable canvas labels (contrast and size), colour-blind-safe sluice handles, reduced motion, canvas role and label. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/tidewright.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "Effects carry a state into another's lightness band" and "Canvas text shrinks with the board"), docs/games/wildfire-line.md ("Accessibility", the pattern), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game tidewright. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Contrast and text: every canvas label ("flood", column and gate labels) at least 12 CSS px at 360 px wide and 4.5:1 against what is behind it (size from the CSS width; give labels a backing or strip, not bare text over sand or water). Check with node scripts/a11y-audit.mjs tidewright: contrast and text must pass.
+
+3. Colour: sluice handles, wall, sand and water told apart by lightness or shape, not hue (protanopia: red handle ≈ brown wall). Colour must pass on several runs (the meadow-style randomness made one pass luck for Wildfire Line). Screenshot before and after at 360×740, normal and simulated protanopia.
+
+4. Reduced motion: the audit row says pass but the notes say it ignores the setting; find out which, and with prefers-reduced-motion stop decorative motion (shimmer, foam, waves) while the tide and sand (the game) stay. Canvas gets role="img" and a label that says "click" on PC (pointer: fine) and names its verbs. Keep the keyboard line working and Tab free; update KEY_COVER only if the line changes.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs tidewright, node scripts/balance-tidewright.mjs (balance must not move: same constants; keep render-time Math.random calls equal so seeded bots reproduce exactly), node scripts/a11y-audit.mjs tidewright (all six pass). Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/tidewright.md (what changed, open ideas), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md. Push, open the PR (template checklist), publish the playtest artifact, watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
