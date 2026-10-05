@@ -877,3 +877,37 @@ audit flagged (Murmuration, Hot Iron, Loom, Island Census).
 
 *Evidence: audit keyboard check (keys cover every verb, Tab free), a
 scripted key run, balance identical before and after.*
+
+## A lightness ramp under text needs a jump, not a slope
+
+Pressure Grid v11. Cells were one ramp from slate `rgb(34,34,48)` at 0
+to orange `rgb(234,122,28)` at 10, with white numbers (dim 28% white for
+0). Mid-ramp the numbers fell to 2.0:1; white on the orange end was 3:1.
+Swapping ink by lightness alone can't fix a smooth ramp: around relative
+luminance 0.18 neither white nor black ink reaches more than 4.6:1. The
+game has a threshold that matters (above 8 a cell leaks; 8 is one blast
+from bursting), so the ramp now jumps there: 0-7 dark (slate to brick,
+L ≤ 0.08, white numbers 8:1+, grey 0 at 6.3:1), 8 `#ffbe5c` and 9+
+`#ffe08a` with dark `#2a1500` numbers (10:1+). Under protanopia the old
+8 and 4 cells were both olive at similar lightness; now 8 is a bright
+block. Rings got a dark rim to stay visible on amber.
+
+*Evidence: computed ratios for every value 0-12; audit contrast 2.0 → 6.3:1
+lowest, colour pass 3/3 runs; protan screenshots before and after.*
+
+## A turn-based game's live region comes from its move result
+
+Pressure Grid v11. `play()` already returns what the animation needs
+(frames, burst waves, leaks, drips, rings hit), so the live region line
+is written from it once per move, never per frame: "Pumped to 12. 1 cell
+bursts. Solved in 3 moves, 3 stars." The cursor says its cell on each
+step ("Row 2, column 3: 4, ring."); siphon mode says the aimed pour or
+why it can't go ("a valve only lets pours go its arrow's way"). Side
+finding: the game drew on every event, so a press and its move painted
+twice in one animation frame; the audit keeps every text since the last
+full clear in that frame and read the first paint's "0" against the
+pumped cell (4.5:1). `draw()` now marks dirty and the frame loop paints
+once (a resize still paints at once, since it clears the canvas).
+
+*Evidence: solver lines for all ten levels replayed by keys only (★★★,
+messages checked), audit 6/6, playthrough by pointer unchanged.*

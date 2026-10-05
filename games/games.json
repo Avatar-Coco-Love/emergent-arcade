@@ -4,10 +4,15 @@
       "id": "pressure-grid",
       "title": "Pressure Grid",
       "file": "pressure-grid.html",
-      "version": 10,
+      "version": 11,
       "added": "2026-09-26",
       "updated": "2026-10-05",
       "changes": [
+        {
+          "version": 11,
+          "date": "2026-10-05",
+          "text": "Play with keys: arrows move a cursor, Enter pumps, S then an arrow aims a pour. Cell numbers are easier to read: dark cells get white numbers, near-burst cells turn bright amber with dark numbers. Screen readers hear what each move did."
+        },
         {
           "version": 10,
           "date": "2026-10-05",
@@ -72,7 +77,7 @@
           "description": "Drag from a cell to a neighbor to pour all its pressure in, losing 1. The only way into a sealed cell."
         }
       ],
-      "keyboard": "Z undo · R restart · N next level",
+      "keyboard": "Arrows move · Enter/Space pump · S then an arrow aims a pour, Enter pours · Z undo · R restart · N next level",
       "sharedState": "Pressure per cell: written by pump and siphon, read by siphon (it pours what is there) and by bursts, which empty a cell at 10 and send +2 to each open neighbor, setting off chains.",
       "topics": ["planning"],
       "accent": "#ff7a3d",

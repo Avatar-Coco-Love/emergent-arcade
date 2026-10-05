@@ -4,6 +4,30 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/pressure-grid.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## Adding levels (one increment = 5 levels; moved from the notes in v11)
+
+1. Design each map with `--map "row,row,..."` (letters as in `LEVELS`;
+   keep it walled, open 7×7 boards search slowly); `--full` shows the line.
+2. Paste it into `LEVELS` (`// § sim` block) with `par` = the solver's;
+   add new mechanics in that block too, so the solver runs them as is.
+3. `node scripts/balance-pressure-grid.mjs` (all `ok`), then
+   `node scripts/playthrough-pressure-grid.mjs` (exit 0).
+4. Update the tables and notes in `docs/games/pressure-grid.md` (old parts here);
+   bump `version`/`updated` and score max in the manifest.
+5. Last: in `docs/games/pressure-grid-plan.md`, replace "Next session
+   prompt" with the prompt for the following increment.
+
+## Solver (moved from the notes in v11, 2026-10-05)
+
+Solver: A* with an admissible bound (pressure on the board + 4 per pump
+must cover what unburst rings destroy, 10 − 2 × open neighbours; seals
+need ⌈deficit / 7⌉ pours; ≥ 1 while unsolved). Moves only within 1 step
+of an unburst ring (a step out of a valve is free); `--zone 2` agrees on
+1-4 and 10. A fast `play()` copy is checked against the game's each run.
+The proof gets half of `--budget` (120 s), then a fast search gives an
+upper bound, flagged: level 5 (~85 s). 6-10 prove in < 8 s; leaky cells
+slow it most. `solve(def)`, `habit(L)` are importable.
+
 ## Moved from the notes (2026-10-05): open ideas
 
 - The leak still rarely matters (0 on solver lines); leaky cells and
