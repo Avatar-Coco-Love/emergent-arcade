@@ -90,7 +90,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - mycelium: ignores reduced motion (small).
 - lighthouse-keeper: done (v4, 2026-10-05): ← → still turn the beam, N turns it to the next ship in the dark (most urgent first), S shutter, hold Space flare, I status, Enter next night; a live region in clock bearings (quarter hours) that says arrivals, ships blind with rocks ahead, wrecks, home, oil, flares and where the beam points once it arrives; seeing vs blind ships by lightness, wrecks and heavy ships by marks, the lamp's state in words; labels 12 px (the flare's cost was 2.3:1 while charging); reduced motion read (the ships and fog still move, so motion stays partial) (`docs/games/lighthouse-keeper.md`, "Accessibility").
 - counterfeit-scale: no live region for weighings.
-- coat-check: hook letters 11 px at 4.3:1; no live region.
+- coat-check: done (v4, 2026-10-06): hook letters 13 px at 7:1, ticket lines 12 px+, coat colours in lightness steps (red and yellow merged in colour-blind recaps), returned coats badged, pins drawn, a live region that says only what the screen shows (a hang names the hook, a peek is dropped when the door shuts), I for the status, reduced motion read (`docs/games/coat-check.md`, "Accessibility").
 - surprise-party: done (v4, 2026-10-05): a tile cursor (arrows, G/D/B jump to the next guest who hasn't heard, the next door, the birthday person), Enter whispers, hold O on a door shuts or opens it, a live region (the tile in words, each move and its tick, result and stars), guest states and the danger zone by lightness and marks, reduced motion read (no pulse or growing ripple) (`docs/games/surprise-party.md`, "Accessibility").
 - geode: done (v3, 2026-10-05): T switches the arrows between thermostat and a site-to-site cursor, S/Enter seeds, hold C cleaves, I finds a foreign ion; labels 12.8 px+; reduced motion stills shimmer, pulses and motes (growth still moves, so motion stays partial); a near-grey anneal zone fixes a late-screen colour merge; a live region (`docs/games/geode.md`, "Accessibility").
 
@@ -608,7 +608,7 @@ Revise Bubble Glass for accessibility (docs/accessibility.md, its row; docs/idea
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Coat Check accessibility revision (prompt below)
+## Prompt used for the Coat Check accessibility revision (done, v4)
 
 Chosen 2026-10-05, after Bubble Glass v7. Still no classroom reports (0),
 so 3 vs 4 keeps waiting on what teachers ask for. Coat Check has the most
@@ -631,6 +631,34 @@ Revise Coat Check for accessibility (docs/accessibility.md, its row; docs/ideas/
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs coat-check, node scripts/smoke-gallery.mjs, node scripts/balance-coat-check.mjs (balance must not move: same constants; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs coat-check (all six pass; several runs), and a keys-only playthrough of the first shifts that hangs, peeks and fetches, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/coat-check.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/coat-check.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Mycelium accessibility revision (prompt below)
+
+Chosen 2026-10-06, after Coat Check v4. Still no classroom reports (0), so
+3 vs 4 keeps waiting on what teachers ask for. Mycelium has the most cells
+left: it ignores reduced motion and has no live region (its keys already
+reach every verb). Its state is a network that fades and grows in real
+time with a rival mould, so the live region has to speak settled changes
+(Terrace Garden's rule), and its 7 `Math.random` calls make the
+render/sim split matter for "bots reproduce exactly".
+
+```
+Revise Mycelium for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: a live region, reduced motion read, labels and colours checked on late screens. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/mycelium.md (its "Open ideas" accessibility line), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "A motion pass can mean small, not still", "A real-time live region speaks settled changes", "A memory game's live region must not hold the memory", "A goal's direction needs what stands in the way", "A held verb's preview hides from the audit", "Late screens grow their own greys", "A warning ramp can end where the resting state sits" and "Run the old file twice before comparing balance"), docs/games/terrace-garden.md and docs/games/coat-check.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game mycelium (if --game 404s, run it without and read the mycelium rows). If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: keys already reach every verb (arrows move the cursor, Enter marks a knot then grows to the cursor, Space pulses, X cuts); keep them. Check them against the pointer (same functions; a held cut is the pointer's own hold, if it has a delay), that Tab stays free and Space/Enter on a focused button press the button, and add I for the status. A live region (role="status") says what matters, short and settled, not per frame: what is under the cursor (a knot and its health, open soil, a patch, rival mould, distance from the network), a grow's cost and result, a pulse's path and whether it grew a mushroom, a cut and what withered, knots fading or lost, rival mould spreading near the network, the pool at steps, the result. Update the keyboard line in the manifest (120 characters at most) if keys change, the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: Mycelium ignores prefers-reduced-motion. Measure idle motion on a scripted mid-game screen with the network, a pulse and the mould hidden one at a time (findings "When the simulation is the motion…"); decoration (shimmer, pulses' glow, spores, any sway) gets its own clock and freezes under the setting; the simulation and every Math.random call the bots depend on must not change (keep the call and drop its result if decoration used it). Record motion as partial only if what's left is the simulation, measured, several runs.
+
+4. Text and colour: every label at least 12 CSS px at 360 px wide (an fs() from the CSS width for canvas text), 4.5:1 against what is behind it, with backings where text sits over the soil or the network. Knot health, patches and rival mould must read without hue (each state its own lightness step, or a mark), checked by number (L* normal, deuteranopia, protanopia), not only by the audit's colour cell. Contrast, colour and text must pass on several runs, including scripted late screens (a big network, mould spreading, fading knots, a pulse held) ; screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs mycelium, node scripts/balance-mycelium.mjs (balance must not move: same constants; keep Math.random calls equal so seeded bots reproduce exactly; run the old file twice first from a frozen copy to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs mycelium (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that grows, pulses and cuts, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/mycelium.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/mycelium.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```

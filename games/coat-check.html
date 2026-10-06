@@ -48,16 +48,18 @@
   #hud .pk { color: var(--accent); letter-spacing: 1px; }
   #wrap { flex: 1; min-height: 0; position: relative; }
   #board { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   @media (max-height: 420px) {
     body { gap: 1px; padding-top: 3px; }
-    #rule { font-size: 0.74rem; }
+    #rule { font-size: 0.75rem; }
     #msg { min-height: 2.4em; font-size: 0.8rem; }
   }
 </style>
 </head>
 <body>
   <div id="rule"></div>
-  <div id="msg"></div>
+  <div id="msg" aria-hidden="true"></div>
+  <p id="say" class="sr" role="status"></p>
   <div id="hud"><span id="where"></span><span><span class="x" id="cx"></span> <span class="pk" id="pk"></span></span><span id="coats"></span></div>
   <div id="wrap"><canvas id="board" role="img" aria-label="Coat Check: drag each coat onto a hook, tap or click the door that holds a guest's coat, hold a door to peek."></canvas></div>
 
@@ -260,8 +262,9 @@
   const COARSE = window.matchMedia && matchMedia('(pointer: coarse)').matches;
   const words = s => s.replace(/\{Tap\}/g, COARSE ? 'Tap' : 'Click').replace(/\{tap\}/g, COARSE ? 'tap' : 'click')
     .replace(/\{Hold\}/g, COARSE ? 'Hold' : 'Click and hold').replace(/\{hold\}/g, COARSE ? 'hold' : 'click and hold');
-  // Colour-blind-safe hues (Okabe-Ito family, spread in lightness); every ticket also says the word.
-  const COLOURS = [['red', '#e0603a'], ['blue', '#3f8fe0'], ['yellow', '#ecd34a'], ['pink', '#d27fb4']];
+  // Each colour its own lightness step, so coats read without hue (L* normal / deutan / protan):
+  // blue 33/32/36 < red 59/63/51 < pink 80/81/78 < yellow 93/93/91. Every ticket also says the word.
+  const COLOURS = [['red', '#e8643a'], ['blue', '#1f4aa0'], ['yellow', '#fcec70'], ['pink', '#f2b4de']];
   const PATTERNS = ['plain', 'striped', 'dotted', 'checked'];
   const PINS = [['★', 'star'], ['☾', 'moon'], ['♥', 'heart'], ['■', 'square']];
   const featWord = (f, v, short) => f === 0 ? COLOURS[v][0] : f === 1 ? PATTERNS[v] : (short ? '' : PINS[v][0] + ' ') + PINS[v][1] + ' pin';
@@ -320,6 +323,8 @@
     layout();
     next(st);
     $('rule').textContent = (inCampaign() ? `Shift ${run.idx + 1}/${CAMPAIGN.length} · ` : DAILY ? 'Daily · ' : '') + ruleLine(spec);
+    spoken = [];
+    speak(`${where()}: ${ruleLine(spec)}. ${spec.rows} rows A to ${rowName(spec.rows - 1)}, ${spec.cols} columns. ${peeksLeft()}.`);
     prompt('');
     renderHUD();
   }
@@ -336,10 +341,11 @@
   }
   function doHang(h) {
     if (phase !== 'play' || !st.pending || st.pending.type !== 'hang') return;
-    if (st.hooks[h]) { say('That hook is taken. Drag the coat onto a free one.'); return; }
+    if (st.hooks[h]) { say('That hook is taken. Drag the coat onto a free one.', `${hookName(h)} is taken. Hang the coat on a free hook.`); return; }
     const coat = st.pending.coat;
     if (!hang(st, h)) return;
     act(); lastCoat[h] = coat;
+    speak(`Hung on ${hookName(h)}.`);   // not which coat: the door is shut now
     after('');
   }
   function doFetch(h) {
@@ -352,6 +358,7 @@
     if (!res) return;
     act();
     flash = { h, coat: c, t: 0, ok: res.ok };
+    speak(res.ok ? `${hookName(h)} opens: the ${coatWords(c)}, the right one.` : `${hookName(h)} opens.`);
     if (res.ok) {
       run.coats++;
       if (busy) unlock('full-house');
@@ -369,6 +376,7 @@
     if (st.peeks >= st.budget) { say('No peeks left: {tap} the door you think it is.'.replace('{tap}', words('{tap}'))); return false; }
     const c = peek(st, h);
     act(); peekView = { h, coat: c };
+    speak(`Peeking at ${hookName(h)}: a ${coatWords(c)}. ${peeksLeft()}.`);   // dropped again when the door closes
     renderHUD();
     return true;
   }
@@ -396,10 +404,16 @@
     return `Find ${what}: ${words('{tap}')} its door.` + tail;
   }
   function prompt(pre) {
-    if (carryNote) { pre = "Last night's regulars are still on their hooks. " + pre; carryNote = false; }
+    let heard = '';
+    if (carryNote) {
+      pre = "Last night's regulars are still on their hooks. " + pre; carryNote = false;
+      // Where they hang (closed doors, as anyone sees them), never what they are.
+      heard = `Closed: ${st.hooks.map((c, h) => c ? hookName(h) : '').filter(Boolean).join(', ')}. `;
+    }
     if (!st.pending) return;
-    if (st.pending.type === 'hang') say(pre + (st.arrived <= 1 && run.idx === 0 ? 'Drag the coat onto any free hook.' : '<b>Hang this coat:</b> drag it onto a free hook.'));
-    else say(pre + ticketText());
+    if (st.pending.type === 'hang') say(pre + (st.arrived <= 1 && run.idx === 0 ? 'Drag the coat onto any free hook.' : '<b>Hang this coat:</b> drag it onto a free hook.'),
+      heard + plain(pre) + `At the counter: a ${coatWords(st.pending.coat)}. Hang it on a free hook.`);
+    else say(pre + ticketText(), heard + plain(pre + ticketText()));
   }
   function endShift(won) {
     phase = 'recap'; endT = 0; press = null; peekView = null;
@@ -410,7 +424,7 @@
       if (inCampaign() && run.idx === 3) unlock('first-night');
       if (st.spec.guests >= 8 && !st.complaints && !st.peeks) unlock('clean-shift');
       if (st.hooks.length === 12 && pur === 100) unlock('filing-system');
-      say(`<span class="win">Shift cleared!</span> ${st.served} coats returned. Here is where everything hung.`);
+      say(`<span class="win">Shift cleared!</span> ${st.served} coat${st.served === 1 ? '' : 's'} returned. Here is where everything hung.`);
     } else if (inCampaign() && run.free[run.idx]) {
       run.free[run.idx] = false;
       say(`<span class="loss">Three complaints.</span> Free retry with new coats. Here is where everything hung.`);
@@ -419,6 +433,11 @@
       say(`<span class="loss">Three complaints: the run is over.</span> ${run.coats} coats returned.` + (DAILY ? ' Daily run done.' : ''));
     }
     run.lastWon = won;
+    // The recap opens every door: say it hook by hook, while it shows.
+    speak('Every door is open. ' + st.hooks.map((c, h) => {
+      const k = lastCoat[h];
+      return !k ? `${hookName(h)} free` : `${hookName(h)} ${c ? '' : 'returned, '}${coatWords(k, true)}`;
+    }).join('; ') + '.');
     postResult(won, pur);
     if (run.over) postFinal(run.id, run.coats);
     renderHUD();
@@ -445,7 +464,31 @@
 
   // § ui: rule line, message strip, HUD.
   const $ = id => document.getElementById(id);
-  const say = html => { $('msg').innerHTML = '<span>' + html + '</span>'; };
+  // On screen, and spoken: the strip's own words, or a spoken version for keys and screen readers.
+  const say = (html, heard) => { $('msg').innerHTML = '<span>' + html + '</span>'; speak(heard === undefined ? plain(html) : heard); };
+  // § live region: one line per move from its result, and only what the screen shows now. What a
+  // closed door hides is never spoken: a peek's coat is dropped from the region when the door shuts,
+  // a hang names the hook, not the coat, so a player hearing it has to remember what a sighted one does.
+  const sayEl = $('say');
+  let spoken = [];
+  function speak(t) { if (t) spoken.push(t); }
+  function announce() { if (spoken.length) { sayEl.textContent = spoken.join(' '); spoken = []; } }
+  const plain = html => html.replace(/<[^>]*>/g, '').replace(/[★☾♥■⇄]\s?/g, '').replace(/\s+/g, ' ').trim();
+  const hookName = h => rowName(Math.floor(h / st.spec.cols)) + (h % st.spec.cols + 1);
+  const coatWords = (c, short) => `${COLOURS[c.f[0]][0]} ${PATTERNS[c.f[1]]}${short ? '' : ' coat'}` + (c.f[2] >= 0 ? (short ? ', ' : ' with a ') + PINS[c.f[2]][1] + ' pin' : '');
+  const peeksLeft = () => { const n = st.budget - st.peeks; return `${n} peek${n === 1 ? '' : 's'} left`; };
+  const where = () => inCampaign() ? `Shift ${run.idx + 1} of ${CAMPAIGN.length}` + (run.attempt > 1 ? ', retry' : '') : `${DAILY ? 'Daily' : 'Endless'} ${run.idx - CAMPAIGN.length + 1}`;
+  // A hook as the screen shows it right now.
+  function hookWords(h) {
+    const open = phase !== 'play' ? lastCoat[h] : flash && flash.h === h ? flash.coat : peekView && peekView.h === h ? peekView.coat : null;
+    if (open) return `${hookName(h)}, open: a ${coatWords(open)}.`;
+    return `${hookName(h)}, ${st.hooks[h] ? 'closed' : 'free'}.`;
+  }
+  function status() {
+    const used = st.hooks.filter(Boolean).length;
+    return `${where()}. ${ruleLine(st.spec)}. Complaints ${st.complaints} of ${COMPLAINTS}. ${peeksLeft()}. ${run.coats} coats returned this run. ` +
+      `${used} hooks closed, ${st.hooks.length - used} free. Cursor on ${hookWords(cursor)} ${plain($('msg').innerHTML)}`;
+  }
   function renderHUD() {
     if (!st) return;
     $('where').textContent = inCampaign() ? `Shift ${run.idx + 1}` + (run.attempt > 1 ? ' (retry)' : '') : `${DAILY ? 'Daily' : 'Endless'} ${run.idx - CAMPAIGN.length + 1}`;
@@ -485,6 +528,10 @@
   const dragLift = () => Math.min(70, G.dh * 0.6);   // the coat rides above the finger so the target door shows
 
   // § drawing
+  // Reduced motion: the reshuffle's rattle is decoration (outlined still instead). Nothing else moves
+  // on its own; the hold ring only fills while a finger or P is down. No Math.random here.
+  const motionQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const still = () => motionQ.matches;
   function coatPath(x, y, s) {
     const w = s * 0.36, hw = s * 0.42, top = y - s * 0.36, bot = y + s * 0.46;
     ctx.beginPath();
@@ -493,8 +540,8 @@
     ctx.lineTo(x + w - s * 0.02, y + s * 0.14); ctx.lineTo(x + w + s * 0.1, y + s * 0.12); ctx.lineTo(x + w, top + s * 0.08);
     ctx.lineTo(x + s * 0.1, top); ctx.lineTo(x, top + s * 0.14); ctx.closePath();
   }
-  function patternFill(x, y, w, h, p, u) {   // p: 1 stripes, 2 dots, 3 check (told apart by shape)
-    ctx.fillStyle = 'rgba(20,14,10,0.42)'; ctx.strokeStyle = 'rgba(20,14,10,0.42)';
+  function patternFill(x, y, w, h, p, u, ink = 'rgba(20,14,10,0.42)') {   // p: 1 stripes, 2 dots, 3 check (told apart by shape)
+    ctx.fillStyle = ink; ctx.strokeStyle = ink;
     if (p === 1) for (let i = x - w; i < x + w; i += u * 2.2) ctx.fillRect(i, y - h, u * 0.9, 2 * h);
     if (p === 2) for (let j = y - h, k = 0; j < y + h; j += u * 2, k++) for (let i = x - w + (k % 2) * u; i < x + w; i += u * 2) { ctx.beginPath(); ctx.arc(i, j, u * 0.42, 0, 7); ctx.fill(); }
     if (p === 3) { ctx.lineWidth = Math.max(1, u * 0.35); ctx.beginPath(); for (let i = x - w; i < x + w; i += u * 1.8) { ctx.moveTo(i, y - h); ctx.lineTo(i, y + h); } for (let j = y - h; j < y + h; j += u * 1.8) { ctx.moveTo(x - w, j); ctx.lineTo(x + w, j); } ctx.stroke(); }
@@ -502,15 +549,20 @@
   function drawPin(x, y, r, v) {
     ctx.fillStyle = '#f6f1e8'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
     ctx.strokeStyle = '#1b1612'; ctx.lineWidth = Math.max(1, r * 0.12); ctx.stroke();
-    ctx.fillStyle = '#1b1612'; ctx.font = `${Math.round(r * 1.35)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(PINS[v][0], x, y + r * 0.08);
+    ctx.fillStyle = '#1b1612'; ctx.beginPath();
+    const k = r * 0.62;
+    if (v === 0) for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? k * 0.45 : k; ctx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); }
+    else if (v === 1) { ctx.arc(x, y, k, 0, 7); ctx.fill(); ctx.fillStyle = '#f6f1e8'; ctx.beginPath(); ctx.arc(x + k * 0.5, y - k * 0.25, k * 0.8, 0, 7); }
+    else if (v === 2) { ctx.moveTo(x, y + k * 0.85); ctx.bezierCurveTo(x - k * 1.3, y - k * 0.1, x - k * 0.6, y - k * 1.05, x, y - k * 0.4); ctx.bezierCurveTo(x + k * 0.6, y - k * 1.05, x + k * 1.3, y - k * 0.1, x, y + k * 0.85); }
+    else ctx.rect(x - k * 0.62, y - k * 0.62, k * 1.24, k * 1.24);
+    ctx.fill();
   }
   function drawCoat(x, y, s, f, alpha = 1) {
     ctx.save(); ctx.globalAlpha = alpha;
     ctx.strokeStyle = '#8f8579'; ctx.lineWidth = Math.max(1.5, s * 0.03);   // hanger
     ctx.beginPath(); ctx.arc(x, y - s * 0.44, s * 0.05, Math.PI, 2.2 * Math.PI); ctx.moveTo(x, y - s * 0.39); ctx.lineTo(x - s * 0.22, y - s * 0.3); ctx.lineTo(x + s * 0.22, y - s * 0.3); ctx.closePath(); ctx.stroke();
     coatPath(x, y, s); ctx.fillStyle = COLOURS[f[0]][1]; ctx.fill();
-    ctx.save(); coatPath(x, y, s); ctx.clip(); patternFill(x, y, s * 0.6, s * 0.5, f[1], Math.max(2, s * 0.05)); ctx.restore();
+    ctx.save(); coatPath(x, y, s); ctx.clip(); patternFill(x, y, s * 0.6, s * 0.5, f[1], Math.max(2, s * 0.05), f[0] === 1 ? 'rgba(240,234,224,0.5)' : undefined); ctx.restore();
     coatPath(x, y, s); ctx.strokeStyle = '#1b1612'; ctx.lineWidth = Math.max(1.2, s * 0.025); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x, y - s * 0.22); ctx.lineTo(x, y + s * 0.46); ctx.stroke();
     if (f[2] >= 0) drawPin(x - s * 0.17, y - s * 0.08, s * 0.12, f[2]);
@@ -520,12 +572,22 @@
   function drawDoor(h, now) {
     const q = cell(h), C = G.C;
     let dx = 0;
-    if (rattle && Math.floor(h / C) === rattle.row) dx = Math.sin(rattle.t / 28) * 3 * (1 - rattle.t / 900);
+    if (rattle && Math.floor(h / C) === rattle.row && !still()) dx = Math.sin(rattle.t / 28) * 3 * (1 - rattle.t / 900);
     const x = q.x + dx, y = q.y, s = Math.min(q.w * 0.8, q.h * 0.76, 140), cx = x + q.w / 2, cy = y + q.h * 0.52;
     const open = phase !== 'play' ? lastCoat[h] : flash && flash.h === h ? flash.coat : null;
     const crack = peekView && peekView.h === h ? peekView.coat : null;
     rr(x, y, q.w, q.h, 6); ctx.fillStyle = '#16120f'; ctx.fill();
-    if (open) { drawCoat(cx, cy, s, open.f, phase !== 'play' && !st.hooks[h] ? 0.5 : 1); return; }
+    if (open) {
+      drawCoat(cx, cy, s, open.f);
+      // Returned (recap): a check badge, not a fade (a faded yellow sat in red's lightness band).
+      if (phase !== 'play' && !st.hooks[h]) {
+        const r = Math.max(7, Math.min(q.w, q.h) * 0.11), bx = x + q.w - r - 3, by = y + r + 3;
+        ctx.fillStyle = '#f6f1e8'; ctx.beginPath(); ctx.arc(bx, by, r, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#1b1612'; ctx.lineWidth = Math.max(1.5, r * 0.28); ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(bx - r * 0.45, by); ctx.lineTo(bx - r * 0.1, by + r * 0.38); ctx.lineTo(bx + r * 0.5, by - r * 0.35); ctx.stroke(); ctx.lineCap = 'butt';
+      }
+      return;
+    }
     if (!st.hooks[h]) {   // a free hook: open alcove with the bare hook
       ctx.strokeStyle = '#4a433b'; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.2; rr(x + 1, y + 1, q.w - 2, q.h - 2, 6); ctx.stroke(); ctx.setLineDash([]);
       ctx.strokeStyle = '#6d645a'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(cx, y + q.h * 0.2, Math.min(q.w, q.h) * 0.07, Math.PI, 2.5 * Math.PI); ctx.stroke();
@@ -543,13 +605,13 @@
     ctx.font = `600 ${fs}px sans-serif`;
     const icon = fs * 1.5, gapW = fs * 0.8;
     const rowW = parts.reduce((s, [, , t]) => s + icon + 6 + ctx.measureText(t).width, 0) + gapW * (parts.length - 1);
-    ctx.font = `${Math.round(fs * 0.72)}px sans-serif`;
+    ctx.font = `${Math.max(12, Math.round(fs * 0.72))}px sans-serif`;
     const footW = p.friend ? ctx.measureText('mine was handed in right after').width + 20 : 0;
     ctx.font = `600 ${fs}px sans-serif`;
     const lines = G.land ? parts.length : 1, x0 = G.land ? ct.x : ct.x + ct.w * 0.24, aw = G.land ? ct.w : ct.w * 0.76, w = Math.min(aw - 12, Math.max(rowW + 28, footW, aw * 0.7));
     const h = Math.min(ct.h - 12, (p.friend ? 2.6 : 1.6) * fs + lines * icon * 1.25 + 10), x = x0 + (aw - w) / 2, y = ct.y + (G.land ? ct.h * 0.32 : (ct.h - h) / 2);
     rr(x, y, w, h, 8); ctx.fillStyle = '#efe4cf'; ctx.fill(); ctx.strokeStyle = '#a8916b'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#5d4a33'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${Math.round(fs * 0.8)}px sans-serif`;
+    ctx.fillStyle = '#5d4a33'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${Math.max(12, Math.round(fs * 0.8))}px sans-serif`;
     ctx.fillText(p.friend ? "⇄ MY FRIEND'S COAT IS" : 'TICKET · MY COAT IS', x + w / 2, y + fs * 0.9);
     let cy = y + fs * 1.7 + icon / 2, cx = G.land ? x + 14 : x + (w - rowW) / 2;
     for (const [f, v, t] of parts) {
@@ -560,7 +622,7 @@
       ctx.font = `600 ${fs}px sans-serif`; ctx.fillStyle = '#2a2018'; ctx.textAlign = 'left'; ctx.fillText(t, cx + icon + 6, cy + 1);
       if (G.land) cy += icon * 1.25; else cx += icon + 6 + ctx.measureText(t).width + gapW;
     }
-    if (p.friend) { ctx.fillStyle = '#5d4a33'; ctx.textAlign = 'center'; ctx.font = `${Math.round(fs * 0.72)}px sans-serif`; ctx.fillText('mine was handed in right after', x + w / 2, y + h - fs * 0.75); }
+    if (p.friend) { ctx.fillStyle = '#5d4a33'; ctx.textAlign = 'center'; ctx.font = `${Math.max(12, Math.round(fs * 0.72))}px sans-serif`; ctx.fillText('mine was handed in right after', x + w / 2, y + h - fs * 0.75); }
   }
   function drawGuest(x, y, s) {
     ctx.fillStyle = '#4b433b'; ctx.beginPath(); ctx.arc(x, y - s * 0.32, s * 0.16, 0, 7); ctx.fill();
@@ -574,8 +636,9 @@
       ctx.fillStyle = '#efe9e1'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 15px sans-serif';
       const label = run.over ? `New run (${run.coats} coats)` : run.lastWon ? 'Next shift ▸' : 'Try again (new coats) ▸';
       const bw = Math.min(ct.w - 20, 240), bh = 44, bx = ct.x + (ct.w - bw) / 2, by = ct.y + (ct.h - bh) / 2;
-      ctx.globalAlpha = ready ? 1 : 0.35; rr(bx, by, bw, bh, 8); ctx.fillStyle = '#3a2d16'; ctx.fill(); ctx.strokeStyle = '#e0aa5c'; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.fillStyle = '#fff'; ctx.fillText(label, bx + bw / 2, by + bh / 2); ctx.globalAlpha = 1;
+      // Locked during the recap: a grey button, its label still 4.5:1 (it was drawn at 35% alpha).
+      rr(bx, by, bw, bh, 8); ctx.fillStyle = ready ? '#3a2d16' : '#24201c'; ctx.fill(); ctx.strokeStyle = ready ? '#e0aa5c' : '#4a433b'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = ready ? '#fff' : '#b3aaa0'; ctx.fillText(label, bx + bw / 2, by + bh / 2);
       return;
     }
     const p = st.pending;
@@ -590,10 +653,14 @@
     ctx.clearRect(0, 0, W, H);
     if (!G || !st) return;
     drawCounter();
-    ctx.fillStyle = '#7d756b'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#aaa196'; ctx.font = '600 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (let r = 0; r < G.R; r++) ctx.fillText(rowName(r), G.ox - 8, G.oy + (r + 0.5) * G.dh);
     for (let c = 0; c < G.C; c++) ctx.fillText(String(c + 1), G.ox + (c + 0.5) * G.dw, G.oy - 8);
     for (let h = 0; h < st.hooks.length; h++) drawDoor(h, now);
+    if (rattle && still()) {   // reduced motion: the reshuffled row is outlined while it would have rattled
+      const a = cell(rattle.row * G.C), b = cell(rattle.row * G.C + G.C - 1);
+      rr(a.x - 3, a.y - 3, b.x + b.w - a.x + 6, a.h + 6, 8); ctx.strokeStyle = '#e0aa5c'; ctx.lineWidth = 2; ctx.stroke();
+    }
     const target = press && press.drag && press.moved ? doorAt(press.x, press.y - dragLift()) : -1;
     if (target >= 0 && !st.hooks[target]) { const q = cell(target); rr(q.x, q.y, q.w, q.h, 6); ctx.strokeStyle = '#e0aa5c'; ctx.lineWidth = 3; ctx.stroke(); }
     if (kbd && phase === 'play') { const q = cell(cursor); rr(q.x - 2, q.y - 2, q.w + 4, q.h + 4, 7); ctx.strokeStyle = '#efe9e1'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]); }
@@ -633,7 +700,7 @@
   function endPress(cancel) {
     const g = press; press = null;
     if (!g) return;
-    if (g.peeking) { peekView = null; return; }
+    if (g.peeking) { peekView = null; spoken = []; sayEl.textContent = `${hookName(g.door)} closed. ${plain($('msg').innerHTML)}`; return; }
     if (cancel || locked() || phase !== 'play') return;
     if (g.drag) {
       if (!g.moved) { say('<b>Drag</b> the coat onto a free hook (a ' + words('{tap}') + " won't hang it)."); return; }
@@ -649,10 +716,13 @@
   canvas.addEventListener('pointerup', () => endPress(false));
   canvas.addEventListener('pointercancel', () => endPress(true));
   window.addEventListener('keydown', e => {
-    if (locked() || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (paused || !st || !G || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
+    if (e.target && e.target.tagName === 'BUTTON' && (k === 'Enter' || k === ' ')) return;   // a focused button presses itself
+    if (k === 'i' || k === 'I') { if (!e.repeat) speak(status()); e.preventDefault(); return; }   // status, any time
+    if (locked()) return;
     if (phase === 'over') { if (k === 'Enter' || k === ' ') { advance(); e.preventDefault(); } return; }
-    const go = i => { kbd = true; cursor = Math.max(0, Math.min(st.hooks.length - 1, i)); };
+    const go = i => { kbd = true; cursor = Math.max(0, Math.min(st.hooks.length - 1, i)); speak(hookWords(cursor)); };
     const C = st.spec.cols;
     if (k === 'ArrowLeft') go(cursor % C ? cursor - 1 : cursor); else if (k === 'ArrowRight') go(cursor % C < C - 1 ? cursor + 1 : cursor);
     else if (k === 'ArrowUp') go(cursor - C >= 0 ? cursor - C : cursor); else if (k === 'ArrowDown') go(cursor + C < st.hooks.length ? cursor + C : cursor);
@@ -669,13 +739,17 @@
     const dt = Math.min(100, now - last); last = now;
     if (!paused && st) {
       if (phase === 'play') shiftMs += dt;
-      if (phase === 'recap' && (endT += dt) >= Math.max(RECAP_MS, END_LOCK_MS)) phase = 'over';
+      if (phase === 'recap' && (endT += dt) >= Math.max(RECAP_MS, END_LOCK_MS)) {
+        phase = 'over';
+        speak((run.over ? `New run: press Enter.` : run.lastWon ? 'Next shift: press Enter.' : 'Try again with new coats: press Enter.'));
+      }
       if (flash && (flash.t += dt) >= SHOW_MS) flash = null;
       if (rattle && (rattle.t += dt) >= 900) rattle = null;
       if (press && press.door >= 0 && !press.dead && !press.peeking && (press.t += dt) >= HOLD_MS) {
         if (phase === 'play' && startPeek(press.door)) press.peeking = true; else press.dead = true;
       }
     }
+    announce();
     draw(now);
     requestAnimationFrame(frame);
   }
@@ -691,7 +765,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap', h = fine ? 'click and hold' : 'hold';
-  document.getElementById('board').setAttribute('aria-label', `Coat Check: drag each coat onto a hook, ${t} the door that holds a guest's coat, ${h} a door to peek. Keys: arrows pick a hook, Enter hangs the coat or opens the door, hold P to peek, Enter for the next shift.`);
+  document.getElementById('board').setAttribute('aria-label', `Coat Check: drag each coat onto a hook, ${t} the door that holds a guest's coat, ${h} a door to peek. Keys: arrows pick a hook, Enter hangs the coat or opens the door, hold P to peek, I for the status, Enter for the next shift.`);
 }
 </script>
 </body>

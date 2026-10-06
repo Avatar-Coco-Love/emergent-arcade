@@ -1496,11 +1496,16 @@
       "id": "coat-check",
       "title": "Coat Check",
       "file": "coat-check.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-10-03",
-      "updated": "2026-10-05",
+      "updated": "2026-10-06",
       "daily": { "from": "2026-10-04" },
       "changes": [
+        {
+          "version": 4,
+          "date": "2026-10-06",
+          "text": "No rule change. Screen readers hear the counter, the hooks and each move (never what a closed door hides), I says the status, coat colours differ in lightness, pins are drawn shapes, and labels are larger."
+        },
         {
           "version": 3,
           "date": "2026-10-05",
@@ -1520,7 +1525,7 @@
       "blurb": "Hang each coat behind an identical door, then find it again from one word on a ticket. Where you hang it is all you have.",
       "goal": "Return as many coats as you can in one run. A shift is cleared when every guest has their coat back; three complaints (wrong doors) lose it. The first loss on each of the 12 campaign shifts is a free retry with new coats; after that, Endless runs until a shift is lost.",
       "howToPlay": "Guests hand over coats one at a time. Drag the coat from the counter onto any free hook and its door shuts: closed doors all look the same, and nothing on screen lists what went where. Later a guest shows a ticket naming one thing about their coat (its colour, its pattern or its pin); {tap} the door you think hides it. A wrong door shows you what is there and the guest complains. {Hold} a door until the ring around your {finger} closes to peek behind it without opening it for the guest; peeks are limited (the dots in the bar). Each shift adds a rule: look-alike coats, a coach party of one colour, a manager who reorders a row, friends whose ticket names the coat handed in just before theirs, two-feature tickets, and regulars whose coats stay overnight. After each shift every door opens for a moment so you can see your own system.",
-      "keyboard": "Arrows pick a hook, Enter hangs the coat or opens the door, hold P to peek, Enter for the next shift",
+      "keyboard": "Arrows pick a hook, Enter hangs the coat or opens the door, hold P to peek, I status, Enter for the next shift",
       "mechanics": [
         {
           "name": "hang",

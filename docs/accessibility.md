@@ -56,7 +56,7 @@ the honest end state, not a fix still owed.
 | mycelium | partial: ignores it | pass | pass | pass | pass (labelled) | pass |
 | lighthouse-keeper | partial (v4: reads it; swell, surf, blinking, flare burst still. Mid-night the old file failed, 1.2–2.1%; decoration 0.5% → 0.00%, 0.02% with ships and fog hidden: the rest is the game) | pass (v4: backings; the flare's cost was 2.3:1 while charging, off the audit's screen) | pass (v4: seeing vs blind by lightness, wreck cross, heavy hold, lamp state in words; late screens too) | pass (v4: N next ship in the dark, I status, Enter next night) | pass (v4, live region) | pass (v4: "harbour" was 8.5 px) |
 | counterfeit-scale | pass | pass | pass | pass | pass (labelled) | pass |
-| coat-check | pass | partial: letters 4.3:1 | pass | pass | pass (labelled) | partial: 11 px |
+| coat-check | pass (v4: reads it; reshuffle rattle drawn still) | pass (v4: letters 7:1, late shifts too) | pass (v4: colours in lightness steps, returned = badge) | pass (v4: + I status) | pass (v4, live region that never holds the memory) | pass (v4: 12 px+) |
 | surprise-party | pass (v4: reads it; no pulse or growing ripple. The old pass was a state pass: only a warning screen moves, 0.10% → 0.00%) | pass | pass (v4: rings, hat outlines, zone stripes by lightness; late screens too) | pass (v4: tile cursor, Enter whispers, hold O doors, G/D/B jumps) | pass (v4, live region) | pass (v4) |
 | geode | partial (v3: reads it, decoration still; what moves is growth; 2/3 runs pass) | pass | pass (v3: near-grey anneal zone, late screens too) | pass (v3: T switches arrows to a cursor, S seeds, hold C cleaves) | pass (v3, live region) | pass (v3) |
 
@@ -66,8 +66,8 @@ with the game, its verbs and its keys, saying "click" with `(pointer:
 fine)` and "tap" otherwise (the audit's note "says tap on PC" reads the
 phone context, where "tap" is right). The static attribute stays as a
 "tap or click" fallback. Games with no status text in the DOM
-(aqueduct, counterfeit-scale, coat-check; Pressure Grid has one since v11,
-Surprise Party since v4) have no live region, so a screen reader hears nothing change; that is a
+(aqueduct, counterfeit-scale; Pressure Grid has one since v11,
+Surprise Party since v4, Coat Check since v4) have no live region, so a screen reader hears nothing change; that is a
 note in their open ideas, not part of the verdict.
 
 ## Fixed in the gallery (audit PR)
