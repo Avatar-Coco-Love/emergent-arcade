@@ -52,7 +52,7 @@ the honest end state, not a fix still owed.
 | pressure-grid | pass | pass (v11: lightness bands) | pass | pass (v11: cursor, S pours) | pass (v11, live region) | pass (v11) |
 | rail-yard | pass | pass | pass | pass (v3: Space picks a car) | pass (labelled) | partial: 11.5 px |
 | aqueduct | pass | pass | pass | pass | pass (labelled) | pass |
-| bubble-glass | partial: ignores it | pass | pass | partial: turn only | pass (labelled) | pass |
+| bubble-glass | pass (v7: reads it; glows, pulses, chevrons, rings still. Mid-pour the sand is the motion, 0.04–0.06% → 0.00% hidden) | pass | pass (v7: glass, vent, a melting shard and bubble states by lightness + checkers/dashes; the old pass was by area: glass 84 and vent 81 sat in sand's 69–85; late and held screens too) | pass (v7: T switches arrows to a cursor, hold Space melts, Enter/X shatters, G/B/H jumps, I status) | pass (v7, live region) | pass |
 | mycelium | partial: ignores it | pass | pass | pass | pass (labelled) | pass |
 | lighthouse-keeper | partial (v4: reads it; swell, surf, blinking, flare burst still. Mid-night the old file failed, 1.2–2.1%; decoration 0.5% → 0.00%, 0.02% with ships and fog hidden: the rest is the game) | pass (v4: backings; the flare's cost was 2.3:1 while charging, off the audit's screen) | pass (v4: seeing vs blind by lightness, wreck cross, heavy hold, lamp state in words; late screens too) | pass (v4: N next ship in the dark, I status, Enter next night) | pass (v4, live region) | pass (v4: "harbour" was 8.5 px) |
 | counterfeit-scale | pass | pass | pass | pass | pass (labelled) | pass |

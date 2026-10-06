@@ -410,3 +410,14 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   danger, not the state: lit-once ships sail blind and safe most of the
   time, so "blind" speaks only with rocks ahead in n s. *A bearing in
   words needs the beam's resolution.* Lighthouse Keeper v4. keys-only bot.
+- A goal's direction alone misleads in a maze: "the vent is 6 above, 1
+  left" while a shelf sat on the bubble, and a keys bot reading only the
+  live region circled under it (74 s, once not won in 90 s). Name what
+  stands straight in the way ("wall right above it", "sand 4 deep") and
+  it won in 6–42 s (5 runs). A report
+  that waits for "settled" can wait forever: off the eight main angles
+  Bubble Glass's sand creeps for good, so report once the pieces that
+  matter have stopped (3 s). The area-based colour cell passed the old
+  palette though glass (L 84) and the vent (81) sat inside sand's band
+  (69–85): check bands by number. *A goal's direction needs what stands in
+  the way.* Bubble Glass v7. keys-only bot + L* by number.

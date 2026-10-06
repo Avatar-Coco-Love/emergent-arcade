@@ -86,7 +86,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - pressure-grid: done (v11, 2026-10-05): cells in two lightness bands (numbers 6.3:1+), labels on backings, a keyboard cursor (Enter pumps, S then an arrow aims a pour), a live region that says what each move did (`docs/games/pressure-grid.md`, "Accessibility").
 - rail-yard: "Run 0" 11.5 px. (Tab freed in v3: Space picks a car.)
 - aqueduct: no live region.
-- bubble-glass: keys turn the box only; ignores reduced motion (small).
+- bubble-glass: done (v7, 2026-10-05): ← → / A D still turn; T switches the arrows to a cell cursor that stays on its cell as the box turns, hold Space melts at it (the pointer's own press), Enter/X shatters (the same confirm), G glass, B bubble, H hint spot, I status; a live region that says the cell under the cursor, the angle once a turn ends, shards, shatters and where the sand falls, a stuck bubble, what is straight above each bubble and where the vent is once things settle, heat steps and the result; glass, the vent and a melting shard out of sand's lightness band (they sat inside it), bubble states by dashes; reduced motion read (sand still pours, so mid-pour motion is the game) (`docs/games/bubble-glass.md`, "Accessibility").
 - mycelium: ignores reduced motion (small).
 - lighthouse-keeper: done (v4, 2026-10-05): ← → still turn the beam, N turns it to the next ship in the dark (most urgent first), S shutter, hold Space flare, I status, Enter next night; a live region in clock bearings (quarter hours) that says arrivals, ships blind with rocks ahead, wrecks, home, oil, flares and where the beam points once it arrives; seeing vs blind ships by lightness, wrecks and heavy ships by marks, the lamp's state in words; labels 12 px (the flare's cost was 2.3:1 while charging); reduced motion read (the ships and fog still move, so motion stays partial) (`docs/games/lighthouse-keeper.md`, "Accessibility").
 - counterfeit-scale: no live region for weighings.
@@ -577,7 +577,7 @@ Revise Lighthouse Keeper for accessibility (docs/accessibility.md, its row; docs
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Bubble Glass accessibility revision (prompt below)
+## Prompt used for the Bubble Glass accessibility revision (done, v7)
 
 Chosen 2026-10-05, after Lighthouse Keeper v4. Still no classroom
 reports (0), so 3 vs 4 keeps waiting on what teachers ask for. Bubble
@@ -604,6 +604,33 @@ Revise Bubble Glass for accessibility (docs/accessibility.md, its row; docs/idea
 5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs bubble-glass, node scripts/smoke-gallery.mjs, node scripts/balance-bubble-glass.mjs (balance must not move: same constants; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs bubble-glass (all six pass, or motion partial only if the idle motion is the game itself, measured; several runs), and a keys-only playthrough that turns, melts and shatters, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
 
 6. Update docs/games/bubble-glass.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/bubble-glass.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
+
+7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Coat Check accessibility revision (prompt below)
+
+Chosen 2026-10-05, after Bubble Glass v7. Still no classroom reports (0),
+so 3 vs 4 keeps waiting on what teachers ask for. Coat Check has the most
+left on the audit: hook letters 11 px at 4.3:1 (text and contrast partial)
+and no live region. It is a memory game, so its live region has a rule no
+other game had: say what a sighted player sees, never what a closed door
+holds.
+
+```
+Revise Coat Check for accessibility (docs/accessibility.md, its row; docs/ideas/teachers.md, idea 6) in one PR: hook letters 12 px+ at 4.5:1, a live region that never gives the memory away, reduced motion read. Read CLAUDE.md first and follow it.
+
+1. Read docs/games/coat-check.md (its "Open ideas" accessibility line, the hang, fetch and peek sections), docs/accessibility.md, docs/findings.md (the Accessibility section, especially "Canvas text shrinks with the board", "A turn-based game's live region comes from its move result", "A move's line waits for its warning", "A held verb's preview hides from the audit", "A warm-up hides the labels later levels add", "Late screens grow their own greys", "A goal's direction needs what stands in the way" and "Run the old file twice before comparing balance"), docs/games/pressure-grid.md and docs/games/bubble-glass.md ("Accessibility", the patterns), and run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs --game coat-check. If classroom reports mention accessibility or ask for ideas 3 or 4 instead, say so before starting.
+
+2. Keyboard: keys already reach every verb (arrows pick a hook, Enter hangs or opens, hold P peeks, Enter next shift); keep them. Check them against the pointer (same functions, outside the game's rules: a held P is the pointer's own hold, with the same 0.2 s / 0.45 s zones), that Tab stays free and Space/Enter on a focused button press the button, and add I for the status. A live region (role="status") says what the screen shows and nothing more, one line per move from the move's result: the coat at the counter (colour, pattern, pin) and the ticket a guest holds, the hook under the cursor as a sighted player sees it (row and column, free or closed: never what a closed door holds), a hang, a fetch's result (right; or wrong, with what the door showed while it was open), a peek's contents only while the door is open, peeks and complaints left, regulars carried over, the end-of-shift reveal hook by hook (short), the shift's result. Memory must stay the game: a player using the live region remembers exactly what a sighted player has to. Update the keyboard line in the manifest (120 characters at most) if keys change, the canvas label (keep "click"/"tap" by device) and the game's KEY_COVER entry in scripts/a11y-audit.mjs.
+
+3. Reduced motion: the audit passes Coat Check's motion cell; grep for prefers-reduced-motion before trusting it (findings "A motion pass can mean small, not still"). Measure idle motion on a scripted mid-shift screen with a door showing a wrong coat, a peek held and the end-of-shift reveal; decoration (door swings, the peek ring, any pulse) gets its own clock and freezes under the setting; the game's rules and any Math.random calls the bots depend on must not change.
+
+4. Text and colour: every label at least 12 CSS px at 360 px wide (an fs() from the CSS width for canvas text; hook letters are 11 px at 4.3:1), 4.5:1 against what is behind it, with backings where text sits over doors or coats. Coat colours and patterns must read without hue (each colour its own lightness step, or the pattern and pin carry it; a ticket must match its coat by more than hue), checked by number for normal, deuteranopia and protanopia, not only by the audit's colour cell. Contrast, colour and text must pass on several runs, including scripted later shifts (pins, regulars, a full board, Endless) and held states (a peek open, a wrong door showing); screenshot before and after at 360×740, normal and simulated deuteranopia and protanopia.
+
+5. Tests: node scripts/validate.mjs, node scripts/monkey-games.mjs coat-check, node scripts/smoke-gallery.mjs, node scripts/balance-coat-check.mjs (balance must not move: same constants; run the old file twice first to confirm the harness is deterministic, then compare old and new output), node scripts/a11y-audit.mjs coat-check (all six pass; several runs), and a keys-only playthrough of the first shifts that hangs, peeks and fetches, reading only the live region. Bump version and updated, score.epoch only if the score's meaning changed.
+
+6. Update docs/games/coat-check.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/coat-check.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```

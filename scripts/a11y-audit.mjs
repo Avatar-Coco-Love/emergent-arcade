@@ -430,7 +430,7 @@ const KEY_COVER = {
   "pressure-grid": ["Arrows move · Enter/Space pump · S then an arrow aims a pour, Enter pours · Z undo · R restart · N next level", ALL],
   "ant-trails": ["Arrows move the cursor · hold Space: trail · hold W: wash · H nest, N next food · F fast-forward · Enter next day", ALL],
   "terrace-garden": ["← → or A / D tilt · ↑ ↓ pick a gate, Enter or G opens or shuts it · 0–4 that gate (0 spring) · S status", ALL],
-  "bubble-glass": ["← → or A / D to turn the box", ["drag"]],
+  "bubble-glass": ["← → or A / D turn · T: arrows move a cursor · hold Space melts · Enter/X shatters · G glass, B bubble, H hint · I status", ALL],
   "tidewright": ["← → pick a column, hold and release Space to throw sand (longer = more), 1-4 open or shut a gate", ALL],
   "rail-yard": ["Space picks a car (Shift+Space back) · 1–9, + − speed · arrows flick · A–D switches · Z undo · H hint · X restart", ALL],
   "aqueduct": ["← → turn, Space or 1 / 2 shut and open valves, R restart, L levels", ALL],

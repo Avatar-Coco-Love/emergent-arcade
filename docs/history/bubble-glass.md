@@ -4,6 +4,48 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/bubble-glass.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## Perf (v3)
+
+Perf: step ~0.03 ms; 390×700 at 4× throttle, 16.7 ms median frame.
+
+## Older open ideas (parked in v7)
+
+- A wet-sand level that needs a lid: hold the box at an angle for long (diagonal corridor).
+- Merging as a tool: notches a small bubble rises into and the big one slides past.
+- Real tumbling: shards rotating relative to the box.
+
+## Levels (per-level notes, moved from the notes in v7)
+
+Format: # id (verbs, heat): note. "all" = turn+melt+shatter.
+1 first-turn (turn): shelf; vent in a sand pocket that must pour out first.
+2 roof (+melt, 70): lid-first; melt a lid over each of two shafts, then flip.
+3 the-plug (+shatter, 40): shatter the jam, flip first, return via 90°.
+4 lid-and-plug (all, 70): lid-first, 4-wide shafts, tube, plug, room.
+5 hourglass (all, 60): melt the waist jam into one shard, turn out.
+6 mud (turn): wet sand over the vent; let it settle first.
+7 dust-shafts (all, 70): roof with dust, lid-first.
+8 sieve (all, 40): grate tube; tilt and sand leaves.
+9 landslide (all, 40): the-plug with wet sand room.
+10 sump (all, 60): grate tube, 2-cell sumps; lid keeps one full.
+11 sand-timer (all, 60): hourglass with dust.
+12 quicksand (all, 70): lid dust shafts, wet last stretch, grate sump; lid, hold tilt, flip.
+13 twins (all, 40): two bubbles, wide vent, second shelf with 3-char side gaps (v5: up the sides, then across). 14 mud-twins (all, 40): wet piles on shelf 1 plus wet beds (v5).
+15 narrow-door (all, 40): 4-cell tube, free one at a time. 16 dust-door (all, 40): tube plus two rows of dust on shelf 1 and dust beds (v5; melt now helps, reader 7 s).
+17 shared-sand (all, 40): grated tubes, two small sumps.
+18 upstairs (all, 40): the-plug plus bubble above it. 19 two-plugs (all, 40).
+20 convoy (all, 70): roof, two bubbles, lid-first. 21 last-box (all, 70): level 4 with two bubbles.
+
+## v5 balance (moved from the notes in v7)
+
+13 twins: 100/14 s vs 75/44 s. 14 mud-twins: 100/12 s vs 75/58 s. 16 dust-door: 100/7 s vs 50/38 s
+(was 5 s / 20 s). Melt is still unused on 13 and 14; reader finishes them in 12-14 s. Level 16 pitfall:
+a map must be exactly 24 rows (validate.mjs does not check), a 25-row draft was unwinnable.
+
+Chapter 1 fixes in v3 (were open ideas): level 1 second beat (novice 9→44 s, reader 5 s);
+  level 4 rewards lids (lid-reader 12 s vs no-melt 32 s); level 5 rewards melt (13 vs 37 s).
+
+v6 accessibility line (done in v7): Accessibility (`docs/accessibility.md`, 2026-10-05): keys turn the box only (hold, tap need a pointer); ignores reduced motion (small).
+
 ## Player data
 
 2026-09-30 (v2 replay, 2 players, phone/tilt): 14 rounds, 14 wins, all first try;
