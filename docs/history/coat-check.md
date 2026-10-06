@@ -4,6 +4,30 @@ Older versions, superseded balance tables and rationale. Current design:
 `docs/games/coat-check.md`. Add new entries at the top; sessions don't read
 this file by default.
 
+## v1 balance checks (moved 2026-10-06)
+
+Checks: PASS clock (identical at 1/4/10 s per action), encode 2.3× scatter,
+habit clears S1 and fails rules 4-8 (29-37%), peekOnly and random die by S2,
+perfect clears all, cap3 dies at S6, cap4 reaches S8 in 67% of runs, cap7
+clears 96% and ends Endless after a median +6, novice wins S1 (24 s at 3 s per
+action) and S2 (93%). Not targets: habit on tutorial S2/S3 100/81%.
+FAIL (accepted, as at go/no-go): scatter reaches S5 (free retries carry it
+past rule 3); noPeek 40/35/9% on reshuffle shifts (target ≤ 25; still far
+under cap7's 100/86/84, so Peek stays); depth to S8 (cap4 9.7 min at 4 s,
+novice never; whole runs are 13 min for cap4, 19 for cap5); cap5 Endless +1
+shift (2.8 min). Achievement reach (greedy bots): Filing System 21-82% per
+12-hook shift; Full House only from S12 and Endless load 10.
+
+## Changes from the brief (moved 2026-10-06)
+
+- Levers from the go/no-go run applied: load +1 from S2, `friendP` 0.2.
+- *Full House* = return a coat while 10+ coats hang. "Every hook full" never
+  happens (arrivals stop at the load target, always below the hook count).
+- The sim's fetch function is `retrieve` (the self-contained check rejects the
+  word `fetch`).
+- Peeks are allowed any time in play, not only while a ticket is up.
+- Doors stay open after the 2 s recap until the player moves on.
+
 ## Pre-build go/no-go (2026-10-03, PR #72, before v1)
 
 Moved here from `docs/games/coat-check.md` when v1 was built. v1 applied its

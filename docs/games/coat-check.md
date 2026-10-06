@@ -1,6 +1,6 @@
 # Coat Check: design notes
 
-**v3** (2026-10-05, canvas label; v2 2026-10-04) · playtest: https://claude.ai/artifact/U4NaLDKJ5bL7NjHZnrcDZU (private, republished each push) ·
+**v4** (2026-10-06, live region, colours by lightness, text; v3 canvas label) · playtest: https://claude.ai/artifact/U4NaLDKJ5bL7NjHZnrcDZU (private, republished each push) ·
 balance: `node scripts/balance-coat-check.mjs 300` (~12 s)
 Verbs: **hang** (drag), **fetch** (tap) and **peek** (hold), sharing **the hooks
 and the peek budget**. A cloakroom of identical closed doors: where you hang a
@@ -92,17 +92,8 @@ First-try win % S1-S12; runs = one free retry per campaign shift, then Endless.
 | random | 62 3 0 … | 6 | S2 | 0 | 2 |
 | perfect | all 100, 0 wrong doors | 810 | cap | 100 | - |
 
-Checks: PASS clock (identical at 1/4/10 s per action), encode 2.3× scatter,
-habit clears S1 and fails rules 4-8 (29-37%), peekOnly and random die by S2,
-perfect clears all, cap3 dies at S6, cap4 reaches S8 in 67% of runs, cap7
-clears 96% and ends Endless after a median +6, novice wins S1 (24 s at 3 s per
-action) and S2 (93%). Not targets: habit on tutorial S2/S3 100/81%.
-FAIL (accepted, as at go/no-go): scatter reaches S5 (free retries carry it
-past rule 3); noPeek 40/35/9% on reshuffle shifts (target ≤ 25; still far
-under cap7's 100/86/84, so Peek stays); depth to S8 (cap4 9.7 min at 4 s,
-novice never; whole runs are 13 min for cap4, 19 for cap5); cap5 Endless +1
-shift (2.8 min). Achievement reach (greedy bots): Filing System 21-82% per
-12-hook shift; Full House only from S12 and Endless load 10.
+Checks against the go/no-go targets (passes, accepted fails): history, "v1
+balance checks".
 
 ## Telemetry fields
 
@@ -113,19 +104,37 @@ actions think_s purity guests budget`. `rule` is a bitmask: colour 1, look 2,
 coach 4, reshuffle 8, friends 16, pair 32, regulars 64. `think_s` = median
 unpaused seconds per action. `purity` 75 ≈ random placement, not 0.
 
-## Changes from the brief
+## Accessibility (v4, `node scripts/a11y-audit.mjs coat-check`)
 
-- Levers from the go/no-go run applied: load +1 from S2, `friendP` 0.2.
-- *Full House* = return a coat while 10+ coats hang. "Every hook full" never
-  happens (arrivals stop at the load target, always below the hook count).
-- The sim's fetch function is `retrieve` (the self-contained check rejects the
-  word `fetch`).
-- Peeks are allowed any time in play, not only while a ticket is up.
-- Doors stay open after the 2 s recap until the player moves on.
+All six pass (3/3), and contrast, colour and text on 7 scripted states
+(S12 ticket, ⇄ ticket, wrong door open, peek held, recap, regulars,
+Endless 4×4), 2 runs each: 42/42.
+- Keys unchanged (arrows, Enter, hold P = the pointer's own `press`, same
+  0.45 s; a short P never fetches, Enter does) plus I: status. Tab free.
+- Live region `#say` (`#msg` aria-hidden; `say()` speaks): shift and grid,
+  the coat at the counter, a ticket, the hook under the cursor as drawn
+  (free / closed / open while a door shows), "Hung on B3" (no coat), a
+  fetch (right: which coat; wrong: what the door showed), a peek's coat,
+  dropped from the region when the door shuts, regulars' hooks (not
+  coats), the recap hook by hook, the result.
+- Colours in lightness steps (L* normal/deutan/protan): blue 33/32/36,
+  red 59/63/51, pink 80/81/78, yellow 93/93/91 (v3: red, blue, pink all
+  57–63; red and yellow merged olive in deutan/protan recaps). Light pattern
+  ink on blue. Returned coats in the recap: full colour + a check badge
+  (a 50% fade put yellow in red's band). Pins drawn as shapes.
+- Text: hook letters 13 px, 7.0:1 (were 11 px, 4.3:1); ticket lines ≥ 12 px
+  (were 10.4/9.4 on later shifts); recap button label 4.5:1+ while locked
+  (was 35% alpha); landscape rule line 12 px.
+- Reduced motion (`still()`): the reshuffle rattle becomes a still row
+  outline. Nothing else moves while idle: MOTION_RESULT.
+- Balance identical (old twice, then new; 300 runs). Keys-only bot
+  (`#say` only, own memory): shifts 1–4 cleared, 0 wrong, 3/3 runs; the
+  region never named a hung or peeked coat after its door shut.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): hook letters 11 px at 4.3:1; no live region.
+- Accessibility: a real screen reader player is the test. A memory game's
+  live region must not become the memory; check new lines against that.
 - The memory model is a guess (k most recent, no chunking). Calibrate k from
   the first playtest: compare `wrong`, `peeks`, `purity` with the cap rows.
 - ⇄ tickets: a peek can't confirm the friend's own coat unless you remember

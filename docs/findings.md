@@ -421,3 +421,12 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   palette though glass (L 84) and the vent (81) sat inside sand's band
   (69–85): check bands by number. *A goal's direction needs what stands in
   the way.* Bubble Glass v7. keys-only bot + L* by number.
+- In a memory game the live region must not become the memory: it is
+  text that stays readable until replaced. Speak what the screen shows
+  now and drop what it hides: a hang names the hook, not the coat (the
+  door is shut); a peek's coat is cleared from the region the moment the
+  door closes; regulars are named by hook, not by coat; a wrong door's
+  coat stays only as long as the message strip shows it. A keys bot with
+  its own memory cleared shifts 1–4 by the region alone, and the region
+  never named a coat behind a shut door. *A memory game's live region
+  must not hold the memory.* Coat Check v4. keys-only bot + leak checks.
