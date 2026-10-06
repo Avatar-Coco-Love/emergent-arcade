@@ -430,3 +430,13 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   its own memory cleared shifts 1–4 by the region alone, and the region
   never named a coat behind a shut door. *A memory game's live region
   must not hold the memory.* Coat Check v4. keys-only bot + leak checks.
+- A path verb that starts on your own piece (drag from a knot of the
+  network) is blind by keys: the region can say where the target is, not
+  how to walk back to a good start. Let the point key on an open target
+  grow from the nearest piece (Enter on soil: shortest open route, cost
+  spoken first); marking a start stays for planned routes. A keys bot grew
+  22 threads with N + Enter and walked to rot by the status's "3 up, 1
+  left from the cursor". Scripted late copies found a crash too: a first
+  frame stamped before the start clock made a pulse's run negative. *A
+  path verb's start can come from its end.* Mycelium v4. keys-only bot +
+  scripted copies.

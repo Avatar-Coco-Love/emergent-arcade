@@ -1592,13 +1592,13 @@
       "id": "mycelium",
       "title": "Mycelium",
       "file": "mycelium.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-10-03",
-      "updated": "2026-10-05",
+      "updated": "2026-10-06",
       "blurb": "Grow a fungal network through the soil to reach food, keep its far threads fed, and fruit mushrooms before the frost.",
       "goal": "Grow each season's mushrooms before the frost. Your nutrient pool carries over; after 8 seasons the seasons keep coming, leaner each time. Score: mushrooms over the run.",
       "howToPlay": "The glowing spore in the middle is your network's heart. Drag from it (or from any knot of your network) to a leaf patch to grow a thread there; each new knot costs nutrient from your pool, and every knot costs a little upkeep each second (shown next to the pool). A patch your thread reaches feeds the pool until it is used up. {Tap} a knot to pulse: a surge of nutrient leaves the pool and runs out along the thread, refilling every knot on the way; what reaches a patch grows a mushroom there, and what reaches any other knot is spilled. Knots more than 3 threads from the spore or a feeding patch slowly fade: pulse them, or they starve, and a thread that starves while attached rots back toward the spore. {Hold} a knot to cut the thread into it: everything beyond withers harmlessly and stops costing upkeep, and growing into it again reconnects it. When the pool is empty the network eats its own farthest tips. Later seasons bring an old log far out, dry soil (4× upkeep), rival moulds racing you to food ({hold} a rival knot to cut it), stones and patches that fall mid-season; from season 5 every knot costs more upkeep, so cut what no longer feeds you.",
-      "keyboard": "Arrows move the cursor, Enter marks a knot then Enter grows to the cursor, Space pulses, X cuts",
+      "keyboard": "Arrows move · Enter marks a knot, Enter grows there · Space pulses · hold X cuts · N patch, H spore · I status",
       "mechanics": [
         {
           "name": "grow",
@@ -1661,6 +1661,11 @@
         "epoch": 1
       },
       "changes": [
+  {
+   "version": 4,
+   "date": "2026-10-06",
+   "text": "No gameplay change. Screen readers hear what changes as you play; keys: hold X to cut, N jumps to a patch, H to the spore, I tells the status. Fading, rotting and rival knots read without colour. Reduced motion is respected."
+  },
         {
           "version": 3,
           "date": "2026-10-05",

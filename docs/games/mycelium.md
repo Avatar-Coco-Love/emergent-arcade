@@ -1,6 +1,6 @@
 # Mycelium: design notes
 
-**v3** (2026-10-05, canvas label; v2 2026-10-03) · playtest: https://claude.ai/artifact/JtevwSxyXLnDnbA9AeVd6e ·
+**v4** (2026-10-06, accessibility; v3 canvas label, v2 2026-10-03) · playtest: https://claude.ai/artifact/JtevwSxyXLnDnbA9AeVd6e ·
 balance: `node scripts/balance-mycelium.mjs 100`
 Verbs: **grow** (drag), **pulse** (tap), **prune** (hold), sharing **one
 nutrient pool** and **sap per knot**. A run of seasons: 8 campaign seasons,
@@ -49,8 +49,7 @@ then endless; network and pool carry over. Score = mushrooms over the run.
 | 8 | First frost | 80 | 6 | 6 × 75, 5–9 | ×1.7 | dry, rival, 15 stones |
 | 9+ | Endless n | 80 | 6+n | 6 × 55 × 0.93ⁿ, 4–9 | ×1.7 × 1.08ⁿ | 2 random of dry (2 zones) / rival (2 from n=4) / 25 stones / late |
 
-A late patch whose site a thread took before it fell lands on the nearest
-open site instead (v2). Pool cap `POOL_MAX` in every season; the score in
+Pool cap `POOL_MAX` in every season; the score in
 `arcade:result` is the run total.
 
 ## Key constants (`games/mycelium.html`, top of the script)
@@ -82,24 +81,32 @@ Rivals start at an edge site near a corner (top-left, then bottom-right).
 | skilled | 100 × 5/98/98/88 | 8 | 12.9 (9.2) min | 68 | 13 pulses, 0 spilled, 5 cuts |
 | noprune | 100 × 5/52/51/30 | 7 | 10.4 (6.0) min | 43 (63%) | 5 starved, 3 rotted |
 | novice | 100/82/69/62/56/6/0/0 | 5 | 12.1 (2.2) min | 19 | 20 spilled, 4 cuts |
-| novice, 4 retries | 100/96/95/94/93/26/4/0 | 5 | 18.8 min | 23 | |
 
 - Cutting now pays: never-cut scores 63% of skilled (v1 82%); it loses
   at season 6 (stones: long detours, dead branches at ×1.7 upkeep).
-- Action rate: skilled at 0.5 / 1 / 2 s per action scores 68 / 68 / 68
-  and wins season 8 88 / 86 / 88%.
-- Achievements (skilled / novice): first-flush 100/100, long-reach 84/78,
-  clean-cut 33/48, lean-season 100/35, fairy-ring 24/0, old-growth 88/0.
-  Lean-season counts starved knots; rot only starts when an attached knot
-  starves, so it is already counted.
-- `scripts/balance-mycelium.mjs` starts with a self-test: a retry restores
-  seasons 5–8 and 11 exactly (rivals, rot, dry soil, late patches, pool +
-  gift, no jobs or fx left), and growing into a stranded branch with a side
-  branch reverses it into one tree.
-- Tried and dropped (v2): faster rot, hungrier or faster rivals (no
-  effect: bots reach food first); 2–4× upkeep on knots out of feeding range
-  (the hunger wither cuts dead tips for free; findings); a 45–60 pool floor
-  each spring (rescued the timer bot to 68% of skilled; findings).
+
+## Accessibility (v4, `node scripts/a11y-audit.mjs mycelium`: all 6 pass, 3/3)
+
+- Keys: arrows, Enter marks / grows (nothing marked: from the nearest
+  knot), Space pulses, **hold X** cuts (the pointer's own `press`, same
+  `HOLD_MS`), N next patch, H spore, I status, Enter on the end card. Tab
+  free; Space/Enter on a button press it. Same verbs as the pointer.
+- Live region `#say` (`#msg` aria-hidden, mirrored). `watch()` reads the
+  state once a frame, never in `step()`: fading, rot, losses, mould near
+  the network, patches joined/used up/fallen, threads grown or waiting,
+  pool per 25, frost at 10 s; each kind settles 0.7 s, ≤ 1 per 2 s. Cursor
+  line: knot (threads out, sap %, state), patch, mould, open soil + route
+  cost. Places: "2 up, 1 left from the cursor".
+- Without hue (L* normal/deutan/protan): fed knots 75–93; fading (< 0.35)
+  ringed, dark centre, 60/63/55; rot 33–38 + spots; rival diamonds,
+  dark-cored threads; caps 70/73/66 (were 52: protan merged with patches).
+  Too-dear preview dotted, "39 > pool 4". Labels `fs(12)` + backing.
+- Reduced motion (`still()`, clock `deco`): glow, blink, rings, a pulse's
+  run still. Default 0.5% → 0.0%; mid-season 0.26% and late 1.1% → 0.02–
+  0.05% with network, pulse, mould, HUD hidden: the rest is the game.
+- Late screens (seasons 7, 8, 11, held preview/mark/ring; 2 seeds × 2):
+  contrast, colour, text 12/12. Balance identical. Keys bot: seasons 1–3
+  won by the region alone (grew, pulsed, cut rot).
 
 ## Telemetry
 
@@ -116,24 +123,22 @@ if the pool ran dry 10+ s), and `stats`:
 | `knots` | knots at the end | `rival_cut` | rival cuts |
 | `first_input` | s to the first action (-1 none) | | |
 
-`spilled / pulses` vs the timer bot (≈1.3 per pulse) shows whether players
-read the pool; `rotted` vs `pruned` shows whether they learned the cut.
 
 ## Player data
 
-None yet.
+v2 (to 2026-10-06): 3 players, 6 seasons; season 1 won 4/4, season 2
+1/2. Longest player 3 min.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): ignores reduced motion (small).
+- Accessibility: not yet tried with a real screen reader; a big fading
+  network keeps the region busy.
 - The novice's wall moved from seasons 4–5 to season 6 (56% → 6%; 26%
   with 4 retries), where the ×1.7 upkeep and stones hit. If players stall
   there, try ×1.5 in season 6 (noprune rises to ~70%) or nearer late
   patches. Watch `attempt` per level in telemetry.
 - Rivals barely matter to bots (they reach the food first). A rival that
   can eat into a thread would make the rival cut a real decision.
-- Not hand-played on a phone yet; screenshots at 390×760, 800×400,
-  1200×800 with a 3-line hint are clean.
 - Ideas: spores that fly to start a second hub; a mushroom that releases
   spores to the next season; patches that regrow where mushrooms stood.
 

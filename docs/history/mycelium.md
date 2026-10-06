@@ -6,6 +6,27 @@ section; sessions don't read this file by default.
 
 ## History
 
+- v2 balance notes, moved at v4 (2026-10-06):
+  - Action rate: skilled at 0.5 / 1 / 2 s per action scores 68 / 68 / 68
+    and wins season 8 88 / 86 / 88%.
+  - `scripts/balance-mycelium.mjs` starts with a self-test: a retry restores
+    seasons 5–8 and 11 exactly (rivals, rot, dry soil, late patches, pool +
+    gift, no jobs or fx left), and growing into a stranded branch with a side
+    branch reverses it into one tree.
+  - Achievements (skilled / novice): first-flush 100/100, long-reach 84/78,
+    clean-cut 33/48, lean-season 100/35, fairy-ring 24/0, old-growth 88/0.
+    Lean-season counts starved knots; rot only starts when an attached knot
+    starves, so it is already counted.
+  - Tried and dropped (v2): faster rot, hungrier or faster rivals (no
+    effect: bots reach food first); 2–4× upkeep on knots out of feeding range
+    (the hunger wither cuts dead tips for free; findings); a 45–60 pool floor
+    each spring (rescued the timer bot to 68% of skilled; findings).
+  - `spilled / pulses` vs the timer bot (≈1.3 per pulse) shows whether players read the pool; `rotted` vs `pruned` shows whether they learned the cut.
+  - A late patch whose site a thread took before it fell lands on the nearest open site instead (v2).
+  - Balance row: | novice, 4 retries | 100/96/95/94/93/26/4/0 | 5 | 18.8 min | 23 | |
+  - Not hand-played on a phone yet; screenshots at 390×760, 800×400,
+    1200×800 with a 3-line hint are clean.
+
 - v2 (2026-10-03): review pass. Upkeep ×1.3 in season 5, ×1.7 from
   season 6 (endless starts from 1.7); pulses no longer refill rotting
   knots; seasons 4–5 nearer patches (3–6), Dry spell goal 3, first rival

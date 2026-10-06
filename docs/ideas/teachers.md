@@ -87,7 +87,7 @@ no status text in the DOM, so a screen reader hears nothing change.
 - rail-yard: "Run 0" 11.5 px. (Tab freed in v3: Space picks a car.)
 - aqueduct: no live region.
 - bubble-glass: done (v7, 2026-10-05): ← → / A D still turn; T switches the arrows to a cell cursor that stays on its cell as the box turns, hold Space melts at it (the pointer's own press), Enter/X shatters (the same confirm), G glass, B bubble, H hint spot, I status; a live region that says the cell under the cursor, the angle once a turn ends, shards, shatters and where the sand falls, a stuck bubble, what is straight above each bubble and where the vent is once things settle, heat steps and the result; glass, the vent and a melting shard out of sand's lightness band (they sat inside it), bubble states by dashes; reduced motion read (sand still pours, so mid-pour motion is the game) (`docs/games/bubble-glass.md`, "Accessibility").
-- mycelium: ignores reduced motion (small).
+- mycelium: done (v4, 2026-10-06): arrows, Enter, Space kept; X is now a hold (the pointer's own, 450 ms), Enter on open soil with nothing marked grows from the nearest knot, N next patch, H spore, I status; a live region read from the state once a frame (the site under the cursor, a grow's cost and end, a pulse's path and mushroom, cuts, fading, rot, losses, mould near the network, the pool per 25, the frost, the result); fading knots ringed a lightness step below fed ones, mould as diamonds, caps out of the patch's band; labels 12 px (late "×12" was 8.5 px); reduced motion read (the network still moves, measured) (`docs/games/mycelium.md`, "Accessibility").
 - lighthouse-keeper: done (v4, 2026-10-05): ← → still turn the beam, N turns it to the next ship in the dark (most urgent first), S shutter, hold Space flare, I status, Enter next night; a live region in clock bearings (quarter hours) that says arrivals, ships blind with rocks ahead, wrecks, home, oil, flares and where the beam points once it arrives; seeing vs blind ships by lightness, wrecks and heavy ships by marks, the lamp's state in words; labels 12 px (the flare's cost was 2.3:1 while charging); reduced motion read (the ships and fog still move, so motion stays partial) (`docs/games/lighthouse-keeper.md`, "Accessibility").
 - counterfeit-scale: no live region for weighings.
 - coat-check: done (v4, 2026-10-06): hook letters 13 px at 7:1, ticket lines 12 px+, coat colours in lightness steps (red and yellow merged in colour-blind recaps), returned coats badged, pins drawn, a live region that says only what the screen shows (a hang names the hook, a peek is dropped when the door shuts), I for the status, reduced motion read (`docs/games/coat-check.md`, "Accessibility").
@@ -635,7 +635,7 @@ Revise Coat Check for accessibility (docs/accessibility.md, its row; docs/ideas/
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Mycelium accessibility revision (prompt below)
+## Prompt used for the Mycelium accessibility revision (done, v4)
 
 Chosen 2026-10-06, after Coat Check v4. Still no classroom reports (0), so
 3 vs 4 keeps waiting on what teachers ask for. Mycelium has the most cells
@@ -661,4 +661,28 @@ Revise Mycelium for accessibility (docs/accessibility.md, its row; docs/ideas/te
 6. Update docs/games/mycelium.md (what changed, open ideas; keep it under 8 KB, move superseded parts to docs/history/mycelium.md), its row in docs/accessibility.md, the game's line in docs/ideas/teachers.md (idea 6), and add what the revision teaches to docs/findings.md (full entry in docs/findings-log.md). Push, open the PR (template checklist), publish the playtest artifact (reuse the link in its notes if it has one), watch CI until green.
 
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
+```
+
+## Next: Download a whole subject (idea 5, prompt below)
+
+Chosen 2026-10-06, after Mycelium v4. Still no classroom reports (0), so
+3 vs 4 keeps waiting on what teachers ask for. Every game's audit row now
+passes except Rail Yard's text (11.5 px, partial), which is not serious.
+Idea 5 needs no teacher input to be right: offline lab computers are a
+known school constraint, and the single-file download already exists.
+
+```
+Build idea 5 from docs/ideas/teachers.md in one PR: download every game of a subject at once, for offline lab computers. Read CLAUDE.md first and follow it.
+
+1. Read docs/ideas/teachers.md (idea 5, and ideas 1, 2 and 7 for the teacher page), docs/gallery.md (the cabinet, topics, the teacher page and "Link previews"), docs/teaching.md, and the code that builds today's single-game download (grep "download" in assets/, starting at assets/cabinet.js; the idea's note says assets/download.js, check which is right and fix the note). Run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs (the gallery rows: opens, downloads if logged). If classroom reports ask for ideas 3 or 4 instead, or mention downloads, say so before starting.
+
+2. Design: from the teacher page and from a topic's filter in the gallery, "Download all <topic> games": either a store-only zip written in plain JS (no library: local file headers, central directory, CRC-32; sizes stay small) or a folder-style set of files, whichever the browser support and the rules make simpler; say which and why. Inside: each game as the same standalone file today's download makes, plus an index.html that lists them (title, blurb, goal, how to play, keyboard line, topics) and opens each game by a relative link, works from file:// with no network, and passes the same contrast and text-size rules as the gallery (docs/accessibility.md). Achievements, scores and telemetry are off offline; say so on the index page, short.
+
+3. Accessibility and wording: the new controls have names, a focus ring of 3:1, work with the keyboard alone, and say {tap}/click by device where the gallery does; light and dark themes. The index page has lang, a <main>, and headings.
+
+4. Tests: node scripts/validate.mjs, node scripts/smoke-gallery.mjs (add a check: the button exists for a topic with games and the archive lists exactly that topic's games), node scripts/a11y-audit.mjs --gallery (all pass), and a script that builds the archive headless, unzips it (python3 zipfile is fine), opens index.html from file:// in Chromium with the network blocked, opens every game from it, and fails on any console error or a game that doesn't draw. Record archive sizes per topic.
+
+5. Update docs/gallery.md (where it lives, how it is built), docs/teaching.md (one paragraph for teachers), idea 5 in docs/ideas/teachers.md (done, with sizes), and add what the build teaches to docs/findings.md if anything is new (full entry in docs/findings-log.md). Push, open the PR (template checklist), watch CI until green. No playtest artifact is needed for a gallery change unless a game file changed; if the index page is worth a look, publish it as a private artifact and link it in the PR.
+
+6. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–4 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 6 at its end.
 ```
