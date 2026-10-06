@@ -80,6 +80,12 @@
       </div>
       <div id="verbChips" class="verb-chips" role="group" aria-label="Filter by verb"></div>
       <div id="topicChips" class="verb-chips topic-chips" role="group" aria-label="Filter by topic" hidden></div>
+      <!-- With a topic picked: every game of it in one zip (assets/bundle.js). -->
+      <div id="topicBundle" class="topic-bundle" hidden>
+        <button type="button" class="secondary small" id="topicBundleBtn"></button>
+        <span class="muted">One zip for offline computers.</span>
+        <p id="topicBundleStatus" class="status bundle-status" role="status"></p>
+      </div>
 
       <h2 id="listTitle" class="visually-hidden">Games</h2>
       <ul id="gameList" class="game-list" aria-labelledby="listTitle"></ul>
@@ -147,6 +153,7 @@
         <section class="teach-card" aria-labelledby="teachOfflineTitle">
           <h3 id="teachOfflineTitle">Offline copies</h3>
           <p>Open a game and choose <b>Download a copy</b>. You get one HTML file that runs in any browser with no network at all, so it works on a locked-down school network or a computer with no internet. Copies send nothing.</p>
+          <p>For a lab: <b>Download all as zip</b> next to a subject below gives every game of it plus a page that lists them. Unzip it (Extract all), copy the folder to each computer and open <code>index.html</code>.</p>
         </section>
       </div>
 
@@ -473,6 +480,7 @@
 <script src="assets/telemetry.js"></script>
 <script src="assets/thumbs.js"></script>
 <script src="assets/download.js"></script>
+<script src="assets/bundle.js"></script>
 <script src="assets/name-ctl.js"></script>
 <script src="assets/cabinet.js"></script>
 <script src="assets/records.js"></script>

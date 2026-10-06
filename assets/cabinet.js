@@ -304,15 +304,8 @@ window.ArcadeCabinet = (function () {
     else if (action === "fullscreen") toggleFullscreen();
   });
 
-  // On the published site, share play/<id>/: link previews ignore "#", so
-  // that page carries the game's own preview card and forwards to
-  // #/play/<id>. Elsewhere (local, playtest copies) it doesn't exist.
-  function playUrl(game) {
-    const site = (window.ARCADE_CONFIG || {}).siteUrl;
-    const here = `${location.origin}${location.pathname}`;
-    if (site && here.startsWith(site)) return `${site}play/${game.id}/`;
-    return `${here}#/play/${game.id}`;
-  }
+  // Shares play/<id>/ on the published site (assets/download.js).
+  const playUrl = (game) => window.ArcadeDownload.playUrl(game);
 
   async function share(from) {
     const game = current;

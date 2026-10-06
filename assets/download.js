@@ -91,14 +91,29 @@ window.ArcadeDownload = (function () {
     return `${game.id}-v${game.version}.html`;
   }
 
-  // Fetches the game file and saves the copy. Resolves to the file name.
-  async function save(game, sourceUrl) {
+  // The game file as served (also used by the topic zip, assets/bundle.js).
+  async function fetchHtml(game) {
     const res = await fetch(`games/${game.file}?v=${game.version}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
+    return res.text();
+  }
+
+  // On the published site, play/<id>/: link previews ignore "#", so that
+  // page carries the game's own preview card and forwards to #/play/<id>.
+  // Elsewhere (local, playtest copies) it doesn't exist.
+  function playUrl(game) {
+    const site = (window.ARCADE_CONFIG || {}).siteUrl;
+    const here = `${location.origin}${location.pathname}`;
+    if (site && here.startsWith(site)) return `${site}play/${game.id}/`;
+    return `${here}#/play/${game.id}`;
+  }
+
+  // Fetches the game file and saves the copy. Resolves to the file name.
+  async function save(game, sourceUrl) {
+    const html = await fetchHtml(game);
     window.ArcadeUI.saveFile(fileName(game), build(game, html, sourceUrl), "text/html");
     return fileName(game);
   }
 
-  return { build, save, fileName };
+  return { build, save, fileName, fetchHtml, playUrl };
 })();

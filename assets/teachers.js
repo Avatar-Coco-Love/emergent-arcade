@@ -1,6 +1,7 @@
 // The gallery's teacher page (#/teachers): what used to be docs/teaching.md,
 // plus the games-by-subject table (built here from games.json and
-// assets/topics.js, so it never lags), the classroom mode link
+// assets/topics.js, so it never lags; each topic has a "Download all as zip",
+// assets/bundle.js), the classroom mode link
 // (assets/classroom.js) and the "I used this in class" form, sent as a kind
 // "classroom" row (assets/feedback.js). docs/gallery.md, "Teacher page".
 window.ArcadeTeachers = (function () {
@@ -35,6 +36,17 @@ window.ArcadeTeachers = (function () {
     );
   }
 
+  // Every game of the topic in one zip, for offline lab computers
+  // (assets/bundle.js). The name starts with the visible text.
+  function zipButton(r) {
+    const btn = el("button", { type: "button", className: "secondary small teach-zip", textContent: "Download all as zip" });
+    btn.setAttribute("aria-label", `Download all as zip: ${r.topic.label}, ${r.games.length} ${r.games.length === 1 ? "game" : "games"}`);
+    const status = el("p", { className: "status bundle-status" });
+    status.setAttribute("role", "status");
+    btn.addEventListener("click", () => window.ArcadeBundle.run(btn, status, r.topic.id, "teachers"));
+    return el("div", { className: "teach-zip-wrap" }, [btn, status]);
+  }
+
   function renderTable() {
     const out = [];
     let kind = "";
@@ -48,7 +60,7 @@ window.ArcadeTeachers = (function () {
           el("a", { href: `#/?topic=${r.topic.id}`, textContent: r.topic.label }),
           el("span", { className: "teach-about", textContent: r.topic.about }),
         ]),
-        el("td", {}, [el("ul", { className: "teach-games" }, r.games.map((g) => el("li", {}, [el("a", { href: `#/play/${g.id}`, textContent: g.title })])))]),
+        el("td", {}, [el("ul", { className: "teach-games" }, r.games.map((g) => el("li", {}, [el("a", { href: `#/play/${g.id}`, textContent: g.title })]))), zipButton(r)]),
       ]);
       tr.dataset.topic = r.topic.id;
       out.push(tr);

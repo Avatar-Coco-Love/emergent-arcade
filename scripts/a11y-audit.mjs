@@ -22,6 +22,9 @@
 //   text      the smallest text on screen at 360×740 (DOM and canvas, in CSS
 //             px): pass at 12 px and up, partial from 10 px.
 //
+// The gallery side also covers the topic download bar and the topic zip's
+// offline index.html (assets/bundle.js).
+//
 // One line per target per check. Exit code 1 if a gallery-side check fails;
 // game checks only report (each game's fixes are its own revision). CI runs
 // it (.github/workflows/pages.yml); results in docs/accessibility.md.
@@ -70,8 +73,14 @@ const { chromium } = await loadPlaywright();
 // § server: the repo; the feedback endpoint answers locally, never the real one.
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png" };
+let offlineIndex = ""; // the topic zip's index.html (assets/bundle.js), built in auditGallery
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://x");
+  if (url.pathname === "/__offline/index.html") {
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(offlineIndex);
+    return;
+  }
   if (url.pathname === "/__endpoint") {
     req.resume();
     req.on("end", () => {
@@ -651,12 +660,30 @@ async function auditGallery() {
     await page.evaluate((n) => document.querySelector(`.toolbar [data-panel="${n}"]`).click(), name);
     await page.waitForSelector("#panel:not([hidden])");
   };
+  // The topic zip's offline index.html, for the topic with the most games,
+  // made by the gallery's own code and served from here.
+  const count = (id) => manifest.games.filter((g) => g.status !== "archived" && (g.topics || []).includes(id)).length;
+  const bigTopic = [...new Set(manifest.games.flatMap((g) => g.topics || []))].sort((a, b) => count(b) - count(a))[0];
+  {
+    const ctx = await browser.newContext(DESK);
+    const page = await ctx.newPage();
+    await page.goto(base);
+    await page.waitForSelector(".game-card");
+    offlineIndex = await page.evaluate(async (id) => {
+      const B = window.ArcadeBundle, D = window.ArcadeDownload;
+      const list = B.gamesOf((await (await fetch("games/games.json")).json()).games, id);
+      return B.indexPage(window.ArcadeTopics.get(id), list, list.map(D.fileName), { date: "2026-01-01", site: "https://example.org/", source: "https://example.org/" });
+    }, bigTopic);
+    await ctx.close();
+  }
   const views = [
     { target: "gallery", url: `${base}#/`, full: true, ready: ".game-card" },
+    { target: "topic download", url: `${base}#/?topic=${bigTopic}`, full: false, ready: "#topicBundle:not([hidden])" },
     { target: "cabinet", url: `${base}#/play/${g0.id}`, full: false, ready: "#panel:not([hidden])",
       states: [async () => {}, panel("achievements"), panel("rate"), async (page) => { await page.keyboard.press("Escape"); await sleep(300); }] },
     { target: "teacher page", url: `${base}#/teachers`, full: true, ready: "#teachTopicRows tr" },
     { target: "classroom note", url: `${base}?class=1#/`, full: false, ready: "#classroomNote:not([hidden])" },
+    { target: "offline index", url: `${base}__offline/index.html`, full: true, ready: "a.play" },
   ];
   // Runs fn(page) once per state of the view (once for views without states).
   async function eachState(v, ctxOpts, fn) {

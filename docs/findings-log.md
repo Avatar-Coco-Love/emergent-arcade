@@ -1485,3 +1485,26 @@ clamped at 0.
 default screen and 12/12 contrast/colour/text on six scripted late
 screens; idle-motion diffs with pieces hidden; L\* by number; balance old
 ×2 and new ×2 identical.*
+
+## A daily game's accent made the gallery audit fail by date
+
+Topic zip PR (teacher idea 5, 2026-10-06). Running
+`node scripts/a11y-audit.mjs --gallery` for the new topic bar, the gallery
+and classroom-note views failed the colour check: protan `#ff8fb1` ≈
+`#9a9aa4` (0.5% of the screen near 859,155), the same on a stash of main.
+The point was the daily banner's "Play today's" button, filled with
+`--card-accent`: today's Daily pick is Surprise Party, accent `#ff8fb1`.
+Under the protan simulation that pink lands on the grey that anti-aliased
+muted text makes, so the pair counts as told apart by hue only (the same
+mechanism as Island Census's teal band). The button's meaning is in its
+label, so the merge hid nothing, but the check is right to want chrome
+that doesn't depend on which game is up: the result changed with the
+date, so CI on main would have gone red on Surprise Party's days and
+passed on others.
+
+Fix: `.daily-go a.primary` uses the site `--accent` and `--on-accent`
+(blue-bearing, like every other primary button); the banner's left stripe
+and the thumbnail keep the game's colour. Gallery side: 0 failing after.
+Not checked: every other accent as a fill elsewhere in the cabinet (its
+primary buttons still use `--game-accent`; the cabinet view audits
+`games[0]` only, so a pink game there would not be seen).

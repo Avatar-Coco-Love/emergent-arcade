@@ -35,10 +35,12 @@ the honest end state, not a fix still owed.
 
 | | motion | contrast | colour | keyboard | label | text |
 |---|---|---|---|---|---|---|
-| gallery | pass | pass (fixed) | pass | pass | pass | pass (fixed) |
+| gallery | pass | pass (fixed) | pass (daily button fixed 2026-10-06) | pass | pass | pass (fixed) |
 | cabinet | pass | pass | pass (stars fixed) | pass | pass | pass (fixed) |
 | teacher page | pass | pass (fixed) | pass | pass | pass | pass |
-| classroom note | pass | pass | pass | pass | pass | pass |
+| classroom note | pass | pass | pass (daily button fixed 2026-10-06) | pass | pass | pass |
+| topic download | pass | pass | pass | pass | pass | pass |
+| offline index | pass | pass | pass | pass | pass | pass (13.6 px) |
 | murmuration | partial (v6: reads it; all idle motion is the flock) | pass (v6: backings) | pass | pass (v6: cursor, hold Space, X) | pass (v6, live region) | pass (v6) |
 | orbit-garden | pass (v8: reads it; petals still. The old pass was timing: petals spin only after a bloom, 0.00% with planets hidden) | pass (v8: hint backing) | pass (v8, late screens too) | pass (v8: cursor, Enter places, Space aims and flings, N jumps) | pass (v8, live region) | pass |
 | wildfire-line | pass (v4) | pass | pass (v4: lightness bands) | pass (v4: cursor) | pass (v4) | pass |

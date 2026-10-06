@@ -87,6 +87,10 @@ jobs:
         run: node scripts/monkey-games.mjs
       - name: Gallery smoke test
         run: node scripts/smoke-gallery.mjs --out smoke-shots
+      - name: Topic zips open offline
+        # Every topic's "Download all" zip, unzipped and opened from file://
+        # with the network blocked (scripts/test-bundle.mjs).
+        run: node scripts/test-bundle.mjs
       - name: Accessibility audit
         # Fails only on the gallery side (gallery, cabinet, teacher page,
         # classroom note); game rows are a report (docs/accessibility.md).

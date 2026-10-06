@@ -29,7 +29,8 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/names.js` | `ArcadeNames`: typed leaderboard names (clean, fold, check, tag), with the word lists `assets/name-reserved.json` and `assets/name-blocked.json`. Also run by the builder through `scripts/names.mjs` ([scores.md](scores.md), "Typed names") |
 | `assets/daily.js` | `ArcadeDaily`: the Daily Challenge: the day's pick, this browser's daily results and streak, the result card and its share ([daily.md](daily.md)). Also run by the Node scripts through `scripts/daily.mjs` |
 | `assets/progress.js` | `ArcadeProgress`: every per-browser key, New/Updated badges, recent games, export/import/reset, telemetry opt-out |
-| `assets/download.js` | `ArcadeDownload`: standalone copy of a game (header comment + shim) |
+| `assets/download.js` | `ArcadeDownload`: standalone copy of a game (header comment + shim), `playUrl` (the link shared and written into copies) |
+| `assets/bundle.js` | `ArcadeBundle`: "Download all <topic> games", a store-only zip of a topic's standalone copies plus an offline `index.html` (below) |
 | `assets/cabinet.js` | `ArcadeCabinet.open(game)` / `close()`: toolbar, panels, ⋯ menu, toasts, loading/error states, share, download, rating, nudge |
 | `assets/name-ctl.js` | `ArcadeNameCtl.create(prefix, { toast, onChange })`: the leaderboard name controls (show me, pick another name, type a name), used by the 🏆 panel (ids `lb…`) and the Records view (ids `rec…`) |
 | `assets/records.js` | `ArcadeRecords`: the Records view (`#/records`), every game's leaderboard on one page |
@@ -40,7 +41,7 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/gallery.js` | cards, search/sort/verb and topic filters, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
 Script order in `index.html`: config, ui, classroom, wording, topics, feedback, achievements, names, scores, daily, progress,
-telemetry, thumbs, download, cabinet, records, spotlight, teachers, gallery.
+telemetry, thumbs, download, bundle, cabinet, records, spotlight, teachers, gallery.
 
 ## Tap or click
 
@@ -73,7 +74,9 @@ ideas).
   opened from it goes back to it (← and focus on the row's ▶).
 - `#/daily`: today's Daily Challenge in the cabinet (the game in daily mode,
   [daily.md](daily.md)). The gallery's daily banner, above Continue playing,
-  links here; hidden while filtering.
+  links here; hidden while filtering. Its "Play today's" button is the site
+  accent; the game's accent is only its stripe (a pink fill failed the
+  colour-blind audit on Surprise Party's day, docs/findings.md).
 - `#/spotlight`: the Spotlight view (below). A cabinet opened from it goes
   back to it, with focus on the Play link used.
 - `#/teachers`: the teacher page (below), linked from the footer ("For
@@ -136,6 +139,9 @@ subject, Privacy, Going further (GitHub links set from `config.repo`), and
   feedback, like a rating), never in classroom mode (hidden, with a line
   saying why). Read with `node scripts/fetch-feedback.mjs --classroom`
   (also the last section of its default summary).
+- **Download all as zip**: under each subject's games, the topic zip
+  (below). Its name starts with the visible text: "Download all as zip:
+  fluid dynamics, 3 games". The Offline copies card says to unzip first.
 - Logs a `teachers` gallery event on open, `classroom_link` (`method`) on
   copy, and `open` with `from: teachers`.
 
@@ -188,6 +194,46 @@ gallery uses them in three places:
 
 `node scripts/mechanic-map.mjs` prints verbs × topics. Smoke-tested by
 "topic filter, search and ⓘ links".
+
+## Topic download (offline lab computers)
+
+"Download all <topic> games" (teacher idea 5), `assets/bundle.js`. Two
+buttons call the same `ArcadeBundle.run`: the gallery's bar under the
+topic chips (`#topicBundle`, shown only while a topic is picked; always the
+topic's playable games, whatever the verb filter or search), and each row
+of the teacher page's subject table.
+
+- **A zip, not several files.** Several downloads hit Chrome's "allow
+  multiple downloads" prompt, land loose among other files in Downloads
+  (the relative links need them together), and can't make a folder; the
+  folder picker API is Chromium-only. A zip opens natively on Windows,
+  macOS and ChromeOS. Store-only (no compression) is ~70 lines: local
+  headers, central directory, end record, CRC-32 table, UTF-8 names.
+- **Inside** `emergent-arcade-<topic>-<date>.zip`: a folder
+  `emergent-arcade-<topic>/` with `index.html` and each game as
+  `<id>-v<version>.html`, byte for byte what the cabinet's Download makes
+  (`ArcadeDownload.build`, so the header, license and achievement shim are
+  the same).
+- **index.html**: lang, `<main>`, an `h1` and an `h2` per game; title,
+  version, blurb, goal, how to play, keys, topics and a "Play <title>"
+  link (relative). No script and a CSP of `default-src 'none'`, so it can't
+  reach the network. It keeps both wordings of `{tap}` text (built from the
+  raw manifest, fetched again) and CSS `@media (pointer: coarse)` shows one,
+  hiding the keys line on touch, like the gallery. Light and dark follow
+  the system. A short note says nothing is sent offline (no scores,
+  leaderboards or play stats) and achievements stay in that browser.
+- Status line under the button: "Preparing the zip…", then the name, game
+  count and size, "Unzip it, then open index.html". Logs `download_topic`
+  (`topic`, `games`, `from`: `gallery` or `teachers`).
+- Sizes (2026-10-06, 20 games): 55–57 KB for one game, 94–182 KB for
+  2–3, planning 360 KB (6), timing 312 KB (6); all 13 topics 1.99 MB.
+- Tests: `node scripts/test-bundle.mjs [<topic> ...]` (CI) presses each
+  topic's button in Chromium, unzips with Python's `zipfile`, checks the
+  names, opens `index.html` from file:// offline with every non-file
+  request refused, opens each game from its link and fails on a console
+  error or a blank screen; one line per topic with the size. Smoke check
+  "topic download"; `a11y-audit.mjs --gallery` audits the bar ("topic
+  download") and the index page ("offline index", the biggest topic).
 
 ## Per-browser storage
 
@@ -275,7 +321,8 @@ logs a `share` row with `from: "gallery"`.
   frame (`if (window.parent !== window)`), so the shim redefines
   `window.parent` as a stand-in that receives `arcade:achievement`, saves it
   under the same key the gallery uses, and shows a toast. It does nothing
-  inside a frame. The output passes `scripts/self-contained.mjs`.
+  inside a frame. The output passes `scripts/self-contained.mjs`. A whole
+  topic at once: "Topic download" above.
 
 ## Accessibility
 
