@@ -327,6 +327,24 @@
     if (on && on.offsetLeft + on.offsetWidth > row.clientWidth - 28) row.scrollLeft = on.offsetLeft + on.offsetWidth - row.clientWidth + 40;
   }
 
+  // With a topic picked: "Download all <topic> games" (assets/bundle.js).
+  // Always the topic's playable games, whatever the verb filter or search.
+  function renderBundle() {
+    const topic = state.topic && Topics.get(state.topic);
+    const n = topic ? window.ArcadeBundle.gamesOf(games, topic.id).length : 0;
+    const box = $("topicBundle");
+    box.hidden = !n;
+    if (!n) return;
+    if (box.dataset.topic !== topic.id) {
+      box.dataset.topic = topic.id;
+      $("topicBundleStatus").textContent = "";
+    }
+    $("topicBundleBtn").textContent = `Download all ${topic.label} games (${n})`;
+  }
+  $("topicBundleBtn").addEventListener("click", () => {
+    if (state.topic) window.ArcadeBundle.run($("topicBundleBtn"), $("topicBundleStatus"), state.topic, "gallery");
+  });
+
   function renderHeader() {
     const { got, total } = Progress.totals(games);
     $("trophyTotal").textContent = total ? `🏆 ${got} / ${total}` : "";
@@ -345,6 +363,7 @@
     renderDaily();
     renderContinue();
     renderChips();
+    renderBundle();
     renderHeader();
 
     galleryStatus.className = "status gallery-status";

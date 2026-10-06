@@ -17,7 +17,7 @@ import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync } from "no
 import { join, dirname, extname, normalize } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import os from "node:os";
 import { selfContainedProblems } from "./self-contained.mjs";
 
@@ -766,6 +766,40 @@ for (const vp of VIEWPORTS) {
     const gal = rows.slice(n).filter((r) => r.kind === "gallery");
     assert(gal.some((r) => r.action === "teachers") && gal.some((r) => r.action === "open" && r.from === "teachers"), `telemetry ${JSON.stringify(gal.map((r) => r.action))}`);
     return `${got.length} topics, ${new Set(got.flatMap((r) => r[2])).size} games`;
+  });
+
+  // "Download all <topic> games" (assets/bundle.js): the gallery's button
+  // for a topic with games, a zip that holds exactly that topic's games plus
+  // index.html (read by Python's zipfile), and one button per teacher row.
+  await check(tag("topic download: button, zip lists the topic's games"), async () => {
+    const live = games.filter((g) => g.status !== "archived");
+    const used = Topics.LIST.filter((t) => live.some((g) => (g.topics || []).includes(t.id)));
+    const t = used[0];
+    const want = live.filter((g) => (g.topics || []).includes(t.id)).sort((a, b) => a.title.localeCompare(b.title));
+    await page.goto(`${base}#/`);
+    await page.waitForSelector(".game-card");
+    assert(await page.locator("#topicBundle").isHidden(), "button shown with no topic");
+    await page.goto(`${base}#/?topic=${t.id}`);
+    await page.waitForSelector("#topicBundle:not([hidden])");
+    assert((await page.locator("#topicBundleBtn").textContent()) === `Download all ${t.label} games (${want.length})`, "button label");
+    const n = rows.length;
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.locator("#topicBundleBtn").click()]);
+    const zipPath = join(outDir, `${vp.name}-${dl.suggestedFilename()}`);
+    await dl.saveAs(zipPath);
+    const names = execFileSync("python3", ["-I", "-c", "import sys,zipfile;z=zipfile.ZipFile(sys.argv[1]);assert z.testzip() is None;print(chr(10).join(z.namelist()))", zipPath]).toString().trim().split("\n");
+    const dir = `emergent-arcade-${t.id}/`;
+    const expect = [dir, `${dir}index.html`, ...want.map((g) => `${dir}${g.id}-v${g.version}.html`)];
+    assert(JSON.stringify(names) === JSON.stringify(expect), `zip lists ${names.join(", ")}`);
+    await page.waitForSelector("#topicBundleStatus.ok");
+    assert(await noHScroll(page), "horizontal scroll");
+    await page.waitForTimeout(300);
+    assert(rows.slice(n).some((r) => r.action === "download_topic" && r.topic === t.id && r.from === "gallery"), "no download_topic row");
+    // The teacher page: one button per subject row, named after it.
+    await page.goto(`${base}#/teachers`);
+    await page.waitForSelector("#teachTopicRows tr[data-topic]");
+    const btns = await page.$$eval("#teachTopicRows tr[data-topic]", (trs) => trs.map((tr) => (tr.querySelector(".teach-zip") || {}).ariaLabel || ""));
+    assert(btns.length === used.length && btns.every((b) => b.startsWith("Download all as zip: ")), `teacher buttons ${btns.length}`);
+    return `${t.id}: ${want.length} games, ${Math.round(statSync(zipPath).size / 1024)} KB`;
   });
 
   if (!vp.mobile) {

@@ -10,8 +10,8 @@ the games, not just play them.
 | 1 | Teacher page on the site | small | built (`#/teachers`) |
 | 2 | Classroom mode link (`?class=1`) | small | built |
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
-| 4 | Class challenge link (teacher-chosen seed) | medium | later |
-| 5 | Download a whole subject at once | medium | later |
+| 4 | Class challenge link (teacher-chosen seed) | medium | next (prompt at the end) |
+| 5 | Download a whole subject at once | medium | built (topic zip, 55–360 KB) |
 | 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6), Geode (v3), Ant Trails (v7), Hourglass Delivery (v5), Orbit Garden (v8), Hot Iron (v6), Loom (v4), Surprise Party (v4), Terrace Garden (v4), Lighthouse Keeper (v4); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
 
@@ -55,10 +55,18 @@ run and compares results. Reuse the daily result card.
 
 ## 5. Download a whole subject at once
 
-`assets/download.js` builds one standalone file per game. A "Download all
+`assets/download.js` builds one standalone file per game (the cabinet's
+Download calls it, `assets/cabinet.js`). A "Download all
 fluid dynamics games" option (zip, or a folder of files plus a small index
 page) for offline lab computers. No zip library is allowed by the rules
 (no dependencies): either a tiny store-only zip writer or several files.
+
+**Built 2026-10-06** (`assets/bundle.js`, [gallery.md](../gallery.md),
+"Topic download"): a store-only zip from the gallery's topic filter and
+each row of the teacher page's subject table, with the standalone copies
+and an offline `index.html`. Sizes: one game 55–57 KB, 2–3 games 94–182 KB,
+planning 360 KB and timing 312 KB (6 each); all 13 topics 1.99 MB.
+`node scripts/test-bundle.mjs` opens every topic's zip from file:// offline.
 
 ## 6. Accessibility audit
 
@@ -663,7 +671,7 @@ Revise Mycelium for accessibility (docs/accessibility.md, its row; docs/ideas/te
 7. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–5 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 7 at its end.
 ```
 
-## Next: Download a whole subject (idea 5, prompt below)
+## Prompt used for idea 5 (built 2026-10-06)
 
 Chosen 2026-10-06, after Mycelium v4. Still no classroom reports (0), so
 3 vs 4 keeps waiting on what teachers ask for. Every game's audit row now
@@ -683,6 +691,35 @@ Build idea 5 from docs/ideas/teachers.md in one PR: download every game of a sub
 4. Tests: node scripts/validate.mjs, node scripts/smoke-gallery.mjs (add a check: the button exists for a topic with games and the archive lists exactly that topic's games), node scripts/a11y-audit.mjs --gallery (all pass), and a script that builds the archive headless, unzips it (python3 zipfile is fine), opens index.html from file:// in Chromium with the network blocked, opens every game from it, and fails on any console error or a game that doesn't draw. Record archive sizes per topic.
 
 5. Update docs/gallery.md (where it lives, how it is built), docs/teaching.md (one paragraph for teachers), idea 5 in docs/ideas/teachers.md (done, with sizes), and add what the build teaches to docs/findings.md if anything is new (full entry in docs/findings-log.md). Push, open the PR (template checklist), watch CI until green. No playtest artifact is needed for a gallery change unless a game file changed; if the index page is worth a look, publish it as a private artifact and link it in the PR.
+
+6. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–4 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 6 at its end.
+```
+
+## Next: Class challenge link (idea 4, prompt below)
+
+Chosen 2026-10-06, after the topic zip (idea 5). Still 0 classroom
+reports, so nothing points to 3 over 4; the teacher page had 3 opens and
+single-game downloads 2 (pressure-grid). Idea 4 reuses the Daily
+Challenge's seeded runs, result card and boards logic, and has no
+accuracy risk; idea 3 (what's going on here notes) is mostly writing
+that should wait for a teacher to say which games they use. The audit
+found nothing serious: Rail Yard's 11.5 px text is partial; Aqueduct and
+Counterfeit Scale lack a live region (their next revisions). Only 3 games
+have `daily` today (Coat Check, Counterfeit Scale, Surprise Party), so
+the challenge list is short until more join the rotation.
+
+```
+Build idea 4 from docs/ideas/teachers.md in one PR: a class challenge link, so a class plays the same seeded run of one game and compares results. Read CLAUDE.md first and follow it.
+
+1. Read docs/ideas/teachers.md (idea 4, and ideas 1, 2, 5 and 7 for the teacher page), docs/daily.md (the pick, the game's side of the protocol, the result card, boards), docs/gallery.md (routes, the teacher page, classroom mode, "Topic download"), and assets/daily.js. Run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs (the gallery rows: teachers, download_topic, daily). If classroom reports ask for idea 3 instead, or mention challenges or downloads, say so before starting.
+
+2. Design: on the teacher page, "Make a class challenge": pick a game (only games with `daily` in the manifest) and get a link like #/challenge/<game>/<code> (a short code the seed is derived from; say how, and why it can't collide with a Daily date). Opening it plays that game in daily mode with that seed: same run for everyone, practice runs after the first, and the daily result card with the challenge code instead of "Daily #N". Decide and say: whether challenge results go to any leaderboard (likely not; classroom mode may be on), whether the first run counts once per browser per code, and how the teacher sees the class's results without accounts (likely: students share the card or read their score aloud; no backend change). Must not change the Daily Challenge for anyone else.
+
+3. Accessibility and wording: the new controls have names, a focus ring of 3:1, work with the keyboard alone, and say {tap}/click by device where the gallery does; light and dark themes; the challenge banner/card text passes the same contrast and text-size rules (docs/accessibility.md).
+
+4. Tests: node scripts/validate.mjs, node scripts/test-daily.mjs (add: a challenge code gives the same seed every time and differs from every Daily seed of the next year), node scripts/smoke-gallery.mjs (add a check: make a link on the teacher page, open it, the game gets the challenge seed, the card shows the code), node scripts/a11y-audit.mjs --gallery (all pass, add the challenge view), node scripts/test-bundle.mjs (still passes). If a game file changes, node scripts/monkey-games.mjs <id>.
+
+5. Update docs/daily.md and docs/gallery.md (routes, how it's built), docs/teaching.md (one paragraph for teachers), idea 4 in docs/ideas/teachers.md (done), docs/telemetry.md if a new gallery event is logged, and add what the build teaches to docs/findings.md if anything is new (full entry in docs/findings-log.md). Push, open the PR (template checklist), watch CI until green. No playtest artifact is needed for a gallery change unless a game file changed; if the challenge view is worth a look, publish the gallery as a private artifact and link it in the PR.
 
 6. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–4 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 6 at its end.
 ```

@@ -70,6 +70,7 @@ common columns is in `extra`. One row per action:
 | `open` | a cabinet opens a game | `game_id`, `game_version`, `from` (`list`, `continue`, `archive`, `records`, `spotlight`, `teachers`, `link`, `daily`; `daily` = the date when it opened as the Daily Challenge), `position` (1-based, for cards), `sort` (`featured` or the sort), `verb` / `topic` if filtered, `searching` if a search was active |
 | `share` | Share pressed | `game_id`, `game_version`, `method` (`share` sheet, `copy`, `prompt`), `from` (`toolbar`, `menu`, `about`); the gallery header's share (the whole arcade) has `from: "gallery"` and no game fields |
 | `download` | a standalone copy was saved | `game_id`, `game_version`, `from` |
+| `download_topic` | a topic's zip was saved ("Download all <topic> games") | `topic`, `games` (count), `from` (`gallery`, `teachers`) |
 | `sort` | the sort changed | `sort` |
 | `filter` | a verb or topic chip was pressed | `verb` or `topic` (`all` when cleared) |
 | `search` | 1.5 s after typing stops | `query_len`, `results` (never the text) |

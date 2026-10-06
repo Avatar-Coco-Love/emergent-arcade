@@ -285,6 +285,12 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   for small fills, and audit screens from late in a round too. *A
   saturated colour turns into text grey for colour-blind eyes.* Island
   Census v3. audit + seeded late screens.
+- Gallery chrome that fills with the day's game accent changes the
+  audited screen every day: Surprise Party's pink "Play today's" button
+  merged with grey text for protan eyes and turned the gallery audit red
+  on its Daily day only (main too). Game accents go on stripes and
+  thumbnails; buttons with text use the site accent. *A daily game's
+  accent made the gallery audit fail by date.* Topic zip PR. audit.
 - Arrow keys picking among a fixed set (a meadow's paths) must cover the
   set: "nearest in that direction" left 890 paths unpickable on 500
   islands (two neighbours on one side). Give each item its own arrow by
