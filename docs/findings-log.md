@@ -1398,3 +1398,42 @@ time; level 4, lid-first, not by this bot, which turns before melting lids); L* 
 number; audit on default + 4 scripted screens (held melt mid-turn, late 12,
 late 21, hint on 16), 2 runs each; balance old ×2 and new identical.*
 
+## A memory game's live region must not hold the memory
+
+Coat Check v4. The game is working memory: where you hang a coat is the
+only record of it. A live region is DOM text that stays readable until it
+is replaced, so a screen reader player can step back to it at any time,
+unlike a moment on screen. The rule used: the region says what the
+screen shows now, and loses it when the screen does.
+- A hang says "Hung on B3", not the coat: the door is shut, and a line
+  naming the coat would be a written list of what went where. The coat
+  was named while it sat on the counter, as it was visible.
+- A peek's coat ("Peeking at B3: a red striped coat with a star pin") is
+  replaced the moment the door closes ("B3 closed." plus the strip's text),
+  not left for the next line.
+- Regulars are named by hook ("Closed: A4, B1"), as a sighted player sees
+  closed doors; their coats were shown only in last night's recap.
+- A wrong door's coat stays as long as the message strip shows it (both
+  until the next move), so the two channels hold the same thing.
+- The recap is spoken hook by hook while every door is open, and dropped
+  at the next shift.
+The keys-only bot read only `#say`, kept its own memory of what it heard,
+peeked when unsure and fetched with Enter: shifts 1–4 cleared, 0 wrong
+doors, 3/3 runs. Leak checks after every hang and after the peek: the
+region never named a coat behind a shut door. (A first version of the
+check flagged 2: on look-alike shifts the next coat at the counter can
+share colour and pattern with the one just hung; the check now ignores
+the counter line.)
+
+Colour: v3's red, blue and pink were all L* 57–63 (normal, deutan,
+protan), and the audit's colour cell passed; scripted recaps showed red
+and yellow coats as the same olive for deutans and protans, and returned
+coats faded to 50% landed yellow in red's band. v4 steps each colour
+(blue 33–36 < red 51–63 < pink 78–81 < yellow 91–93, ≥ 12 apart in all
+three) and marks returned coats with a badge instead of a fade. Text the
+default screen never shows (ticket header 10.4 px, ⇄ line 9.4 px, pin
+glyphs ~8 px on recap doors, a 35%-alpha button) only appeared in scripted
+states: 7 states × contrast/colour/text × 2 runs, 42/42 after.
+
+*Evidence: keys-only bot 3 runs + leak checks; L* by number; audit 3/3
+default and 42/42 on scripted states; idle diffs MOTION_RUNS.*
