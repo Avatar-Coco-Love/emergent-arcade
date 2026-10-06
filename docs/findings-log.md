@@ -1436,4 +1436,5 @@ glyphs ~8 px on recap doors, a 35%-alpha button) only appeared in scripted
 states: 7 states × contrast/colour/text × 2 runs, 42/42 after.
 
 *Evidence: keys-only bot 3 runs + leak checks; L* by number; audit 3/3
-default and 42/42 on scripted states; idle diffs MOTION_RUNS.*
+default and 42/42 on scripted states; idle diffs 3 runs (rattle under reduced
+motion v3 0.43–1.33%, v4 0.00%; door open, peek, recap 0.00%).*

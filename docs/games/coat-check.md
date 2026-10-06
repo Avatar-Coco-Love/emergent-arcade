@@ -71,8 +71,7 @@ HUD (shift, complaints ✕○○, peeks ◆◇, coats ✓ and best), then the ca
 Portrait: counter (guest + coat or ticket, 100-150 px) above the grid.
 Landscape (W > 1.15 H): counter on the left third, grid on the right. Doors
 fit both ways (height ≤ 1.3 × width); refit on every shift and resize. Checked
-at 360×640, 640×360 and 1100×700: no scroll, no errors, a full 14-shift run
-driven through real pointer events at both phone sizes, keyboard path checked.
+at 360×640, 640×360 and 1100×700 (no scroll, no errors).
 
 ## Balance (v1, 300 runs)
 
@@ -126,7 +125,8 @@ Endless 4×4), 2 runs each: 42/42.
   (were 10.4/9.4 on later shifts); recap button label 4.5:1+ while locked
   (was 35% alpha); landscape rule line 12 px.
 - Reduced motion (`still()`): the reshuffle rattle becomes a still row
-  outline. Nothing else moves while idle: MOTION_RESULT.
+  outline (v3 0.43–1.33% idle under the setting, v4 0.00%). A door
+  showing, a peek held, the recap: 0.00% (3 runs).
 - Balance identical (old twice, then new; 300 runs). Keys-only bot
   (`#say` only, own memory): shifts 1–4 cleared, 0 wrong, 3/3 runs; the
   region never named a hung or peeked coat after its door shut.
@@ -141,7 +141,6 @@ Endless 4×4), 2 runs each: 42/42.
   it. Kept; watch S6/S10 win rates in playtest (friends is the hardest rule
   for every memory bot).
 - Swap the assumed 4 s per action for the measured `think_s`.
-- File is ~41 KB (target ~40).
 - `planning` as a second topic only if playtests show players plan the scheme.
 
 History (original brief, go/no-go run): `docs/history/coat-check.md`
