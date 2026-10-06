@@ -124,13 +124,21 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(240, 196, 106, 0); border-color: var(--line); }
     50% { box-shadow: 0 0 0 5px rgba(240, 196, 106, 0.45); border-color: var(--accent); }
   }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* Screen-reader only: the live region (#say). */
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) {
+    .nudge { animation: none; box-shadow: 0 0 0 3px rgba(240, 196, 106, 0.6); border-color: var(--accent); }
+    button:active:not(:disabled) { transform: none; }
+  }
 </style>
 </head>
 <body>
-  <p id="msg" role="status"></p>
+  <p id="msg" aria-hidden="true"></p>
+  <p id="say" class="sr" role="status" aria-live="polite"></p>
   <div id="field">
     <div id="stage">
-      <canvas id="board" role="img" aria-label="Bubble Glass. Drag around the box to turn it, hold on sand to melt it into glass, tap or click glass to shatter it."></canvas>
+      <canvas id="board" role="img" aria-label="Bubble Glass. Drag around the box to turn it, hold on sand to melt it into glass, tap or click glass to shatter it. Keys: ← → turn the box, T switches the arrows to a cursor, hold Space melts at it, Enter or X shatters."></canvas>
       <div id="endCard" hidden>
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
@@ -198,8 +206,8 @@
     { id: 'air', ch: '.', colour: [16, 27, 44] },
     { id: 'wall', ch: '#', stops: true, colour: [62, 72, 94] },
     { id: 'sand', ch: 's', falls: true, resist: 1, melts: true, colour: [224, 186, 112] },
-    { id: 'glass', ch: 'g', rigid: true, stops: true, colour: [150, 222, 238] },
-    { id: 'vent', ch: 'V', stops: true, exit: true, colour: [240, 196, 106] },
+    { id: 'glass', ch: 'g', rigid: true, stops: true, colour: [92, 146, 170] },
+    { id: 'vent', ch: 'V', stops: true, exit: true, colour: [250, 206, 112] },
     { id: 'wet', ch: 'w', falls: true, speed: 0.25, slides: false, resist: 2.5, colour: [132, 96, 62] },
     { id: 'dust', ch: 'd', falls: true, speed: 2, resist: 0.3, melts: true, colour: [240, 232, 214] },
     { id: 'grate', ch: '%', stops: true, sieve: true, colour: [88, 100, 128] },
@@ -830,6 +838,13 @@
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
   const msgEl = document.getElementById('msg');
+  const sayEl = document.getElementById('say');
+  // Reduced motion: sand, glass, the bubbles and the turning box are the
+  // game and keep moving; the held shard's glow, the vent's and the hint's
+  // pulse, the hint's running chevrons, the slowed bubble's flashing rim and
+  // the ring a freed bubble leaves are decoration, drawn still.
+  const motionQ = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const still = () => !!(motionQ && motionQ.matches);
 
   // Achievements: announced to the Emergent Arcade gallery when embedded
   // (it records them); harmless when the file is opened on its own.
@@ -857,7 +872,7 @@
       stats: { turns: turns, deg: Math.round(world.deg), melted: world.melted, glass: world.glass,
         shattered: world.shattered, heat_left: Math.round(world.heat), stuck_s: r1(stuckS), hints: hints,
         warns: warns, first_input: firstInput, tilt: tiltUsed ? 1 : 0, buried_s: r1(buriedS),
-        out: world.out, merged: world.merged, ch_t: r1(chRun ? chRun.t : chapterTime || 0) } };
+        out: world.out, merged: world.merged, keys: cur.used ? 1 : 0, ch_t: r1(chRun ? chRun.t : chapterTime || 0) } };
     if (reason) msg.reason = reason;
     // The score: a whole chapter's play time, posted with its last level.
     if (chapterTime !== null) { msg.score = r1(chapterTime); msg.board = CHAPTERS[lv().ch].id; }
@@ -887,7 +902,7 @@
   // The gallery pauses the game while one of its panels covers it.
   let paused = false;
   window.addEventListener('message', evt => {
-    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; keys.clear(); endPress(); }
+    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; keys.clear(); cur.dir = null; endPress(); }
     if (evt.data && evt.data.type === 'arcade:resume') paused = false;
     // The player's best chapter times, from the gallery (docs/scores.md).
     if (evt.data && evt.data.type === 'arcade:best' && evt.data.bests && typeof evt.data.bests === 'object') bestBy = evt.data.bests;
@@ -1504,7 +1519,7 @@
   let world, level, runId, attempt, state, msgTimer;
   let elapsed, turns, firstInput, stuckS, buriedS, hints, warns, tiltUsed;
   let stall = 0, stallAng = 0, hintAt = 0, hintStale = false, hint = null, hintJob = null, ready = null, lastShatter = null, warned = new Set();
-  let reached = 0, beaten = new Set();
+  let reached = 0, beaten = new Set(), lastSaid = '', lastSaidT = 0;
   // The chapter clock: play time over a chapter's levels, in order, from its
   // first level (restarts included). { ch, t, next }, or null (untimed:
   // the chapter wasn't started from its first level, or a level was skipped).
@@ -1548,6 +1563,8 @@
     state = 'playing';
     endCard.hidden = true;
     ventAt = findVent(world);
+    curHome();
+    resetWatch();
     const head = i === chFirst(c) ? `Chapter ${c + 1}: ${CHAPTERS[c].name}. ` : '';
     const untimed = chRun ? '' : ` (The chapter clock starts at level ${chFirst(c) + 1}.)`;
     say(`${head}${lv().name}. ${lv().note}${untimed}`, 5000);
@@ -1612,6 +1629,7 @@
     nextBtn.textContent = last ? 'Play again from level 1' : LEVELS[level + 1].ch !== c ? `Chapter ${c + 2}` : 'Next level';
     nextBtn.disabled = true;
     endCard.hidden = false;
+    speak(`${document.getElementById('endTitle').textContent} ${text} ${n ? `${n} achievement${n === 1 ? '' : 's'} earned.` : ''} Enter: ${nextBtn.textContent.toLowerCase()}.`);
     setTimeout(() => { nextBtn.disabled = false; }, END_INPUT_LOCK_MS);
     hud();
   }
@@ -1639,6 +1657,8 @@
   // ms 0: the message stays until something else replaces it.
   function say(text, ms = 2500, warn) {
     const t = words(text);
+    if (t !== lastSaid || performance.now() - lastSaidT > 8000) speak(t);
+    lastSaid = t; lastSaidT = performance.now();
     msgEl.textContent = t;
     msgEl.className = warn ? 'warn' : '';
     clearTimeout(msgTimer);
@@ -1802,25 +1822,33 @@
     return [((x * Math.cos(a) - y * Math.sin(a)) / BOX + 0.5) * N, ((x * Math.sin(a) + y * Math.cos(a)) / BOX + 0.5) * N];
   }
 
-  function paintGrid(now) {
+  // Each material keeps its own lightness band (L*, so it reads without
+  // hue): water 10, wall 31, grate 42/23 checker, wet 44, glass 57 (and a
+  // white outline), sand 72-82, dust 92. The vent (84/25) and a shard being
+  // melted (97/50) are checkers, so neither looks like the sand around it.
+  const TONE_AMP = MATERIALS.map(m => m.id === 'sand' ? 14 : 6);
+  function paintGrid(deco) {
     const d = img.data, w = world;
     const heldId = w.melt ? w.melt.sid : 0;
-    const glow = 0.5 + 0.5 * Math.sin(now / 150);
+    const glow = 0.5 + 0.5 * Math.sin(deco / 150);
     for (let i = 0; i < N * N; i++) {
       const m = w.t[i], c = MATERIALS[m].colour, o = i * 4;
+      const chk = (i + ((i / N) | 0)) & 1;
       let r = c[0], g = c[1], b = c[2];
-      if (FALLS[m]) { const v = (w.tone[i] - 128) / 128 * 22; r += v; g += v; b += v * 0.6; }
+      if (FALLS[m]) { const v = (w.tone[i] - 128) / 128 * TONE_AMP[m]; r += v; g += v; b += v * 0.6; }
       else if (m === GLASS) {
-        const v = (w.tone[i] - 128) / 128 * 10;
-        if (w.sid[i] === heldId) { r = 255; g = 150 + 60 * glow; b = 70; }
+        const v = (w.tone[i] - 128) / 128 * 8;
+        if (w.sid[i] === heldId) { if (chk) { r = 196; g = 96; b = 40; } else { r = 255; g = 236 + 12 * glow; b = 214 + 20 * glow; } }
         else { r += v; g += v; b += v; }
-      } else if (SIEVE[m]) { if ((i + ((i / N) | 0)) & 1) { r *= 0.55; g *= 0.55; b *= 0.55; } }
+      } else if (SIEVE[m]) { if (chk) { r *= 0.55; g *= 0.55; b *= 0.55; } }
+      else if (EXIT[m]) { if (chk) { r = 74; g = 58; b = 30; } }
       else if (m === AIR) { const v = ((i * 2654435761) >>> 28) - 8; b += v * 0.4; }
       d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
     }
     offCtx.putImageData(img, 0, 0);
   }
 
+  // now: the decoration clock (frozen at 0 under reduced motion).
   function draw(now) {
     const s = canvas.width / W;
     ctx.setTransform(s, 0, 0, s, 0, 0);
@@ -1855,7 +1883,9 @@
     drawBubbles(now);
     drawPress(now);
     drawHint(now);
+    drawCursor();
     if (motion.on) drawGravity();
+    if (still()) pops = [];
     for (const p of pops) {
       p.t += 1 / 60;
       const [x, y] = toScreen(p.x, p.y);
@@ -1893,7 +1923,7 @@
     const [vx, vy, ox, oy] = ventAt;
     const [x, y] = toScreen(vx, vy), [x2, y2] = toScreen(vx + ox * 4, vy + oy * 4);
     const pulse = 0.6 + 0.4 * Math.sin(now / 300);
-    ctx.fillStyle = `rgba(240, 196, 106, ${pulse})`;
+    ctx.fillStyle = `rgba(240, 196, 106, ${still() ? 1 : pulse})`;
     const ang = Math.atan2(y2 - y, x2 - x);
     ctx.save();
     ctx.translate(x2, y2);
@@ -1910,8 +1940,10 @@
     return [x, y, ox, oy];
   }
 
-  // The bubble: white, amber while sand trickles past it, red and dashed
-  // when the sand ahead is deep enough to be a wall.
+  // The bubble: a white rim, amber and long-dashed while sand trickles past
+  // it, red and short-dashed when the sand ahead is deep enough to be a
+  // wall (lightness 98 / 81 / 62 and the dashes: it reads without hue). A
+  // dark rim under it shows it on sand.
   function drawBubbles(now) { for (const b of world.bubs) drawBubble(b, now); }
   function drawBubble(b, now) {
     const [x, y] = toScreen(b.x, b.y);
@@ -1919,9 +1951,12 @@
     const blocked = b.flow <= 0, slow = b.flow < 1;
     ctx.fillStyle = 'rgba(220, 240, 255, 0.25)';
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 4.5;
+    ctx.strokeStyle = 'rgba(10, 14, 24, 0.85)';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
     ctx.lineWidth = 2;
-    ctx.strokeStyle = blocked ? '#ff6b5a' : slow ? `rgba(255, 190, 90, ${0.6 + 0.4 * Math.sin(now / 120)})` : '#f4fbff';
-    if (blocked) ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = blocked ? '#ff6b5a' : slow ? `rgba(255, 190, 90, ${still() ? 1 : 0.7 + 0.3 * Math.sin(now / 120)})` : '#f4fbff';
+    if (blocked) ctx.setLineDash([2, 3]); else if (slow) ctx.setLineDash([7, 3]);
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
@@ -1978,6 +2013,25 @@
     }
   }
 
+  // The key cursor: a cell outlined dark then white, so it shows on every
+  // material (white on water, wall, wet sand and glass; dark on sand, dust
+  // and the vent), with ticks outside so it shows on the bubble too.
+  function drawCursor() {
+    if (!cur.on || state !== 'playing') return;
+    const [x, y] = toScreen(cur.x + 0.5, cur.y + 0.5), h = CELL * 0.5 + 2.5;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(drawAngle());
+    for (const [col, lw] of [['rgba(8, 11, 20, 0.95)', 4.5], ['#ffffff', 1.8]]) {
+      ctx.strokeStyle = col; ctx.lineWidth = lw;
+      ctx.strokeRect(-h, -h, 2 * h, 2 * h);
+      ctx.beginPath();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.moveTo(dx * (h + 2), dy * (h + 2)); ctx.lineTo(dx * (h + 7), dy * (h + 7)); }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function drawGravity() {
     // Tilt mode: the box stays level on screen, so show which way is down.
     const g = gravity(world);
@@ -2017,20 +2071,23 @@
     press = { id: evt.pointerId, x, y, x0: evt.clientX, y0: evt.clientY, mode: 'pending', bx, by };
     canvas.setPointerCapture(evt.pointerId);
     if (!inBox(bx, by) || !can('melt') && !can('shatter')) { startTurn(press); return; }
-    press.timer = setTimeout(() => {
-      if (!press || press.mode !== 'pending') return;
-      const [fx, fy] = toBox(press.x, press.y);
-      const m = materialAt(world, fx, fy);
-      if (MELTS[m] && can('melt')) {
-        if (world.heat < 1) { say('No heat left.'); press.mode = 'idle'; touched(4); return; }
-        if (meltStart(world, fx, fy)) { press.mode = 'melt'; touched(2); return; }
-      }
-      if (MELTS[m] && !can('melt')) say('Melting unlocks in level 2. Drag to turn the box.');
-      if (m === MAT.wet) say('Wet sand won\'t melt. Only dry sand does.');
-      press.mode = 'idle';
-      touched(4);
-    }, HOLD_DELAY_MS);
+    press.timer = setTimeout(pressHeld, HOLD_DELAY_MS);
   });
+  // A press held still for HOLD_DELAY_MS (a finger, or Space at the key cursor) melts.
+  function pressHeld() {
+    if (!press || press.mode !== 'pending') return;
+    const [fx, fy] = toBox(press.x, press.y);
+    const m = materialAt(world, fx, fy);
+    if (MELTS[m] && can('melt')) {
+      if (world.heat < 1) { say('No heat left.'); press.mode = 'idle'; touched(4); return; }
+      if (meltStart(world, fx, fy)) { press.mode = 'melt'; touched(2); return; }
+    }
+    if (MELTS[m] && !can('melt')) say('Melting unlocks in level 2. Drag to turn the box.');
+    if (m === MAT.wet) say('Wet sand won\'t melt. Only dry sand does.');
+    else if (press.key && !MELTS[m]) speak('Nothing to melt here: melt dry sand or dust.');
+    press.mode = 'idle';
+    touched(4);
+  }
   canvas.addEventListener('pointermove', evt => {
     if (!press || evt.pointerId !== press.id) return;
     const [x, y] = toGame(evt);
@@ -2082,6 +2139,7 @@
       const onBubble = touchesBubble(world, hit);
       shatterAt(world, fx, fy);
       touched(3);
+      speakShatter(hit);
       if (onBubble) lastShatter = elapsed;
       if (world.heat < 1 && can('melt') && lv().heat) warn('remake', 'No heat left: that glass can\'t be remade.');
       return;
@@ -2113,27 +2171,323 @@
     return 0;
   }
 
-  // Keys: ← → (or A D) turn the box while held.
+  // § keys: the same verbs without a pointer, outside the simulation.
+  // ← → (or A D) turn the box while held, as before. T switches the arrows
+  // to a cell cursor (A D still turn). Hold Space to melt at the cursor: it
+  // is the pointer's own press (the same hold delay; the glass grows toward
+  // the cursor; key up = finger up). Enter or X shatters the glass under it
+  // (tapAt: the same reach and the same confirm). G jumps to the next glass
+  // shard, B to a bubble, H to the hint's spot, I says the status, Enter
+  // plays the next level after a win. The cursor is a cell of the box, so it
+  // stays on its cell when the box turns; its arrows move it up, down, left
+  // and right against gravity (on screen, unless in tilt mode). Tab stays
+  // free; Space/Enter on a focused button press the button.
   const keys = new Set();
+  const TURN_KEYS = ['ArrowLeft', 'ArrowRight', 'a', 'A', 'd', 'D'];
+  const ARROWS = { ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }; // [right, up]
+  const cur = { on: false, x: 24, y: 24, dir: null, hold: 0, acc: 0, moved: false, quiet: 0, shard: 0, bub: -1, used: false };
   window.addEventListener('keydown', evt => {
-    const k = evt.key;
-    if (!['ArrowLeft', 'ArrowRight', 'a', 'A', 'd', 'D'].includes(k)) return;
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    if (onButton && (evt.key === 'Enter' || evt.key === ' ')) return; // the focused button presses itself
+    const k = evt.key.length === 1 ? evt.key.toLowerCase() : evt.key;
+    if (state !== 'playing') {
+      if (k === 'Enter' && !evt.repeat && !paused) { evt.preventDefault(); if (state === 'won' && !nextBtn.disabled) next(); }
+      else if (k === 'i' && !evt.repeat) speak(statusWords());
+      return;
+    }
+    const arrow = cur.on && ARROWS[k];
+    if (!arrow && !TURN_KEYS.includes(evt.key) && ![' ', 'Enter', 'x', 't', 'g', 'b', 'h', 'i'].includes(k)) return;
     evt.preventDefault();
-    if (paused || state !== 'playing') return;
-    if (!keys.has(k)) {
-      keys.add(k);
-      if (motion.on) { motion.on = false; updateTiltBtn(); }
-      turns++;
-      touched(1);
+    if (paused) return;
+    if (onButton) evt.target.blur();
+    if (arrow) {
+      if (evt.repeat) return;
+      cur.dir = k; cur.hold = 0; cur.acc = 0;
+      curStep(k);
+      return;
+    }
+    if (TURN_KEYS.includes(evt.key)) {
+      if (!keys.has(evt.key)) {
+        keys.add(evt.key);
+        if (motion.on) { motion.on = false; updateTiltBtn(); }
+        turns++;
+        touched(1);
+      }
+      return;
+    }
+    if (evt.repeat) return;
+    if (k === ' ') keyPress();
+    else if (k === 'Enter' || k === 'x') keyShatter();
+    else if (k === 't') {
+      cur.on = !cur.on;
+      speak(cur.on ? `Arrows move the cursor, A and D turn the box, T turns the box with the arrows again. Cursor on ${cellWords(cur.x, cur.y)}`
+        : 'Arrows turn the box. T for the cursor.');
+    } else if (k === 'g') jumpGlass();
+    else if (k === 'b') jumpBubble();
+    else if (k === 'h') jumpHint();
+    else speak(statusWords());
+  });
+  window.addEventListener('keyup', evt => {
+    keys.delete(evt.key);
+    if (cur.dir === evt.key) cur.dir = null;
+    if (evt.key === ' ' && press && press.key) {
+      if (press.mode === 'pending' && can('melt')) speak('Hold Space a little longer to melt.');
+      endPress({ pointerId: 'key', type: 'keyup' });
     }
   });
-  window.addEventListener('keyup', evt => { keys.delete(evt.key); });
-  window.addEventListener('blur', () => keys.clear());
+  window.addEventListener('blur', () => { keys.clear(); cur.dir = null; if (press && press.key) endPress(); });
+  // Pointer clicks leave no focus on a button, so Space stays the melt key.
+  for (const b of document.querySelectorAll('button')) b.addEventListener('click', e => { if (e.detail > 0) b.blur(); });
   function keyTurn(dt) {
     let dir = 0;
     for (const k of keys) dir += k === 'ArrowLeft' || k === 'a' || k === 'A' ? -1 : 1;
     if (!dir) return;
     world.angT = world.ang + Math.sign(dir) * KEY_RATE * RAD * Math.max(dt, STEP) * 1.5;
+  }
+  // A held arrow repeats after 0.3 s, 12 cells a second, 24 after 1 s (so
+  // the cursor can get ahead of falling sand while Space is held).
+  function keyCursor(dt) {
+    if (cur.dir) {
+      cur.hold += dt;
+      if (cur.hold > 0.3) {
+        cur.acc += dt * (cur.hold > 1 ? 24 : 12);
+        while (cur.acc >= 1) { cur.acc -= 1; curStep(cur.dir); }
+      }
+    } else if (cur.moved && (cur.quiet += dt) > 0.25) {
+      cur.moved = false;
+      speak(cellWords(cur.x, cur.y));
+    }
+    if (press && press.key) [press.x, press.y] = toScreen(cur.x + 0.5, cur.y + 0.5);
+  }
+  // One cell up, down, left or right against gravity: the nearest of the
+  // box's 8 directions.
+  function curStep(k) {
+    const [rt, up] = ARROWS[k], g = gravity(world);
+    const vx = rt * g.gy - up * g.gx, vy = -rt * g.gx - up * g.gy;
+    const sx = Math.abs(vx) > 0.38 ? Math.sign(vx) : 0, sy = Math.abs(vy) > 0.38 ? Math.sign(vy) : 0;
+    cur.x = Math.max(0, Math.min(N - 1, cur.x + sx));
+    cur.y = Math.max(0, Math.min(N - 1, cur.y + sy));
+    cur.moved = true; cur.quiet = 0;
+  }
+  function curTo(x, y) { cur.on = true; cur.x = Math.max(0, Math.min(N - 1, Math.floor(x))); cur.y = Math.max(0, Math.min(N - 1, Math.floor(y))); cur.moved = false; }
+  // A new level: the cursor starts on the bubble, in the mode it was in.
+  function curHome() { const on = cur.on; if (world.bubs.length) curTo(world.bubs[0].x, world.bubs[0].y); cur.on = on; cur.dir = null; cur.shard = 0; cur.bub = -1; }
+  // Space: the pointer's press, at the cursor.
+  function keyPress() {
+    if (press) return;
+    if (!can('melt')) { say('Melting unlocks in level 2.'); touched(4); return; }
+    if (!cur.on) { cur.on = true; speak(`Cursor on ${cellWords(cur.x, cur.y)}`); }
+    cur.used = true;
+    const [x, y] = toScreen(cur.x + 0.5, cur.y + 0.5);
+    press = { id: 'key', key: true, x, y, x0: 0, y0: 0, mode: 'pending', bx: cur.x + 0.5, by: cur.y + 0.5 };
+    press.timer = setTimeout(pressHeld, HOLD_DELAY_MS);
+  }
+  function keyShatter() {
+    if (press) return;
+    if (!cur.on) { cur.on = true; speak(`Cursor on ${cellWords(cur.x, cur.y)}`); }
+    cur.used = true;
+    const near = shardNear(cur.x + 0.5, cur.y + 0.5);
+    tapAt(cur.x + 0.5, cur.y + 0.5);
+    if (!near) speak(`No glass within ${TAP_R} cells of the cursor.${world.shards.length ? ' G jumps to glass.' : ''}`);
+  }
+  function jumpGlass() {
+    const list = world.shards.filter(s => !(world.melt && world.melt.sid === s.id)).sort((p, q) => p.id - q.id);
+    if (!list.length) return speak('No glass in the box.');
+    const s = list.find(q => q.id > cur.shard) || list[0];
+    cur.shard = s.id;
+    const [x, y] = cellNear(s.cells);
+    curTo(x, y);
+    speak(`Glass ${list.indexOf(s) + 1} of ${list.length}: ${cellWords(cur.x, cur.y)}`);
+  }
+  function jumpBubble() {
+    if (!world.bubs.length) return speak('No bubble left.');
+    cur.bub = (cur.bub + 1) % world.bubs.length;
+    const b = world.bubs[cur.bub];
+    curTo(b.x, b.y);
+    speak(`${world.bubs.length > 1 ? `Bubble ${cur.bub + 1} of ${world.bubs.length}` : 'The bubble'}: ${bubbleWords(b)}`);
+  }
+  function jumpHint() {
+    if (!hint) return speak('No hint yet. One shows after a few seconds with nothing moving.');
+    if (hint.turn) return speak(`The hint says turn ${hint.turn > 0 ? 'clockwise: D, or the right arrow' : 'counterclockwise: A, or the left arrow'}.`);
+    if (hint.restart) return speak('The hint says restart the level: the Restart button.');
+    let x = hint.x, y = hint.y;
+    if (hint.shatter) { const s = world.shards.find(q => q.id === hint.shatter); if (!s) return; [x, y] = cellNear(s.cells); }
+    curTo(x, y);
+    speak(`Hint spot: ${cellWords(cur.x, cur.y)} ${hint.shatter ? 'Enter shatters it.' : 'Hold Space to melt here.'}`);
+  }
+  // The cell of a shard nearest its middle.
+  function cellNear(cells) {
+    let sx = 0, sy = 0;
+    for (const i of cells) { sx += i % N; sy += (i / N) | 0; }
+    sx /= cells.length; sy /= cells.length;
+    let best = cells[0], bd = Infinity;
+    for (const i of cells) { const d = (i % N - sx) ** 2 + (((i / N) | 0) - sy) ** 2; if (d < bd) { bd = d; best = i; } }
+    return [best % N, (best / N) | 0];
+  }
+
+  // § speech: what the screen shows, in words, for the live region (#say).
+  // Visible messages (say) are spoken too. The rest is read from the state
+  // after each frame (watch), never inside step(): the cell under the
+  // cursor once it stops, the box's angle once a turn settles, a shard
+  // starting, reaching its limit and its size when let go, glass shattering
+  // and where its sand falls, a bubble stuck (held 0.7 s) and moving again,
+  // where things stand once everything settles, heat at half, a quarter and
+  // 10, a bubble out, the level's result. Directions are against gravity:
+  // above, below, left, right as the arrows move the cursor.
+  const speech = [];
+  let sayFlip = false;
+  function speak(text) {
+    if (!text) return;
+    const t = text.replace(/← →/g, 'the left and right arrows').replace(/[↻↺🏆]/g, '').replace(/\s+/g, ' ').trim();
+    if (!speech.includes(t)) speech.push(t);
+    if (speech.length > 6) speech.shift();
+  }
+  function flushSpeech() {
+    if (!speech.length) return;
+    // A repeated line still changes the region, so it is read again.
+    sayEl.textContent = speech.join(' ') + ((sayFlip = !sayFlip) ? ' ' : '');
+    speech.length = 0;
+  }
+  const NAMES = { air: 'water', wall: 'wall', sand: 'sand', glass: 'glass', vent: 'the vent', wet: 'wet sand, which won\'t melt', dust: 'dust', grate: 'a grate' };
+  const cap = t => t.replace(/^./, c => c.toUpperCase());
+  // (dx, dy) in cells from obj as "3 above, 2 left of it", "4 below it":
+  // against gravity, like the cursor's arrows. '' when they coincide.
+  function relWords(dx, dy, obj) {
+    const g = gravity(world);
+    const up = Math.round(-(dx * g.gx + dy * g.gy)), rt = Math.round(dx * g.gy - dy * g.gx);
+    const v = up ? `${Math.abs(up)} ${up > 0 ? 'above' : 'below'}` : '';
+    if (!rt) return v ? `${v} ${obj}` : '';
+    return `${v ? v + ', ' : ''}${Math.abs(rt)} ${rt > 0 ? 'right' : 'left'} of ${obj}`;
+  }
+  function nearestBubble(x, y) {
+    let best = null, bd = Infinity;
+    for (const b of world.bubs) { const d = Math.hypot(x - b.x, y - b.y); if (d < bd) { bd = d; best = b; } }
+    return best;
+  }
+  function fromBubble(x, y) {
+    const b = nearestBubble(x, y);
+    if (!b) return '';
+    return relWords(x - b.x, y - b.y, 'the bubble') || 'at the bubble';
+  }
+  function cellWords(x, y) {
+    const i = y * N + x, m = world.t[i];
+    let what = NAMES[MATERIALS[m].id] || MATERIALS[m].id;
+    if (world.bub[i]) what = 'the bubble';
+    else if (m === GLASS) {
+      const s = world.shards.find(q => q.id === world.sid[i]);
+      what = world.melt && world.melt.sid === world.sid[i] ? 'glass being melted' : s ? `glass, a shard of ${s.cells.length} cells` : 'glass';
+    }
+    const where = world.bub[i] ? '' : fromBubble(x + 0.5, y + 0.5);
+    return `${cap(what)}${where ? ', ' + where : ''}.`;
+  }
+  function ventWords(b) {
+    if (!ventAt) return '';
+    const r = relWords(ventAt[0] - b.x, ventAt[1] - b.y, 'it');
+    return r ? `the vent is ${r}` : 'at the vent';
+  }
+  // What is straight above a bubble (against gravity), within 12 cells.
+  function aboveWords(b) {
+    const g = gravity(world);
+    for (let d = Math.ceil(b.r + 0.5); d <= b.r + 12; d++) {
+      const x = Math.floor(b.x - g.gx * d), y = Math.floor(b.y - g.gy * d);
+      if (x < 0 || y < 0 || x >= N || y >= N) return 'the box\'s side above it';
+      const m = world.t[y * N + x], gap = d - Math.ceil(b.r + 0.5);
+      if (FALLS[m]) {
+        let n = 0;
+        while (n < 12) { const xx = Math.floor(b.x - g.gx * (d + n)), yy = Math.floor(b.y - g.gy * (d + n)); if (xx < 0 || yy < 0 || xx >= N || yy >= N || !FALLS[world.t[yy * N + xx]]) break; n++; }
+        return `${NAMES[MATERIALS[m].id].split(',')[0]} ${n >= 12 ? '12 or more' : n} deep ${gap ? gap + ' above it' : 'on it'}`;
+      }
+      if (STOPS[m]) return `${EXIT[m] ? 'the vent' : NAMES[MATERIALS[m].id]} ${gap ? gap + ' above it' : 'right above it'}`;
+    }
+    return 'open water above it';
+  }
+  function bubbleWords(b) {
+    const how = b.flow <= 0 ? 'stuck, deep sand ahead' : b.flow < 1 ? 'slowed by sand' : 'free';
+    return `${how}, ${aboveWords(b)}; ${ventWords(b)}.`;
+  }
+  const boxDeg = () => ((Math.round(world.ang / RAD) % 360) + 360) % 360;
+  function statusWords() {
+    let out = `Level ${level + 1} of ${LEVELS.length}, ${lv().name}. Box at ${boxDeg()}°.`;
+    if (can('melt')) out += ` Heat ${Math.floor(world.heat)} of ${lv().heat}.`;
+    if (state !== 'playing') return out;
+    world.bubs.forEach((b, k) => { out += ` ${world.bubs.length > 1 ? `Bubble ${k + 1}` : 'The bubble'}: ${bubbleWords(b)}`; });
+    const n = world.shards.length;
+    if (n) out += ` ${n} glass shard${n === 1 ? '' : 's'}.`;
+    out += cur.on ? ` Cursor on ${cellWords(cur.x, cur.y)}` : ' Arrows turn the box; T for the cursor.';
+    return out;
+  }
+  function speakShatter(s) {
+    const [x, y] = cellNear(s.cells), b = nearestBubble(x + 0.5, y + 0.5);
+    let fall = 'down';
+    if (b) {
+      const g = gravity(world), dx = x + 0.5 - b.x, dy = y + 0.5 - b.y;
+      const up = -(dx * g.gx + dy * g.gy), rt = dx * g.gy - dy * g.gx;
+      if (up > 0 && Math.abs(rt) < b.r + 4) fall = 'down onto the bubble';
+    }
+    speak(`Shattered ${s.cells.length} cells of glass ${fromBubble(x + 0.5, y + 0.5)}. Its sand falls ${fall}.`);
+    sp.changed = true;
+  }
+  let sp = {};
+  function resetWatch() {
+    sp = { turned: false, quiet: 0, deg: boxDeg(), melt: null, heat: world.heat, stuck: 0, stuckSaid: false, free: 0, still: 0, changed: true, hint: null };
+  }
+  function watch(dt) {
+    if (paused || state !== 'playing') { flushSpeech(); return; }
+    const w = world;
+    // A turn: the angle once the box stops.
+    const turning = keys.size > 0 || (press && press.mode === 'turn') || Math.abs(w.angT - w.ang) > 0.01;
+    if (turning && !motion.on) { sp.turned = true; sp.quiet = 0; }
+    else if (sp.turned && (sp.quiet += dt) > 0.3) {
+      sp.turned = false; sp.changed = true;
+      if (Math.abs(angDiff(boxDeg() * RAD, sp.deg * RAD)) >= 3 * RAD) speak(`Box at ${boxDeg()}°.`);
+      sp.deg = boxDeg();
+    }
+    // Melting: its start, its limit, its size when let go.
+    if (w.melt && (!sp.melt || sp.melt.sid !== w.melt.sid)) {
+      sp.melt = { sid: w.melt.sid, max: false };
+      speak(press && press.key ? 'Melting: the glass grows toward the cursor while you hold Space.' : 'Melting.');
+    }
+    if (sp.melt) {
+      const s = w.shards.find(q => q.id === sp.melt.sid), n = s ? s.cells.length : 0;
+      if (w.melt && n >= SHARD_MAX && !sp.melt.max) { sp.melt.max = true; speak(`Shard at its limit: ${SHARD_MAX} cells.`); }
+      if (!w.melt) {
+        if (s) { const [x, y] = cellNear(s.cells); speak(`Shard of ${n} cells, ${fromBubble(x + 0.5, y + 0.5)}: ${n} heat spent, ${Math.floor(w.heat)} left.`); }
+        sp.melt = null; sp.changed = true;
+      }
+    }
+    // Heat at a few steps.
+    const H0 = lv().heat;
+    if (H0 && can('melt')) for (const at of [H0 / 2, H0 / 4, 10]) if (sp.heat >= at && w.heat < at && w.heat >= 1) speak(`Heat ${Math.floor(w.heat)} left.`);
+    sp.heat = w.heat;
+    // A bubble stuck for 0.7 s, and moving again.
+    if (w.flow <= 0) { sp.stuck += dt; sp.free = 0; } else { sp.stuck = 0; if (w.bmoved > 0.02) sp.free += dt; }
+    if (sp.stuck > 0.7 && !sp.stuckSaid) { sp.stuckSaid = true; speak(`${w.bubs.length > 1 ? 'A bubble' : 'The bubble'} is stuck: deep sand ahead of it.`); }
+    if (sp.stuckSaid && sp.free > 0.7) { sp.stuckSaid = false; speak(`${w.bubs.length > 1 ? 'A bubble' : 'The bubble'} is moving again.`); }
+    // Once everything settles after a change: where the bubbles are. Off
+    // the eight main angles sand can creep for long: then once the bubbles
+    // have stopped for 3 s.
+    const calm = w.bmoved < 0.02 && !turning && !w.melt && !press;
+    const settled = calm && w.moves < 3 && w.moved === 0;
+    sp.since = sp.changed ? (sp.since || 0) + dt : 0;
+    if (!settled) sp.still = 0; else sp.still += dt;
+    if (!calm) sp.calm = 0; else sp.calm = (sp.calm || 0) + dt;
+    if (sp.changed && (sp.still > 0.8 || sp.calm > 3 && sp.since > 3)) {
+      sp.changed = false;
+      speak(`${settled ? 'Settled.' : 'Sand still creeping.'} ${w.bubs.map((b, k) => `${w.bubs.length > 1 ? `Bubble ${k + 1}` : 'The bubble'} is ${b.flow <= 0 ? 'stuck' : 'resting'}, ${aboveWords(b)}; ${ventWords(b)}.`).join(' ')}`);
+    }
+    // A hint that points at a place: say where, and that H goes there.
+    if (hint !== sp.hint) {
+      sp.hint = hint;
+      if (hint && (hint.melt || hint.shatter)) {
+        let x = hint.x, y = hint.y;
+        const s = hint.shatter && w.shards.find(q => q.id === hint.shatter);
+        if (s) [x, y] = cellNear(s.cells);
+        speak(`The hint marks ${hint.shatter ? 'glass' : 'sand'} ${fromBubble(Math.floor(x) + 0.5, Math.floor(y) + 0.5)}. H moves the cursor there.`);
+      }
+    }
+    if (w.out > (sp.out || 0)) { sp.out = w.out; sp.changed = true; }
+    flushSpeech();
   }
 
   // Phone tilt (opt in): gravity is the real one, and the box stays level
@@ -2203,7 +2557,7 @@
     const dt = Math.min((now - last) / 1000, 0.1);
     acc += dt;
     last = now;
-    if (!paused && state === 'playing') { keyTurn(dt); readMotion(); }
+    if (!paused && state === 'playing') { keyTurn(dt); keyCursor(dt); readMotion(); }
     while (acc >= STEP) {
       if (state === 'playing' && !paused) {
         if (press && press.mode === 'melt') { const [fx, fy] = toBox(press.x, press.y); meltMove(world, fx, fy); }
@@ -2212,7 +2566,8 @@
       acc -= STEP;
     }
     hud();
-    draw(now);
+    draw(still() ? 0 : now);
+    watch(dt);
     requestAnimationFrame(frame);
   }
 
@@ -2227,7 +2582,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap', h = fine ? 'click and hold' : 'hold';
-  document.getElementById('board').setAttribute('aria-label', `Bubble Glass. Drag around the box to turn it and move the sand and the bubble, ${h} on sand to melt it into glass, ${t} glass to shatter it. Keys: ← → or A / D turn the box.`);
+  document.getElementById('board').setAttribute('aria-label', `Bubble Glass. Drag around the box to turn it and move the sand and the bubble, ${h} on sand to melt it into glass, ${t} glass to shatter it. Keys: ← → or A / D turn the box; T switches the arrows to a cursor; hold Space melts at the cursor; Enter or X shatters the glass there; G jumps to glass, B to the bubble, H to the hint; I says the status.`);
 }
 </script>
 </body>

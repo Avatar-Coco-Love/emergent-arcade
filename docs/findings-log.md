@@ -1352,3 +1352,49 @@ nights).
 
 *Evidence: keys-only bot, 4 runs at 1280×800; balance old×2 and new
 identical (9 bots × 50 runs).*
+
+## A goal's direction needs what stands in the way
+
+Bubble Glass v7. The live region first described the bubble by its state
+and the vent's offset against gravity ("Settled. The bubble is resting;
+the vent is 6 above, 1 left of it."). On level 1 the vent sits above the
+bubble but behind a shelf: a keys-only bot reading just `#say` saw "vent
+above", did nothing, then fell back to quarter turns, and won only after
+74 s (another run: not won in 90 s). Adding what lies straight above each bubble, within 12 cells
+(`aboveWords`: "wall right above it", "sand 4 deep 2 above it", "open
+water above it"), told it the bubble was pinned: the next run turned away
+from the shelf and won in 42 s (later runs 6–40 s), and the same words read naturally for a
+person ("resting, wall right above it; the vent is 6 above, 1 left of it").
+
+Second gap in the same run: the settled report needed sand still too, but
+a box held off the eight main angles (keys turn by holding, so the bot
+landed on 237°, 282°) makes sand creep without end (gravity splits between
+two of the 8 grain directions). After a change, the report now comes once
+the bubbles and the box have been still for 3 s even if sand creeps, as
+"Sand still creeping. The bubble is …".
+
+Colour: the audit's colour cell passed v6 on its default screen and on
+scripted late screens (levels 12, 16, 21), yet by number glass (L* 84),
+the vent (81) and a shard being melted (79, orange) sat inside sand's
+tone range (69–85) in normal, deutan and protan vision alike. v7 bands:
+water 10, wall 31, grate 42/23 checker, wet 39–47, glass 53–63 plus its
+white outline, sand 70–84, dust 89–95, vent 84/25 checker, melting shard
+97/50 checker; bubble rims 98 solid / 81 long dash / 62 short dash over a
+dark underlay; the cursor (dark then white square) is ≥ 4.7:1 on every
+material. A scripted held state also showed a trap for the playthrough
+itself: pressing Space while the box starts turning finds the sand under
+the cursor already sliding away ("Nothing to melt here"), the same as a
+finger would.
+
+Balance: two runs of the unchanged v6 file differed (hint counts and times
+on the rotate-only rows) while other jobs loaded the machine: the stuck
+hint's search yields after `LOOK_MS` (4 ms) of wall-clock time, so how many
+frames it takes depends on the CPU. With `LOOK_MS=1e9` (the harness's own
+constant override) the search ends in one step and old ×2 and new match row
+for row.
+
+*Evidence: keys-only bot levels 1–5, #say only (5 runs: levels 1–3 won every
+time; level 4, lid-first, not by this bot, which turns before melting lids); L* table by
+number; audit on default + 4 scripted screens (held melt mid-turn, late 12,
+late 21, hint on 16), 2 runs each; balance old ×2 and new identical.*
+

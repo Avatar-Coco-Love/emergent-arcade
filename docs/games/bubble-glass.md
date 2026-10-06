@@ -1,9 +1,10 @@
 # Bubble Glass: design notes
 
-**v6** (2026-10-05, canvas label; v5 2026-10-03, levels 13, 14, 16 revised, `score.epoch` 3) · playtest: https://claude.ai/artifact/BXC2MQc3e4rf6x2wPUxZVR ·
-balance: `node scripts/balance-bubble-glass.mjs 8 [bots] [levels]`
+**v7** (2026-10-05, accessibility; v5 levels 13, 14, 16, `score.epoch` 3) · playtest: https://claude.ai/artifact/BXC2MQc3e4rf6x2wPUxZVR ·
+balance: `node scripts/balance-bubble-glass.mjs 8 [bots] [levels]` (compare runs with
+`LOOK_MS=1e9`: hint search is wall-clock sliced)
 Liquid-motion sand toy in a sealed box. Verbs: **turn** (drag, tilt opt-in, ← →),
-**melt** ({hold} sand into glass), **shatter** ({tap} glass). 21 levels, 3 chapters.
+**melt** ({hold} sand into glass; keys: hold Space at the cursor), **shatter** ({tap} glass; Enter/X). 21 levels, 3 chapters.
 
 ## How it works
 
@@ -55,50 +56,55 @@ Liquid-motion sand toy in a sealed box. Verbs: **turn** (drag, tilt opt-in, ← 
 | MSG_MS_PER_CHAR | 70 ms | LOOK_MS (v3) | 4 ms of hint search per frame |
 | BUB_LEFT (v3) | 40 (score per extra bubble left) | merged bubble | r = √2 · BR ≈ 3.1 |
 
-Perf: step ~0.03 ms; 390×700 at 4× throttle, 16.7 ms median frame.
-
 ## Levels (ids permanent; `LEVELS` array; add, never rename)
 
-Format: # id (verbs, heat): note. "all" = turn+melt+shatter.
-1 first-turn (turn): shelf; vent in a sand pocket that must pour out first.
-2 roof (+melt, 70): lid-first; melt a lid over each of two shafts, then flip.
-3 the-plug (+shatter, 40): shatter the jam, flip first, return via 90°.
-4 lid-and-plug (all, 70): lid-first, 4-wide shafts, tube, plug, room.
-5 hourglass (all, 60): melt the waist jam into one shard, turn out.
-6 mud (turn): wet sand over the vent; let it settle first.
-7 dust-shafts (all, 70): roof with dust, lid-first.
-8 sieve (all, 40): grate tube; tilt and sand leaves.
-9 landslide (all, 40): the-plug with wet sand room.
-10 sump (all, 60): grate tube, 2-cell sumps; lid keeps one full.
-11 sand-timer (all, 60): hourglass with dust.
-12 quicksand (all, 70): lid dust shafts, wet last stretch, grate sump; lid, hold tilt, flip.
-13 twins (all, 40): two bubbles, wide vent, second shelf with 3-char side gaps (v5: up the sides, then across). 14 mud-twins (all, 40): wet piles on shelf 1 plus wet beds (v5).
-15 narrow-door (all, 40): 4-cell tube, free one at a time. 16 dust-door (all, 40): tube plus two rows of dust on shelf 1 and dust beds (v5; melt now helps, reader 7 s).
-17 shared-sand (all, 40): grated tubes, two small sumps.
-18 upstairs (all, 40): the-plug plus bubble above it. 19 two-plugs (all, 40).
-20 convoy (all, 70): roof, two bubbles, lid-first. 21 last-box (all, 70): level 4 with two bubbles.
+21 levels: chapter 1 sand (1–5: first-turn, roof, the-plug, lid-and-plug,
+hourglass), 2 wet and dry (6–12), 3 two bubbles (13–21). Per-level notes (verbs,
+heat, design): `docs/history/bubble-glass.md`, "Levels". Maps must be exactly
+24 rows (validate.mjs does not check; a 25-row draft was unwinnable).
 
-## v5 balance (levels 13, 14, 16; 4 runs, reader vs hinted)
+## Accessibility (v7; audit 6 pass on default + 4 scripted screens, 2 runs)
 
-13 twins: 100/14 s vs 75/44 s. 14 mud-twins: 100/12 s vs 75/58 s. 16 dust-door: 100/7 s vs 50/38 s
-(was 5 s / 20 s). Melt is still unused on 13 and 14; reader finishes them in 12-14 s. Level 16 pitfall:
-a map must be exactly 24 rows (validate.mjs does not check), a 25-row draft was unwinnable.
+- Keys (`// § keys`, outside the sim): ← → / A D turn as before. T switches
+  the arrows to a cell cursor (A D still turn), moving against gravity, 1
+  cell a tap, 12/s held, 24/s after 1 s; it stays on its box cell as the box
+  turns. Hold Space = the pointer's `press` at the cursor
+  (`pressHeld`, same delay; key up = finger up). Enter/X =
+  `tapAt` (same reach, same confirm). G next shard, B bubble, H hint spot, I
+  status, Enter next level. Tab free; Space/Enter on a focused button press it.
+- Live region `#say` (`#msg` aria-hidden; `say()` also speaks). `watch()`
+  after each frame: cell under the cursor once it stops (material, shard
+  size, "3 above, 2 left of the bubble"), box angle once a turn ends, melt
+  start / limit / size + heat on release, shatter (cells, where, "falls onto
+  the bubble"), bubble stuck (0.7 s) / moving again, heat at ½, ¼, 10, hints
+  with their place, the result. Once settled after a change (or bubbles
+  still 3 s while sand creeps off the 8 main angles): each bubble, what is
+  straight above it ("wall right above it") and the vent's offset.
+- Without hue (L*, normal/deutan/protan): water 10, wall 31, grate 42/23
+  checker, wet 39–47, glass 53–63 + white outline (was 84, inside sand), sand
+  70–84, dust 89–95; vent 84/25 checker (was 81); melting shard 97/50 checker
+  (was 79 orange). Bubble rim 98 solid / 81 long dash / 62 short dash, dark
+  underlay. Cursor dark+white square with ticks: ≥ 4.7:1 on every material.
+- Reduced motion (`still()`, decoration clock 0): glow, vent and hint pulse,
+  chevrons, slowed rim, freed-bubble ring, `.nudge`. Scripted screens, 3 runs:
+  decoration 0.11–0.22% → 0.00%; mid-pour 0.04–0.06% left = sand (0.00% hidden).
+- No canvas text; DOM text ≥ 13.6 px, ≥ 7.1:1. Balance identical (old ×2,
+  new). Keys-only bot (`#say` only): levels 1–3 won 5/5 (4: it turns
+  before the lids).
 
 ## Telemetry
 
 Per level `arcade:result`: `outcome` (loss `reason` `restart`/`switch`), `time`,
 `level`, `level_id`, `run`, `attempt`; stats `turns`, `deg`, `melted`, `glass`,
-`shattered`, `heat_left`, `stuck_s`, `hints`, `warns`, `first_input` (1 turn, 2 melt,
+`shattered`, `heat_left`, `stuck_s`, `hints`, `warns`, `keys` (v7: 1 if melt/shatter by keys), `first_input` (1 turn, 2 melt,
 3 shatter, 4 nothing), `tilt`, `buried_s`, `out`, `merged`, `ch_t`, `chapter`; a
 chapter's last win adds `score` and `board`.
 
-## Balance (v3)
+## Balance and player data
 
-Per-level table and 10-minute check (hinted 10:39 median, reader 3:36): history.
-
-## Player data
-
-v2 replay (2 players): 14/14 wins, ~75 s of play; v3+ not yet played by humans. Detail: history.
+v3 table, 10-minute check (hinted 10:39, reader 3:36), v5 table and v2 replay
+(2 players, 14/14 wins): history. v6: 1 player (touch) won all 21, chapter 2 in
+61 s, 3 in 111 s; melt unused on 13–19.
 
 ## Achievements
 
@@ -109,20 +115,14 @@ big-bubble (merged bubble leaves, v3); clockwork (chapter finished on the clock,
 
 ## Open ideas
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): keys turn the box only (hold, tap need a pointer); ignores reduced motion (small).
-- v3 playtest (next): does anyone play a whole chapter? Use `fetch-telemetry.mjs` and
-  chapter leaderboards; humans were faster than `hinted` in v2.
-- Chapter 1 fixes in v3 (were open): level 1 second beat (novice 9→44 s, reader 5 s);
-  level 4 rewards lids (lid-reader 12 s vs no-melt 32 s); level 5 rewards melt (13 vs 37 s).
-- A wet-sand level that needs a lid: hold the box at an angle for long (diagonal corridor).
-- Merging as a tool: notches a small bubble rises into and the big one slides past.
+- Keys turn by holding, so a keys player lands off the 8 main angles (bot: 237°,
+  282°), where sand creeps for long. An eighth-turn key (snap to 45°)?
+- Playtest: does anyone play a whole chapter? `fetch-telemetry.mjs`, chapter boards.
 - HUD bar wraps to two lines on 390 px phone while the chapter clock shows.
 - Sieve, sand-timer, dust-door, shared-sand, twins are 4–5 s for the reader; lengthen
   the skilled route. Sand-timer lost level 5's melt value (no-melt 5 s).
 - Level 2 in tilt, real phone: is the lid ring easy to {hold} one-handed?
-- Real tumbling: shards rotating relative to the box.
 - A level select that shows which levels are won.
 
-History (older versions, balance tables, playtests): `docs/history/bubble-glass.md`
+History: `docs/history/bubble-glass.md`
 
-Playtest (v5, private): https://claude.ai/artifact/EeiVKc5BhJGeHqSRnF5gBG
