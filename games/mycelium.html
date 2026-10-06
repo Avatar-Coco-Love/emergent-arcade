@@ -83,10 +83,12 @@
     border-radius: 6px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
   }
   button:active { transform: scale(0.97); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
 <body>
-  <p id="msg" role="status"></p>
+  <p id="msg" aria-hidden="true"></p>
+  <p id="say" class="sr" role="status" aria-live="polite"></p>
   <div id="field">
     <div id="stage">
       <canvas id="soil" role="img" aria-label="Mycelium. Drag from a knot to grow a thread, tap or click a knot to pulse nutrient to it, hold a knot to cut the thread there."></canvas>
@@ -143,6 +145,7 @@
   const HOLD_MS = 450, DRAG_PX = 12, HIT_R = 22, TAP_MS = 450;
   const END_LOCK_MS = 1000;
   const STEP = 1 / 60;
+  const FADE = 0.35;                 // sap below this: the knot is fading (drawn ringed, spoken)
 
   // § seasons
   // patches: [count, food, nearest, farthest] (threads from the spore, through open soil).
@@ -178,6 +181,10 @@
   const msgEl = document.getElementById('msg');
   const touchy = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
   const TAP = touchy ? 'Tap' : 'Click', HOLD = touchy ? 'Hold' : 'Click and hold';
+  // Reduced motion: decoration (the spore's glow, blinking, effect rings, a pulse's run) keeps still
+  // on its own clock; the simulation and its Math.random calls don't change.
+  const rmq = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const still = () => !!(rmq && rmq.matches);
 
   // Achievements: announced to the Emergent Arcade gallery when embedded.
   const unlocked = new Set();
@@ -205,10 +212,13 @@
 
   const field = document.getElementById('field');
   const stage = document.getElementById('stage');
+  let cssW = W;                       // the soil's CSS width: canvas text is sized from it (fs)
+  const fs = n => n * Math.max(1, W / cssW);
   function fitSoil() {
     const scale = Math.min(field.clientWidth / W, field.clientHeight / H);
     const w = Math.max(80, Math.floor(W * scale)), h = Math.max(110, Math.floor(H * scale));
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    cssW = w;
     stage.style.width = w + 'px';
     stage.style.height = h + 'px';
     canvas.width = Math.round(w * dpr);
@@ -239,7 +249,7 @@
   let own, par, sap, rot, conn, dc, dh, dry, patchAt, rpar, rown, head, nxt, queue, dcore;
   let patches = [], rivals = [], jobs = [], fx = [], decor = [];
   let frostEarly = false, endT = 0, hungerAcc = 0;
-  let season, spec, t, pool, mushrooms, total, state, runId, attempt, snap, st, lockUntil = 0, tnow = 0;
+  let season, spec, t, pool, mushrooms, total, state, runId, attempt, snap, st, lockUntil = 0, tnow = 0, deco = 0;
   let hinted = {}, cursor = 0, kbFrom = -1;
   const runEarned = new Set(), roundEarned = new Set();
 
@@ -462,7 +472,7 @@
       if (rot[i]) sap[i] -= ROT * dt;
       else if (conn[i] && dh[i] <= K) sap[i] = Math.min(1, sap[i] + REFILL * f * dt); // a hungry network stops refilling
       else sap[i] -= DECAY * dt;
-      if (sap[i] < 0.35 && conn[i]) starving = true;
+      if (sap[i] < FADE && conn[i]) starving = true;
       if (sap[i] <= 0) { if (conn[i]) st.starved++; kill(i); }
     }
     pool = Math.min(POOL_MAX, pool + SPORE_INC * dt);
@@ -629,6 +639,7 @@
     t = 0; mushrooms = 0; jobs = []; fx = []; frostEarly = false; endT = spec.T; hungerAcc = 0; press = null; kbFrom = -1;
     st = { pulses: 0, spilled: 0, grown: 0, pruned: 0, starved: 0, withered: 0, rotted: 0, hungryS: 0, rivalCut: 0, firstInput: -1 };
     roundEarned.clear();
+    seen = null;
     state = 'playing';
     endCard.hidden = true;
     const tw = [];
@@ -664,6 +675,7 @@
     }
     report(won);
     showCard(won);
+    speak(sayEnd());
   }
 
   const NAMES = { 'first-flush': 'First Flush', 'long-reach': 'Long Reach', 'clean-cut': 'Clean Cut',
@@ -692,6 +704,7 @@
   function say(text, secs, warn) {
     if (tnow < msgMin && !warn) { queued = [text, secs]; return; }
     msgEl.textContent = text;
+    speak(text);
     msgEl.className = warn ? 'warn' : '';
     msgMin = tnow + Math.min(secs, 3);
     msgUntil = tnow + secs;
@@ -717,6 +730,8 @@
     const r = Math.round(150 + 93 * s), g = Math.round(90 + 144 * s), b = Math.round(70 + 140 * s);
     return `rgba(${r},${g},${b},${a})`;
   }
+  // A fed knot's colour: the top of the sap ramp only (L* 75-93), so fading knots (below FADE) sit a step darker.
+  function knotColor(s) { return sapColor(0.62 + 0.38 * (s - FADE) / (1 - FADE), 1); }
   function draw() {
     const sc = canvas.width / W;
     ctx.setTransform(sc, 0, 0, sc, 0, 0);
@@ -763,63 +778,82 @@
       for (let k = 0; k < Math.min(p.caps, 10); k++) {
         const a = -Math.PI / 2 + (k - (Math.min(p.caps, 10) - 1) / 2) * 0.55, mx = x + Math.cos(a) * 24, my = y + Math.sin(a) * 24;
         ctx.fillStyle = '#efe3c8'; ctx.fillRect(mx - 1.5, my - 1, 3, 7);
-        ctx.fillStyle = '#d0563c'; ctx.beginPath(); ctx.arc(mx, my, 6, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = '#f4927a'; ctx.beginPath(); ctx.arc(mx, my, 6, Math.PI, 0); ctx.fill(); // caps L* 70, above the patch's 44-56
         ctx.fillStyle = '#fff4e0'; ctx.beginPath(); ctx.arc(mx - 2, my - 3, 1.2, 0, 7); ctx.fill();
       }
-      if (p.caps > 10) { ctx.fillStyle = '#f2d58a'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('×' + p.caps, x, y - 32); }
+      if (p.caps > 10) label('×' + p.caps, x, y - 34, '#f2d58a');
     }
-    // Rival mould
-    ctx.lineWidth = 3;
+    // Rival mould: purple threads with a dark core, diamond knots (told apart without hue).
     for (let i = 0; i < N; i++) if (own[i] === 2 && rpar[i] >= 0) {
-      ctx.strokeStyle = '#a65ccf'; ctx.beginPath(); ctx.moveTo(P[rpar[i]].x, P[rpar[i]].y); ctx.lineTo(P[i].x, P[i].y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(P[rpar[i]].x, P[rpar[i]].y); ctx.lineTo(P[i].x, P[i].y);
+      ctx.strokeStyle = '#a65ccf'; ctx.lineWidth = 4; ctx.stroke();
+      ctx.strokeStyle = '#1d1020'; ctx.lineWidth = 1.3; ctx.stroke();
     }
     for (let i = 0; i < N; i++) if (own[i] === 2) {
-      const root = rivals.some(r => r.root === i);
-      ctx.fillStyle = root ? '#5a2b74' : '#c27ae6'; ctx.beginPath(); ctx.arc(P[i].x, P[i].y, root ? 9 : 4.5, 0, 7); ctx.fill();
+      const root = rivals.some(r => r.root === i), r = root ? 10 : 5.5, { x, y } = P[i];
+      ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
+      ctx.fillStyle = root ? '#5a2b74' : '#c27ae6'; ctx.fill();
+      ctx.strokeStyle = root ? '#c27ae6' : '#1d1020'; ctx.lineWidth = root ? 1.5 : 1; ctx.stroke();
     }
-    // Planned growth
-    ctx.setLineDash([4, 5]); ctx.lineWidth = 2;
+    // Planned growth (waiting for the pool: red and dotted)
+    ctx.lineWidth = 2;
     for (const j of jobs) {
+      ctx.setLineDash(j.wait ? [1.5, 4] : [4, 5]);
       ctx.strokeStyle = j.wait ? 'rgba(255,150,120,0.6)' : 'rgba(243,234,210,0.45)';
       ctx.beginPath(); ctx.moveTo(P[j.path[j.k - 1]].x, P[j.path[j.k - 1]].y);
       for (let k = j.k; k < j.path.length; k++) ctx.lineTo(P[j.path[k]].x, P[j.path[k]].y);
       ctx.stroke();
     }
     ctx.setLineDash([]);
-    // My threads: bright when full of sap, dim and red as they starve; stranded ones dashed.
+    // My threads, by lightness band: full of sap 75-93, fading (orange, ringed knots) 55-63,
+    // rotting (spotted) 33-38; stranded ones dashed and half-faded.
     for (let i = 0; i < N; i++) if (own[i] === 1 && par[i] >= 0) {
       const s = Math.max(0, sap[i]);
-      ctx.strokeStyle = rot[i] ? '#7d4a6c' : sapColor(s, 0.35 + 0.65 * s);
+      ctx.strokeStyle = rot[i] ? '#7d4a6c' : !conn[i] ? sapColor(s, 0.5) : s < FADE ? '#c8724a' : knotColor(s);
       ctx.lineWidth = conn[i] ? 3.2 : 2;
       if (!conn[i]) ctx.setLineDash([3, 4]);
       ctx.beginPath(); ctx.moveTo(P[par[i]].x, P[par[i]].y); ctx.lineTo(P[i].x, P[i].y); ctx.stroke();
       ctx.setLineDash([]);
     }
     for (let i = 0; i < N; i++) if (own[i] === 1 && i !== core) {
-      const s = Math.max(0, sap[i]), blink = s < 0.35 && Math.sin(tnow * 10) > 0;
+      const s = Math.max(0, sap[i]), r = head[i] < 0 ? 5.5 : 4.2;
       if (rot[i]) {
         ctx.fillStyle = '#6b3f5e'; ctx.beginPath(); ctx.arc(P[i].x, P[i].y, 7, 0, 7); ctx.fill();
         ctx.fillStyle = '#c9a0b8'; ctx.beginPath(); ctx.arc(P[i].x - 2, P[i].y - 1, 1.6, 0, 7); ctx.arc(P[i].x + 2.5, P[i].y + 2, 1.2, 0, 7); ctx.fill();
         continue;
       }
-      ctx.fillStyle = blink ? '#ff8a5c' : sapColor(s, conn[i] ? 1 : 0.5);
-      ctx.beginPath(); ctx.arc(P[i].x, P[i].y, head[i] < 0 ? 5.5 : 4.2, 0, 7); ctx.fill();
+      if (conn[i] && s < FADE) {
+        // Fading: a ring with a dark centre (blinks solid unless motion is reduced).
+        const blink = !still() && Math.sin(deco * 10) > 0;
+        ctx.fillStyle = blink ? '#d9774a' : '#2a1608'; ctx.beginPath(); ctx.arc(P[i].x, P[i].y, 5.5, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#d9774a'; ctx.lineWidth = 2.2; ctx.stroke();
+        continue;
+      }
+      ctx.fillStyle = conn[i] ? knotColor(s) : sapColor(s, 0.5);
+      ctx.beginPath(); ctx.arc(P[i].x, P[i].y, r, 0, 7); ctx.fill();
     }
     // A starving branch would also lose this one: also draw its own par for stranded roots
     for (let i = 0; i < N; i++) if (own[i] === 1 && i !== core && par[i] < 0) {
       ctx.strokeStyle = 'rgba(255,138,92,0.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(P[i].x, P[i].y, 8, 0, 7); ctx.stroke();
     }
     // The spore
-    const c = P[core], gl = 14 + Math.sin(tnow * 2.5) * 2;
+    const c = P[core], gl = 14 + Math.sin(deco * 2.5) * 2;
     const g = ctx.createRadialGradient(c.x, c.y, 2, c.x, c.y, gl * 1.8);
     g.addColorStop(0, 'rgba(255,240,200,0.9)'); g.addColorStop(1, 'rgba(255,220,150,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, gl * 1.8, 0, 7); ctx.fill();
     ctx.fillStyle = '#fff3d6'; ctx.beginPath(); ctx.arc(c.x, c.y, 8, 0, 7); ctx.fill();
-    // Effects
+    // Effects. Reduced motion: a pulse's path lights up whole, rings don't grow or fade.
+    const calm = still();
     for (const e of fx) {
       if (e.kind === 'surge') {
         const pts = e.path, n = pts.length - 1, u = Math.min(1, e.t / 0.45) * n, k = Math.min(n - 1, Math.floor(u)), fr = u - k;
         if (n < 1) continue;
+        if (calm) {
+          ctx.strokeStyle = 'rgba(255,214,120,0.8)'; ctx.lineWidth = 3;
+          ctx.beginPath(); pts.forEach(([x, y], m) => m ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
+          if (e.spill) { ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pts[n][0], pts[n][1], 12, 0, 7); ctx.stroke(); }
+          continue;
+        }
         const x = pts[k][0] + (pts[k + 1][0] - pts[k][0]) * fr, y = pts[k][1] + (pts[k + 1][1] - pts[k][1]) * fr;
         ctx.fillStyle = `rgba(255,214,120,${1 - Math.max(0, e.t - 0.45) * 3})`;
         ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fill();
@@ -828,22 +862,14 @@
           ctx.beginPath(); ctx.arc(x, y, 6 + (e.t - 0.45) * 50, 0, 7); ctx.stroke();
         }
       } else {
-        const a = 1 - e.t / 0.7;
+        const a = calm ? 0.85 : 1 - e.t / 0.7;
         ctx.strokeStyle = e.kind === 'pop' ? `rgba(242,213,138,${a})` : e.kind === 'cut' ? `rgba(255,255,255,${a})` : `rgba(255,120,90,${a})`;
-        ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, 6 + e.t * 30, 0, 7); ctx.stroke();
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, calm ? 12 : 6 + e.t * 30, 0, 7); ctx.stroke();
       }
     }
-    // Input feedback: the drag preview, the hold ring, the keyboard cursor.
-    if (press && press.mode === 'drag' && press.route) {
-      const r = press.route, cost = (r.length - 1) * GROW_C;
-      ctx.strokeStyle = cost <= pool ? 'rgba(243,234,210,0.8)' : 'rgba(255,140,110,0.85)';
-      ctx.setLineDash([5, 4]); ctx.lineWidth = 2.5;
-      ctx.beginPath(); r.forEach((a, k) => k ? ctx.lineTo(P[a].x, P[a].y) : ctx.moveTo(P[a].x, P[a].y)); ctx.stroke();
-      ctx.setLineDash([]);
-      const e = P[r[r.length - 1]];
-      ctx.fillStyle = ctx.strokeStyle; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(String(cost), e.x, e.y - 14);
-    }
+    // Input feedback: the grow preview (drag, or a knot marked with Enter), the hold ring, the keyboard cursor.
+    if (press && press.mode === 'drag' && press.route) drawPreview(press.route);
+    else if (kbUsed && kbFrom >= 0 && state === 'playing') { const r = route(kbFrom, cursor); if (r) drawPreview(r); }
     if (press && press.mode === 'pending' && press.node >= 0) {
       const u = Math.min(1, (performance.now() - press.t0) / HOLD_MS);
       if (u > 0.2) {
@@ -857,11 +883,30 @@
       if (kbFrom >= 0) { ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(P[kbFrom].x, P[kbFrom].y, 16, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
     }
   }
+  function drawPreview(r) {
+    const cost = (r.length - 1) * GROW_C, ok = cost <= pool;
+    ctx.strokeStyle = ok ? 'rgba(243,234,210,0.8)' : 'rgba(255,140,110,0.85)';
+    ctx.setLineDash(ok ? [5, 4] : [2, 4]); ctx.lineWidth = 2.5;
+    ctx.beginPath(); r.forEach((a, k) => k ? ctx.lineTo(P[a].x, P[a].y) : ctx.moveTo(P[a].x, P[a].y)); ctx.stroke();
+    ctx.setLineDash([]);
+    const e = P[r[r.length - 1]];
+    label(ok ? String(cost) : `${cost} > pool ${Math.floor(pool)}`, e.x, e.y - 16, ok ? '#f3ead2' : '#ff9a7a');
+  }
+  // Canvas text: 12 CSS px or more at any width, on a dark backing (it sits over soil and threads).
+  function label(text, x, y, color) {
+    const f = fs(12);
+    ctx.font = `bold ${f}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(text).width + f * 0.7, h = f * 1.45;
+    x = Math.max(w / 2, Math.min(W - w / 2, x)); y = Math.max(h / 2, y);
+    ctx.fillStyle = 'rgba(16,11,7,0.9)'; ctx.fillRect(x - w / 2, y - h / 2, w, h);
+    ctx.fillStyle = color; ctx.fillText(text, x, y);
+    ctx.textBaseline = 'alphabetic';
+  }
 
   // § input
   // Press on a knot of mine: move away to grow (drag), let go quickly to
   // pulse (tap), keep still for HOLD_MS to cut the thread into it (hold).
-  // Rival knots can only be cut.
+  // Rival knots can only be cut. Keys call the same verbs (doGrow, doPulse, prune via checkHold).
   let press = null, kbUsed = false;
   function toSoil(evt) {
     const r = canvas.getBoundingClientRect();
@@ -899,9 +944,9 @@
     press = null;
     if (state !== 'playing' || paused) return;
     if (a.mode === 'drag') {
-      if (a.route) grow(a.node, a.route[a.route.length - 1]);
+      if (a.route) doGrow(a.node, a.route[a.route.length - 1]);
     } else if (a.mode === 'pending' && a.node >= 0 && performance.now() - a.t0 < TAP_MS) {
-      if (own[a.node] === 1) pulse(a.node);
+      if (own[a.node] === 1) doPulse(a.node);
       else if (!hinted.rivalTap) { hinted.rivalTap = 1; say(`${HOLD} a rival knot to cut it.`, 3); }
     }
   });
@@ -910,12 +955,13 @@
     const a = press;
     if (a && a.mode === 'pending' && a.node >= 0 && performance.now() - a.t0 >= HOLD_MS) {
       a.mode = 'done';
-      prune(a.node);
+      doPrune(a.node);
     }
   }
 
   // Keyboard: arrows move a cursor between sites; Enter marks a knot to grow
-  // from, then Enter again grows to the cursor; Space pulses; X cuts.
+  // from, then Enter again grows to the cursor; Space pulses; hold X cuts (the
+  // pointer's own hold, same HOLD_MS); N next patch, H the spore, I status.
   function moveCursor(dx, dy) {
     let b = -1, bs = 1e9;
     for (const v of P[cursor].nb) {
@@ -926,23 +972,273 @@
       if (s < bs) { bs = s; b = v; }
     }
     if (b >= 0) cursor = b;
+    return b >= 0;
   }
+  let patchIdx = -1;
   window.addEventListener('keydown', evt => {
-    if (state !== 'playing' || paused) return;
     const k = evt.key;
+    // Tab stays the browser's; Space and Enter on a focused button press the button.
+    if (evt.target && evt.target.closest && evt.target.closest('button')) return;
+    if (k === 'i' || k === 'I') { kbUsed = true; speak(status()); evt.preventDefault(); return; }
+    if (state !== 'playing' && !endCard.hidden && k === 'Enter') { onMain(); evt.preventDefault(); return; }
+    if (state !== 'playing' || paused) return;
     const dirs = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
-    if (dirs[k]) { kbUsed = true; moveCursor(...dirs[k]); evt.preventDefault(); return; }
+    if (dirs[k]) {
+      kbUsed = true; evt.preventDefault();
+      if (press && press.id === 'key') return; // a cut being held stays on its knot
+      if (moveCursor(...dirs[k])) speak(describe(cursor)); else speak('Edge of the soil.');
+      return;
+    }
     if (k === 'Enter') {
       kbUsed = true;
-      if (kbFrom === cursor) kbFrom = -1;
-      else if (kbFrom >= 0) { if (!grow(kbFrom, cursor)) say('No open route there.', 2); kbFrom = -1; }
-      else if (own[cursor] === 1 && conn[cursor]) kbFrom = cursor;
+      if (kbFrom === cursor) { kbFrom = -1; speak('Unmarked.'); }
+      else if (kbFrom >= 0) { if (!doGrow(kbFrom, cursor)) say('No open route there.', 2); kbFrom = -1; }
+      else if (own[cursor] === 1 && conn[cursor]) { kbFrom = cursor; speak('Marked: move the cursor and press Enter to grow there.'); }
+      else if (nearestFrom(cursor) >= 0) doGrow(nearestFrom(cursor), cursor); // nothing marked: grow from the nearest knot
       else say('Enter on a knot of your network marks it; Enter again on open soil grows there.', 3);
       evt.preventDefault();
-    } else if (k === ' ') { kbUsed = true; if (own[cursor] !== 1) say('Space pulses the knot under the cursor.', 2); else pulse(cursor); evt.preventDefault(); }
-    else if (k === 'x' || k === 'X' || k === 'Delete' || k === 'Backspace') { kbUsed = true; prune(cursor); evt.preventDefault(); }
-    else if (k === 'Escape') kbFrom = -1;
+    } else if (k === ' ') { kbUsed = true; if (own[cursor] !== 1) say('Space pulses the knot under the cursor.', 2); else doPulse(cursor); evt.preventDefault(); }
+    else if (k === 'x' || k === 'X' || k === 'Delete' || k === 'Backspace') {
+      kbUsed = true; evt.preventDefault();
+      if (evt.repeat || press) return;
+      if (own[cursor] !== 1 && own[cursor] !== 2) { speak('Nothing to cut here.'); return; }
+      press = { id: 'key', key: k.toLowerCase(), t0: performance.now(), node: cursor, mode: 'pending' };
+    } else if (k === 'n' || k === 'N' || k === 'h' || k === 'H') {
+      kbUsed = true; evt.preventDefault();
+      if (press && press.id === 'key') return;
+      if (k === 'h' || k === 'H') { cursor = core; speak(describe(cursor)); return; }
+      const ps = patches.filter(p => p.on && p.food > 0);
+      if (!ps.length) { speak('No patch has food left.'); return; }
+      ps.sort((a, b) => dcore[a.i] - dcore[b.i] || a.i - b.i);
+      patchIdx = (patchIdx + 1) % ps.length;
+      cursor = ps[patchIdx].i;
+      speak(`Patch ${patchIdx + 1} of ${ps.length}. ` + describe(cursor));
+    }
+    else if (k === 'Escape') { if (kbFrom >= 0) speak('Unmarked.'); kbFrom = -1; }
   });
+  window.addEventListener('keyup', evt => {
+    const a = press;
+    if (!a || a.id !== 'key' || evt.key.toLowerCase() !== a.key) return;
+    press = null;
+    if (a.mode === 'pending' && state === 'playing') speak('Hold X to cut.');
+  });
+
+  // The verbs as a player calls them: the same functions the bots call, plus a line for the live region.
+  function doGrow(from, to) {
+    const r = route(from, to);
+    if (!grow(from, to)) return false;
+    const cost = (r.length - 1) * GROW_C;
+    track.set(jobs[jobs.length - 1], { to, wait: false });
+    speak(`Growing ${r.length - 1} knot${r.length > 2 ? 's' : ''} toward ${what(to)}, cost ${cost}, pool ${Math.floor(pool)}${cost > pool ? ': it waits for the pool as it goes' : ''}.`);
+    return true;
+  }
+  function doPulse(i) {
+    const path = pathToCore(i), before = path.map(a => sap[a]), m0 = mushrooms, sp0 = st.spilled, pool0 = pool;
+    const p = patchAt[i] >= 0 && patches[patchAt[i]].on ? patches[patchAt[i]] : null;
+    if (!pulse(i)) return false;
+    const fed = path.filter((a, k) => sap[a] - before[k] > 0.05).length, sent = Math.round(pool0 - pool);
+    let s = `Pulse of ${sent} through ${path.length - 1} thread${path.length === 2 ? '' : 's'}, refilled ${fed} knot${fed === 1 ? '' : 's'}`;
+    if (p) {
+      const got = mushrooms - m0;
+      s += got ? `: ${got > 1 ? got + ' mushrooms' : 'a mushroom'}! ${mushrooms} of ${spec.goal}.` : `, the patch's next mushroom is ${Math.floor(100 * p.fruit / FRUIT)}% grown.`;
+    } else s += st.spilled - sp0 >= 1 ? `, ${Math.round(st.spilled - sp0)} spilled (no patch there).` : '.';
+    speak(s + ` Pool ${Math.floor(pool)}.`);
+    return true;
+  }
+  function doPrune(i) {
+    const rival = own[i] === 2, n0 = rival ? rivalCount() : 0;
+    if (!prune(i)) return false;
+    if (rival) speak(`Cut the mould: ${n0 - rivalCount()} of its knots gone. It rests ${RIVAL_WAIT} s.`);
+    else {
+      const n = subtree(i).length;
+      speak(`Cut: ${n} knot${n > 1 ? 's' : ''} cut off. They wither in about ${Math.ceil(1 / DECAY)} s and cost no upkeep. Upkeep now ${upkeepRate().toFixed(1)} per s.`);
+    }
+    return true;
+  }
+  // The knot of the network with the shortest open route to a site (-1: none), for Enter with nothing marked.
+  function nearestFrom(to) {
+    if (own[to] === 2 || own[to] === 3 || (own[to] === 1 && conn[to])) return -1;
+    const d = bfsDist(j => j === to, v => own[v] === 0);
+    let b = -1, bd = 99;
+    for (let j = 0; j < N; j++) if (own[j] === 1 && conn[j]) for (const v of P[j].nb) {
+      const dv = v === to ? 0 : d[v];
+      if (dv < bd || (dv === bd && b >= 0 && dc[j] < dc[b])) { bd = dv; b = j; }
+    }
+    return b >= 0 && route(b, to) ? b : -1;
+  }
+  function rivalCount() { let n = 0; for (let i = 0; i < N; i++) if (own[i] === 2) n++; return n; }
+
+  // § live region
+  // #say speaks what matters, short and settled (findings: a real-time live region speaks settled
+  // changes): the site under the cursor, each verb's result, fading, rot, losses, the mould near the
+  // network, the pool at steps of 25, the frost, the result. #msg (the hint strip) is aria-hidden; say() mirrors it here.
+  const sayEl = document.getElementById('say');
+  let spoken = [];
+  function speak(s) { if (spoken.length < 6) spoken.push(s); }
+  function flushSpeech() {
+    if (!spoken.length) return;
+    let s = spoken.join(' ');
+    spoken = [];
+    if (s === sayEl.textContent) s += ' '; // the same words again still count as a change
+    sayEl.textContent = s;
+  }
+  // Where a site is, from the cursor: rows up/down, columns left/right.
+  function from(i) {
+    const dy = Math.round((P[i].y - P[cursor].y) / SY), dx = Math.round((P[i].x - P[cursor].x) / S);
+    const parts = [];
+    if (dy) parts.push(`${Math.abs(dy)} ${dy < 0 ? 'up' : 'down'}`);
+    if (dx) parts.push(`${Math.abs(dx)} ${dx < 0 ? 'left' : 'right'}`);
+    return parts.length ? parts.join(', ') + ' from the cursor' : 'at the cursor';
+  }
+  function what(i) {
+    const p = patchAt[i] >= 0 && patches[patchAt[i]].on ? patches[patchAt[i]] : null;
+    if (p) return p.big ? 'the old log' : 'a patch';
+    if (own[i] === 1) return 'your cut-off branch';
+    return 'open soil';
+  }
+  function patchWords(p) {
+    if (p.food <= 0) return `${p.big ? 'the old log' : 'a patch'}, used up` + (p.caps ? `, ${p.caps} mushroom${p.caps > 1 ? 's' : ''}` : '');
+    return `${p.big ? 'the old log' : 'a patch'} with food ${Math.ceil(p.food)} of ${Math.round(p.max)}` +
+      (p.caps ? `, ${p.caps} mushroom${p.caps > 1 ? 's' : ''}` : '') + (p.fruit >= 1 ? `, next mushroom ${Math.floor(100 * p.fruit / FRUIT)}%` : '');
+  }
+  function describe(i) {
+    const p = patchAt[i] >= 0 && patches[patchAt[i]].on ? patches[patchAt[i]] : null;
+    const bits = [];
+    if (i === core) bits.push(`The spore, your network's heart. Pool ${Math.floor(pool)}`);
+    else if (own[i] === 1 && conn[i]) {
+      const s = Math.max(0, sap[i]);
+      bits.push(`Your knot, ${dc[i]} thread${dc[i] > 1 ? 's' : ''} out, sap ${Math.round(100 * s)}%` +
+        (rot[i] ? ', rotting: cut it' : s < FADE ? ', fading: pulse it' : dh[i] <= K ? ', fed' : ', unfed: it fades'));
+      if (p) bits.push('on ' + patchWords(p));
+    } else if (own[i] === 1) bits.push(`Your cut-off knot, sap ${Math.round(100 * Math.max(0, sap[i]))}%: it withers, or grow into it to reconnect it`);
+    else if (own[i] === 2) bits.push(rivals.some(r => r.root === i) ? 'The rival mould\'s root: cut one of its threads' : 'Rival mould' + (p ? ', eating ' + patchWords(p) : '') + `. ${kbUsed ? 'Hold X' : HOLD} to cut it`);
+    else if (own[i] === 3) bits.push('A stone');
+    else {
+      bits.push(p ? 'Open soil: ' + patchWords(p) : 'Open soil');
+      if (kbFrom >= 0) {
+        const r = route(kbFrom, i);
+        bits.push(r ? `grow here: ${r.length - 1} knots, cost ${(r.length - 1) * GROW_C}, pool ${Math.floor(pool)}` : 'no open route from the marked knot (stones or mould in the way)');
+      } else {
+        const j = nearestFrom(i), r = j >= 0 ? route(j, i) : null;
+        bits.push(r ? `${r.length - 1} thread${r.length > 2 ? 's' : ''} from your network: Enter grows there, cost ${(r.length - 1) * GROW_C}, pool ${Math.floor(pool)}` :
+          'no open route from your network (stones or mould in the way)');
+      }
+    }
+    if (dry[i] && i !== core) bits.push(`dry soil, ${DRY_U}× upkeep`);
+    return bits.join(', ') + '.';
+  }
+  function status() {
+    if (state !== 'playing') return sayEnd();
+    const mine = [], fading = [], rotting = []; let cut = 0, rv = 0;
+    for (let i = 0; i < N; i++) {
+      if (own[i] === 2) rv++;
+      if (own[i] !== 1 || i === core) continue;
+      if (!conn[i]) { cut++; continue; }
+      mine.push(i);
+      if (rot[i]) rotting.push(i); else if (sap[i] < FADE) fading.push(i);
+    }
+    const near = arr => arr.slice().sort((a, b) => Math.hypot(P[a].x - P[cursor].x, P[a].y - P[cursor].y) - Math.hypot(P[b].x - P[cursor].x, P[b].y - P[cursor].y))[0];
+    const food = patches.filter(p => p.on && p.food > 0);
+    let s = `Season ${season}, ${spec.name}: ${mushrooms} of ${spec.goal} mushrooms, frost in ${Math.max(0, Math.ceil(endT - t))} s. ` +
+      `Pool ${Math.floor(pool)}, upkeep ${upkeepRate().toFixed(1)} per s. Network ${mine.length} knots`;
+    if (fading.length) s += `, ${fading.length} fading (nearest ${from(near(fading))})`;
+    if (rotting.length) s += `, ${rotting.length} rotting (nearest ${from(near(rotting))})`;
+    if (cut) s += `, ${cut} cut off`;
+    s += `. Patches with food: ${food.length}` + (food.length ? `, nearest ${from(near(food.map(p => p.i)))}` : '') + '.';
+    if (rv) s += ` Rival mould: ${rv} knots.`;
+    return s;
+  }
+  function sayEnd() {
+    if (endCard.hidden) return '';
+    const txt = ['endTitle', 'endDetail', 'endAch'].map(id => document.getElementById(id).textContent).filter(Boolean).map(x => /[.!]$/.test(x) ? x : x + '.').join(' ');
+    return `${txt} Enter: ${mainBtn.textContent}.`;
+  }
+
+  // Settled changes, read from the state once a frame (outside the simulation, so bots never run it).
+  const track = new Map();           // growing threads started by the player -> { to, wait }
+  let seen = null;
+  function resetWatch() {
+    seen = { own: Int8Array.from(own), rot: Uint8Array.from(rot), fade: new Uint8Array(N), linked: patches.map(p => own[p.i] === 1 && conn[p.i]),
+      food: patches.map(p => p.on && p.food > 0), on: patches.map(p => p.on), starved: st.starved, withered: st.withered,
+      band: Math.floor(pool / 25), bandAt: tnow, poolSaid: Math.floor(pool / 25), dry: pool < 0.5, frost: false };
+    track.clear(); news = {}; lastSaid = {};
+  }
+  let news = {}, lastSaid = {};
+  function note(key, item) { const b = news[key] || (news[key] = { first: tnow, items: [] }); b.last = tnow; b.items.push(item); }
+  function watch() {
+    if (!seen || seen.own.length !== N || seen.linked.length !== patches.length) resetWatch();
+    let lost = 0;
+    for (let i = 0; i < N; i++) {
+      if (seen.own[i] === 1 && own[i] !== 1) lost++;
+      if (own[i] === 1 && rot[i] && !seen.rot[i]) note('rot', i);
+      const fading = own[i] === 1 && conn[i] && !rot[i] && i !== core && sap[i] < (seen.fade[i] ? FADE + 0.1 : FADE);
+      if (fading && !seen.fade[i]) note('fade', i);
+      seen.fade[i] = fading ? 1 : 0;
+      if (own[i] === 2 && seen.own[i] !== 2) {
+        if (patchAt[i] >= 0 && patches[patchAt[i]].on && patches[patchAt[i]].food > 0) note('mouldPatch', i);
+        else if (P[i].nb.some(v => own[v] === 1 || P[v].nb.some(w => own[w] === 1 && conn[w]))) note('mould', i);
+      }
+      seen.own[i] = own[i]; seen.rot[i] = rot[i];
+    }
+    const starved = st.starved - seen.starved, withered = st.withered - seen.withered;
+    if (starved > 0) note('starved', starved);
+    if (withered > 0) note('hunger', withered);
+    if (lost - starved - withered > 0) note('withered', lost - starved - withered);
+    seen.starved = st.starved; seen.withered = st.withered;
+    patches.forEach((p, k) => {
+      const linked = own[p.i] === 1 && conn[p.i], food = p.on && p.food > 0;
+      if (p.on && !seen.on[k]) note('fell', p.i);
+      if (linked && !seen.linked[k] && food) note('joined', p.i);
+      if (seen.food[k] && !food && p.on) note('spent', p.i);
+      seen.linked[k] = linked; seen.food[k] = food; seen.on[k] = p.on;
+    });
+    // Threads the player started: done, stopped, or waiting for the pool.
+    for (const [j, info] of track) {
+      if (!jobs.includes(j)) {
+        track.delete(j);
+        if (own[info.to] === 1 && conn[info.to]) note('grown', info.to); else note('stopped', info.to);
+      } else if (j.wait && !info.wait) { info.wait = true; note('wait', info.to); }
+    }
+    // The pool at steps of 25 (held 1 s), and empty.
+    const band = pool < 0.5 ? -1 : Math.floor(pool / 25);
+    if (band !== seen.band) { seen.band = band; seen.bandAt = tnow; }
+    if (band !== seen.poolSaid && tnow - seen.bandAt >= 1) { seen.poolSaid = band; note('pool', band); }
+    const left = endT - t;
+    if (!seen.frost && left <= 10 && left > 0) { seen.frost = true; note('frost', Math.ceil(left)); }
+    // Speak each kind once it has settled (0.7 s quiet, or 2.5 s old), at most once per 2 s per kind.
+    for (const key in news) {
+      const b = news[key];
+      if (tnow - b.last < 0.7 && tnow - b.first < 2.5) continue;
+      if (tnow - (lastSaid[key] || -9) < 2) continue;
+      delete news[key]; lastSaid[key] = tnow;
+      const s = newsLine(key, b.items);
+      if (s) speak(s);
+    }
+  }
+  function newsLine(key, items) {
+    const n = items.length, last = items[n - 1];
+    const many = (one, more) => n > 1 ? more : one;
+    const far = arr => arr.slice().sort((a, b) => dc[b] - dc[a])[0];
+    switch (key) {
+      case 'fade': { const live = items.filter(i => own[i] === 1 && conn[i] && sap[i] < FADE + 0.1); if (!live.length) return '';
+        return `${live.length > 1 ? live.length + ' knots' : 'A knot'} fading, ${from(far(live))}: pulse ${live.length > 1 ? 'them' : 'it'}.`; }
+      case 'rot': return `Rot ${from(last)}: it eats back toward the spore. Cut it to stop it.`;
+      case 'starved': { const k = items.reduce((a, b) => a + b, 0); return `${k > 1 ? k + ' knots' : 'A knot'} starved while attached.`; }
+      case 'hunger': return 'Pool empty: a tip withered to pay the upkeep.';
+      case 'withered': { const k = items.reduce((a, b) => a + b, 0); return `${k > 1 ? k + ' cut-off knots' : 'A cut-off knot'} withered.`; }
+      case 'mouldPatch': return `Rival mould reached a patch, ${from(last)}: it eats the food.`;
+      case 'mould': return `Rival mould spreading next to your network, ${from(last)}.`;
+      case 'fell': return `${many('A fresh patch', n + ' fresh patches')} fell, ${from(last)}.`;
+      case 'joined': return `Your thread reached ${many(what(last), n + ' patches')}: ${many('it feeds', 'they feed')} the pool.`;
+      case 'spent': return `${many('A patch is', n + ' patches are')} used up, ${from(last)}.`;
+      case 'grown': return `Thread grown to ${what(last) === 'open soil' ? 'its end' : what(last)}, ${from(last)}.`;
+      case 'stopped': return 'A growing thread stopped: the knot it grew from is gone.';
+      case 'wait': return `Growth waits for the pool: each knot costs ${GROW_C}, pool ${Math.floor(pool)}.`;
+      case 'pool': return last < 0 ? 'Pool empty.' : `Pool ${Math.floor(pool)}, upkeep ${upkeepRate().toFixed(1)} per s.`;
+      case 'frost': return `Frost in ${last} s: ${mushrooms} of ${spec.goal} mushrooms.`;
+    }
+    return '';
+  }
 
   function onMain() {
     if (performance.now() < lockUntil) return;
@@ -955,10 +1251,11 @@
   // § loop
   let last = performance.now(), acc = 0;
   function frame(now) {
-    const d = Math.min((now - last) / 1000, 0.1);
+    const d = Math.max(0, Math.min((now - last) / 1000, 0.1)); // a first frame can be stamped before last
     last = now;
     if (!paused) {
       acc += d; tnow += d;
+      if (!still()) deco += d;
       if (state === 'playing') checkHold();
       for (const e of fx) e.t += d;
       fx = fx.filter(e => e.t < 0.8);
@@ -967,7 +1264,9 @@
       if (state === 'playing' && !paused) step(STEP);
       acc -= STEP;
     }
+    if (state === 'playing' && !paused) watch();
     tickMsg();
+    flushSpeech();
     hud();
     draw();
     requestAnimationFrame(frame);
@@ -981,7 +1280,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap', h = fine ? 'click and hold' : 'hold';
-  document.getElementById('soil').setAttribute('aria-label', `Mycelium. Drag from a knot to grow a thread, ${t} a knot to pulse nutrient to it, ${h} a knot to cut the thread there. Keys: arrows move the cursor, Enter marks a knot then Enter grows to the cursor, Space pulses, X cuts.`);
+  document.getElementById('soil').setAttribute('aria-label', `Mycelium. Drag from a knot to grow a thread, ${t} a knot to pulse nutrient to it, ${h} a knot to cut the thread there. Keys: arrows move the cursor, Enter marks a knot and Enter again grows to the cursor, Space pulses, hold X cuts, N next patch, H the spore, I status.`);
 }
 </script>
 </body>

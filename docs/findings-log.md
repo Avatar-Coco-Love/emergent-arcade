@@ -1438,3 +1438,50 @@ states: 7 states × contrast/colour/text × 2 runs, 42/42 after.
 *Evidence: keys-only bot 3 runs + leak checks; L* by number; audit 3/3
 default and 42/42 on scripted states; idle diffs 3 runs (rattle under reduced
 motion v3 0.43–1.33%, v4 0.00%; door open, peek, recap 0.00%).*
+
+## A path verb's start can come from its end
+
+Mycelium v4 (2026-10-06, accessibility). Growing is a drag from a knot of
+your own network to open soil; the keyboard already had a two-step version
+(Enter marks a knot, Enter again on the target grows there). A keys-only
+bot reading only the new live region could find patches (N jumps the
+cursor to the next one with food, and the line says "a patch with food 70
+of 70, 4 threads from your network"), but not a good knot to grow from:
+the region says where things are relative to the cursor, and walking the
+cursor back to the nearest knot of a branching network by words is slow
+and error-prone. Marking the spore and growing from it fails once the
+network surrounds it (routes pass only open soil).
+
+v4 lets Enter on an open site with nothing marked grow from the knot with
+the shortest open route (`nearestFrom`), the same `grow(from, to)` the
+pointer calls, and the cursor line says the cost first ("4 threads from
+your network: Enter grows there, cost 12, pool 40"). Marking stays for
+planned routes. With it the bot grew 22 threads over 4 seasons by N +
+Enter, pulsed 30 times, and won seasons 1-3; it walked to rotting knots by
+the status alone ("1 rotting (nearest 3 up, 1 left from the cursor)",
+arrow, I again) and cut them by holding X (now the pointer's own 450 ms
+hold; a short press says "Hold X to cut").
+
+Other results: the old palette carried "fading" by hue and a blink: the
+blink orange (L* 70) sat on half-full knots (69), rival knots (63) on
+fading ones (62). v4 keeps fed knots at 75-93, rings fading knots with a
+dark centre (60/63/55), draws mould as diamonds with dark-cored threads,
+and lifts mushroom caps from 52 to 70 (protan 46 had merged with patch
+brown 41 on a late screen, in the old file too). The cost label and
+"×12" were 10 and 8.5 px; both are `fs(12)` on a backing, and only late
+screens (more than 10 caps, a held drag) ever showed them. Motion: the
+default screen went 0.5% → 0.0% under reduced motion (spore glow);
+mid-season with a pulse each second 0.26%, 0.02% with network, pulse,
+mould and HUD hidden; a late season-8 copy 1.1% → 0.05%: the rest is the
+network fading and withering.
+
+The scripted copies also found a crash: building a late state before the
+first frame made the first `requestAnimationFrame` stamp earlier than the
+loop's start clock, so the frame step was negative and a pulse's run read
+`pts[-1]`. A real first frame can do the same, rarely; the step is now
+clamped at 0.
+
+*Evidence: keys-only bot (live region only, 4 seasons); audit 3/3 on the
+default screen and 12/12 contrast/colour/text on six scripted late
+screens; idle-motion diffs with pieces hidden; L\* by number; balance old
+×2 and new ×2 identical.*
