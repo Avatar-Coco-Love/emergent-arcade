@@ -6,6 +6,12 @@ top of the relevant section; sessions don't read this file by default.
 
 ## Moved from the notes (2026-10-05)
 
+### v8 (2026-10-07): input timing before
+
+v1–v7: `HOLD_MS` 150, no rescue. A press still for 150 ms became rain and
+stayed rain; a finger resting a moment before dragging (common on phones)
+rained instead of drawing, and wiped the trail under it.
+
 ### v7 notes move (accessibility revision)
 
 v5 balance notes (still true in v7):

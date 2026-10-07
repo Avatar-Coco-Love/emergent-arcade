@@ -1,6 +1,6 @@
 # Ant Trails: design notes
 
-**v7** (2026-10-05, accessibility; v5 2026-09-29) · playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG ·
+**v8** (2026-10-07, touch input fix; v7 2026-10-05 accessibility; v5 2026-09-29) · playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG ·
 balance: `node scripts/balance-ant-trails.mjs 200`
 Verbs: **trail** (drag) and **wash** (hold), sharing **scent per ground cell**
 (40×60 grid, 10 px cells, 0–1). A run of six days, each a round with its own
@@ -49,14 +49,20 @@ food layout, twist and bonus; ants alive at sundown start the next day.
   Spiders steer by scent too, faster on strong scent
   (`SP_BASE + SP_SCENT·scent`); soldiers keep it `NEST_GUARD` px from the
   nest; it pauses `EAT_PAUSE` s after eating an ant.
-- **Input:** moving >10 px before 150 ms is a trail; holding still 150 ms
-  starts rain, and the cloud follows the pointer.
+- **Input (v8):** moving >10 px (`MOVE_PX`) before 350 ms (`HOLD_MS`, was
+  150) is a trail; holding still 350 ms starts rain, and the cloud follows
+  the pointer. **Rescue:** a drag of >20 px (`RESCUE_PX`) within 250 ms
+  real time (`RESCUE_MS`) of the rain starting turns it into a trail from
+  the press point and puts back the scent that rain wiped (`rainLost`).
+  Pointer only; keys pick the verb by key. Telemetry: `rescues` per round
+  (rains counts only the rains kept). Why: a phone player kept getting
+  rain when she rested her finger before dragging (2026-10-07).
 
 ## Accessibility (v7, `node scripts/a11y-audit.mjs ant-trails`: 5 pass, motion partial by design, 3/3 runs)
 
 - Keys (`// § keys`): arrows move a cursor while held (90 → 240/s over
   0.6 s, from 200, 480), hold Space lays a trail along its path,
-  hold W washes under it (key up before 150 ms: nothing, like a finger), H
+  hold W washes under it (key up before `HOLD_MS`, 350 ms: nothing, like a finger), H
   jumps to the nest, N to the next pile (nearest first); a jump with Space
   held lays a straight trail, like a swipe. Same `pressAt` / `beginTrail` /
   `moveTo` as the pointer. Enter presses the end card's button. Tab free;
@@ -118,7 +124,8 @@ and `stats`:
 | `lost` | ants eaten | `hatched` | ants hatched from crumbs |
 | `crumbs` | crumbs home | `bonus` | bonus met (0/1) |
 | `trails` | trail gestures | `trail_px` | trail length drawn |
-| `rains` | rain gestures | `rain_s` | seconds of rain |
+| `rains` | rain gestures kept | `rain_s` | seconds of rain |
+| `rescues` | rains turned into trails (v8) | | |
 | `rain_spider_s` | seconds the rain covered a spider | `first_input` | s until the first touch (-1: none) |
 | `rivals` | crumbs the rivals took (rival day) | `ff_s` | s played fast-forwarded (v5) |
 | `keys` | trail/wash gestures by key (v7) | | |
