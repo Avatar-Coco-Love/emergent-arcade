@@ -95,12 +95,13 @@ same-origin, so `localStorage` inside a game throws.
   one page: leader, your best and place, expandable top 10, and a "My
   bests" filter ([gallery.md](gallery.md)). `ArcadeScores.standings()`
   does the merge for both it and the cabinet. It has the same name
-  controls as the 🏆 panel (show me, pick another name, type a name), from
-  `assets/name-ctl.js`.
+  controls as the 🏆 panel (show me, pick another name, type a name, and
+  the recovery code), from `assets/name-ctl.js`.
 - Cards show "Your best 40.2 s" (or "3 bests" for games with
   boards): your own best on this browser, not the leaderboard's.
 - Export/import carries bests (the better one per board wins on import);
-  "Reset everything" erases them.
+  "Reset everything" erases them. With "Include my leaderboard identity"
+  it also carries the identity (below, "Recovery code").
 
 ### Storage
 
@@ -110,6 +111,8 @@ same-origin, so `localStorage` inside a game throws.
 | `arcade.handle` | the random public name, if the player picked another one |
 | `arcade.name` | the typed public name, if any (the random one stays as the fallback) |
 | `arcade.leaderboardOptOut` | `"1"`: scores still go with play stats, with `lb: 0` and no name, and stay off the board |
+| `arcade.clientId` | the anonymous id: the player (hash `p`, tag, name claim) and the recovery code |
+| `arcade.codeShown` | `"1"` once the recovery code was shown (no more callout) |
 
 ## Public names
 
@@ -183,6 +186,58 @@ builder (`scripts/names.mjs`); tests: `node scripts/test-names.mjs`
   can. Takedowns are the cleanup: find the player's `p` in
   `leaderboards.json`, add it, and, if it's a pattern, add the word to the
   blocklist so the next attempt is caught too.
+
+### Recovery code
+
+Built 2026-10-07 (brief: [ideas/identity.md](ideas/identity.md)). No
+accounts: the player **is** `arcade.clientId`, so the id is the code a
+player carries to another browser. The hash `p`, the tag and the typed-name
+claim all follow it. No backend or Apps Script change: rows already carry
+`client_id` and the builder keys on its hash.
+
+- **The code.** New browsers get 6 words from `ArcadeIdentity.WORDS`
+  (1,024 words, 3–7 letters, kid-safe; 60 bits), joined by hyphens:
+  `snappy-flint-broom-omnibus-orange-tunnel`. Older ids (UUIDs, or digits
+  from browsers without `crypto.randomUUID`) keep working and show as they
+  are. Never remove a word from the list (codes with it would be refused);
+  appending is fine. Generated only, never chosen: a chosen word is
+  guessable, and `p` is public. The ceiling is `p` itself (64 bits of a
+  fast, non-cryptographic hash), so codes longer than ~64 bits buy nothing.
+- **Save** ("Save your leaderboard identity", in the 🏆 panel and the
+  Records view): the code in a read-only, selectable field (a press selects
+  it all), **Copy code**, and "Anyone with this code can play as you. Keep
+  it like a password." Status lines are `role="status"`.
+- **Offered** in a callout right after a typed name is accepted ("Keep
+  Coco ·4F2A on other devices: save your code", Save my code / Not now),
+  until the code has been shown once (`arcade.codeShown`). Focus moves to
+  the Save button, so keyboard players land on it. Players who never type a
+  name never see the callout.
+- **Use a saved code**: paste or type (spaces, capitals, commas are
+  fine), **Check**. A refused code says why (not 6 words, an unknown word,
+  not a code). A good one shows a confirm naming who you'll be ("The
+  leaderboard will show you as AvatarCoco ·110A … The page reloads"), read
+  from `leaderboards.json`: the typed name from `names[p].n`, the random
+  name from `names[p].r` or a board entry. **Use this code** sets
+  `arcade.clientId`, `arcade.name`, `arcade.handle` (removed when the file
+  has none) and reloads.
+- **Decisions** (the brief's open questions): restore **replaces** the
+  identity (id, typed name, random name) and **keeps** this browser's
+  achievements, bests and daily results: they're per browser, and the
+  published boards keep each hash's scores apart. "New anonymous id"
+  **warns** when a typed name is held ("you'll lose it unless you saved
+  your code") and asks to confirm. The stored id **is** the code (no
+  short code, which would need a server lookup).
+- **Known gap.** A typed name claimed within the last hour isn't in
+  `leaderboards.json` yet, so a restore then can't read it back: the
+  confirm says to type it again (the claim is the same `p`, so it's
+  accepted). The export file carries the name directly.
+- Settings shows the first 8 characters of `p`, no longer of the id (the
+  id's first word shouldn't sit on screen).
+- Classroom mode hides it all ([gallery.md](gallery.md), "Classroom mode").
+- Events: `identity` with `step` (`callout`, `show`, `copy`, `restore`) and
+  `from` (`cabinet`, `records`, `import`) ([telemetry.md](telemetry.md)).
+- Not built yet: freeing a typed name whose id hasn't played for months
+  (builder side, "Lost codes heal" in the brief).
 
 ## The leaderboard file
 

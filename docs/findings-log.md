@@ -1570,3 +1570,28 @@ only after a load) passed every default run, the same lesson as "A
 warm-up hides the labels later levels add". A scripted run over all 14
 cases (load two coins, weigh) measured them.
 
+## An audit only sees the views it opens
+
+Recovery code PR (2026-10-07). The new controls live in the Records view
+and the settings dialog, neither of which `a11y-audit.mjs --gallery`
+opened: the Records view only appeared as the cabinet's 🏆 panel state, and
+settings never. Two views were added: "recovery code" (`#/records` with
+the code shown, then a refused code, then the confirm) and "settings"
+(dialog open, then the "New anonymous id" warning, then an import preview
+with an identity, fed through `setInputFiles` with an in-memory file).
+
+First run: the recovery code view passed everything; settings failed
+contrast twice. (1) The last line of the dialog, half scrolled below the
+dialog body's edge, was sampled against the modal backdrop (1.3:1). The
+clip test only dropped text wholly outside a scrolling ancestor; it now
+drops text whose middle is outside, which is what a reader sees. (2) A real
+bug, there since the reset confirms were added: `button.danger` was white
+on `--bad`, and dark theme's `--bad` is the light red `#ff7a6b` (2.5:1).
+New token `--on-bad`: white in light, `#1b0b08` in dark. It fixes "Yes,
+reset", "Yes, reset everything", the cabinet's per-game reset and the new
+"Yes, new id" at once. Gallery side: 0 failing after (54 checks).
+
+Rule: a feature that adds a dialog, a collapsed panel or a confirm adds it
+to `views` in `auditGallery()` with a state per step; a view that is never
+opened has no failures to show.
+

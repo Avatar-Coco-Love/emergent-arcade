@@ -11,7 +11,8 @@
 //   arcade.recent              [ids], most recently opened first
 //   arcade.daily               { date: { game, first, marks, ... } }, Daily Challenge results (assets/daily.js)
 //   arcade.challenge           { "<game>/<code>": { ... } }, class challenge results (assets/daily.js, not exported)
-//   arcade.clientId            anonymous id for feedback/telemetry (kept on reset)
+//   arcade.clientId            anonymous id for feedback/telemetry and the leaderboard identity (kept on reset)
+//   arcade.codeShown           "1" once the player saw their recovery code (assets/identity.js, kept on reset)
 //   arcade.telemetryOptOut     "1" = don't send play stats (kept on reset)
 //   arcade.classroom           "1" = classroom mode (assets/classroom.js, kept on reset)
 // Progress is per browser, so export/import is the only way to move it.
@@ -60,7 +61,9 @@ window.ArcadeProgress = (function () {
     return { got, total };
   }
 
-  function exportData() {
+  // `identity` (opt-in): the client id, typed name and random name, so the
+  // file also moves the leaderboard identity (assets/identity.js).
+  function exportData(identity) {
     const achievements = {};
     const seen = {};
     const intro = [];
@@ -79,9 +82,9 @@ window.ArcadeProgress = (function () {
         if (Object.keys(all).length) bests[m[1]] = all;
       }
     }
-    return {
+    const out = {
       format: FORMAT,
-      version: 1,
+      version: 2,
       exported_at: new Date().toISOString(),
       achievements,
       seenVersion: seen,
@@ -89,9 +92,12 @@ window.ArcadeProgress = (function () {
       bests,
       daily: window.ArcadeDaily.exportData(),
     };
+    if (identity) out.identity = window.ArcadeIdentity.exportBlock();
+    return out;
   }
 
-  // Checks an imported file. Returns { data, achievements, games, fresh } or
+  // Checks an imported file (version 1, or 2 with an optional `identity`).
+  // Returns { data, achievements, games, fresh, identity } or
   // throws with a message a player can read.
   function parseImport(text, games) {
     let raw;
@@ -128,7 +134,10 @@ window.ArcadeProgress = (function () {
       if (ID.test(gameId) && all && typeof all === "object") data.bests[gameId] = all;
     }
     const gamesWith = Object.keys(data.achievements).length;
-    return { data, achievements: count, games: gamesWith, fresh, exportedAt: raw.exported_at };
+    // An identity equal to this browser's changes nothing, so it isn't offered.
+    let identity = window.ArcadeIdentity.fromExport(raw.identity);
+    if (identity && identity.id === window.ArcadeIdentity.current()) identity = null;
+    return { data, achievements: count, games: gamesWith, fresh, exportedAt: raw.exported_at, identity };
   }
 
   // Merges: nothing already in this browser is lost; the earliest unlock
@@ -162,12 +171,16 @@ window.ArcadeProgress = (function () {
     for (const key of store.keys()) if (RESETTABLE.test(key)) store.remove(key);
   }
 
+  // The public player hash, not the id: the id is the recovery code, and
+  // its first word shouldn't sit on screen.
   function clientIdShort() {
-    return (store.get("arcade.clientId") || "").slice(0, 8);
+    const id = store.get("arcade.clientId");
+    return id ? window.ArcadeScores.hash(`player:${id}`).slice(0, 8) : "";
   }
 
   function newClientId() {
     store.remove("arcade.clientId");
+    window.ArcadeIdentity.forget();
     return window.ArcadeFeedback.clientId();
   }
 

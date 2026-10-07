@@ -884,6 +884,7 @@ for (const vp of VIEWPORTS) {
       assert(await page.locator("#telemetryNote").isHidden(), "play stats note shown");
       await page.locator("#settingsBtn").click();
       assert(await page.locator("#statsToggle").isDisabled() && !(await page.locator("#statsToggle").isChecked()), "stats toggle");
+      assert(await page.locator("#exportIdentity").isHidden(), "export identity option shown");
       await page.keyboard.press("Escape");
       await page.selectOption("#sort", "title");
       // Persists in this browser, and carries into a game.
@@ -903,7 +904,7 @@ for (const vp of VIEWPORTS) {
       assert(!(await page.locator(".toast.callout:has-text('rating')").count()), "rate nudge shown");
       await page.goto(`${base}#/records`);
       await page.waitForSelector("#recordsView:not([hidden]) .rec-row");
-      assert(await page.locator("#recordsName .lb-name-ctl").isHidden(), "name controls shown in Records");
+      assert(await page.locator("#recordsName .lb-name-ctl").isHidden() && await page.locator("#recIdSave").isHidden() && await page.locator("#recIdUse").isHidden(), "name controls or recovery code shown in Records");
       await page.goto(`${base}#/teachers`);
       await page.waitForSelector("#teachersView:not([hidden])");
       assert(await page.locator("#classForm").isHidden() && await page.locator("#classFormOff").isVisible(), "feedback form shown");
@@ -941,6 +942,122 @@ for (const vp of VIEWPORTS) {
       assert((await page.locator("#classWorked").inputValue()) === "" && await page.locator("#classSend").isDisabled(), "form not cleared");
       await page.locator("#classForm").screenshot({ path: join(outDir, "1280x800-class-form.png") });
       return `${Object.keys(row).length} fields`;
+    });
+
+    await check("recovery code: save in one browser, restore in a fresh one, bad code refused, export", async () => {
+      const opts = { viewport: { width: 1280, height: 800 }, acceptDownloads: true, permissions: ["clipboard-read", "clipboard-write"] };
+      const errs = [];
+      const fresh = async () => {
+        const ctx = await browser.newContext(opts);
+        const pg = await ctx.newPage();
+        pg.on("pageerror", (e) => errs.push(e.message));
+        return [ctx, pg];
+      };
+      const openRecords = async (pg) => {
+        await pg.goto(`${base}#/records`);
+        await pg.waitForSelector("#recordsView:not([hidden]) .rec-row");
+        await pg.waitForFunction(() => document.querySelector('.rec-row[data-id="pressure-grid"] .rec-lead').textContent.includes("Jade Owl"));
+      };
+      const n = rows.length;
+      // Browser A: type a name; the callout offers the code.
+      const [a, pa] = await fresh();
+      await openRecords(pa);
+      await pa.locator("#recType").click();
+      await pa.locator("#recNameInput").fill("AvatarCoco");
+      await pa.waitForFunction(() => !document.getElementById("recNameSave").disabled);
+      await pa.locator("#recNameSave").click();
+      const callout = pa.locator('.toast.callout:has-text("save your code")');
+      await callout.waitFor();
+      assert(await pa.evaluate(() => document.activeElement.id === "recIdSave"), "focus not on Save your leaderboard identity");
+      await callout.locator("button", { hasText: "Save my code" }).click();
+      await pa.locator("#recIdBox").waitFor();
+      const code = await pa.locator("#recIdCode").inputValue();
+      assert(/^[a-z]{3,7}(-[a-z]{3,7}){5}$/.test(code), `code ${code}`);
+      const sel = await pa.locator("#recIdCode").evaluate((t) => [t.readOnly, document.activeElement === t, t.selectionEnd - t.selectionStart === t.value.length]);
+      assert(sel.every(Boolean), `read-only, focused, selected: ${sel}`);
+      await pa.locator("#recIdCopy").click();
+      assert((await pa.evaluate(() => navigator.clipboard.readText())) === code, "copy");
+      assert((await pa.locator("#recIdMsg").textContent()).startsWith("Code copied"), "copy message");
+      await pa.locator("#recordsView .lb-name-ctl").screenshot({ path: join(outDir, "1280x800-recovery-code.png") });
+      const tagA = await pa.locator("#recHandle").textContent();
+      const p = await pa.evaluate(() => window.ArcadeScores.me());
+      assert(tagA.startsWith("AvatarCoco ·"), `handle ${tagA}`);
+      // Seen once: a second typed name gets no callout.
+      await pa.locator("#recType").click();
+      await pa.locator("#recNameInput").fill("AvatarCocoa");
+      await pa.waitForFunction(() => !document.getElementById("recNameSave").disabled);
+      await pa.locator("#recNameSave").click();
+      await pa.waitForTimeout(200);
+      assert(!(await pa.locator(".toast.callout").count()), "callout shown again after the code was seen");
+      await pa.locator("#recType").click();
+      await pa.locator("#recNameInput").fill("AvatarCoco");
+      await pa.waitForFunction(() => !document.getElementById("recNameSave").disabled);
+      await pa.locator("#recNameSave").click();
+      // "New anonymous id" warns about the typed name; export can carry the identity.
+      await pa.locator("#settingsBtn").click();
+      await pa.locator("#newIdBtn").click();
+      assert((await pa.locator("#newIdText").textContent()).includes(tagA), "new id warning");
+      await pa.locator("#newIdConfirm [data-cancel]").click();
+      assert(await pa.evaluate(() => document.activeElement.id === "newIdBtn"), "focus after cancel");
+      await pa.locator("#exportIdentity").check();
+      const [dl] = await Promise.all([pa.waitForEvent("download"), pa.locator("#exportBtn").click()]);
+      const file = join(outDir, "1280x800-progress-identity.json");
+      await dl.saveAs(file);
+      const exported = JSON.parse(readFileSync(file, "utf8"));
+      assert(exported.version === 2 && exported.identity && exported.identity.clientId === code && exported.identity.name === "AvatarCoco", `export ${JSON.stringify(exported.identity)}`);
+      await a.close();
+
+      // The published file knows this player: their claim and a best of 9.
+      const lbFixture = { format: "emergent-arcade-leaderboards", version: 1, updated_at: "2026-10-07T12:00:00Z", through: null,
+        games: { "pressure-grid": { epoch: 2, boards: { main: [{ h: "Jade Owl", p: "x", s: 12, at: "2026-10-01", v: 8 }, { h: tagA, r: "Glassy Jackal", p, s: 9, at: "2026-10-06", v: 8 }] } } },
+        names: { x: { n: "Coco", r: "Jade Owl", at: "2026-10-01T00:00:00.000Z" }, [p]: { n: "AvatarCoco", r: "Glassy Jackal", at: "2026-10-06T00:00:00.000Z" } } };
+
+      // Browser B: bad codes are refused, the saved one restores the tag and best.
+      const [b, pb] = await fresh();
+      await pb.route("**/leaderboards.json", (route) => route.fulfill({ json: lbFixture }));
+      await openRecords(pb);
+      assert((await pb.locator("#recHandle").textContent()) !== tagA, "fresh browser already has the name");
+      await pb.locator("#recIdUse").click();
+      assert(await pb.evaluate(() => document.activeElement.id === "recIdInput"), "focus not in the code field");
+      for (const [bad, want] of [["maple otter", "6 words"], ["maple otter rocket violet harbor xyzzy", "xyzzy"], ["1234-abcd", "isn't a leaderboard code"]]) {
+        await pb.locator("#recIdInput").fill(bad);
+        await pb.keyboard.press("Enter");
+        const m = await pb.locator("#recIdUseMsg").textContent();
+        assert(m.includes(want) && await pb.locator("#recIdUseMsg.bad").count() && await pb.locator("#recIdConfirm").isHidden(), `"${bad}": ${m}`);
+      }
+      // Spaces and capitals are fine.
+      await pb.locator("#recIdInput").fill(` ${code.replace(/-/g, " ").toUpperCase()} `);
+      await pb.locator("#recIdCheck").click();
+      await pb.locator("#recIdConfirm").waitFor();
+      assert((await pb.locator("#recIdConfirmText").textContent()).includes(tagA), "confirm doesn't name the identity");
+      assert(await pb.evaluate(() => document.activeElement.id === "recIdYes"), "focus not on Use this code");
+      await pb.locator("#recordsView .lb-name-ctl").screenshot({ path: join(outDir, "1280x800-recovery-use.png") });
+      await Promise.all([pb.waitForEvent("load"), pb.locator("#recIdYes").click()]);
+      await openRecords(pb);
+      await pb.waitForFunction((t) => document.getElementById("recHandle").textContent === t, tagA);
+      const line = await pb.locator('.rec-row[data-id="pressure-grid"] .rec-line').textContent();
+      assert(line.includes("You #2") && line.includes("9"), `row after restore: ${line}`);
+      assert((await pb.evaluate(() => localStorage.getItem("arcade.clientId"))) === code, "client id not restored");
+      await b.close();
+
+      // Browser C: importing the export with its identity does the same.
+      const [c, pc] = await fresh();
+      await pc.route("**/leaderboards.json", (route) => route.fulfill({ json: lbFixture }));
+      await pc.goto(base);
+      await pc.waitForSelector(".game-card");
+      await pc.locator("#settingsBtn").click();
+      await pc.setInputFiles("#importFile", file);
+      await pc.waitForSelector("#importPreview:not([hidden])");
+      assert(await pc.locator("#importIdentityRow").isVisible() && (await pc.locator("#importIdentityText").textContent()).includes(tagA), "import doesn't offer the identity");
+      await Promise.all([pc.waitForEvent("load"), pc.locator("#importYes").click()]);
+      assert((await pc.evaluate(() => [localStorage.getItem("arcade.clientId"), localStorage.getItem("arcade.name")]).then((v) => v.join())) === `${code},AvatarCoco`, "import didn't restore the identity");
+      await c.close();
+
+      assert(!errs.length, errs.join(" | "));
+      await new Promise((r) => setTimeout(r, 300));
+      const steps = rows.slice(n).filter((r) => r.kind === "gallery" && (r.action === "identity" || (r.extra && r.extra.action === "identity"))).map((r) => Object.assign({}, r, r.extra || {}).step);
+      assert(["callout", "show", "copy", "restore"].every((s) => steps.includes(s)), `identity events: ${steps.join(",")}`);
+      return `${code.split("-").length} words; ${tagA} and best 9 back; 3 bad codes refused`;
     });
   }
 

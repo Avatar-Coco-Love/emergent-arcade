@@ -272,8 +272,17 @@
         <button type="button" class="secondary" id="importBtn">Import progress</button>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
+      <label class="check identity-opt">
+        <input type="checkbox" id="exportIdentity" aria-describedby="exportIdentityNote">
+        <span>Include my leaderboard identity</span>
+      </label>
+      <p id="exportIdentityNote" class="muted small identity-opt">Your leaderboard name and code go in the file, so importing it on another device brings them back. Anyone with the file can play as you: keep it like a password.</p>
       <div id="importPreview" class="confirm" hidden>
         <span id="importText"></span>
+        <label class="check identity-opt" id="importIdentityRow" hidden>
+          <input type="checkbox" id="importIdentity" checked>
+          <span id="importIdentityText"></span>
+        </label>
         <button type="button" class="primary" id="importYes">Import</button>
         <button type="button" class="secondary" id="importNo">Cancel</button>
       </div>
@@ -306,6 +315,11 @@
         </div>
         <div class="setting-row">
           <button type="button" class="secondary" id="newIdBtn">New anonymous id</button>
+          <div id="newIdConfirm" class="confirm" hidden>
+            <span id="newIdText"></span>
+            <button type="button" class="danger" id="newIdYes">Yes, new id</button>
+            <button type="button" class="secondary" data-cancel>Cancel</button>
+          </div>
           <p class="muted small">Ratings and play stats carry a random id so duplicates can be spotted: <code id="clientIdText"></code>. A new one makes this browser look like a new player.</p>
         </div>
       </div>
@@ -490,6 +504,7 @@
 
 <script src="assets/config.js"></script>
 <script src="assets/ui.js"></script>
+<script src="assets/identity.js"></script>
 <script src="assets/classroom.js"></script>
 <script src="assets/wording.js"></script>
 <script src="assets/topics.js"></script>

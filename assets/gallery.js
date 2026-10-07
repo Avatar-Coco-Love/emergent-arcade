@@ -27,6 +27,8 @@
   const Classroom = window.ArcadeClassroom;
   const Topics = window.ArcadeTopics;
   const Daily = window.ArcadeDaily;
+  const Identity = window.ArcadeIdentity;
+  const Names = window.ArcadeNames;
 
   const galleryView = $("galleryView");
   const gameList = $("gameList");
@@ -586,6 +588,7 @@
 
   const settings = $("settingsDialog");
   let importData = null;
+  let importIdentity = null; // a leaderboard identity in the imported file
 
   function settingsStatus(text, kind) {
     $("settingsStatus").textContent = text;
@@ -612,8 +615,9 @@
 
   function hideConfirms() {
     for (const c of settings.querySelectorAll(".confirm")) c.hidden = true;
-    for (const b of ["resetAchBtn", "resetAllBtn"]) $(b).hidden = false;
+    for (const b of ["resetAchBtn", "resetAllBtn", "newIdBtn"]) $(b).hidden = false;
     importData = null;
+    importIdentity = null;
   }
 
   function openSettings(opener, focusId) {
@@ -635,11 +639,13 @@
   }
 
   $("exportBtn").addEventListener("click", () => {
-    const data = Progress.exportData();
+    // The identity is opt-in, and never in classroom mode (the box is hidden).
+    const withId = $("exportIdentity").checked && !Classroom.on();
+    const data = Progress.exportData(withId);
     const n = Object.values(data.achievements).reduce((s, got) => s + Object.keys(got).length, 0);
     UI.saveFile("arcade-progress.json", JSON.stringify(data, null, 2), "application/json");
-    settingsStatus(`Saved arcade-progress.json (${n} achievement${n === 1 ? "" : "s"}). Import it on another device.`, "ok");
-    telemetry.event("settings", { setting: "export", achievements: n });
+    settingsStatus(`Saved arcade-progress.json (${n} achievement${n === 1 ? "" : "s"}${withId ? ", with your leaderboard identity: keep the file private" : ""}). Import it on another device.`, "ok");
+    telemetry.event("settings", withId ? { setting: "export", achievements: n, identity: 1 } : { setting: "export", achievements: n });
   });
 
   $("importBtn").addEventListener("click", () => {
@@ -654,6 +660,14 @@
       if (file.size > 1e6) throw new Error("That file is too big to be a progress file.");
       const preview = Progress.parseImport(await file.text(), games);
       importData = preview.data;
+      // A leaderboard identity in the file: offered with the same warning
+      // as "Use a saved code" (assets/name-ctl.js), never in classroom mode.
+      importIdentity = Classroom.on() ? null : preview.identity;
+      $("importIdentityRow").hidden = !importIdentity;
+      $("importIdentity").checked = true;
+      if (importIdentity) {
+        $("importIdentityText").textContent = `Also use the leaderboard identity in this file (${Identity.shownAs(importIdentity)}). It replaces this browser's leaderboard name and code, and the page reloads.`;
+      }
       const when = preview.exportedAt ? ` (exported ${UI.shortDate(String(preview.exportedAt).slice(0, 10))})` : "";
       $("importText").textContent =
         `${preview.achievements} achievement${preview.achievements === 1 ? "" : "s"} across ${preview.games} game${preview.games === 1 ? "" : "s"}${when}. ` +
@@ -668,6 +682,12 @@
   $("importYes").addEventListener("click", () => {
     if (!importData) return;
     Progress.applyImport(importData, games);
+    if (importIdentity && $("importIdentity").checked) {
+      telemetry.event("identity", { step: "restore", from: "import" });
+      Identity.use(importIdentity.id, importIdentity);
+      location.reload();
+      return;
+    }
     hideConfirms();
     refreshAll();
     settingsStatus("Progress imported.", "ok");
@@ -693,6 +713,10 @@
   }
   confirmStep("resetAchBtn", "resetAchConfirm");
   confirmStep("resetAllBtn", "resetAllConfirm");
+  $("newIdConfirm").querySelector("[data-cancel]").addEventListener("click", () => {
+    hideConfirms();
+    $("newIdBtn").focus();
+  });
 
   $("resetAchYes").addEventListener("click", () => {
     Progress.resetAchievements();
@@ -710,11 +734,24 @@
     telemetry.event("settings", { setting: "reset_all" });
     $("resetAllBtn").focus();
   });
-  $("newIdBtn").addEventListener("click", () => {
+  function newId() {
     Progress.newClientId();
-    renderSettings();
+    hideConfirms();
+    refreshAll();
     settingsStatus("New anonymous id created.", "ok");
+    $("newIdBtn").focus();
+  }
+  // A typed leaderboard name belongs to the id: warn before dropping it.
+  $("newIdBtn").addEventListener("click", () => {
+    const name = Scores.typedName();
+    if (!name) return newId();
+    hideConfirms();
+    $("newIdText").textContent = `Your leaderboard name ${Names.display(name, Scores.me())} stays with the old id: you'll lose it unless you saved your code (Records, "Save your leaderboard identity").`;
+    $("newIdBtn").hidden = true;
+    $("newIdConfirm").hidden = false;
+    $("newIdConfirm").querySelector("[data-cancel]").focus();
   });
+  $("newIdYes").addEventListener("click", newId);
   $("statsToggle").addEventListener("change", () => {
     const on = $("statsToggle").checked;
     Progress.setTelemetryOptOut(!on);

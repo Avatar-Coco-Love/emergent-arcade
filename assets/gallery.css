@@ -10,6 +10,7 @@
   --on-accent: #ffffff;
   --good: #1a7a43;
   --bad: #c0392b;
+  --on-bad: #fff;
   --star: #a87700;
   --radius: 12px;
   --tap: 44px;
@@ -28,6 +29,7 @@
     --on-accent: #0b0b10;
     --good: #5fd08a;
     --bad: #ff7a6b;
+    --on-bad: #1b0b08;
     --star: #ffcc4d;
     color-scheme: dark;
   }
@@ -44,6 +46,7 @@
   --on-accent: #0b0b10;
   --good: #5fd08a;
   --bad: #ff7a6b;
+  --on-bad: #1b0b08;
   --star: #ffcc4d;
   color-scheme: dark;
 }
@@ -311,10 +314,12 @@ button.primary { border: 0; background: var(--accent); color: var(--on-accent); 
 /* Game accents are all bright, so dark text reads on them. */
 .cabinet button.primary { background: var(--game-accent, var(--accent)); color: #0b0b10; }
 button.secondary { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); }
-button.danger { border: 0; background: var(--bad); color: #fff; }
+button.danger { border: 0; background: var(--bad); color: var(--on-bad); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
 .confirm span { width: 100%; font-size: 0.9rem; }
+.confirm .check { width: 100%; }
+.confirm .check span { width: auto; }
 
 /* ---------- cabinet: covers the whole viewport while a game is open ---------- */
 
@@ -624,6 +629,19 @@ textarea {
 .lb-name-msg { margin: 4px 0 0; min-height: 1.3em; }
 .lb-name-msg.bad, .lb-name-note { color: var(--bad); }
 .lb-name-note { font-size: 0.85rem; margin: 2px 0 4px; }
+/* Recovery code (assets/name-ctl.js, assets/identity.js) */
+.lb-id-row { margin-top: 0; }
+.lb-id { margin: 6px 0 4px; padding: 8px 10px; font-size: 0.88rem; background: var(--panel-2); border-radius: 10px; }
+.lb-id label { display: block; margin-bottom: 4px; }
+.lb-id p { margin: 6px 0 0; }
+.lb-id-code {
+  display: block; width: 100%; box-sizing: border-box; resize: none; font: 600 1rem/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text); background: var(--panel); border: 1px solid var(--field-border); border-radius: 10px; padding: 8px 10px;
+  overflow-wrap: anywhere; user-select: all; -webkit-user-select: all;
+}
+.lb-id-warn { font-weight: 600; }
+.lb-id .lb-name-row { margin-top: 8px; }
+.lb-id .confirm span { font-size: 0.88rem; }
 
 .lb-all { font-size: 0.88rem; margin: 6px 0 0; }
 .lb-all a { color: var(--accent); }
@@ -779,6 +797,7 @@ textarea {
 /* Hidden for students: rating, leaderboard names, the teacher feedback form. */
 .classroom .toolbar [data-panel="rate"],
 .classroom .lb-name-ctl,
+.classroom .identity-opt,
 .classroom .spot-rate { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
