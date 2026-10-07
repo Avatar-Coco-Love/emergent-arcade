@@ -88,6 +88,16 @@ material moves to a file sessions don't read by default.
   and put the link in the PR body and the notes file. Republish the same
   link after each push. Keep the PR body short:
   what changed, key numbers, the checklist; link the notes file for detail.
+- Before revising a game, check its current version's players
+  (`node scripts/fetch-telemetry.mjs --game <id>`). With fewer than 3,
+  revise only for a bug, a crash, an accessibility fix, or the game's first
+  depth pass (`docs/ROADMAP.md`); otherwise say so and suggest something
+  else. Each version starts its counts over, so stacked revisions leave
+  nothing to measure.
 - End the conversation with a handoff of at most 5 lines: PR link, what
-  changed, what's open, suggested next step. The next round (playtest
-  feedback, the next game) starts a fresh conversation from that handoff.
+  changed, what's open, suggested next step. The next step is a call,
+  **build or go learn**: give the player and feedback numbers behind it,
+  and when they're thin, suggest a learning step (watching people play,
+  showing it to teachers, sharing the Daily) instead of another feature.
+  The next round (playtest feedback, the next game) starts a fresh
+  conversation from that handoff.

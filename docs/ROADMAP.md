@@ -36,6 +36,13 @@ other and with the bots. Games join the rotation in their depth-pass PRs
 once they have a seeded generator (first three: Coat Check, Counterfeit
 Scale, Surprise Party).
 
+**Update 2026-10-07:** about 50 PRs merged in a week, but only 43 players
+in total, 2–3 on most game versions, and 0 classroom reports. Building
+had got ahead of learning. Two session rules in `CLAUDE.md`: no further
+revision of a game whose current version has fewer than 3 players (bugs,
+crashes, accessibility and the first depth pass excepted), and every
+handoff makes a "build or go learn" call with its numbers.
+
 ## Principle: depth before volume
 
 Shipping a new game an hour is easy. Making any one of them great is hard.
