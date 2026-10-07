@@ -6,6 +6,17 @@ top of the relevant section; sessions don't read this file by default.
 
 ## Moved from the notes (2026-10-05)
 
+### v8 (2026-10-07): input timing before
+
+v1–v7: `HOLD_MS` 150, no rescue. A press still for 150 ms became rain and
+stayed rain; a finger resting a moment before dragging (common on phones)
+rained instead of drawing, and wiped the trail under it.
+
+v5 telemetry (moved from the notes at v8): 3 players, all touch; `ff_s`
+used every day (median 15–75 s); win rate 92%, sessions median 67 s, 2
+rounds.
+v5 shifted `level` by one: compare v4 and v5 data by day name.
+
 ### v7 notes move (accessibility revision)
 
 v5 balance notes (still true in v7):

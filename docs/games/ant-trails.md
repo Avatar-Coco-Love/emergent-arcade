@@ -1,6 +1,6 @@
 # Ant Trails: design notes
 
-**v7** (2026-10-05, accessibility; v5 2026-09-29) · playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG ·
+**v8** (2026-10-07, touch input fix; v7 2026-10-05 accessibility; v5 2026-09-29) · playtest: https://claude.ai/artifact/K2UDULvJEUsesLU2949whG ·
 balance: `node scripts/balance-ant-trails.mjs 200`
 Verbs: **trail** (drag) and **wash** (hold), sharing **scent per ground cell**
 (40×60 grid, 10 px cells, 0–1). A run of six days, each a round with its own
@@ -49,14 +49,17 @@ food layout, twist and bonus; ants alive at sundown start the next day.
   Spiders steer by scent too, faster on strong scent
   (`SP_BASE + SP_SCENT·scent`); soldiers keep it `NEST_GUARD` px from the
   nest; it pauses `EAT_PAUSE` s after eating an ant.
-- **Input:** moving >10 px before 150 ms is a trail; holding still 150 ms
-  starts rain, and the cloud follows the pointer.
+- **Input (v8):** a press moving >10 px (`MOVE_PX`) before 350 ms
+  (`HOLD_MS`, was 150) is a trail, else rain (cloud follows the pointer).
+  A drag >20 px within 250 ms of the rain starting (`RESCUE_*`) makes it a
+  trail from the press point and restores the wiped scent (`rainLost`).
+  Pointer only. Why: findings, *A short hold timer steals the drag verb*.
 
 ## Accessibility (v7, `node scripts/a11y-audit.mjs ant-trails`: 5 pass, motion partial by design, 3/3 runs)
 
 - Keys (`// § keys`): arrows move a cursor while held (90 → 240/s over
   0.6 s, from 200, 480), hold Space lays a trail along its path,
-  hold W washes under it (key up before 150 ms: nothing, like a finger), H
+  hold W washes under it (key up before `HOLD_MS`, 350 ms: nothing, like a finger), H
   jumps to the nest, N to the next pile (nearest first); a jump with Space
   held lays a straight trail, like a swipe. Same `pressAt` / `beginTrail` /
   `moveTo` as the pointer. Enter presses the end card's button. Tab free;
@@ -104,7 +107,7 @@ win it, median ants at dawn.
 | far | 100% · 17 s · 15 | 93% · 65 s · 24 | 88% (94) | 81% (93) | 60% (73) | 40% (67) |
 | novice | 99% · 38 s · 15 | 61% · 77 s · 22 | 27% (44) | 13% (47) | 4% (28) | 2% (43) |
 
-v7 reproduces this byte for byte. Day-1 and START_ANTS notes: history.
+v7–v8 reproduce this byte for byte (bots skip input timing).
 
 ## Telemetry
 
@@ -118,24 +121,22 @@ and `stats`:
 | `lost` | ants eaten | `hatched` | ants hatched from crumbs |
 | `crumbs` | crumbs home | `bonus` | bonus met (0/1) |
 | `trails` | trail gestures | `trail_px` | trail length drawn |
-| `rains` | rain gestures | `rain_s` | seconds of rain |
+| `rains` | rain gestures kept | `rain_s` | seconds of rain |
+| `rescues` | rains turned into trails (v8) | | |
 | `rain_spider_s` | seconds the rain covered a spider | `first_input` | s until the first touch (-1: none) |
 | `rivals` | crumbs the rivals took (rival day) | `ff_s` | s played fast-forwarded (v5) |
 | `keys` | trail/wash gestures by key (v7) | | |
 
-v5 shifted `level` by one: compare v4 and v5 data by day name (history).
 
 ## Open ideas / known limits
 
 - Accessibility: red rival ants differ from yours by hue only (deutan and
   protan see two darks; too small for the audit). A lighter rival body or
   a mark if day-6 players mix them up.
-- v5 telemetry (3 players, all touch): `ff_s` used every day (median
-  15–75 s); win rate 92%, sessions median 67 s, 2 rounds. Goal 3+ rounds.
-  Watch retries and `rain_spider_s / rain_s` (washes are still rare), and
-  `keys` (v7).
+- Watch `rescues` vs `rains` (v8: a high share means the hold is still
+  too short), `rain_spider_s / rain_s`, retries and `keys`. v5 numbers: history.
 - Idle wins early days (own trails recruit): lower `CARRY_LAY` if they play themselves.
 - Day 5 (two spiders) is the bots' wall: start spider 2 at 20 s if players stall.
-- More days, endless mode, pebble, decoy crumb: history (ideas).
+- More ideas (endless mode, pebble, decoy crumb): history.
 
 History (older versions, balance tables, playtests): `docs/history/ant-trails.md`

@@ -153,6 +153,11 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   settling particles); test it with a noisy bot. *A hint that waits for
   stillness never shows in tilt mode.* Bubble Glass. players (n=2) confirm
   the fix.
+- When one press picks between two verbs by a timer (still = hold verb,
+  moved = drag verb), give the drag the benefit of the doubt: people rest
+  a finger before dragging. Hold ≥ ~350 ms, and let an early drag undo
+  the hold verb. *A short hold timer steals the drag verb.* Ant Trails v8.
+  players (n=1).
 
 ## Bots vs people
 

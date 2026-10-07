@@ -1595,3 +1595,17 @@ Rule: a feature that adds a dialog, a collapsed panel or a confirm adds it
 to `views` in `auditGallery()` with a state per step; a view that is never
 opened has no failures to show.
 
+
+### A short hold timer steals the drag verb
+
+Ant Trails v1–v7 decided trail vs rain at 150 ms: a press that hadn't moved
+10 px by then rained, and the gesture stayed rain. A phone player
+(2026-10-07) kept getting rain when she meant a trail: she rested her
+finger on the start point before dragging, as people do when aiming. The
+rain also wiped the trail she'd drawn there, so the mistake cost twice.
+v8: `HOLD_MS` 350, and a drag of 20 px within 250 ms of the rain starting
+turns it into a trail and restores the wiped scent. Headless gesture check:
+rest 250 ms then drag → trail (was rain); rest 450 ms then quick drag →
+rescued trail; rest 900 ms then drag → rain kept; slow drag after rain →
+rain kept. Murmuration has the same split (tap startle < 200 ms vs hold
+lure), still to check. Measure: `rescues` vs `rains` in round telemetry.
