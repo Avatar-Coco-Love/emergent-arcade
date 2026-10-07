@@ -28,6 +28,8 @@ window.ArcadeCabinet = (function () {
   const ICONS = {
     share: '<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/>',
     download: '<path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/><path d="M7 11l5 5 5-5"/><path d="M12 4v12"/>',
+    // No date on it: emoji calendars draw a fixed one (📅 shows JUL 17).
+    daily: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>',
     fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
   };
   const ROUNDS_BEFORE_NUDGE = 3;
@@ -55,6 +57,7 @@ window.ArcadeCabinet = (function () {
     btn.replaceChildren(icon(ICONS[btn.dataset.action]));
   }
   for (const item of menu.querySelectorAll("[data-action]")) item.prepend(icon(ICONS[item.dataset.action]));
+  $("dailyBtn").replaceChildren(icon(ICONS.daily));
 
   const progressChanged = () => window.dispatchEvent(new Event("arcade:progress"));
 
@@ -572,9 +575,9 @@ window.ArcadeCabinet = (function () {
     const d = modeDay();
     if (challenge) {
       const label = modeLabel();
-      if (d && d.done) toast(`You've played ${label}. This run is practice; your result is under 📅.`, { ms: 5000 });
+      if (d && d.done) toast(`You've played ${label}. This run is practice; your result is under the calendar button.`, { ms: 5000 });
       else toast(`${label}: the same run for the whole class. Your first run counts.`, { ms: 5000 });
-    } else if (d && d.done) toast(`You've played Daily #${Daily.number(daily)}. This run is practice; your result is under 📅.`, { ms: 5000 });
+    } else if (d && d.done) toast(`You've played Daily #${Daily.number(daily)}. This run is practice; your result is under the calendar button.`, { ms: 5000 });
     else toast(`Daily #${Daily.number(daily)}: same run for everyone today. Your first run counts.`, { ms: 5000 });
   }
 

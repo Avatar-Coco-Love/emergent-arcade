@@ -16,7 +16,7 @@ no `leaderboards.json` so no boards): https://claude.ai/artifact/26WTJMqdPT9oZ5P
   this browser's result (score, 🟩🟥 marks, 🔥 streak) and the day's leader
   from `leaderboards.json`. "Play today's" opens `#/daily`.
 - `#/daily` opens the cabinet in daily mode: the title bar says
-  `Daily #N` instead of the version, a 📅 toolbar button opens the daily
+  `Daily #N` instead of the version, a calendar toolbar button (an SVG with no date, not 📅, which shows JUL 17) opens the daily
   panel, and the intro panel has a daily note.
 - **Your first run counts.** Every later run that day is practice: it's
   sent with `daily_first: 0` and kept off the board (a "Practice run" toast
