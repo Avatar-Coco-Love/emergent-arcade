@@ -49,11 +49,10 @@ food layout, twist and bonus; ants alive at sundown start the next day.
   Spiders steer by scent too, faster on strong scent
   (`SP_BASE + SP_SCENT·scent`); soldiers keep it `NEST_GUARD` px from the
   nest; it pauses `EAT_PAUSE` s after eating an ant.
-- **Input (v8):** moving >10 px (`MOVE_PX`) before 350 ms (`HOLD_MS`, was
-  150) is a trail; holding still 350 ms starts rain, and the cloud follows
-  the pointer. **Rescue:** a drag of >20 px (`RESCUE_PX`) within 250 ms
-  real time (`RESCUE_MS`) of the rain starting turns it into a trail from
-  the press point and puts back the scent that rain wiped (`rainLost`).
+- **Input (v8):** a press moving >10 px (`MOVE_PX`) before 350 ms
+  (`HOLD_MS`, was 150) is a trail, else rain (cloud follows the pointer).
+  A drag >20 px within 250 ms of the rain starting (`RESCUE_*`) makes it a
+  trail from the press point and restores the wiped scent (`rainLost`).
   Pointer only. Why: findings, *A short hold timer steals the drag verb*.
 
 ## Accessibility (v7, `node scripts/a11y-audit.mjs ant-trails`: 5 pass, motion partial by design, 3/3 runs)
@@ -108,7 +107,7 @@ win it, median ants at dawn.
 | far | 100% · 17 s · 15 | 93% · 65 s · 24 | 88% (94) | 81% (93) | 60% (73) | 40% (67) |
 | novice | 99% · 38 s · 15 | 61% · 77 s · 22 | 27% (44) | 13% (47) | 4% (28) | 2% (43) |
 
-v7 reproduces this byte for byte. Day-1 and START_ANTS notes: history.
+v7–v8 reproduce this byte for byte (bots skip input timing).
 
 ## Telemetry
 
@@ -128,7 +127,6 @@ and `stats`:
 | `rivals` | crumbs the rivals took (rival day) | `ff_s` | s played fast-forwarded (v5) |
 | `keys` | trail/wash gestures by key (v7) | | |
 
-v5 shifted `level` by one: compare v4 and v5 data by day name (history).
 
 ## Open ideas / known limits
 
@@ -139,6 +137,6 @@ v5 shifted `level` by one: compare v4 and v5 data by day name (history).
   too short), `rain_spider_s / rain_s`, retries and `keys`. v5 numbers: history.
 - Idle wins early days (own trails recruit): lower `CARRY_LAY` if they play themselves.
 - Day 5 (two spiders) is the bots' wall: start spider 2 at 20 s if players stall.
-- More days, endless mode, pebble, decoy crumb: history (ideas).
+- More ideas (endless mode, pebble, decoy crumb): history.
 
 History (older versions, balance tables, playtests): `docs/history/ant-trails.md`

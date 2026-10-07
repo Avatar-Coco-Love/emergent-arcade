@@ -15,6 +15,7 @@ rained instead of drawing, and wiped the trail under it.
 v5 telemetry (moved from the notes at v8): 3 players, all touch; `ff_s`
 used every day (median 15–75 s); win rate 92%, sessions median 67 s, 2
 rounds.
+v5 shifted `level` by one: compare v4 and v5 data by day name.
 
 ### v7 notes move (accessibility revision)
 
