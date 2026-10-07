@@ -9,11 +9,9 @@ design lives in `docs/games/<id>.md`.
 The work queue, in order. Each item has a ready prompt; paste it into a
 fresh conversation. Update this list when one is done or the order changes.
 
-1. `classroom-checklist.md`: classroom and accessibility checks in
-   `docs/adding-a-game.md` and the PR template (docs only, small).
-2. `teachers.md` idea 4, class challenge link (prompt at the end of that
+1. `teachers.md` idea 4, class challenge link (prompt at the end of that
    file; medium). Idea 3 instead if classroom reports ask for it.
-3. `identity.md`: recovery code to keep a leaderboard name across browsers
+2. `identity.md`: recovery code to keep a leaderboard name across browsers
    (medium).
 
 ## Briefs
@@ -33,4 +31,4 @@ fresh conversation. Update this list when one is done or the order changes.
 | `geode.md` | simulation: seed, warm, cleave a growing crystal | built (v1), stub points to history |
 | `teachers.md` | seven ideas to help teachers use the arcade (teacher page, classroom mode, feedback form, per-game notes, class challenge, subject download, accessibility); 1, 2, 7 built 2026-10-05; 6 audited 2026-10-05 (`docs/accessibility.md`), per-game fixes listed; Wildfire Line fixed (v4); next: Tidewright accessibility revision (ready prompt) | 1, 2, 7 built; 6 audited, gallery and Wildfire Line fixed; 3–5 ideas |
 | `identity.md` | keep your leaderboard name across browsers with a recovery code, no accounts (decision recorded; ready prompt) | proposed |
-| `classroom-checklist.md` | classroom and accessibility checks for every new game and revision (docs only; ready prompt) | proposed, first in "Next up" |
+| `classroom-checklist.md` | classroom and accessibility checks for every new game and revision (docs only; ready prompt) | done 2026-10-07 (`docs/adding-a-game.md`, "Classroom and accessibility"; PR template) |

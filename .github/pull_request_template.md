@@ -25,5 +25,16 @@ Design rules (see `docs/PROJECT_BRIEF.md`):
 - [ ] Manifest text says `{tap}`, `{finger}`, `{hold}`… (never "tap"/"click" outright); PC keys, if any, in `keyboard`
 - [ ] `games/games.json` updated (`version` bumped and `updated` set for a revision)
 - [ ] `docs/games/<id>.md` updated (constants, balance, open ideas; under 8 KB, superseded parts moved to `docs/history/<id>.md`)
+- [ ] Classroom: a meaningful round or level fits 5–10 minutes; `topics` only where the rules model the subject; classroom-safe; no typed text in the game
+
+Accessibility (`docs/adding-a-game.md`, "Classroom and accessibility"; `node scripts/a11y-audit.mjs <id>`):
+
+- [ ] Keyboard: every verb has a key path, listed in `keyboard`; Tab stays the browser's
+- [ ] Live region: DOM status text says what each move did and what the cursor is over (from state, not per frame)
+- [ ] Colour: states differ by lightness or shape, not hue alone; late screens checked too
+- [ ] Text: 12 px+ at 360 px wide, on a backing
+- [ ] Reduced motion: reads `prefers-reduced-motion`, decoration stills
+- [ ] Canvas: `role="img"` and an `aria-label` naming the game and its verbs
+
 - [ ] `node scripts/validate.mjs` passes
 - [ ] Played it on a phone-sized viewport

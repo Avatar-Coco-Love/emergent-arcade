@@ -151,7 +151,8 @@ published from a branch.
    Then draw its link-preview image: `node scripts/make-og-images.mjs <id>`
    writes `assets/og/<id>.png` (validation fails without it). Rerun it when
    the card art, title or blurb changes.
-6. Run `node scripts/validate.mjs` and play it locally
+6. Pass the "Classroom and accessibility" checks below. Run
+   `node scripts/validate.mjs` and play it locally
    (`python3 -m http.server`, then open http://localhost:8000).
 7. Write `docs/games/<id>.md`: key constants, layout, balance numbers and
    open ideas (see `docs/games/murmuration.md`, and "Notes files" below).
@@ -178,10 +179,58 @@ published from a branch.
    If the revision changes what the score means (longer rounds, new
    scoring), bump `score.epoch`: bests from the old rules stop showing and
    the leaderboard restarts ([scores.md](scores.md)).
-5. Open a PR; mention which feedback motivated the change.
+5. Keep the "Classroom and accessibility" checks below passing (rerun
+   `node scripts/a11y-audit.mjs <id>` when the screen, palette or keys
+   change).
+6. Open a PR; mention which feedback motivated the change.
 
 A revision that changes the core mechanics enough to be a different game
 should be a new `id` instead.
+
+## Classroom and accessibility
+
+Every new game, and every revision that touches what these cover, passes
+these checks. Build them in from the first version: so far each game
+needed a later revision to add them. The rules and the audit's thresholds
+are in [accessibility.md](accessibility.md); the stories behind them are
+in [findings.md](findings.md), "Accessibility".
+
+- **Keyboard:** every verb has a key path, not only housekeeping keys
+  (undo, restart), and the keys are in the manifest's `keyboard` line. Tab
+  stays the browser's. Pattern: an arrow cursor, Enter for the point verb,
+  a held or toggle key for a path verb, jump keys to the places that
+  matter (findings, "A cursor gives point and path verbs a key path").
+- **Live region:** status text in the DOM (`role="status"`) says what each
+  move did and what the cursor is over, written from the game state,
+  never per frame; a real-time game speaks settled changes. A memory game's
+  region must not hold the memory.
+- **Colour:** states differ by lightness and/or shape, never hue alone;
+  check bands by number (L\*), with the step on the rule's line. Small
+  fills near-grey or blue-bearing (a saturated colour turns into text grey
+  for colour-blind eyes). Check late, held and rare screens too, not only
+  the first seconds.
+- **Text:** 12 px or more at 360 px wide (size canvas text from the CSS
+  width), on a backing over the scene, 4.5:1.
+- **Reduced motion:** read `prefers-reduced-motion` and still the
+  decoration (flicker, shimmer, pulses); the simulation itself may keep
+  moving.
+- **Canvas:** the main canvas has `role="img"` and an `aria-label` naming
+  the game, its verbs and keys, set at load with "click" or "tap" for the
+  device.
+- **Classroom:** a meaningful round or level fits a class period (5–10
+  minutes), as well as the 10+ minute depth target; `topics` only where
+  the core rules really model the subject ("Topics" below); nothing a
+  school would object to; no typed text in the game (players never type
+  names or messages inside a game).
+
+How to check: `node scripts/a11y-audit.mjs <id>` (motion, contrast,
+colour, keyboard, label, text; game rows report but don't fail CI) plus
+a script of your own for what it can't see: late or held screens, and a
+keys-only bot that reads only the live region and still plays a round
+(as in the Pressure Grid v11 and Coat Check v4 revisions). Keys call the
+same functions as the pointer, so the balance script's bots should
+reproduce exactly. Record the results in `docs/games/<id>.md`,
+"Accessibility", and the game's row in [accessibility.md](accessibility.md).
 
 ## Topics
 

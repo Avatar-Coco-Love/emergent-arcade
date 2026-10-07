@@ -6,8 +6,9 @@ verb, live region, lightness instead of hue, 12 px text, reduced motion,
 canvas label). `docs/adding-a-game.md` and the PR template don't list
 them, so a new game would need the same revision later. Teachers add a few
 checks of their own (a round fits a class period, honest topics,
-classroom-safe content). Docs only; first in the queue (README, "Next
-up").
+classroom-safe content). Docs only. **Done 2026-10-07**: the checks are in
+`docs/adding-a-game.md`, "Classroom and accessibility", and the PR
+template.
 
 ## Ready prompt
 

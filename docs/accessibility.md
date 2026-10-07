@@ -70,7 +70,9 @@ phone context, where "tap" is right). The static attribute stays as a
 "tap or click" fallback. Games with no status text in the DOM
 (aqueduct, counterfeit-scale; Pressure Grid has one since v11,
 Surprise Party since v4, Coat Check since v4) have no live region, so a screen reader hears nothing change; that is a
-note in their open ideas, not part of the verdict.
+note in their open ideas, not part of the verdict. New games and
+revisions build one in ([adding-a-game.md](adding-a-game.md),
+"Classroom and accessibility").
 
 ## Fixed in the gallery (audit PR)
 
