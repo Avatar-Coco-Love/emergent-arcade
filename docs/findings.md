@@ -158,6 +158,10 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   a finger before dragging. Hold ≥ ~350 ms, and let an early drag undo
   the hold verb. *A short hold timer steals the drag verb.* Ant Trails v8.
   players (n=1).
+- A verb's danger zone must show past the finger. Measure which rule
+  fails (switch each off in a gesture check) before retuning, and keep
+  fixes draw-only when the rule is the balance brake. *A lure you can't see
+  scares the flock for no visible reason.* Murmuration v7. players (n=1).
 
 ## Bots vs people
 

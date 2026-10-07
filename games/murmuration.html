@@ -595,13 +595,28 @@
       ctx.beginPath(); ctx.arc(r.x, r.y, STARTLE_R * (still() ? 1 : 0.3 + 0.7 * r.t / 0.5), 0, Math.PI * 2); ctx.stroke();
     }
 
-    // Lure.
+    // Lure: a faint dashed circle for its reach, and a ring at the spook
+    // radius, wide enough to show around a fingertip (v7: a 10-unit ring hid
+    // under the finger on a phone, so the player saw no lure at all). The
+    // ring turns red while birds inside it are being spooked: lead further.
     if (lure && lure.on) {
+      const spooking = birds.some(b => Math.hypot(lure.x - b.x, lure.y - b.y) < LURE_SPOOK_R);
       const tm = still() ? 0 : performance.now();
-      const pulse = 10 + 3 * Math.sin(tm / 150);
-      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(lure.x, lure.y, pulse, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([4, 8]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(lure.x, lure.y, LURE_R, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      const pulse = LURE_SPOOK_R + 2 * Math.sin(tm / 150);
+      if (spooking) {
+        ctx.fillStyle = 'rgba(224,68,78,0.18)';
+        ctx.beginPath(); ctx.arc(lure.x, lure.y, pulse, 0, Math.PI * 2); ctx.fill();
+      }
+      for (const [c, w] of [['rgba(13,11,22,0.55)', 4.5], [spooking ? '#ff6b75' : 'rgba(255,255,255,0.85)', 2]]) {
+        ctx.strokeStyle = c;
+        ctx.lineWidth = w;
+        ctx.beginPath(); ctx.arc(lure.x, lure.y, pulse, 0, Math.PI * 2); ctx.stroke();
+      }
       ctx.fillStyle = 'rgba(255,255,255,0.9)';
       ctx.beginPath(); ctx.arc(lure.x, lure.y, 2.5, 0, Math.PI * 2); ctx.fill();
     }

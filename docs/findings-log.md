@@ -1609,3 +1609,17 @@ rest 250 ms then drag → trail (was rain); rest 450 ms then quick drag →
 rescued trail; rest 900 ms then drag → rain kept; slow drag after rain →
 rain kept. Murmuration has the same split (tap startle < 200 ms vs hold
 lure), still to check. Measure: `rescues` vs `rains` in round telemetry.
+
+## A lure you can't see scares the flock for no visible reason
+
+Murmuration v6, one phone tester: "hard to direct the birds". Gesture check
+(`scripts/gestures-murmuration.mjs`, 390×760): holding the lure still 110
+ahead scared 34/40 birds in 3 s, holding it on the flock 40/40, grabbing
+the flock and dragging 32/40. With `LURE_SPOOK=0` all were 0/40; crowding
+off changed nothing. So the 30-unit spook radius, through contagion, is
+what fails, and on a phone the 10-unit lure ring sat under the fingertip.
+Softening the spook (pull fading near the lure, or graded spook) put every
+bot at ~100% by 45 s (v6: 61–71%), so the spook is the balance brake. v7
+fix is draw-only: ring at the spook radius (56 CSS px), red while birds
+are inside, dashed reach circle. *Evidence: gesture check + bots; one
+player's report. Provisional until phone players' win rate moves.*
