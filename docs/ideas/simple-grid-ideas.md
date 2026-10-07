@@ -16,13 +16,13 @@ come from them. Files grew to 50–90K.
    habit (findings: "A general trick beats a set of levels").
 5. **Size budget ~25K per file.**
 
-Possible shared starter: `games/_template-grid.html` + a generic grid
-solver; each game copies it (games stay self-contained).
+Possible shared starter (not built): a grid template file plus a generic
+grid solver; each game would copy it (games stay self-contained).
 
 ## Ideas
 
 - **Surprise Party** (contagion): whisper + door, news spreads as a wave.
-  Picked; full brief in `surprise-party.md`.
+  Built (`docs/games/surprise-party.md`); brief in `docs/history/surprise-party.md`.
 - **Sheepdog** (collective behaviour): *step* (sheep within 2 cells flee 1
   cell, sidestep at walls) + *bark* (sheep within 4 slide until blocked and
   panic 3 turns; panicked sheep run 2 cells and won't enter the pen).

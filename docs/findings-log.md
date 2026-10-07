@@ -912,6 +912,8 @@ once (a resize still paints at once, since it clears the canvas).
 *Evidence: solver lines for all ten levels replayed by keys only (★★★,
 messages checked), audit 6/6, playthrough by pointer unchanged.*
 
+Moved from `docs/findings.md` (2026-10-07): example line, "Poured 7 left, now 10. 2 cells burst in a chain of 2 waves. 1 ring left.", plus one line per cursor step.
+
 ## A saturated colour turns into text grey for colour-blind eyes
 
 Island Census v3. After the map got lightness bands, the colour audit
@@ -1116,6 +1118,8 @@ scratch dir), twice, identical, then identical to v8 (200 runs × 13 bots).
 *Evidence: keys-only playthrough (desktop, keys only); idle diff with 2
 blooming × old/new × normal/reduced × planets hidden, 3 runs; audit 3/3
 plus 2/2 on two scripted late rounds; balance old×2 and new identical.*
+
+Moved from `docs/findings.md` (2026-10-07): aim is two values; a tap steps 1° or 1%, a held key ramps after 0.3 s.
 
 ## A band's step belongs on the rule's line, not near it
 
@@ -1595,3 +1599,14 @@ Rule: a feature that adds a dialog, a collapsed panel or a confirm adds it
 to `views` in `auditGallery()` with a state per step; a view that is never
 opened has no failures to show.
 
+## A picker key must leave Tab and focused buttons alone
+
+Rail Yard v3 (moved from `docs/findings.md` in the 2026-10-07 cleanup,
+which shortened that file to one rule per line). Picking a car with Tab
+trapped keyboard players inside the cabinet's frame. Space now picks
+(Shift+Space goes back), but once Tab was free, players landed on the
+game's own buttons, so the game lets Space through when a button has
+focus. The canvas is labelled at load with the device's word and the
+keys.
+
+*Evidence: audit.*

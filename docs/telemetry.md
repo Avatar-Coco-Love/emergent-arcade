@@ -144,7 +144,8 @@ player's phone is visible. Kind `error` rows land in the events tab
   session's `game_id`, `game_version`, `session_id`.
 - **Gallery**: `assets/telemetry.js` listens for its own errors
   (`source: "gallery"`, plus `file`); "Script error." from browser
-  extensions is skipped.
+  extensions is skipped, and so is any error whose file isn't one of the
+  site's own `.js` files (code injected by in-app browsers and webviews).
 
 At most 5 distinct error rows per page load, and only when telemetry is on.
 Read them with `node scripts/fetch-errors.mjs [--game <id>] [--since

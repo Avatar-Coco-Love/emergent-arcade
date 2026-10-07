@@ -1,5 +1,9 @@
 # Lighthouse Keeper v3: next steps (proposed)
 
+Still open on 2026-10-07: the game is now v4, but v3 and v4 were
+accessibility passes; the flare problem below is unchanged. Read "v2"
+below as "the current version" and bump to the next version number.
+
 Written 2026-10-03 after v2 merged (PR #79). Current design and balance:
 `docs/games/lighthouse-keeper.md`.
 
@@ -53,9 +57,3 @@ Revise Lighthouse Keeper (games/lighthouse-keeper.html, v2, PR #79) so the flare
 
 5. After the handoff, give me a ready-to-paste prompt for the next conversation, for whatever you recommend next (per docs/ROADMAP.md: another game's review pass, a playtest-driven revision, or a new game), in the same shape as this prompt (read, bug hunt, fine-tune, version bump and PR). Include this same step 5 at its end.
 ```
-
-## Loose ends
-
-- Branch `origin/ccr-ca9a3052-eqyn5k` has one commit not in `main` ("Add
-  Mycelium and Lighthouse Keeper idea briefs"); both games are built, so
-  it is probably safe to delete, but check it first.
