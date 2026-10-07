@@ -11,12 +11,14 @@ window.ArcadeFeedback = (function () {
   const TAGS = ["fun", "confusing", "too hard", "too easy", "buggy"];
 
   function clientId() {
-    // Anonymous per-browser id, only used to spot duplicate submissions.
+    // Anonymous per-browser id: spots duplicate submissions, and is the
+    // leaderboard identity (its recovery code, assets/identity.js). New ids
+    // are 6 words; older UUIDs keep working.
     const key = "arcade.clientId";
     try {
       let id = localStorage.getItem(key);
       if (!id) {
-        id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
+        id = window.ArcadeIdentity ? window.ArcadeIdentity.generate() : crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
         localStorage.setItem(key, id);
       }
       return id;

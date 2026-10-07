@@ -24,6 +24,7 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | file | what |
 |---|---|
 | `assets/ui.js` | `ArcadeUI`: `el()`, safe `store`, `shortDate`, stacking `toaster`, `trapFocus`, `saveFile`, `share` (share sheet / copy / prompt) |
+| `assets/identity.js` | `ArcadeIdentity`: the leaderboard identity and its recovery code: the 1,024 code words, `generate` (new client ids), `parse`, `published` (what `leaderboards.json` knows about an id), `use` (switch identity), export block ([scores.md](scores.md), "Recovery code") |
 | `assets/wording.js` | `ArcadeWording`: tap or click (see below). Also run by the Node scripts through `scripts/wording.mjs` |
 | `assets/scores.js` | `ArcadeScores`: score specs, personal bests, handles, `leaderboards.json` ([scores.md](scores.md)) |
 | `assets/names.js` | `ArcadeNames`: typed leaderboard names (clean, fold, check, tag), with the word lists `assets/name-reserved.json` and `assets/name-blocked.json`. Also run by the builder through `scripts/names.mjs` ([scores.md](scores.md), "Typed names") |
@@ -32,7 +33,7 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/download.js` | `ArcadeDownload`: standalone copy of a game (header comment + shim), `playUrl` (the link shared and written into copies) |
 | `assets/bundle.js` | `ArcadeBundle`: "Download all <topic> games", a store-only zip of a topic's standalone copies plus an offline `index.html` (below) |
 | `assets/cabinet.js` | `ArcadeCabinet.open(game)` / `close()`: toolbar, panels, ⋯ menu, toasts, loading/error states, share, download, rating, nudge |
-| `assets/name-ctl.js` | `ArcadeNameCtl.create(prefix, { toast, onChange })`: the leaderboard name controls (show me, pick another name, type a name), used by the 🏆 panel (ids `lb…`) and the Records view (ids `rec…`) |
+| `assets/name-ctl.js` | `ArcadeNameCtl.create(prefix, { toast, onChange })`: the leaderboard name controls (show me, pick another name, type a name) and the recovery code ("Save your leaderboard identity", "Use a saved code"), used by the 🏆 panel (ids `lb…`) and the Records view (ids `rec…`) |
 | `assets/records.js` | `ArcadeRecords`: the Records view (`#/records`), every game's leaderboard on one page |
 | `assets/spotlight.js` | `ArcadeSpotlight`: the Spotlight view (`#/spotlight`), games that need playtesters, grouped from hourly play stats |
 | `assets/classroom.js` | `ArcadeClassroom`: classroom mode (`?class=1`, `on`, `set`, `link`), below |
@@ -40,7 +41,7 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/topics.js` | `ArcadeTopics`: the fixed topic tag list (`LIST`, `get`, `of`). Also run by the Node scripts through `scripts/topics.mjs` |
 | `assets/gallery.js` | cards, search/sort/verb and topic filters, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
-Script order in `index.html`: config, ui, classroom, wording, topics, feedback, achievements, names, scores, daily, progress,
+Script order in `index.html`: config, ui, identity, classroom, wording, topics, feedback, achievements, names, scores, daily, progress,
 telemetry, thumbs, download, bundle, cabinet, records, spotlight, teachers, gallery.
 
 ## Tap or click
@@ -171,7 +172,10 @@ For a class sharing a link (`assets/classroom.js`). With it on:
   footer's stats note is hidden. The player's own opt-out setting is left
   alone;
 - the leaderboard name controls (`.lb-name-ctl`, in the 🏆 panel and the
-  Records view) are hidden: everyone keeps the made-up name;
+  Records view) are hidden: everyone keeps the made-up name. That includes
+  the recovery code (save and use), and Settings' "Include my leaderboard
+  identity" (`.identity-opt`); an imported file's identity is ignored, so
+  students can't swap codes;
 - the ★ button, the rate nudge, Spotlight's "Rate it" step and the teacher
   form are hidden;
 - a note under the header: "Classroom mode · no play stats, names or
@@ -266,16 +270,23 @@ of the teacher page's subject table.
 | `arcade.name` | typed leaderboard name, if any (kept by "Reset everything") |
 | `arcade.leaderboardOptOut` | `"1"` = stay off leaderboards (kept by "Reset everything") |
 | `arcade.recent` | up to 3 ids, newest first |
-| `arcade.clientId` | anonymous id (kept by "Reset everything"; "New anonymous id" replaces it) |
+| `arcade.clientId` | anonymous id and leaderboard identity: 6 code words for new browsers, a UUID for older ones (kept by "Reset everything"; "New anonymous id" replaces it, after a warning when a typed name is held; "Use a saved code" and an import with identity set it) |
+| `arcade.codeShown` | `"1"` once the player saw their recovery code (stops the callout after a typed name); cleared by "New anonymous id" |
 | `arcade.telemetryOptOut` | `"1"` = send no play stats or gallery events |
 | `arcade.classroom` | `"1"` = classroom mode (above); "Reset everything" keeps it |
 | `arcade.challenge` | class challenge results, `{ "<game>/<code>": … }`, the last 40 ([daily.md](daily.md)); not exported |
 
 Export (`arcade-progress.json`): `{ format: "emergent-arcade-progress",
-version: 1, exported_at, achievements, seenVersion, seenIntro, bests }`. Import
+version: 2, exported_at, achievements, seenVersion, seenIntro, bests, daily,
+identity? }`. Import reads version 1 and 2 and
 merges: it never removes anything, keeps the earliest unlock date and the
 highest seen version, and previews "X achievements across Y games (N new)"
-first.
+first. `identity` (`{ clientId, name?, handle? }`) is there only when
+"Include my leaderboard identity" was checked (off by default; the note
+says anyone with the file can play as you). On import, a file identity
+different from this browser's adds a checked box to the preview, "Also use
+the leaderboard identity in this file (Coco ·4F2A)…"; Import then switches
+identity and reloads, like "Use a saved code". Never in classroom mode.
 
 ## Header
 
@@ -312,6 +323,11 @@ logs a `share` row with `from: "gallery"`.
   toast, and the cabinet posts `arcade:best` to the game on load and after
   a new best ([scores.md](scores.md)). Smoke-tested with a fixture
   `leaderboards.json` served by `smoke-gallery.mjs`.
+- Recovery code: under the name controls, "Save your leaderboard
+  identity" and "Use a saved code" ([scores.md](scores.md), "Recovery
+  code"). Smoke-tested by "recovery code" (save in one browser context,
+  restore in a fresh one, bad codes refused, export and import); audited as
+  the "recovery code" view (code shown, a refused code, the confirm).
 - Records view (`#/records`, the "Records" button next to sort; the
   cabinet's Records panel links to it): one row per scored game with its
   headline board (most published scores, else one you have a best on), the
@@ -346,7 +362,8 @@ logs a `share` row with `from: "gallery"`.
 
 Audited by `scripts/a11y-audit.mjs` (results and checks:
 [accessibility.md](accessibility.md)); the gallery, cabinet (every panel),
-teacher page and classroom note must pass, and CI fails if they don't.
+teacher page, classroom note, recovery code and settings must pass, and CI
+fails if they don't.
 Rules the audit enforces, from its first run (2026-10-05):
 
 - Text is AA (4.5:1) in both themes. Light `--accent` is `#006fa6`

@@ -74,7 +74,8 @@ common columns is in `extra`. One row per action:
 | `sort` | the sort changed | `sort` |
 | `filter` | a verb or topic chip was pressed | `verb` or `topic` (`all` when cleared) |
 | `search` | 1.5 s after typing stops | `query_len`, `results` (never the text) |
-| `settings` | a settings action | `setting`: `export`, `import`, `reset_achievements`, `reset_all`, `reset_game_achievements` (with `game_id`), `stats_on` |
+| `identity` | the recovery code was offered or used ([scores.md](scores.md), "Recovery code") | `step` (`callout`: offered after a typed name; `show`: the code seen the first time; `copy`; `restore`: a saved code or an import's identity used, sent before the switch, so it carries the old id), `from` (`cabinet`, `records`, `import`) |
+| `settings` | a settings action (`export` has `identity: 1` when the file carries it) | `setting`: `export`, `import`, `reset_achievements`, `reset_all`, `reset_game_achievements` (with `game_id`), `stats_on` |
 | `nudge` | the "Rate this game?" callout was answered | `game_id`, `game_version`, `result` (`rate`, `dismiss`) |
 | `about_arcade` | the "About the arcade" dialog opened | |
 | `records` | the Records view (`#/records`) opened | `mine` (1 with the "My bests" filter) |

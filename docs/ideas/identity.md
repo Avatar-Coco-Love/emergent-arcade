@@ -1,5 +1,12 @@
 # Idea: keep your leaderboard name across browsers (no accounts)
 
+**Built 2026-10-07** (save, use a saved code, callout, word codes, export
+opt-in, classroom hiding). How it works now: [scores.md](../scores.md),
+"Recovery code". Decisions on the open questions are there too: restore
+replaces the identity and keeps local progress; "New anonymous id" warns
+when a typed name is held; the stored id is the code. Still open: "Lost
+codes heal" (builder side).
+
 Proposed 2026-10-07, after the maintainer lost "AvatarCoco ·110A": a new
 browser got a new random name (Glassy Jackal), and typing AvatarCoco there
 is refused because the old browser's id still holds the claim

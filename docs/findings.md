@@ -462,3 +462,10 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   in the flow: below a 100vh canvas it added 17 px of scroll (pin `.sr`
   at top-left, no margin). *Speak held states, not passing ones.*
   Aqueduct v8. scripted turns + monkey.
+- An audit only sees the views it opens. The settings dialog was never a
+  view; added with the recovery code, its red confirm buttons (Reset, New
+  id) failed at once: white on dark theme's `#ff7a6b` is 2.5:1. When a
+  feature adds a dialog or a hidden state, add it as a view with states.
+  A text line half scrolled out of a box was sampled against the backdrop:
+  count a line as clipped when its middle is outside. *An audit only sees
+  the views it opens.* Recovery code PR. audit.

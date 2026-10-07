@@ -333,13 +333,15 @@ const DOM_TEXTS = (opts) => {
     range.selectNodeContents(n);
     const r = [...range.getClientRects()].find((q) => q.width > 1 && q.height > 1);
     if (!r || r.right < 0 || r.left > innerWidth - 1 || (!opts.full && (r.bottom < 0 || r.top > innerHeight))) continue;
-    // Clipped away (visually hidden, scrolled out of a strip)?
+    // Clipped away (visually hidden, scrolled out of a strip, or a line cut
+    // in half at the edge of a scrolling box, sampled against what's outside)?
     let clipped = false;
+    const midX = (r.left + r.right) / 2, midY = (r.top + r.bottom) / 2;
     for (let e = el; e && e !== document.body; e = e.parentElement) {
       const s2 = getComputedStyle(e);
       if (s2.overflow !== "visible" || s2.clip !== "auto") {
         const b = e.getBoundingClientRect();
-        if (b.width <= 2 || b.height <= 2 || r.left >= b.right || r.right <= b.left || r.top >= b.bottom || r.bottom <= b.top) { clipped = true; break; }
+        if (b.width <= 2 || b.height <= 2 || midX >= b.right || midX <= b.left || midY >= b.bottom || midY <= b.top) { clipped = true; break; }
       }
     }
     if (clipped) continue;
@@ -712,6 +714,35 @@ async function auditGallery() {
         await page.waitForFunction(() => document.getElementById("dailyCard").src.startsWith("blob:"), null, { timeout: 5000 });
       }] }] : []),
     { target: "classroom note", url: `${base}?class=1#/`, full: false, ready: "#classroomNote:not([hidden])" },
+    // The recovery code in the Records view: shown, a refused code, the confirm.
+    { target: "recovery code", url: `${base}#/records`, full: false, ready: "#recordsView:not([hidden]) .rec-row",
+      prep: async (page) => { await page.click("#recIdSave"); await page.waitForSelector("#recIdBox:not([hidden])"); },
+      states: [async () => {}, async (page) => {
+        await page.click("#recIdUse");
+        await page.fill("#recIdInput", "maple otter");
+        await page.click("#recIdCheck");
+        await page.waitForSelector("#recIdUseMsg.bad");
+      }, async (page) => {
+        await page.fill("#recIdInput", await page.evaluate(() => window.ArcadeIdentity.generate()));
+        await page.click("#recIdCheck");
+        await page.waitForSelector("#recIdConfirm:not([hidden])");
+      }] },
+    // Settings, with the export identity option and the import preview.
+    { target: "settings", url: `${base}#/`, full: false, ready: ".game-card",
+      prep: async (page) => {
+        await page.evaluate(() => localStorage.setItem("arcade.name", "Coco"));
+        await page.click("#settingsBtn");
+        await page.waitForSelector("#settingsDialog[open]");
+      },
+      states: [async () => {}, async (page) => {
+        await page.click("#newIdBtn");
+        await page.waitForSelector("#newIdConfirm:not([hidden])");
+      }, async (page) => {
+        const clientId = await page.evaluate(() => window.ArcadeIdentity.generate());
+        const file = { format: "emergent-arcade-progress", version: 2, achievements: {}, identity: { clientId, name: "Coco" } };
+        await page.setInputFiles("#importFile", { name: "arcade-progress.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(file)) });
+        await page.waitForSelector("#importIdentityRow:not([hidden])");
+      }] },
     { target: "offline index", url: `${base}__offline/index.html`, full: true, ready: "a.play" },
   ];
   // Runs fn(page) once per state of the view (once for views without states).

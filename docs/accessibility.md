@@ -43,6 +43,8 @@ the honest end state, not a fix still owed.
 | topic download | pass | pass | pass | pass | pass | pass |
 | class challenge | pass | pass (2026-10-07: text under the sticky Play bar no longer sampled) | pass | pass | pass | pass |
 | offline index | pass | pass | pass | pass | pass | pass (13.6 px) |
+| recovery code | pass | pass | pass | pass | pass | pass |
+| settings | pass | pass (2026-10-07: danger buttons were 2.5:1 in dark, now dark text) | pass | pass | pass | pass |
 | murmuration | partial (v6: reads it; all idle motion is the flock) | pass (v6: backings) | pass | pass (v6: cursor, hold Space, X) | pass (v6, live region) | pass (v6) |
 | orbit-garden | pass (v8: reads it; petals still. The old pass was timing: petals spin only after a bloom, 0.00% with planets hidden) | pass (v8: hint backing) | pass (v8, late screens too) | pass (v8: cursor, Enter places, Space aims and flings, N jumps) | pass (v8, live region) | pass |
 | wildfire-line | pass (v4) | pass | pass (v4: lightness bands) | pass (v4: cursor) | pass (v4) | pass |
