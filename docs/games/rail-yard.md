@@ -1,6 +1,6 @@
 # Rail Sorting Yard: design notes
 
-**v3** (2026-10-05, canvas label, Space picks a car; v2 2026-10-01, layout fixes; v1 2026-09-30) · playtest: https://claude.ai/artifact/QKEiYegRLePYqd8EhaecPH (private, republished each push) ·
+**v4** (2026-10-07, text 12 px+; v3 2026-10-05, canvas label, Space picks a car; v2 2026-10-01, layout fixes; v1 2026-09-30) · playtest: https://claude.ai/artifact/QKEiYegRLePYqd8EhaecPH (private, republished each push) ·
 balance: `node scripts/balance-rail-yard.mjs [runs=20] [bots] [level ids]`
 Turn-based shunting puzzle. Verbs: **switch** (drag a lever, or {tap}) and
 **flick** (drag a car along its track; drag length = speed). Shared state: a
@@ -58,6 +58,11 @@ drains it, what's left at impact decides couple / touch / bounce.
 - Keys: Space car (Shift+Space back; v3, was Tab, which trapped keyboard
   players in the cabinet frame), 1–9 / + − speed, arrows flick, A–D
   switches, Z X H. Tab stays the browser's.
+- Text (v4): 12 px+ at 360 px on every yard, touch and mouse: HUD "Run"
+  line and level-list notes 0.75rem (were 0.72 = 11.5 px), board pills
+  `max(12, 0.3u)` px (floor was 10), aim speed 12 px floor, switch key
+  letters (mouse only) `max(12, 0.26u)` px on a dark disc (were 0.26u,
+  ~8 px on big yards, no backing). Live region: `#msg` (`role="status"`).
 
 ## Key constants (`games/rail-yard.html`, `§ engine`, `§ constants`)
 
@@ -115,7 +120,6 @@ Wins carry `score` (run total). Losses: `reason` `restart` or `leave`
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): "Run 0" 11.5 px.
 - Score ceiling: par is the optimum, so 10 levels cap the run at 1000.
   The uncapped mode is the Daily yard below.
 - Progress (side goals, badges, reached level) only lasts the visit in
@@ -123,16 +127,7 @@ Wins carry `score` (run total). Losses: `reason` `restart` or `leave`
 - A hint off the par path on the last yard searches up to ~70k states
   (~3 s on a phone). The finale's par (8) equals level 7's; a harder
   finale needs a bigger yard, and a smarter hint search to go with it.
-- v2 side goals: Light touch (at most N switch changes), Soft landing (no
-  bounce-backs in a level), Tight yard (no siding above half capacity),
-  Spent gates (finish with a 1× gate unused).
-- v2 challenge modes after chapter 2, reusing levels: Mirror yard (layout
-  flipped), Blind flick (aim arrow and gauge hidden, par relaxed),
-  Par-only (a level counts only at par).
-- v2 Daily yard: a seeded generated layout, one per day, same seed same
-  yard (fair leaderboard, `board: "d2026-10-01"`). The generator must pass
-  the exploring solver (every yard solvable, known par; the scratch
-  `enum`/`search` approach behind these levels is a start). This is the
-  natural uncapped endless mode for the depth pass.
+- Later ideas (side goals, challenge modes, a seeded Daily yard): history,
+  "Moved from the notes (2026-10-07)".
 
 History: `docs/history/rail-yard.md`.

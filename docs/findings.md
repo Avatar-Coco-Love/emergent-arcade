@@ -454,3 +454,11 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   frame stamped before the start clock made a pulse's run negative. *A
   path verb's start can come from its end.* Mycelium v4. keys-only bot +
   scripted copies.
+- Speak a state the player holds, not one the stream passes through:
+  Aqueduct's open cups crossed their centre line as water ran through
+  them, and "bullseye" spoke 11 times in 17 s of turning. Only shut cups
+  (held water) speak it now, with hysteresis; the turn line names the
+  line for any cup. And a visually hidden region still takes its place
+  in the flow: below a 100vh canvas it added 17 px of scroll (pin `.sr`
+  at top-left, no margin). *Speak held states, not passing ones.*
+  Aqueduct v8. scripted turns + monkey.

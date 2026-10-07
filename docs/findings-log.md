@@ -1542,3 +1542,31 @@ existing one can carry it with a value no real input can take, and trace
 every consumer of the rows it produces (here the builder) for what it
 assumes about fields that are missing.
 
+## Speak held states, not passing ones
+
+Aqueduct v8 (2026-10-07) added the live region the audit noted. The first
+version spoke "bullseye" whenever a cup's filtered reading crossed its
+band's centre line (`bull(k)` ≥ 0.999). A scripted run on Two cups (hold
+→ 1.5 s, → 1.2 s, Space, ← 2.6 s, Space) logged it 11 times in 17 s: water
+pouring through an open cup crosses the line on the way in and out, and
+the filter (0.3 s) doesn't hide that. The score only counts the line at
+the win, and only shut cups hold their level, so the region now speaks a
+bullseye for shut cups only, re-arming below 0.9; the turn summary still
+says "on its centre line" for any cup. The same run then logged 10 lines
+in 18 s, each a settled change (a turn, a valve, the strip's advice held
+1 s).
+
+Second trap: the visually hidden `<p class="sr" role="status">` was
+`position: absolute` with no offsets, so it sat at its static place after
+a 100vh canvas and made the page 17 px taller; `monkey-games.mjs` failed
+on "scrolls". Pinning it (`left: 0; top: 0; margin: 0`) fixed it. Games
+with a flex column (Counterfeit Scale) didn't show it, but got the same
+rule.
+
+Counterfeit Scale v4 in the same PR: the audit's first screen never
+weighs, so the weighing log (11 px) and the spring dial's note (10 px),
+both drawn only after a weighing, and the empty tray-slot numbers (~2:1,
+only after a load) passed every default run, the same lesson as "A
+warm-up hides the labels later levels add". A scripted run over all 14
+cases (load two coins, weigh) measured them.
+

@@ -1,6 +1,6 @@
 # Counterfeit Scale: design notes
 
-**v3** (2026-10-05, canvas label; v2 2026-10-04) · playtest: https://claude.ai/artifact/SYLhAXySXMqp9oH6aC5y5k (private, republished each push) ·
+**v4** (2026-10-07, live region, text 12 px+; v3 2026-10-05, canvas label; v2 2026-10-04) · playtest: https://claude.ai/artifact/SYLhAXySXMqp9oH6aC5y5k (private, republished each push) ·
 balance: `node scripts/balance-counterfeit-scale.mjs 400`
 Verbs: **load** (drag), **mark** (tap) and **weigh** (hold), sharing **the coins'
 marks and the weighing budget**. 12 campaign cases (2 per rule), then Endless
@@ -63,6 +63,24 @@ resize). Pans show capacity slots; the spring shows a dial (reading and
 strip and message strip under the board, then buttons. Tested at 390×640,
 740×320 (touch) and 1100×700: no scroll, no errors.
 
+## Accessibility (v4; audit: all six pass)
+
+- Live region `#say` (`#msg` aria-hidden; `say(html, _, heard)` speaks the
+  strip's words or `heard`, `speak()` adds lines, one update per input
+  event). Says the case, its rule and tip; a coin loaded ("Coin 3 on the
+  left pan", then both pans' coins); a mark ("Coin 3 marked H, maybe
+  heavy"); the cursor's coin (place, mark, picked); a weighing ("Weighing
+  1: the left pan is heavier. Left pan: coins 1, 2, 3. Right pan: …", or
+  grams for the spring) and weighings left; the hint; picks; the end
+  (cracked, wrong, no proof, out of weighings), strikes and run over.
+  Only what the screen shows: never the fake before the end, never past
+  weighings' coins (the log keeps counts: marks stay the memory).
+- Text 12 px+ (v4): log chips 11 → 12 px, spring dial note 10 → 12 px (box
+  70×40 → 84×44), empty tray-slot numbers 12 px floor and #8a8494 (were
+  #4a4552, ~2:1). The audit's first screen never weighs, so it missed them.
+- Keys unchanged. Generator, seeds, score and `score.epoch` unchanged:
+  balance and `test-daily` give the same numbers as v3.
+
 ## Balance (v1, 400 seeds per case)
 
 First-try win % on C1..C12; runs = 3 strikes, free retries.
@@ -108,7 +126,6 @@ strikes hint`.
 
 ## Open ideas / known limits
 
-- Accessibility (`docs/accessibility.md`, 2026-10-05): no live region for weighings.
 - File is 45 KB (brief aimed at ~40).
 - Make spring cases break thirds harder (two spring cases in a row already
   cost habit a case about half the time).
