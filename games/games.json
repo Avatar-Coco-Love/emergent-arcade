@@ -1191,9 +1191,9 @@
       "id": "rail-yard",
       "title": "Rail Sorting Yard",
       "file": "rail-yard.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-09-30",
-      "updated": "2026-10-05",
+      "updated": "2026-10-07",
       "blurb": "A turn-based shunting puzzle: set switches and flick cars down the tracks to build the outbound train in order. Cars couple only at the right speed, and gravel, full sidings and one-way gates get in the way.",
       "goal": "Build the outbound train on the gold departure track, in the order shown at the top (buffer end first), in ten yards over two chapters. Nothing moves until you flick and there is no clock. Each yard has a par, the fewest flicks that can do it: your score is 100 points per yard at par, 10 fewer per extra move, summed over the run.",
       "howToPlay": "Drag a car along its track and let go to flick it: the farther you drag, the faster it rolls (speed 1 to 15, shown while you aim). Every car length of plain track costs 1 speed; gravel (brown, double ticks) costs 2. A rolling car that meets another at impact 2 to 4 couples to it; slower only touches, faster bounces back. A flick moves the car and everything coupled in front of it, and lets go of the cars behind. A switch sends a car rolling in from its point end down one track or the other: drag its lever toward a track, or {tap} it. Switch changes are free; only flicks count as moves. Sidings hold as many cars as their label says. Chapter 2 adds tank cars, whose round couplers repel the square ones on box cars and hoppers (the flat car’s double coupler takes both), blue one-way gates, and amber 1× gates that drop for good once the cars that used them clear the gateway. Undo is unlimited, but the undone flick still counts; a hint shows the next move for +2 moves; Restart is always there.",
@@ -1286,6 +1286,11 @@
       },
       "changes": [
         {
+          "version": 4,
+          "date": "2026-10-07",
+          "text": "No gameplay change. Every word on screen is now at least 12 px on a phone: the run total, the level list, the track labels and the switch letters (which also get a dark backing)."
+        },
+        {
           "version": 3,
           "date": "2026-10-05",
           "text": "No gameplay change. Space now picks a car (Shift+Space the previous one) instead of Tab, so Tab moves out of the game again; screen readers get a description of the game and its controls."
@@ -1306,10 +1311,15 @@
       "id": "aqueduct",
       "title": "Aqueduct",
       "file": "aqueduct.html",
-      "version": 7,
+      "version": 8,
       "added": "2026-10-02",
-      "updated": "2026-10-05",
+      "updated": "2026-10-07",
       "changes": [
+        {
+          "version": 8,
+          "date": "2026-10-07",
+          "text": "No gameplay change. Screen readers now hear what each turn did: the vessel’s angle, where the water and the bead are, each cup’s level, valves, pearls, the ring opening, and the result."
+        },
         {
          "version": 7,
           "date": "2026-10-05",
@@ -1410,11 +1420,16 @@
       "id": "counterfeit-scale",
       "title": "Counterfeit Scale",
       "file": "counterfeit-scale.html",
-      "version": 3,
+      "version": 4,
       "added": "2026-10-02",
-      "updated": "2026-10-05",
+      "updated": "2026-10-07",
       "daily": { "from": "2026-10-04" },
       "changes": [
+        {
+          "version": 4,
+          "date": "2026-10-07",
+          "text": "No gameplay change, and the same Daily cases. Screen readers now hear each weighing in words (which pan is heavier, with the coins on each), coins loaded and marked, picks, strikes and each case’s end. The weighing log and spring dial text are larger."
+        },
         {
           "version": 3,
           "date": "2026-10-05",

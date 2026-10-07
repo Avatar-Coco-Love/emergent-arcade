@@ -56,6 +56,7 @@
   button:disabled { opacity: 0.35; cursor: default; transform: none; }
   button.primary { border-color: var(--accent); background: #3a2d10; color: #fff; }
   button.on { border-color: var(--bad); background: #3a1414; }
+  .sr { position: absolute; left: 0; top: 0; margin: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   @media (max-height: 420px) {
     body { gap: 2px; padding-top: 4px; }
     .strip { min-height: 2.3em; font-size: 0.8rem; }
@@ -69,7 +70,8 @@
     <div class="side"><span class="pips" id="pips"></span> <span id="score"></span></div></div>
   <div id="boardWrap"><canvas id="board" role="img" aria-label="Counterfeit Scale: drag coins onto the pans, hold the beam to weigh, tap or click coins to mark them, accuse the fake."></canvas></div>
   <div class="strip" id="hint"></div>
-  <div class="strip" id="msg"></div>
+  <div class="strip" id="msg" aria-hidden="true"></div>
+  <p id="say" class="sr" role="status"></p>
   <div class="bar">
     <button id="weighBtn" class="primary">Weigh</button>
     <button id="clearBtn">Clear pans</button>
@@ -478,13 +480,14 @@
     layout(); renderUI();
     say(`${inCampaign() ? 'Case ' + (run.idx + 1) + ' of ' + CAMPAIGN.length : DAILY ? 'Daily' : 'Endless'}: ${c.n} coins, ` +
       `<b>${c.budget}</b> weighing${c.budget > 1 ? 's' : ''}. Find the fake${c.fakes > 1 ? 's' : ''}.`);
-    hint(spec.tip ? words(spec.tip) : DAILY ? 'Daily: the same cases for everyone today, no spare weighings. 3 strikes end the run.' : 'Endless: no spare weighings. Score: cases cracked this run.');
+    speak(ruleLine(c) + '.');
+    hint(spec.tip ? words(spec.tip) : DAILY ? 'Daily: the same cases for everyone today, no spare weighings. 3 strikes end the run.' : 'Endless: no spare weighings. Score: cases cracked this run.', !!spec.tip);
   }
   const left = () => c.budget - c.log.length;
   const pans = () => [panOrder[1], panOrder[2]];
 
   // § actions: load (drag), mark (tap), weigh, accuse.
-  function place(i, to) {
+  function place(i, to, quiet) {
     if (phase !== 'load' || where[i] === to) return;
     if (c.scale === 'spring' && to === 2) to = 1;
     if (to && c.cap && panOrder[to].length >= c.cap) { say(`That pan holds <b>${c.cap}</b> coins.`); return; }
@@ -492,12 +495,18 @@
     where[i] = to; panOrder[to].push(i);
     counts.loads++;
     if (result) { result = null; }
+    if (!quiet) speak(`Coin ${i + 1} ${to ? 'on the ' + PAN[to] : 'back in the tray'}. ${pansWords()}`);
     renderUI();
   }
-  function clearPans() { for (const p of [1, 2]) for (const i of panOrder[p].slice()) place(i, 0); }
+  function clearPans() {
+    const any = panOrder[1].length + panOrder[2].length;
+    for (const p of [1, 2]) for (const i of panOrder[p].slice()) place(i, 0, true);
+    if (any) speak('Pans cleared: every coin back in the tray.');
+  }
   function cycleMark(i) {
     if (phase !== 'load') return;
     mark[i] = (mark[i] + 1) % mark.cyc.length; counts.marks++;
+    speak(`Coin ${i + 1} marked ${markWords(i)}.`);
   }
   function doWeigh() {
     if (phase !== 'load') return;
@@ -510,7 +519,7 @@
     const out = weigh(c, L, R);
     result = { out, n: L.length };
     phase = 'tip'; tipT = 0;
-    say('Weighing…');
+    say('Weighing…', null, '');
     renderUI();
   }
   function afterTip() {
@@ -522,8 +531,9 @@
       txt = `Reads <b>${g} g</b> for ${result.n} coin${result.n > 1 ? 's' : ''}: ` +
         (result.out === 0 ? 'all genuine.' : (result.out > 0 ? result.out + ' g over.' : -result.out + ' g under.'));
     } else txt = result.out === 0 ? 'The pans <b>balance</b>.' : `The <b>${result.out > 0 ? 'left' : 'right'}</b> pan is heavier.`;
-    if (!rest && !solvedBy(c.hyps)) { say(txt); setTimeout(() => endCase(false, 'budget'), 700); phase = 'wait'; renderUI(); return; }
-    say(`Weighing ${n}: ${txt} ` + (rest ? `${rest} left.` : 'None left: accuse.'));
+    speak(`Weighing ${n}: ${plain(txt)[0].toLowerCase() + plain(txt).slice(1)} ${pansWords()}`);
+    if (!rest && !solvedBy(c.hyps)) { say(txt, null, ''); setTimeout(() => endCase(false, 'budget'), 700); phase = 'wait'; renderUI(); return; }
+    say(`Weighing ${n}: ${txt} ` + (rest ? `${rest} left.` : 'None left: accuse.'), null, rest ? `${rest} weighing${rest > 1 ? 's' : ''} left.` : 'None left: accuse.');
     renderUI();
   }
   function toggleAccuse() {
@@ -535,9 +545,10 @@
     renderUI();
   }
   function pick(i) {
-    if (picks.includes(i)) { picks = picks.filter(x => x !== i); return; }
+    if (picks.includes(i)) { picks = picks.filter(x => x !== i); speak(`Coin ${i + 1} unpicked.`); return; }
     picks.push(i);
-    if (picks.length < c.fakes) { say('One more.'); return; }
+    if (picks.length < c.fakes) { say('One more.', null, `Coin ${i + 1} picked. One more.`); return; }
+    speak(`You accuse coin${c.fakes > 1 ? 's' : ''} ${picks.map(x => x + 1).join(' and ')}.`);
     const right = isRight(c, picks), proven = solvedBy(c.hyps);
     endCase(right && proven, right ? 'guess' : 'wrong');
   }
@@ -556,7 +567,7 @@
       : reason === 'guess' ? `<span class="loss">Right coin, no proof:</span> ${others.join(', ')} still fit the weighings.`
       : `<span class="loss">Wrong ${c.fakes > 1 ? 'pair' : 'coin'}.</span> The fake${c.fakes > 1 ? 's were' : ' was'} ${fakes}.`;
     const tail = won ? '' : struck ? ` Strike ${run.strikes} of ${STRIKES}.` : ' Free retry, new coins.';
-    say(why + tail);
+    say(why + tail, null, plain(why + tail) + (run.strikes >= STRIKES ? ` Run over: ${run.cracked} case${run.cracked === 1 ? '' : 's'} cracked.` : ''));
     postResult(won, reason);
     if (run.strikes >= STRIKES) postFinal(run.id, run.cracked);
     if (won) {
@@ -587,7 +598,7 @@
   function showHint() {
     if (phase !== 'load' || hintUsed) return;
     hintUsed = true;
-    if (solvedBy(c.hyps)) { hint('Hint: the weighings already prove it. Accuse.'); renderUI(); return; }
+    if (solvedBy(c.hyps)) { hint('Hint: the weighings already prove it. Accuse.', true); renderUI(); return; }
     const st = countState(c, c.hyps);
     const k = parOf(st, c), m = bestMove(st, k, c);   // the best split, even with weighings to spare
     const plural = (x, w) => x + ' ' + w + (x > 1 && w === 'suspect' ? 's' : '');
@@ -600,15 +611,40 @@
     };
     const L = st.kind === 1 ? fmt(m.L) : fmt(m.a, m.ga), R = st.kind === 1 ? fmt(m.R) : fmt(m.b, m.gb);
     const where2 = c.scale === 'spring' ? `Weigh ${L}` : `Left: ${L} · right: ${R}`;
-    hint(`Hint: ${where2}.` + (k > left() ? ' (No sure win is left.)' : ''));
+    hint(`Hint: ${where2}.` + (k > left() ? ' (No sure win is left.)' : ''), true);
     renderUI();
   }
 
   // § ui: top line, message and hint strips, buttons.
   const $ = id => document.getElementById(id);
   const msgEl = $('msg'), hintEl = $('hint');
-  const say = html => { msgEl.innerHTML = '<span>' + html + '</span>'; };
-  const hint = txt => { hintEl.textContent = txt; };
+  // On screen, and spoken: the strip's own words (heard null), other words, or nothing ('').
+  const say = (html, _, heard) => { msgEl.innerHTML = '<span>' + html + '</span>'; speak(heard == null ? plain(html) : heard); };
+  const hint = (txt, spoken) => { hintEl.textContent = txt; if (spoken) speak(txt.replace('·', ',')); };
+  // § live region: #say (role="status") speaks each move from its result, and only what the screen shows:
+  // the case and its rule, a coin loaded or marked, the cursor's coin, a weighing's result with the coins on
+  // each pan (they stay there until moved), the hint, picks, the case's end and strikes. Never the fake before
+  // the case ends, never the log of past weighings (the screen keeps only counts: the marks are the memory).
+  const sayEl = $('say');
+  let spoken = [], flip = false, flushing = false;
+  function speak(t) {
+    if (!t || spoken.includes(t)) return;
+    spoken.push(t);
+    if (!flushing) { flushing = true; Promise.resolve().then(announce); }   // one line per input event
+  }
+  function announce() { flushing = false; if (!spoken.length) return; flip = !flip; sayEl.textContent = spoken.join(' ') + (flip ? '\u00a0' : ''); spoken = []; }
+  const plain = html => html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  const PAN = ['tray', 'left pan', 'right pan'];
+  const MARK_WORDS = { '?': 'unknown', H: 'H, maybe heavy', L: 'L, maybe light', OK: 'genuine' };
+  const markWords = i => MARK_WORDS[mark.cyc[mark[i]]];
+  const coinList = a => a.length ? (a.length > 1 ? 'coins ' : 'coin ') + a.map(x => x + 1).join(', ') : 'empty';
+  function pansWords() {
+    if (c.scale === 'spring') return `On the spring: ${coinList(panOrder[1])}.`;
+    return `Left pan: ${coinList(panOrder[1])}. Right pan: ${coinList(panOrder[2])}.`;
+  }
+  function cursorWords(i) {
+    return `Coin ${i + 1}, ${where[i] ? 'on the ' + PAN[where[i]] : 'in the tray'}, marked ${markWords(i)}` + (picks.includes(i) ? ', picked' : '') + '.';
+  }
   function renderUI() {
     if (!c) return;
     $('caseName').textContent = inCampaign() ? `Case ${run.idx + 1}` : `${DAILY ? 'Daily' : 'Endless'} ${run.idx - CAMPAIGN.length + 1}`;
@@ -727,7 +763,7 @@
     const { s, r } = G, metal = '#8a8494';
     ctx.lineCap = 'round';
     // log chips: counts only (the coins' identities live in your marks)
-    ctx.font = '11px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = '#9c98a3';
+    ctx.font = '12px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = '#9c98a3';
     const chips = c.log.map((w, k) => (k + 1) + ') ' + (c.scale === 'spring' ? w.L.length + ' → ' + (w.L.length * COIN_G + w.out) + 'g'
       : w.L.length + '|' + w.R.length + ' ' + (w.out > 0 ? 'L↓' : w.out < 0 ? 'R↓' : '='))).join('   ');
     ctx.fillText(chips, s.x + 4, s.y + 2);
@@ -742,14 +778,14 @@
       ctx.beginPath(); ctx.moveTo(G.cx, sy1); ctx.lineTo(pc.x - G.pw / 2, pc.y); ctx.moveTo(G.cx, sy1); ctx.lineTo(pc.x + G.pw / 2, pc.y); ctx.lineWidth = 1; ctx.stroke();
       drawDish(pc);
       // dial: the reading, and what genuine coins would weigh
-      const n = panOrder[1].length, dx = Math.min(G.cx + G.pw / 2 + 8, s.x + s.w - 74), dy = s.y + 18;
+      const n = panOrder[1].length, dx = Math.min(G.cx + G.pw / 2 + 8, s.x + s.w - 88), dy = s.y + 18;
       ctx.fillStyle = '#18171d'; ctx.strokeStyle = '#2c2a34'; ctx.lineWidth = 1;
-      ctx.fillRect(dx, dy, 70, 40); ctx.strokeRect(dx, dy, 70, 40);
+      ctx.fillRect(dx, dy, 84, 44); ctx.strokeRect(dx, dy, 84, 44);
       ctx.textAlign = 'center'; ctx.fillStyle = '#e2b34a'; ctx.font = '700 16px sans-serif';
       const shown = result && phase !== 'tip' ? (result.n * COIN_G + result.out) + ' g' : '— g';
-      ctx.fillText(shown, dx + 35, dy + 4);
-      ctx.fillStyle = '#9c98a3'; ctx.font = '10px sans-serif';
-      ctx.fillText(n + ' × 10 = ' + n * COIN_G, dx + 35, dy + 25);
+      ctx.fillText(shown, dx + 42, dy + 4);
+      ctx.fillStyle = '#9c98a3'; ctx.font = '12px sans-serif';   // 12 px+ (accessibility.md)
+      ctx.fillText(n + ' × 10 = ' + n * COIN_G, dx + 42, dy + 25);
       return;
     }
     // stand and beam
@@ -783,7 +819,7 @@
       for (let j = save; j < c.cap; j++) { const q = panSlot(p, j); ctx.beginPath(); ctx.arc(q.x, q.y, G.r, 0, 7); ctx.strokeStyle = 'rgba(226,179,74,.35)'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); }
     }
     // empty home slots
-    for (let i = 0; i < c.n; i++) if (where[i]) { const h = G.home[i]; ctx.beginPath(); ctx.arc(h.x, h.y, G.r * 0.9, 0, 7); ctx.strokeStyle = '#2c2a34'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = '#4a4552'; ctx.font = `${Math.round(G.r * 0.7)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(i + 1, h.x, h.y); }
+    for (let i = 0; i < c.n; i++) if (where[i]) { const h = G.home[i]; ctx.beginPath(); ctx.arc(h.x, h.y, G.r * 0.9, 0, 7); ctx.strokeStyle = '#2c2a34'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = '#8a8494'; ctx.font = `${Math.max(12, Math.round(G.r * 0.7))}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(i + 1, h.x, h.y); }
     for (let i = 0; i < c.n; i++) { if (gesture && gesture.moved && gesture.coin === i) continue; const q = coinPos(i); drawCoin(i, q.x, q.y, G.r); }
     if (gesture && gesture.moved) drawCoin(gesture.coin, gesture.x, gesture.y, G.r * 1.15, true);
     if (gesture && gesture.weigh) { ctx.beginPath(); ctx.arc(G.cx, G.beamY, 16, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * gesture.t / HOLD_MS); ctx.strokeStyle = '#e2b34a'; ctx.lineWidth = 4; ctx.stroke(); }
@@ -816,7 +852,7 @@
   function endGesture(e, cancel) {
     const g = gesture; gesture = null;
     if (!g || cancel || locked()) return;
-    if (g.weigh) { say('<b>Hold</b> the beam to weigh.'); return; }
+    if (g.weigh) { say('<b>Hold</b> the beam to weigh.', null, `${COARSE ? 'Hold' : 'Click and hold'} the beam to weigh, or press Weigh.`); return; }
     if (g.moved) { place(g.coin, panHit(g.x, g.y)); return; }
     if (phase === 'accuse') pick(g.coin); else cycleMark(g.coin);
   }
@@ -825,7 +861,7 @@
   window.addEventListener('keydown', e => {
     if (locked() || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key, cols = G ? G.tf.cols : 1;
-    const go = i => { kbd = true; cursor = Math.max(0, Math.min(c.n - 1, i)); };
+    const go = i => { kbd = true; cursor = Math.max(0, Math.min(c.n - 1, i)); speak(cursorWords(cursor)); };
     if (phase === 'over') { if (k === 'Enter' || k === ' ' || k === 'n' || k === 'N') { next(); e.preventDefault(); } return; }
     if (k === 'ArrowLeft') go(cursor - 1); else if (k === 'ArrowRight') go(cursor + 1);
     else if (k === 'ArrowUp') go(cursor - cols); else if (k === 'ArrowDown') go(cursor + cols);

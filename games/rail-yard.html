@@ -54,7 +54,7 @@
   #lvName { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #want { flex: none; height: 30px; }
   #hudRight { flex: 1 1 0; text-align: right; white-space: nowrap; }
-  #hudRight small { display: block; font-size: 0.72rem; }
+  #hudRight small { display: block; font-size: 0.75rem; }
   #field { flex: 1; min-height: 0; display: grid; place-items: center; }
   #stage { position: relative; }
   #yard { display: block; width: 100%; height: 100%; touch-action: none; border-radius: 10px; }
@@ -81,7 +81,7 @@
   #card button:disabled { opacity: 0.4; }
   #card .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
   #card .grid button { margin: 0; padding: 6px 4px; font-weight: 500; font-size: 0.8rem; line-height: 1.25; }
-  #card .grid button small { display: block; color: var(--muted); font-size: 0.72rem; }
+  #card .grid button small { display: block; color: var(--muted); font-size: 0.75rem; }
   #card .grid button.cur { border-color: var(--accent); }
   .bar {
     flex: none; display: flex; align-items: center; justify-content: center;
@@ -995,8 +995,8 @@
     g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
   }
   function pillSize(text) {
-    ctx.font = '600 ' + Math.max(10, Math.round(u * 0.3)) + 'px -apple-system, Segoe UI, sans-serif';
-    return [ctx.measureText(text).width + u * 0.3, Math.max(14, u * 0.42)];
+    ctx.font = '600 ' + Math.max(12, Math.round(u * 0.3)) + 'px -apple-system, Segoe UI, sans-serif';   // 12 px+ on any yard (accessibility.md)
+    return [ctx.measureText(text).width + Math.max(8, u * 0.3), Math.max(16, u * 0.42)];
   }
   let drawn = []; // pills drawn this frame, so later ones keep clear of them
   function pill(x, y, text, bg, fg) {
@@ -1137,7 +1137,11 @@
       const dx = leg[0] - p[0], dy = leg[1] - p[1], d = Math.hypot(dx, dy) || 1;
       ctx.strokeStyle = TRACK_COL[Y.cells[Y.S[c][1][legs[k]]].t] || '#fff'; ctx.lineWidth = Math.max(2, u * 0.08);
       ctx.beginPath(); ctx.moveTo(kp[0] - dx / d * u * 0.18, kp[1] - dy / d * u * 0.18); ctx.lineTo(kp[0] + dx / d * u * 0.2, kp[1] + dy / d * u * 0.2); ctx.stroke();
-      if (!touchy) { ctx.fillStyle = 'rgba(220,228,238,0.7)'; ctx.font = Math.round(u * 0.26) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(swName(k), kp[0] + u * 0.38, kp[1] - u * 0.3); }
+      if (!touchy) {   // the switch's key letter: 12 px+ on a backing (accessibility.md)
+        const fs = Math.max(12, Math.round(u * 0.26)), lx = kp[0] + Math.max(u * 0.38, fs * 0.8), ly = kp[1] - Math.max(u * 0.3, fs * 0.7);
+        ctx.fillStyle = 'rgba(15,19,24,0.8)'; ctx.beginPath(); ctx.arc(lx, ly, fs * 0.7, 0, 7); ctx.fill();
+        ctx.fillStyle = '#dce4ee'; ctx.font = fs + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(swName(k), lx, ly + 0.5);
+      }
     });
     // siding capacity and the departure track's label
     for (const T of Object.values(Y.tracks)) {
@@ -1185,10 +1189,10 @@
     if (aim && aim.v > 0) {
       const [x, y] = P(aim.c), [tx, ty] = tangent(aim.c), e = aim.side ? 1 : -1;
       arrow(x + tx * e * u * 0.55, y + ty * e * u * 0.55, tx * e, ty * e, u * (0.3 + aim.v * 0.16), '#ffffff');
-      ctx.font = '700 ' + Math.round(u * 0.62) + 'px -apple-system, Segoe UI, sans-serif';
+      ctx.font = '700 ' + Math.max(12, Math.round(u * 0.62)) + 'px -apple-system, Segoe UI, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const lx = x + ty * u * 0.95, ly = y - tx * u * 0.95;
-      ctx.fillStyle = 'rgba(15,19,24,0.8)'; ctx.beginPath(); ctx.arc(lx, ly, u * 0.45, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(15,19,24,0.8)'; ctx.beginPath(); ctx.arc(lx, ly, Math.max(11, u * 0.45), 0, 7); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.fillText(String(aim.v), lx, ly + 1);
       speedGauge(aim.v);
     }

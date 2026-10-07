@@ -4,6 +4,29 @@ Superseded design-note text, prototype measurements and playtest logs.
 Current design: `docs/games/aqueduct.md`. Add new entries at the top;
 sessions don't read this file by default.
 
+## Moved from the notes (2026-10-07): level ideas
+
+Level ideas: history (siphon, leak, tide room…). User,
+2026-10-02: differently shaped and open vessels; a **separator** in the
+middle that splits mixed water, one colour each way, past a one-way line
+it can't fall back over (a later colour level: undoes mixing at a cost).
+Unused achievement ideas: history, "Prototype to game".
+
+## Moved from the notes (2026-10-07): bot results (levels 0-5, 2026-10-02)
+
+Levels 0-2 (one colour, 2026-10-02): planner wins all (4.3-5.3 s, 4-6
+moves), planner-nv 0, every simple bot ≤ 5% (warm-up: greedy 70%,
+novice 40%). Tables, water-home spreads and pearl routes: history, "Bot
+results, levels 0-2".
+
+Levels 3-5 (2026-10-02): planner 3/3 (6.4 / 5.8 / 6.4 s; 7 / 6 / 7
+moves), L3 planner-nv 0/3; idle, greedy, novice, timer, keys 0/20 each.
+Direct route 0 pearls on each; pearls bot 3/3 pearls on L3 and L5; L4 only
+cup first (`OPENING` -90 x3, shut: 2/2, 10.3 s; pearls first mixes it).
+
+Pearls sit off the direct route (finding "off the solution's lanes"); the
+warm-up's free pearl at 90° is on purpose. Placement notes: history.
+
 ## v6 tilt (2026-10-02)
 
 User on a phone: tilt "super glitchy and cannot be turned off". v5 read

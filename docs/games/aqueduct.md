@@ -1,6 +1,6 @@
 # Aqueduct: design note
 
-**v7** (2026-10-05, canvas label; v6 2026-10-02, phone tilt fix; v5 registered) · playtest:
+**v8** (2026-10-07, live region; v7 2026-10-05, canvas label; v6 2026-10-02, phone tilt fix) · playtest:
 https://claude.ai/artifact/21dXA2QwrHe2QZqkM5HuZf · balance:
 `LEVEL=i node scripts/balance-aqueduct.mjs`. File `games/aqueduct.html`.
 Older text and measurements: `docs/history/aqueduct.md`.
@@ -96,20 +96,24 @@ Fill maps, why the valve is needed: history, "Step 4 measurements".
 - HUD: one line, `level. name · ●○○ · score now/max · best`; cups' % on
   their valve buttons. Tilt button bottom-left (side column in landscape).
 
+## Accessibility (v8; audit: all six pass)
+
+Live region `#say` (`#msg` aria-hidden), `// § live region`: `watch()`
+reads state after each frame (never in `step()`) and speaks changes:
+the level and goal; a turn once the vessel holds still 1 s and moved
+10°+ ("Vessel turned 90° clockwise" / upright / upside down; free water
+by chamber and colour, the bead's place, each cup's %, band, centre
+line, mixed, valve); valves; pearls; bullseye (shut cups only: open cups
+cross the line as water runs through); the ring opening or shutting;
+the message strip's advice once it has held 1 s (this covers "too mixed,
+use ↻", the level's only dead end); the win. `.sr` is pinned top-left:
+in the flow it added 17 px of scroll.
+
 ## Bot results
 
-Levels 0-2 (one colour, 2026-10-02): planner wins all (4.3-5.3 s, 4-6
-moves), planner-nv 0, every simple bot ≤ 5% (warm-up: greedy 70%,
-novice 40%). Tables, water-home spreads and pearl routes: history, "Bot
-results, levels 0-2".
-
-Levels 3-5 (2026-10-02): planner 3/3 (6.4 / 5.8 / 6.4 s; 7 / 6 / 7
-moves), L3 planner-nv 0/3; idle, greedy, novice, timer, keys 0/20 each.
-Direct route 0 pearls on each; pearls bot 3/3 pearls on L3 and L5; L4 only
-cup first (`OPENING` -90 x3, shut: 2/2, 10.3 s; pearls first mixes it).
-
-Pearls sit off the direct route (finding "off the solution's lanes"); the
-warm-up's free pearl at 90° is on purpose. Placement notes: history.
+Planner wins every level (4-7 moves, 4-10 s); every simple bot ≤ 5% (warm-up:
+greedy 70%, novice 40%); pearls sit off the direct route. Numbers: history,
+"Moved from the notes (2026-10-07)".
 
 ## Next (in order)
 
@@ -120,14 +124,10 @@ warm-up's free pearl at 90° is on purpose. Placement notes: history.
    gauge readable? Warm-up too easy (novice 40%)? Level 4's "other way
    round"? Is ↻ found when mixed? Human scores for a par.
 3. Known gap: the door stays open 0.3 s (filter lag) after a cup reopens.
-4. Accessibility (`docs/accessibility.md`, 2026-10-05): no status text in
-   the DOM, so a screen reader hears nothing change (live region).
+4. Accessibility: done in v8 (live region). A real screen-reader player
+   is the test: is a turn's line too long with two cups?
 
-Level ideas: history (siphon, leak, tide room…). User,
-2026-10-02: differently shaped and open vessels; a **separator** in the
-middle that splits mixed water, one colour each way, past a one-way line
-it can't fall back over (a later colour level: undoes mixing at a cost).
-Unused achievement ideas: history, "Prototype to game".
+Level ideas (separator, open vessels…) and unused achievements: history.
 
 ## Workflow notes
 

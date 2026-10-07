@@ -3,6 +3,20 @@
 Older material for `docs/games/rail-yard.md`, newest first. Grep it; don't
 read it whole.
 
+## Moved from the notes (2026-10-07): v2 idea lists
+
+- v2 side goals: Light touch (at most N switch changes), Soft landing (no
+  bounce-backs in a level), Tight yard (no siding above half capacity),
+  Spent gates (finish with a 1× gate unused).
+- v2 challenge modes after chapter 2, reusing levels: Mirror yard (layout
+  flipped), Blind flick (aim arrow and gauge hidden, par relaxed),
+  Par-only (a level counts only at par).
+- v2 Daily yard: a seeded generated layout, one per day, same seed same
+  yard (fair leaderboard, `board: "d2026-10-01"`). The generator must pass
+  the exploring solver (every yard solvable, known par; the scratch
+  `enum`/`search` approach behind these levels is a start). This is the
+  natural uncapped endless mode for the depth pass.
+
 ## Moved from the notes (2026-10-05): v1 player data
 
 ## Player data
