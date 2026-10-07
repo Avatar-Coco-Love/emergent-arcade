@@ -9,10 +9,12 @@ design lives in `docs/games/<id>.md`.
 The work queue, in order. Each item has a ready prompt; paste it into a
 fresh conversation. Update this list when one is done or the order changes.
 
-1. `teachers.md` idea 4, class challenge link (prompt at the end of that
-   file; medium). Idea 3 instead if classroom reports ask for it.
-2. `identity.md`: recovery code to keep a leaderboard name across browsers
-   (medium).
+1. `identity.md`: recovery code to keep a leaderboard name across browsers
+   (medium; ready prompt in the brief).
+2. `teachers.md` idea 3, "What's going on here" notes: waits for classroom
+   reports to say which games teachers use (0 on 2026-10-07).
+
+Done: `teachers.md` idea 4, class challenge link (2026-10-07).
 
 ## Briefs
 
@@ -29,6 +31,6 @@ fresh conversation. Update this list when one is done or the order changes.
 | `surprise-party.md` | turn-based contagion: whisper + door, news spreads as a wave | proposed (go/no-go next) |
 | `cipher-bench.md`, `gear-lock.md`, `deduction-grid.md`, `lights-out-gf2.md`, `factor-forge.md` | generated puzzles (see `puzzle-ideas.md`) | ideas, not built |
 | `geode.md` | simulation: seed, warm, cleave a growing crystal | built (v1), stub points to history |
-| `teachers.md` | seven ideas to help teachers use the arcade (teacher page, classroom mode, feedback form, per-game notes, class challenge, subject download, accessibility); 1, 2, 7 built 2026-10-05; 6 audited 2026-10-05 (`docs/accessibility.md`), per-game fixes listed; Wildfire Line fixed (v4); next: Tidewright accessibility revision (ready prompt) | 1, 2, 7 built; 6 audited, gallery and Wildfire Line fixed; 3–5 ideas |
+| `teachers.md` | seven ideas to help teachers use the arcade (teacher page, classroom mode, feedback form, per-game notes, class challenge, subject download, accessibility); 1, 2, 7 built 2026-10-05; 6 audited 2026-10-05 (`docs/accessibility.md`), per-game fixes done for most games; 5 built 2026-10-06 (topic zip); 4 built 2026-10-07 (class challenge) | 1, 2, 4, 5, 7 built; 6 audited, gallery and most games fixed; 3 later |
 | `identity.md` | keep your leaderboard name across browsers with a recovery code, no accounts (decision recorded; ready prompt) | proposed |
 | `classroom-checklist.md` | classroom and accessibility checks for every new game and revision (docs only; ready prompt) | done 2026-10-07 (`docs/adding-a-game.md`, "Classroom and accessibility"; PR template) |

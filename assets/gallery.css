@@ -725,6 +725,15 @@ textarea {
   font: inherit; font-size: 0.9rem; color: var(--text);
   background: var(--panel-2); border: 1px solid var(--field-border); border-radius: 8px; padding: 0 10px;
 }
+/* Class challenge (assets/teachers.js): game, classroom-mode box, Make. */
+.challenge-make { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0 4px; }
+.challenge-make select {
+  height: var(--tap); font: inherit; color: var(--text); flex: 0 1 260px; min-width: 0;
+  background: var(--panel-2); border: 1px solid var(--field-border); border-radius: 8px; padding: 0 10px;
+}
+.challenge-make label:first-child { font-weight: 600; }
+#challengeOut .small { margin: 0 0 4px; }
+#challengeCode { letter-spacing: 0.08em; }
 .teach-table-wrap { overflow-x: auto; }
 .teach-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
 .teach-table th, .teach-table td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-top: 1px solid var(--border); }

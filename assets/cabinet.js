@@ -33,7 +33,8 @@ window.ArcadeCabinet = (function () {
   const ROUNDS_BEFORE_NUDGE = 3;
 
   let current = null;
-  let daily = null; // the date, while the cabinet plays the Daily Challenge (docs/daily.md)
+  let daily = null; // the game's ?daily= value, while the cabinet plays the Daily Challenge (docs/daily.md)
+  let challenge = null; // the code, while it plays a class challenge (then `daily` is the code's date)
   let dailyTimer = null;
   let openPanelName = null;
   let returnFocus = null;
@@ -60,19 +61,25 @@ window.ArcadeCabinet = (function () {
   // ---------- open / close ----------
 
   // opts.daily: a date, to play that day's Daily Challenge run.
+  // opts.challenge: a class challenge's code (daily mode, the code's seed).
   function open(game, opts) {
-    const date = (opts && opts.daily) || null;
+    const code = (opts && opts.challenge) || null;
+    const date = code ? Daily.challengeDate(code) : (opts && opts.daily) || null;
     const switching = !current || current.id !== game.id || daily !== date;
     current = game;
     daily = date;
+    challenge = code;
     clearTimeout(dailyTimer);
-    const tag = daily ? `Daily #${Daily.number(daily)}` : `v${game.version}`;
+    const tag = daily ? modeLabel() : `v${game.version}`;
     document.title = `${game.title} ${tag} · Emergent Arcade`;
     $("cabTitle").textContent = game.title;
     $("cabVersion").textContent = tag;
     $("dailyBtn").hidden = !daily;
+    $("dailyBtn").setAttribute("aria-label", challenge ? "Challenge result" : "Daily result");
+    $("dailyBtn").title = challenge ? "Class challenge: your result card" : "Daily Challenge: your result and today's board";
     $("aboutDaily").hidden = !daily;
-    if (daily) $("aboutDaily").textContent = `Daily Challenge #${Daily.number(daily)}: everyone gets the same run today. Your first run counts for the daily board; play again to practice.`;
+    if (challenge) $("aboutDaily").textContent = `Class challenge ${Daily.codeLabel(challenge)}: everyone with this link gets the same run. Your first run is your result; play again to practice.`;
+    else if (daily) $("aboutDaily").textContent = `Daily Challenge #${Daily.number(daily)}: everyone gets the same run today. Your first run counts for the daily board; play again to practice.`;
     if (game.accent) cabinet.style.setProperty("--game-accent", game.accent);
     else cabinet.style.removeProperty("--game-accent");
     frame.title = game.title;
@@ -106,12 +113,18 @@ window.ArcadeCabinet = (function () {
     }
   }
 
+  // "Daily #4" or "Challenge K7M2Q", and this browser's entry for the run.
+  const modeLabel = () => (challenge ? `Challenge ${Daily.codeLabel(challenge)}` : `Daily #${Daily.number(daily)}`);
+  const modeDay = () => (challenge ? Daily.challengeDay(current.id, challenge) : Daily.day(daily));
+  const cardDate = (d) => (challenge ? (d && d.date) || Daily.today() : daily);
+
   const srcOf = (game) => `games/${game.file}?v=${game.version}${daily ? `&daily=${daily}` : ""}`;
 
   function close() {
     if (current) telemetry.end();
     current = null;
     daily = null;
+    challenge = null;
     clearTimeout(dailyTimer);
     loadToken++;
     clearTimeout(loadTimer);
@@ -185,7 +198,7 @@ window.ArcadeCabinet = (function () {
     const bests = {};
     if (daily) {
       // The daily run's target is today's best, not the game's usual one.
-      const d = Daily.day(daily);
+      const d = modeDay();
       if (d && d.best != null) bests.main = d.best;
     } else for (const [board, b] of Object.entries(Scores.bests(current))) bests[board] = b.score;
     tellGame("arcade:best", { game: current.id, better: sp.better, bests });
@@ -212,7 +225,7 @@ window.ArcadeCabinet = (function () {
       returnFocus = opener;
     }
     openPanelName = name;
-    $("panelTitle").textContent = name === "achievements" && Scores.spec(current) ? "Records" : name === "daily" ? `Daily #${Daily.number(daily)}` : PANEL_TITLES[name];
+    $("panelTitle").textContent = name === "achievements" && Scores.spec(current) ? "Records" : name === "daily" ? modeLabel() : PANEL_TITLES[name];
     for (const body of panel.querySelectorAll("[data-body]")) body.hidden = body.dataset.body !== name;
     syncToolbar();
     if (name === "achievements") {
@@ -556,13 +569,20 @@ window.ArcadeCabinet = (function () {
   // ---------- Daily Challenge (docs/daily.md) ----------
 
   function dailyHello() {
-    const d = Daily.day(daily);
-    if (d && d.done) toast(`You've played Daily #${Daily.number(daily)}. This run is practice; your result is under 📅.`, { ms: 5000 });
+    const d = modeDay();
+    if (challenge) {
+      const label = modeLabel();
+      if (d && d.done) toast(`You've played ${label}. This run is practice; your result is under 📅.`, { ms: 5000 });
+      else toast(`${label}: the same run for the whole class. Your first run counts.`, { ms: 5000 });
+    } else if (d && d.done) toast(`You've played Daily #${Daily.number(daily)}. This run is practice; your result is under 📅.`, { ms: 5000 });
     else toast(`Daily #${Daily.number(daily)}: same run for everyone today. Your first run counts.`, { ms: 5000 });
   }
 
   // Rounds of a daily run go to the daily board, not the game's own bests.
+  // A class challenge's go to no board: sent as `challenge` rows, with the
+  // score as `challenge_score`, so neither board builder can take them.
   function dailyResult(data) {
+    if (challenge) return challengeResult(data);
     const rec = Daily.record(current, daily, data);
     if (!rec) {
       telemetry.result(data);
@@ -580,12 +600,25 @@ window.ArcadeCabinet = (function () {
     return rec.first;
   }
 
+  function challengeResult(data) {
+    const rec = Daily.challengeRecord(current, challenge, data);
+    const row = Object.assign({}, data, { challenge, challenge_first: rec && rec.first ? 1 : 0 });
+    if (rec && rec.value != null) row.challenge_score = rec.value;
+    for (const k of ["daily", "score", "board"]) delete row[k];
+    telemetry.result(row);
+    if (!rec) return false;
+    if (!rec.first && rec.day.runs > 1 && rec.value != null) toast(`Practice run: ${scoreText(Scores.spec(current), "main", rec.value)}`, { ms: 2500 });
+    tellBest();
+    return rec.first;
+  }
+
   // The run that counts is over: show the result card (after a beat, so the
   // game's own end message is seen first).
   function dailyFinal(data) {
-    const d = Daily.finish(current, daily, data);
+    const d = challenge ? Daily.challengeFinish(current, challenge, data) : Daily.finish(current, daily, data);
     if (!d) return;
-    telemetry.event("daily", { game_id: current.id, game_version: current.version, daily, score: d.first, levels: [...d.marks].length });
+    if (challenge) telemetry.event("challenge", { game_id: current.id, game_version: current.version, challenge, score: d.first, levels: [...d.marks].length });
+    else telemetry.event("daily", { game_id: current.id, game_version: current.version, daily, score: d.first, levels: [...d.marks].length });
     window.dispatchEvent(new Event("arcade:progress"));
     const game = current;
     dailyTimer = setTimeout(() => {
@@ -597,25 +630,33 @@ window.ArcadeCabinet = (function () {
   function renderDaily() {
     const game = current;
     const date = daily;
+    const code = challenge;
     const sp = Scores.spec(game);
-    const d = Daily.day(date);
+    const d = modeDay();
     const has = d && d.game === game.id;
-    $("dailyIntro").textContent = has
-      ? d.done ? "Your first run is in. Play again any time today to practice." : "Your first run is still going: it counts until it ends."
-      : "Everyone gets the same run today. Your first run counts for the board; after that it's practice.";
+    $("dailyIntro").textContent = code
+      ? has
+        ? d.done ? "Your first run is in: this card is your result. Play again to practice." : "Your first run is still going: it counts until it ends."
+        : "Everyone with this link gets the same run. Your first run is your result; after that it's practice."
+      : has
+        ? d.done ? "Your first run is in. Play again any time today to practice." : "Your first run is still going: it counts until it ends."
+        : "Everyone gets the same run today. Your first run counts for the board; after that it's practice.";
     $("dailyCardWrap").hidden = !has;
     $("dailyActions").hidden = !has;
+    $("dailyBoard").hidden = !!code;
+    $("challengeNote").hidden = !code;
     if (cardUrl) URL.revokeObjectURL(cardUrl);
     cardUrl = null;
     $("dailyCard").removeAttribute("src");
     if (has) {
-      $("dailyCard").alt = Daily.shareText(game, date, d).replace(/\n/g, ". ");
-      Daily.cardBlob(game, date, d).then((blob) => {
+      $("dailyCard").alt = Daily.shareText(game, cardDate(d), d, code).replace(/\n/g, ". ");
+      Daily.cardBlob(game, cardDate(d), d, code).then((blob) => {
         if (!blob || current !== game || daily !== date) return;
         cardUrl = URL.createObjectURL(blob);
         $("dailyCard").src = cardUrl;
       });
     }
+    if (code) return; // no board: the class compares cards
     $("dailyLb").replaceChildren(el("li", { className: "gap", textContent: "Loading…" }));
     $("dailyLbNote").textContent = "";
     Scores.leaderboards().then((data) => {
@@ -643,17 +684,18 @@ window.ArcadeCabinet = (function () {
     });
   }
 
+  const shareFields = () => (challenge ? { from: "challenge", challenge } : { from: "daily", daily });
   $("dailyShare").addEventListener("click", async () => {
-    const d = Daily.day(daily);
+    const d = modeDay();
     if (!d) return;
-    const method = await Daily.share(current, daily, d, toast);
-    if (method) telemetry.event("share", { game_id: current.id, game_version: current.version, method, from: "daily", daily });
+    const method = await Daily.share(current, cardDate(d), d, toast, challenge);
+    if (method) telemetry.event("share", Object.assign({ game_id: current.id, game_version: current.version, method }, shareFields()));
   });
   $("dailySave").addEventListener("click", () => {
-    const d = Daily.day(daily);
+    const d = modeDay();
     if (!d) return;
-    Daily.saveImage(current, daily, d).catch((err) => toast(`Couldn't save the image (${err.message}).`, { kind: "err" }));
-    telemetry.event("share", { game_id: current.id, game_version: current.version, method: "image", from: "daily", daily });
+    Daily.saveImage(current, cardDate(d), d, challenge).catch((err) => toast(`Couldn't save the image (${err.message}).`, { kind: "err" }));
+    telemetry.event("share", Object.assign({ game_id: current.id, game_version: current.version, method: "image" }, shareFields()));
   });
   $("dailyAgain").addEventListener("click", () => closePanel("game"));
 
@@ -870,5 +912,5 @@ window.ArcadeCabinet = (function () {
   });
   window.addEventListener("pagehide", () => telemetry.end());
 
-  return { open, close, current: () => current, daily: () => daily, lbItems, lbNote };
+  return { open, close, current: () => current, daily: () => daily, challenge: () => challenge, lbItems, lbNote };
 })();

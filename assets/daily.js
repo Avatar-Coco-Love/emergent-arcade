@@ -74,9 +74,12 @@ window.ArcadeDaily = (function () {
     return now;
   }
 
+  // A real calendar day (a challenge's date-shaped code is not one).
+  const calendar = (date) => DATE.test(date || "") && addDays(date, 0) === date;
+
   // The game id for `date`, or null when no game is in the rotation.
   function pick(games, date) {
-    if (!DATE.test(date || "")) return null;
+    if (!calendar(date)) return null;
     const ids = pool(games, date);
     if (!ids.length) return null;
     const day = dayNumber(date);
@@ -103,12 +106,12 @@ window.ArcadeDaily = (function () {
 
   // A result from the daily cabinet. -> { first, value, day } or null when it
   // isn't the day's daily. `first`: the round belongs to the run that counts.
-  function record(game, date, msg) {
-    if (!msg || msg.daily !== date || !/^[a-z0-9]{1,16}$/.test(String(msg.run || ""))) return null;
-    const all = load();
-    let d = all[date];
+  // `all[slot]` is the run's entry; `tag` is the game's ?daily= value.
+  function track(all, slot, tag, game, msg) {
+    if (!msg || msg.daily !== tag || !/^[a-z0-9]{1,16}$/.test(String(msg.run || ""))) return null;
+    let d = all[slot];
     if (d && d.game !== game.id) return null;
-    if (!d) d = all[date] = { game: game.id, run: msg.run, cur: msg.run, runs: 1, first: null, marks: "", done: false, best: null };
+    if (!d) d = all[slot] = { game: game.id, run: msg.run, cur: msg.run, runs: 1, first: null, marks: "", done: false, best: null };
     if (msg.run !== d.cur) {
       d.cur = msg.run;
       d.runs++;
@@ -123,21 +126,30 @@ window.ArcadeDaily = (function () {
     }
     const sp = scores().spec(game);
     if (value != null && sp && scores().beats(sp, value, d.best)) d.best = value;
-    save(all);
     return { first, value, day: d };
   }
-
-  // arcade:final. -> the day when this ends the run that counts, else null.
-  function finish(game, date, msg) {
-    if (!msg || msg.daily !== date) return null;
+  function record(game, date, msg) {
     const all = load();
-    const d = all[date];
+    const got = track(all, date, date, game, msg);
+    if (got) save(all);
+    return got;
+  }
+
+  // arcade:final. -> the entry when this ends the run that counts, else null.
+  function close(all, slot, tag, game, msg) {
+    if (!msg || msg.daily !== tag) return null;
+    const d = all[slot];
     if (!d || d.game !== game.id || d.done || msg.run !== d.run) return null;
     d.done = true;
     const v = Number(msg.score);
     const sp = scores().spec(game);
     if (Number.isFinite(v) && v >= 0 && sp && v <= sp.max) d.first = Math.round(v * 10) / 10;
-    save(all);
+    return d;
+  }
+  function finish(game, date, msg) {
+    const all = load();
+    const d = close(all, date, date, game, msg);
+    if (d) save(all);
     return d;
   }
 
@@ -173,6 +185,64 @@ window.ArcadeDaily = (function () {
     save(all);
   }
 
+  // ---------- class challenges ----------
+
+  // A code is 5 characters from 31 that can't be misread aloud or on a
+  // board (no i, l, o, 0, 1): 28.6 million codes. Links carry it in lower
+  // case; it's shown in upper case ("K7M2Q").
+  const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+  const CODE = /^[a-hjkmnp-z2-9]{5}$/;
+  const CH_KEY = "arcade.challenge";
+  const CH_KEEP = 40;
+  const isCode = (code) => CODE.test(String(code || ""));
+  function newCode() {
+    const r = new Uint32Array(5);
+    crypto.getRandomValues(r);
+    return [...r].map((x) => ALPHABET[x % ALPHABET.length]).join("");
+  }
+
+  // The code as the game's ?daily= value, so the game needs no change: the
+  // code's number (base 31) written as a date whose month is 13–99, e.g.
+  // "0001-17-02". Games seed from GAME_ID + ":" + this, like a Daily. One
+  // code always gives the same string, two codes never share one, and no
+  // calendar day has month 13+, so a challenge never replays a Daily's run
+  // and pick() (and with it the daily board) ignores it.
+  function challengeDate(code) {
+    let n = 0;
+    for (const ch of code) n = n * ALPHABET.length + ALPHABET.indexOf(ch);
+    const month = 13 + (n % 87);
+    n = Math.floor(n / 87);
+    return `${String(Math.floor(n / 100)).padStart(4, "0")}-${month}-${String(n % 100).padStart(2, "0")}`;
+  }
+
+  function chLoad() {
+    const all = store().json(CH_KEY, {});
+    return all && typeof all === "object" ? all : {};
+  }
+  function chSave(all) {
+    const keep = Object.keys(all).filter((k) => /^[a-z0-9-]{1,64}\/[a-z2-9]{5}$/.test(k)).sort((a, b) => (all[a].at || 0) - (all[b].at || 0)).slice(-CH_KEEP);
+    const out = {};
+    for (const k of keep) out[k] = all[k];
+    store().set(CH_KEY, JSON.stringify(out));
+  }
+  const challengeDay = (gameId, code) => chLoad()[`${gameId}/${code}`] || null;
+  // Like record() and finish(): the first run on this browser counts.
+  function challengeRecord(game, code, msg) {
+    const all = chLoad();
+    const got = track(all, `${game.id}/${code}`, challengeDate(code), game, msg);
+    if (!got) return null;
+    got.day.at = Date.now();
+    got.day.date = got.day.date || today();
+    chSave(all);
+    return got;
+  }
+  function challengeFinish(game, code, msg) {
+    const all = chLoad();
+    const d = close(all, `${game.id}/${code}`, challengeDate(code), game, msg);
+    if (d) chSave(all);
+    return d;
+  }
+
   // ---------- the published board (leaderboards.json `daily`) ----------
 
   // { game, n, top: [{ h, p, s, at }] } for a date, or null.
@@ -183,12 +253,20 @@ window.ArcadeDaily = (function () {
 
   // ---------- sharing ----------
 
-  function shareUrl() {
+  // The published site when we're on it, else this page.
+  function base() {
     const site = (window.ARCADE_CONFIG || {}).siteUrl;
     const here = `${location.origin}${location.pathname}`;
-    if (site && here.startsWith(site)) return `${site}daily/`;
-    return `${here}#/daily`;
+    return site && here.startsWith(site) ? site : null;
   }
+  function shareUrl() {
+    return base() ? `${base()}daily/` : `${location.origin}${location.pathname}#/daily`;
+  }
+  // A class challenge's link; `classroom` adds ?class=1 (docs/gallery.md).
+  function challengeUrl(gameId, code, classroom) {
+    return `${base() || `${location.origin}${location.pathname}`}${classroom ? "?class=1" : ""}#/challenge/${gameId}/${code}`;
+  }
+  const codeLabel = (code) => code.toUpperCase();
 
   // "Sat, Oct 4"
   function longDate(date) {
@@ -196,12 +274,13 @@ window.ArcadeDaily = (function () {
     return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   }
 
-  function shareText(game, date, d) {
+  // `code`: a class challenge's card (date is then the day it was played).
+  function shareText(game, date, d, code) {
     const sp = scores().spec(game);
-    const lines = [`Emergent Arcade Daily #${number(date)} · ${game.title}`];
+    const lines = [code ? `Emergent Arcade class challenge ${codeLabel(code)} · ${game.title}` : `Emergent Arcade Daily #${number(date)} · ${game.title}`];
     lines.push(d.first != null ? `${sp.label}: ${scores().format(sp, d.first)}` : "No score this time");
     if (d.marks) lines.push(d.marks);
-    const n = streak(date);
+    const n = code ? 0 : streak(date);
     if (n > 1) lines.push(`🔥 ${n} days in a row`);
     return lines.join("\n");
   }
@@ -209,7 +288,8 @@ window.ArcadeDaily = (function () {
   // The result card as a PNG blob (1080×1080): arcade name, daily number and
   // date, the game's card art, the score, the run's marks and the streak.
   // Marks are drawn as squares, not emoji, so they look the same everywhere.
-  async function cardBlob(game, date, d) {
+  // A class challenge's card says "Challenge K7M2Q", with no streak.
+  async function cardBlob(game, date, d, code) {
     const S = 1080;
     const c = document.createElement("canvas");
     c.width = S;
@@ -231,7 +311,7 @@ window.ArcadeDaily = (function () {
     g.textAlign = "left";
     g.fillStyle = accent;
     g.font = font(800, 76);
-    g.fillText(`Daily #${number(date)}`, 80, 200);
+    g.fillText(code ? `Challenge ${codeLabel(code)}` : `Daily #${number(date)}`, 80, 200);
 
     // Card art.
     const art = window.ArcadeThumbs && window.ArcadeThumbs[game.id];
@@ -286,29 +366,36 @@ window.ArcadeDaily = (function () {
       });
     }
 
-    const n = streak(date);
+    const n = code ? 0 : streak(date);
     g.fillStyle = "#e8e8ee";
     g.font = font(700, 44);
     if (n > 1) g.fillText(`🔥 ${n} days in a row`, 80, 860);
     g.fillStyle = "#9a9aae";
     g.font = font(500, 34);
-    g.fillText("Same run for everyone today. Can you beat it?", 80, 940);
+    g.fillText(code ? "Same run for the whole class. Can you beat it?" : "Same run for everyone today. Can you beat it?", 80, 940);
     g.fillStyle = accent;
-    g.font = font(700, 34);
-    g.fillText(shareUrl().replace(/^https?:\/\//, ""), 80, 1000);
+    const link = (code ? challengeUrl(game.id, code) : shareUrl()).replace(/^https?:\/\//, "");
+    fitAt(g, link, 700, 34, S - 160, font);
+    g.fillText(link, 80, 1000);
 
     return new Promise((ok) => c.toBlob((b) => ok(b), "image/png"));
   }
 
+  function fitAt(g, text, weight, px, width, font) {
+    g.font = font(weight, px);
+    while (px > 20 && g.measureText(text).width > width) g.font = font(weight, (px -= 2));
+  }
+
   // Share sheet with the image where the browser can, else the text and
   // link via ArcadeUI.share. Resolves to the method used, or null.
-  async function share(game, date, d, toast) {
-    const text = shareText(game, date, d);
-    const url = shareUrl();
+  async function share(game, date, d, toast, code) {
+    const text = shareText(game, date, d, code);
+    const url = code ? challengeUrl(game.id, code) : shareUrl();
+    const fileName = code ? `challenge-${code}-${game.id}.png` : `daily-${number(date)}-${game.id}.png`;
     if (navigator.share && navigator.canShare && window.ArcadeUI.touch()) {
       try {
-        const blob = await cardBlob(game, date, d);
-        const file = new File([blob], `daily-${number(date)}-${game.id}.png`, { type: "image/png" });
+        const blob = await cardBlob(game, date, d, code);
+        const file = new File([blob], fileName, { type: "image/png" });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], text: `${text}\n${url}` });
           return "share-image";
@@ -335,11 +422,11 @@ window.ArcadeDaily = (function () {
     }
   }
 
-  async function saveImage(game, date, d) {
-    const blob = await cardBlob(game, date, d);
+  async function saveImage(game, date, d, code) {
+    const blob = await cardBlob(game, date, d, code);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `daily-${number(date)}-${game.id}.png`;
+    a.download = code ? `challenge-${code}-${game.id}.png` : `daily-${number(date)}-${game.id}.png`;
     document.body.append(a);
     a.click();
     a.remove();
@@ -347,8 +434,9 @@ window.ArcadeDaily = (function () {
   }
 
   return {
-    START, today, number, addDays, longDate, pick, pool, hash32,
+    START, today, number, addDays, longDate, pick, pool, hash32, calendar,
     load, day, record, finish, streak, exportData, merge, board,
+    isCode, newCode, challengeDate, codeLabel, challengeDay, challengeRecord, challengeFinish, challengeUrl,
     shareUrl, shareText, cardBlob, share, saveImage,
   };
 })();

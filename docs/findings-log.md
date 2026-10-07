@@ -1508,3 +1508,37 @@ and the thumbnail keep the game's colour. Gallery side: 0 failing after.
 Not checked: every other accent as a fill elsewhere in the cabinet (its
 primary buttons still use `--game-accent`; the cabinet view audits
 `games[0]` only, so a pink game there would not be seen).
+
+## A class challenge rode the Daily's date field
+
+Class challenge PR (teacher idea 4, 2026-10-07). A teacher's link
+`#/challenge/<game>/<code>` had to give a class one seeded run of a daily
+game. The three daily games read `?daily=` with
+`/[?&]daily=(\d{4}-\d\d-\d\d)(?:&|$)/` and seed from
+`GAME_ID + ':' + date`, nothing else. So the gallery writes the 5-character
+code's number (base 31, 28.6 million codes) as a date-shaped string with
+month 13–99 (`0001-17-02`): the games' own check accepts it, the mapping is
+one-to-one, and no calendar day has month 13+, so a challenge can never be
+a Daily. Three game files stayed untouched (no version bumps, no
+monkey runs needed).
+
+Two traps found on the way, both in the data path rather than the games:
+
+- `pick()` checked only the shape of a date. `Date.UTC` rolls month 22 of
+  2025 into October 2026, so a challenge string could have been read as a
+  real day, and within 40 h of it the builder's daily-board window. Fixed:
+  `pick()` now needs a real calendar day (`calendar()`).
+- `build-leaderboards.mjs` puts every round with a `score` and no `daily`
+  on the game's main board. A challenge round stripped of `daily` but
+  keeping `score` would have landed there (the test's row "h" did before
+  the fix). Fixed twice: challenge rows send `challenge_score` instead of
+  `score`, and the builder skips any row with `challenge`.
+
+`test-daily.mjs`: 3,005 codes are stable, distinct, never calendar days,
+ignored by `pick()`, and none hashes (FNV-1a, 32 bits) to a Daily seed of
+the next 366 days for any daily game; challenge rows reach no board.
+Rule: before inventing a parameter for a new mode, check whether an
+existing one can carry it with a value no real input can take, and trace
+every consumer of the rows it produces (here the builder) for what it
+assumes about fields that are missing.
+

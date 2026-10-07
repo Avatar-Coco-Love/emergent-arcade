@@ -67,7 +67,7 @@ common columns is in `extra`. One row per action:
 
 | `action` | when | fields |
 |---|---|---|
-| `open` | a cabinet opens a game | `game_id`, `game_version`, `from` (`list`, `continue`, `archive`, `records`, `spotlight`, `teachers`, `link`, `daily`; `daily` = the date when it opened as the Daily Challenge), `position` (1-based, for cards), `sort` (`featured` or the sort), `verb` / `topic` if filtered, `searching` if a search was active |
+| `open` | a cabinet opens a game | `game_id`, `game_version`, `from` (`list`, `continue`, `archive`, `records`, `spotlight`, `teachers`, `link`, `daily`, `challenge`; `daily` = the date when it opened as the Daily Challenge, `challenge` = the code of a class challenge), `position` (1-based, for cards), `sort` (`featured` or the sort), `verb` / `topic` if filtered, `searching` if a search was active |
 | `share` | Share pressed | `game_id`, `game_version`, `method` (`share` sheet, `copy`, `prompt`), `from` (`toolbar`, `menu`, `about`); the gallery header's share (the whole arcade) has `from: "gallery"` and no game fields |
 | `download` | a standalone copy was saved | `game_id`, `game_version`, `from` |
 | `download_topic` | a topic's zip was saved ("Download all <topic> games") | `topic`, `games` (count), `from` (`gallery`, `teachers`) |
@@ -80,13 +80,19 @@ common columns is in `extra`. One row per action:
 | `records` | the Records view (`#/records`) opened | `mine` (1 with the "My bests" filter) |
 | `teachers` | the teacher page (`#/teachers`) opened | |
 | `classroom_link` | "Copy classroom link" pressed on the teacher page | `method` (`copy`, `select`) |
+| `challenge_link` | "Make a class challenge" or "Copy challenge link" pressed on the teacher page | `game_id`; `classroom` (1 if the link turns classroom mode on) on Make, `method` (`copy`, `select`) on copy |
+| `challenge` | the counted (first) run of a class challenge ended | `game_id`, `game_version`, `challenge` (code), `score`, `levels` ([daily.md](daily.md), "Class challenge") |
 | `daily` | the counted (first) run of a Daily Challenge ended (`arcade:final`) | `game_id`, `game_version`, `daily` (date), `score`, `levels` ([daily.md](daily.md)) |
 | `handle` | a public name picked or typed, or the leaderboard toggled, in the cabinet's Records panel or the Records view | `handle` and `name` (when listed; `name` only for a typed one), `lb` (1 or 0); `scripts/build-leaderboards.mjs` reads it ([scores.md](scores.md)) |
 
 Daily Challenge rounds are ordinary `round` rows with `daily` (the date)
 and `daily_first` (1 for the run that counts, 0 for practice), and no
 `board` ([daily.md](daily.md)); `fetch-telemetry.mjs` adds a `daily:`
-section, one line per date.
+section, one line per date. Class challenge rounds carry `challenge`
+(the code), `challenge_first` and `challenge_score` instead, with no
+`daily`, `score` or `board`, so they reach no leaderboard; shares from the
+challenge card have `from: "challenge"`. With classroom mode on (the
+default for a challenge link) none of this is sent.
 
 `node scripts/fetch-telemetry.mjs` reads them too and prints a short
 `gallery:` section (opens by source and list position, shares by method,

@@ -22,8 +22,9 @@
 //   text      the smallest text on screen at 360×740 (DOM and canvas, in CSS
 //             px): pass at 12 px and up, partial from 10 px.
 //
-// The gallery side also covers the topic download bar and the topic zip's
-// offline index.html (assets/bundle.js).
+// The gallery side also covers the topic download bar, the topic zip's
+// offline index.html (assets/bundle.js), the teacher page with a class
+// challenge made, and a class challenge (intro and result card).
 //
 // One line per target per check. Exit code 1 if a gallery-side check fails;
 // game checks only report (each game's fixes are its own revision). CI runs
@@ -342,6 +343,17 @@ const DOM_TEXTS = (opts) => {
       }
     }
     if (clipped) continue;
+    // Scrolled under a sticky or fixed bar (the cabinet intro's Play bar on
+    // a long How to play): covered, so not seen.
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    if (cx >= 0 && cy >= 0 && cx < innerWidth && cy < innerHeight) {
+      let covered = false;
+      for (let h = document.elementFromPoint(cx, cy); h && !h.contains(el); h = h.parentElement) {
+        if (el.contains(h)) break;
+        if (/^(sticky|fixed)$/.test(getComputedStyle(h).position)) { covered = true; break; }
+      }
+      if (covered) continue;
+    }
     out.push({
       text: s.slice(0, 30), color: cs.color, alpha: op, size: parseFloat(cs.fontSize), bold: parseInt(cs.fontWeight, 10) >= 700,
       box: [r.left + (opts.full ? scrollX : 0), r.top + (opts.full ? scrollY : 0), r.width, r.height],
@@ -676,12 +688,29 @@ async function auditGallery() {
     }, bigTopic);
     await ctx.close();
   }
+  const chGame = manifest.games.find((g) => g.daily && g.status !== "archived");
   const views = [
     { target: "gallery", url: `${base}#/`, full: true, ready: ".game-card" },
     { target: "topic download", url: `${base}#/?topic=${bigTopic}`, full: false, ready: "#topicBundle:not([hidden])" },
-    { target: "cabinet", url: `${base}#/play/${g0.id}`, full: false, ready: "#panel:not([hidden])",
+    { target: "cabinet", url: `${base}#/play/${g0.id}`, full: false, ready: "#panel:not([hidden])", cabinet: true,
       states: [async () => {}, panel("achievements"), panel("rate"), async (page) => { await page.keyboard.press("Escape"); await sleep(300); }] },
-    { target: "teacher page", url: `${base}#/teachers`, full: true, ready: "#teachTopicRows tr" },
+    // With a class challenge made, so its link, code and status are checked too.
+    { target: "teacher page", url: `${base}#/teachers`, full: true, ready: "#teachTopicRows tr",
+      prep: async (page) => { await page.click("#challengeMake"); await page.waitForSelector("#challengeOut:not([hidden])"); } },
+    // A class challenge: the intro with its note, then the result card.
+    ...(chGame ? [{ target: "class challenge", url: `${base}#/challenge/${chGame.id}/k7m2q`, full: false, ready: "#cabinet:not([hidden])", cabinet: true,
+      prep: (page) => page.waitForFunction(() => document.getElementById("loadState").hidden && !document.getElementById("panel").hidden, null, { timeout: 10000 }),
+      states: [async () => {}, async (page) => {
+        await page.keyboard.press("Escape");
+        const f = page.frames().find((fr) => fr.url().includes("daily="));
+        await f.evaluate((id) => {
+          const t = new URLSearchParams(location.search).get("daily");
+          parent.postMessage({ game: id, type: "arcade:result", outcome: "win", time: 5, score: 1, run: "a11y", daily: t, level: 1 }, "*");
+          parent.postMessage({ game: id, type: "arcade:final", run: "a11y", score: 1, daily: t }, "*");
+        }, chGame.id);
+        await page.waitForSelector('#panel:not([hidden]) [data-body="daily"]:not([hidden])', { timeout: 5000 });
+        await page.waitForFunction(() => document.getElementById("dailyCard").src.startsWith("blob:"), null, { timeout: 5000 });
+      }] }] : []),
     { target: "classroom note", url: `${base}?class=1#/`, full: false, ready: "#classroomNote:not([hidden])" },
     { target: "offline index", url: `${base}__offline/index.html`, full: true, ready: "a.play" },
   ];
@@ -692,6 +721,7 @@ async function auditGallery() {
     try {
       await page.goto(v.url);
       await page.waitForSelector(v.ready);
+      if (v.prep) await v.prep(page);
       await sleep(300);
       for (const setup of v.states || [async () => {}]) {
         await setup(page);
@@ -709,6 +739,7 @@ async function auditGallery() {
       const page = await ctx.newPage();
       await page.goto(v.url);
       await page.waitForSelector(v.ready);
+      if (v.prep) await v.prep(page);
       const found = await page.evaluate(() => {
         const moving = document.getAnimations().filter((a) => a.playState === "running").length;
         let slow = 0, smooth = getComputedStyle(document.documentElement).scrollBehavior === "smooth";
@@ -754,6 +785,7 @@ async function auditGallery() {
         const page = await ctx.newPage();
         await page.goto(v.url);
         await page.waitForSelector(v.ready);
+      if (v.prep) await v.prep(page);
         await sleep(300);
         // The game frame's own colours belong to the game's row.
         await page.evaluate(() => { const f = document.getElementById("gameFrame"); if (f) f.style.visibility = "hidden"; });
@@ -778,7 +810,8 @@ async function auditGallery() {
       const page = await ctx.newPage();
       await page.goto(v.url);
       await page.waitForSelector(v.ready);
-      const walk = await tabWalk(page, v.target === "cabinet" ? 40 : 160);
+      if (v.prep) await v.prep(page);
+      const walk = await tabWalk(page, v.cabinet ? 40 : 160);
       const notes = [];
       if (v.target === "gallery") {
         // Open the first card with Enter: the game (or its intro) gets focus.
