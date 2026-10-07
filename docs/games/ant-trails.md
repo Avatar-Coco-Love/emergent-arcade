@@ -54,9 +54,7 @@ food layout, twist and bonus; ants alive at sundown start the next day.
   the pointer. **Rescue:** a drag of >20 px (`RESCUE_PX`) within 250 ms
   real time (`RESCUE_MS`) of the rain starting turns it into a trail from
   the press point and puts back the scent that rain wiped (`rainLost`).
-  Pointer only; keys pick the verb by key. Telemetry: `rescues` per round
-  (rains counts only the rains kept). Why: a phone player kept getting
-  rain when she rested her finger before dragging (2026-10-07).
+  Pointer only. Why: findings, *A short hold timer steals the drag verb*.
 
 ## Accessibility (v7, `node scripts/a11y-audit.mjs ant-trails`: 5 pass, motion partial by design, 3/3 runs)
 
@@ -137,10 +135,8 @@ v5 shifted `level` by one: compare v4 and v5 data by day name (history).
 - Accessibility: red rival ants differ from yours by hue only (deutan and
   protan see two darks; too small for the audit). A lighter rival body or
   a mark if day-6 players mix them up.
-- v5 telemetry (3 players, all touch): `ff_s` used every day (median
-  15–75 s); win rate 92%, sessions median 67 s, 2 rounds. Goal 3+ rounds.
-  Watch retries and `rain_spider_s / rain_s` (washes are still rare), and
-  `keys` (v7).
+- Watch `rescues` vs `rains` (v8: a high share means the hold is still
+  too short), `rain_spider_s / rain_s`, retries and `keys`. v5 numbers: history.
 - Idle wins early days (own trails recruit): lower `CARRY_LAY` if they play themselves.
 - Day 5 (two spiders) is the bots' wall: start spider 2 at 20 s if players stall.
 - More days, endless mode, pebble, decoy crumb: history (ideas).

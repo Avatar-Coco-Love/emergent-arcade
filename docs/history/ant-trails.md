@@ -12,6 +12,10 @@ v1–v7: `HOLD_MS` 150, no rescue. A press still for 150 ms became rain and
 stayed rain; a finger resting a moment before dragging (common on phones)
 rained instead of drawing, and wiped the trail under it.
 
+v5 telemetry (moved from the notes at v8): 3 players, all touch; `ff_s`
+used every day (median 15–75 s); win rate 92%, sessions median 67 s, 2
+rounds.
+
 ### v7 notes move (accessibility revision)
 
 v5 balance notes (still true in v7):
