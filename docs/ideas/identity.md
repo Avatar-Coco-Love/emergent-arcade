@@ -50,6 +50,25 @@ The id already *is* the identity, so let the player carry it.
 No backend or Apps Script change: rows already carry `client_id`; the
 builder keys on the hash. No new data is collected.
 
+## Making people use it (added 2026-10-07)
+
+Many players will want to keep a name without an account; the code only
+helps if they save it. Fold these into the build:
+
+- **Offer it at the right moment**: right after a name is typed and
+  accepted, a callout "Keep AvatarCoco on other devices: save your code".
+  Players who never type a name never see it.
+- **Words, not hex**: show the code as ~6 random words
+  (`maple-otter-rocket-violet-harbor-seven`), easy to note or read off a
+  phone, still unguessable. New ids would be generated as words; existing
+  UUIDs keep working and show as they are.
+- **No player-chosen secret**: a chosen word ("coco123") is guessable,
+  and the public hash `p` comes from the id, so names could be taken by
+  offline guessing. Generated words only.
+- **Lost codes heal**: free a typed name automatically when its id hasn't
+  played for several months (builder side, `scripts/build-leaderboards.mjs`),
+  so a lost name comes back without a takedown.
+
 ## Open questions
 
 - Restore over an id that already has bests and a claim: replace (simple,
@@ -74,7 +93,7 @@ Build the recovery code from docs/ideas/identity.md in one PR, so a player keeps
 
 1. Read docs/ideas/identity.md, docs/scores.md ("Typed names", per-browser keys), docs/gallery.md (Records panel, Records view, classroom mode, Per-browser storage), assets/name-ctl.js, assets/progress.js and assets/feedback.js (clientId).
 
-2. Build: "Save your leaderboard identity" (show the code, Copy, the password warning) and "Use a saved code" (paste, validate, confirm, set arcade.clientId, reload) in the shared name controls (assets/name-ctl.js, so the 🏆 panel and Records view both get it); an opt-in "include my leaderboard identity" in Export, applied on Import with the same confirm; hidden in classroom mode. Decide the open questions in the brief and say what you chose.
+2. Build: "Save your leaderboard identity" (show the code, Copy, the password warning) and "Use a saved code" (paste, validate, confirm, set arcade.clientId, reload) in the shared name controls (assets/name-ctl.js, so the 🏆 panel and Records view both get it), offered in a callout right after a typed name is accepted, with the code as generated words (see "Making people use it"); an opt-in "include my leaderboard identity" in Export, applied on Import with the same confirm; hidden in classroom mode. Decide the open questions in the brief and say what you chose.
 
 3. Accessibility and wording: names on every control, a 3:1 focus ring, keyboard alone, light and dark, {tap}/click by device where the gallery does; the code field is read-only and selectable.
 
