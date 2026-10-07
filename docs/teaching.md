@@ -20,10 +20,21 @@ all": opened inside the zip, the links between files break), copy the
 folder to each computer or a shared drive, and open `index.html` in any
 browser. It needs no network and sends nothing.
 
+**Class challenge:** on the teacher page, pick a game under "Class
+challenge" and press **Make a class challenge**. You get a link with a
+short code (like `K7M2Q`). Everyone who opens it plays the same run of that
+game, so the class can compare results: each student's first run is their
+result, and later runs are practice. At the end the game shows a result
+card with the code and the score; there's no leaderboard or sign-up, so
+students show you the card, share it, or read their score out. The link
+turns on classroom mode unless you untick it. Make a new link for each
+class (one browser keeps one first run per code).
+
 ## For maintainers
 
 - Page: `#teachersView` in `index.html`, `assets/teachers.js`; classroom
-  mode: `assets/classroom.js`; topic zips: `assets/bundle.js`
+  mode: `assets/classroom.js`; class challenges: `assets/daily.js`
+  ([daily.md](daily.md), "Class challenge"); topic zips: `assets/bundle.js`
   ([gallery.md](gallery.md), "Topic download"). Design notes: [gallery.md](gallery.md),
   "Teacher page" and "Classroom mode".
 - Edit the page's wording in `index.html`. The subject table needs no edits:

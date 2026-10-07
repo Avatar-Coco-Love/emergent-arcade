@@ -73,6 +73,50 @@ more as the daily and fails if a result lacks the date.
 | counterfeit-scale | Endless cases from the day's seed | cases cracked | 3 strikes |
 | surprise-party | a Party Season from the day's seed | parties | out of envelopes |
 
+## Class challenge
+
+A teacher's version of the daily (teacher idea 4): one game, a seed the
+teacher picked, for one class. Made on the teacher page
+([gallery.md](gallery.md), "Teacher page"); played at
+`#/challenge/<game>/<code>`.
+
+- **The code**: 5 characters from `abcdefghjkmnpqrstuvwxyz23456789` (31,
+  no i, l, o, 0 or 1, so it reads aloud and off a board; 28.6 million
+  codes), random from `crypto.getRandomValues`. Links use lower case; the
+  screen and card show upper case (`K7M2Q`).
+- **The seed**: `ArcadeDaily.challengeDate(code)` writes the code's number
+  (base 31) as a date-shaped string with month 13–99, e.g. `0001-17-02`.
+  The gallery loads `games/<file>?daily=<that>`, so the game's own `§ daily`
+  block reads it and seeds from `GAME_ID + ':' + it` with no game change.
+  The mapping is one-to-one (two codes never share a string), and no
+  calendar day has a month above 12, so a challenge can never replay a
+  Daily's run; `pick()` now rejects non-calendar dates, so the daily board
+  ignores it too. `test-daily.mjs` checks 3,000 codes against every Daily
+  seed of the next 366 days for each daily game (FNV-1a, 32 bits): no
+  clash.
+- **Play**: the cabinet in daily mode: title bar `Challenge K7M2Q`, the
+  intro note and a toast say the whole class gets the same run. The first
+  run **on this browser for this game and code** is the result; later runs
+  are practice (toast). A lab computer shared by two classes needs a code
+  per class (the teacher page says "Make a new one for each class").
+- **The card**: the daily card with `Challenge K7M2Q` instead of
+  `Daily #N`, the day it was played, no streak, "Same run for the whole
+  class", and the challenge link. Share result and Save image as usual.
+- **No leaderboard**, decided: a class compares cards (shown, shared, or
+  read out); there are no accounts and no backend change. The panel says so
+  in place of the board. Challenge rounds go out (when stats are on) as
+  `round` rows with `challenge` (the code), `challenge_first` and
+  `challenge_score` instead of `daily`, `daily_first` and `score`, so
+  neither board in `build-leaderboards.mjs` takes them (it also skips any
+  row with `challenge`; tested). With classroom mode on (the teacher page
+  adds `?class=1` by default) nothing is sent at all.
+- **Storage**: `arcade.challenge` = `{ "<game>/<code>": { …as a day, date,
+  at } }`, the last 40; not exported, erased by "Reset everything". The
+  Daily's `arcade.daily` is never touched.
+- Any game with `daily` in its manifest (and not archived) can be a
+  challenge, whatever its `from` date. A bad game or code shows the gallery
+  with a notice.
+
 ## Data
 
 - Telemetry: daily rounds carry `daily` and `daily_first` (1 for the
@@ -102,6 +146,9 @@ more as the daily and fails if a result lacks the date.
   in their notes). Set `from` a few days out.
 - A "yesterday" line in the banner (yesterday's game and winner) and a
   daily row in the Records view.
+- Class challenges: a "class results" page where students type their
+  card's score would need a backend (it was left out on purpose); watch
+  `challenge_link` and `challenge` events first.
 - Plausibility checks for daily scores (all players play the same levels,
   so a score far above the bots' is suspect).
 - A daily-specific card image for link previews (the `daily/` page shows

@@ -206,7 +206,7 @@ function gallerySummary(rows) {
     const listed = opens.filter((r) => r.from === "list");
     if (listed.length) console.log(`  list position opened: ${count(listed, "position")} (sort: ${count(listed, "sort")})`);
   }
-  for (const [action, key] of [["share", "method"], ["download", "game_id"], ["sort", "sort"], ["filter", "verb"], ["settings", "setting"], ["nudge", "result"], ["teachers", "action"], ["classroom_link", "method"], ["download_topic", "topic"]]) {
+  for (const [action, key] of [["share", "method"], ["download", "game_id"], ["sort", "sort"], ["filter", "verb"], ["settings", "setting"], ["nudge", "result"], ["teachers", "action"], ["classroom_link", "method"], ["download_topic", "topic"], ["challenge_link", "game_id"], ["challenge", "game_id"]]) {
     const list = by(action);
     if (list.length) console.log(`  ${action}: ${list.length} (${count(list, key)})`);
   }

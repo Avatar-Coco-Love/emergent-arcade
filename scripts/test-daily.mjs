@@ -42,6 +42,30 @@ ok(daily.number(daily.START) === 1 && daily.number(daily.addDays(daily.START, 9)
 const real = daily.pool(games, daily.addDays(daily.START, 30));
 ok(real.length >= 2, `real manifest: ${real.length} games in the rotation (${real.join(", ")})`);
 
+// ---------- class challenge codes ----------
+
+// Codes from the gallery's alphabet: the corners plus a seeded spread.
+const ALPHA = "abcdefghjkmnpqrstuvwxyz23456789";
+const codes = ["aaaaa", "99999", "k7m2q", "aaaab", "baaaa"];
+for (let i = 0, x = 7; i < 3000; i++) {
+  let c = "";
+  for (let k = 0; k < 5; k++) c += ALPHA[(x = (Math.imul(x, 1103515245) + 12345) >>> 0) % 31];
+  codes.push(c);
+}
+ok(codes.every((c) => daily.isCode(c)) && !daily.isCode("abcd1") && !daily.isCode("ABCDE"), "codes: 5 of 31 characters, lower case");
+ok(codes.every((c) => daily.challengeDate(c) === daily.challengeDate(c)), "a challenge code gives the same seed every time");
+ok(codes.every((c) => /^\d{4}-\d\d-\d\d$/.test(daily.challengeDate(c))), "the seed string passes the games' ?daily= check (no game change)");
+ok(new Set(codes.map(daily.challengeDate)).size === new Set(codes).size, "different codes, different seed strings");
+ok(codes.every((c) => !daily.calendar(daily.challengeDate(c)) && daily.pick(games, daily.challengeDate(c)) === null), "never a calendar day: pick() and the daily board ignore it");
+const year = Array.from({ length: 366 }, (_, i) => daily.addDays(new Date().toISOString().slice(0, 10), i));
+const dailyIds = games.filter((g) => g.daily).map((g) => g.id);
+let clashes = 0;
+for (const id of dailyIds) {
+  const seeds = new Set(year.map((d) => daily.hash32(`${id}:${d}`)));
+  for (const c of codes) if (seeds.has(daily.hash32(`${id}:${daily.challengeDate(c)}`))) clashes++;
+}
+ok(clashes === 0, `${codes.length} codes × ${dailyIds.length} games: no seed equals a Daily seed of the next year`, `${clashes} clashes`);
+
 // ---------- the builder's daily boards ----------
 
 const dir = mkdtempSync(join(tmpdir(), "daily-"));
@@ -86,6 +110,16 @@ ok([r.s("c"), r.s("d"), r.s("e"), r.s("f")].every((x) => x === undefined), "wron
 ok(r.b && r.b.n === 2, "n counts the players on the board", `n ${r.b && r.b.n}`);
 const main = ((r.data.games[game] || {}).boards || {}).main || [];
 ok(!main.length, "daily rounds stay off the game's own board");
+
+// Class challenge rounds reach no board, even with a score or a date-shaped daily.
+const chCode = "k7m2q";
+const rc = build([
+  row("h", 5, { challenge: chCode, challenge_first: 1, daily: undefined, daily_first: undefined }),
+  row("i", 5, { daily: daily.challengeDate(chCode) }),
+  row("j", 5, { challenge: chCode, challenge_score: 5, score: undefined, daily: undefined, daily_first: undefined }),
+]);
+const anyBoard = Object.values(rc.data.games || {}).some((g) => Object.values(g.boards || {}).some((l) => l.length));
+ok(!anyBoard && !Object.keys(rc.data.daily || {}).length, "challenge rounds stay off every board");
 
 // Incremental: the next build starts from this file.
 const prev = r.data;

@@ -10,7 +10,7 @@ the games, not just play them.
 | 1 | Teacher page on the site | small | built (`#/teachers`) |
 | 2 | Classroom mode link (`?class=1`) | small | built |
 | 3 | "What's going on here" notes per game | medium | later: let teacher feedback (7) decide 3 vs 4 |
-| 4 | Class challenge link (teacher-chosen seed) | medium | next (prompt at the end) |
+| 4 | Class challenge link (teacher-chosen seed) | medium | built (`#/challenge/<id>/<code>`, 2026-10-07) |
 | 5 | Download a whole subject at once | medium | built (topic zip, 55–360 KB) |
 | 6 | Accessibility audit | audit, then per-game fixes | audited (`docs/accessibility.md`); gallery fixed; Wildfire Line fixed (v4), Tidewright (v3), Pressure Grid (v11), Island Census (v3), Murmuration (v6), Geode (v3), Ant Trails (v7), Hourglass Delivery (v5), Orbit Garden (v8), Hot Iron (v6), Loom (v4), Surprise Party (v4), Terrace Garden (v4), Lighthouse Keeper (v4); every canvas labelled, Rail Yard frees Tab (2026-10-05); other games open |
 | 7 | "I used this in class" feedback form | small | built (kind `classroom`) |
@@ -52,6 +52,17 @@ The Daily Challenge (`docs/daily.md`) already gives everyone the same
 seeded run of one game. Let a teacher make a link with their own seed and
 game (only games with `daily` in the manifest), so a class plays the same
 run and compares results. Reuse the daily result card.
+
+**Built 2026-10-07** ([daily.md](../daily.md), "Class challenge";
+[gallery.md](../gallery.md), "Teacher page"): "Make a class challenge" on
+the teacher page (a game with `daily`, classroom mode on by default) gives
+`…#/challenge/<id>/<code>`, a 5-character code (31 unambiguous characters).
+The code reaches the game as its `?daily=` value written as a date with
+month 13–99, so no game changed and no challenge can replay a Daily. First
+run per browser per code counts; the daily card shows `Challenge K7M2Q`;
+no leaderboard (the class compares cards or reads scores out; rounds go out
+as `challenge_score`, never `score`). 3 games can be challenges today (Coat
+Check, Counterfeit Scale, Surprise Party).
 
 ## 5. Download a whole subject at once
 
@@ -695,7 +706,7 @@ Build idea 5 from docs/ideas/teachers.md in one PR: download every game of a sub
 6. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–4 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 6 at its end.
 ```
 
-## Next: Class challenge link (idea 4, prompt below)
+## Prompt used for idea 4 (built 2026-10-07)
 
 Chosen 2026-10-06, after the topic zip (idea 5). Still 0 classroom
 reports, so nothing points to 3 over 4; the teacher page had 3 opens and
@@ -709,9 +720,9 @@ have `daily` today (Coat Check, Counterfeit Scale, Surprise Party), so
 the challenge list is short until more join the rotation.
 
 ```
-Build idea 4 from docs/ideas/teachers.md in one PR: a class challenge link, so a class plays the same seeded run of one game and compares results. Read CLAUDE.md first and follow it.
+Build idea 4 from docs/ideas/teachers.md in one PR: a class challenge link, so a class plays the same seeded run of one game and compares results. Read CLAUDE.md first and follow it. Classroom reports were still 0 on 2026-10-07, so nothing points to idea 3 instead.
 
-1. Read docs/ideas/teachers.md (idea 4, and ideas 1, 2, 5 and 7 for the teacher page), docs/daily.md (the pick, the game's side of the protocol, the result card, boards), docs/gallery.md (routes, the teacher page, classroom mode, "Topic download"), and assets/daily.js. Run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs (the gallery rows: teachers, download_topic, daily). If classroom reports ask for idea 3 instead, or mention challenges or downloads, say so before starting.
+1. Read docs/ideas/teachers.md (idea 4, and ideas 1, 2, 5 and 7 for the teacher page), docs/daily.md (the pick, the game's side of the protocol, the result card, boards), docs/gallery.md (routes, the teacher page, classroom mode, "Topic download"), assets/daily.js, and the "Classroom and accessibility" section of docs/adding-a-game.md. Run node scripts/fetch-feedback.mjs --classroom and node scripts/fetch-telemetry.mjs (the gallery rows: teachers, download_topic, daily). If classroom reports ask for idea 3 instead, or mention challenges or downloads, say so before starting.
 
 2. Design: on the teacher page, "Make a class challenge": pick a game (only games with `daily` in the manifest) and get a link like #/challenge/<game>/<code> (a short code the seed is derived from; say how, and why it can't collide with a Daily date). Opening it plays that game in daily mode with that seed: same run for everyone, practice runs after the first, and the daily result card with the challenge code instead of "Daily #N". Decide and say: whether challenge results go to any leaderboard (likely not; classroom mode may be on), whether the first run counts once per browser per code, and how the teacher sees the class's results without accounts (likely: students share the card or read their score aloud; no backend change). Must not change the Daily Challenge for anyone else.
 
@@ -719,7 +730,7 @@ Build idea 4 from docs/ideas/teachers.md in one PR: a class challenge link, so a
 
 4. Tests: node scripts/validate.mjs, node scripts/test-daily.mjs (add: a challenge code gives the same seed every time and differs from every Daily seed of the next year), node scripts/smoke-gallery.mjs (add a check: make a link on the teacher page, open it, the game gets the challenge seed, the card shows the code), node scripts/a11y-audit.mjs --gallery (all pass, add the challenge view), node scripts/test-bundle.mjs (still passes). If a game file changes, node scripts/monkey-games.mjs <id>.
 
-5. Update docs/daily.md and docs/gallery.md (routes, how it's built), docs/teaching.md (one paragraph for teachers), idea 4 in docs/ideas/teachers.md (done), docs/telemetry.md if a new gallery event is logged, and add what the build teaches to docs/findings.md if anything is new (full entry in docs/findings-log.md). Push, open the PR (template checklist), watch CI until green. No playtest artifact is needed for a gallery change unless a game file changed; if the challenge view is worth a look, publish the gallery as a private artifact and link it in the PR.
+5. Update docs/daily.md and docs/gallery.md (routes, how it's built), docs/teaching.md (one paragraph for teachers), idea 4 in docs/ideas/teachers.md (done) and docs/ideas/README.md ("Next up"), docs/telemetry.md if a new gallery event is logged, and add what the build teaches to docs/findings.md if anything is new (full entry in docs/findings-log.md). Push, open the PR (template checklist), watch CI until green. No playtest artifact is needed for a gallery change unless a game file changed; if the challenge view is worth a look, publish the gallery as a private artifact and link it in the PR.
 
-6. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next teacher idea, chosen from docs/ideas/teachers.md 3–4 (or a game's accessibility revision, if the audit found something serious) using any classroom feedback received so far, in the same shape as this prompt. Include this same step 6 at its end.
+6. End with the handoff (at most 5 lines), then a ready-to-paste prompt for the next job in docs/ideas/README.md, "Next up", using any classroom feedback and telemetry received so far, in the same shape as this prompt. Include this same step 6 at its end.
 ```

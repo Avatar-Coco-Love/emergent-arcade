@@ -77,6 +77,11 @@ ideas).
   links here; hidden while filtering. Its "Play today's" button is the site
   accent; the game's accent is only its stripe (a pink fill failed the
   colour-blind audit on Surprise Party's day, docs/findings.md).
+- `#/challenge/<id>/<code>`: a class challenge, made on the teacher page:
+  that game (one with `daily`) in daily mode with the code's seed, the
+  result card with the code, no board ([daily.md](daily.md), "Class
+  challenge"). Opens log `from: challenge` and `challenge`. A wrong game or
+  code shows the gallery with a notice.
 - `#/spotlight`: the Spotlight view (below). A cabinet opened from it goes
   back to it, with focus on the Play link used.
 - `#/teachers`: the teacher page (below), linked from the footer ("For
@@ -117,8 +122,8 @@ the games on load. A revision starts its game over.
 `#/teachers` (`assets/teachers.js`, `#teachersView`): what used to be
 `docs/teaching.md`, for teachers who can't reach GitHub. In order: lede,
 two cards (free, offline copies), Classroom mode (the link in a read-only
-field and **Copy classroom link**; no clipboard selects the text), Games by
-subject, Privacy, Going further (GitHub links set from `config.repo`), and
+field and **Copy classroom link**; no clipboard selects the text), Class
+challenge (below), Games by subject, Privacy, Going further (GitHub links set from `config.repo`), and
 "I used this in class".
 
 - **Games by subject**: a table built at runtime from `games.json` and
@@ -142,8 +147,20 @@ subject, Privacy, Going further (GitHub links set from `config.repo`), and
 - **Download all as zip**: under each subject's games, the topic zip
   (below). Its name starts with the visible text: "Download all as zip:
   fluid dynamics, 3 games". The Offline copies card says to unzip first.
+- **Class challenge**: a Game select (games with `daily`, not archived, by
+  title), "With classroom mode" (checked: the link gets `?class=1`) and
+  **Make a class challenge**, which draws a new code and shows the link in
+  a read-only field with **Copy challenge link** (no clipboard selects it,
+  like the classroom link), the code, and "Try it yourself" (the hash link;
+  the cabinet's ← comes back to it). Changing the game or the box keeps
+  the code. The status line says "{Tap} Copy challenge link" in the
+  device's words (`ArcadeWording`). Built in `assets/teachers.js`; the code,
+  seed and card are `assets/daily.js`. Smoke-tested by "class challenge";
+  audited by `a11y-audit.mjs --gallery` ("teacher page" with a challenge
+  made, and "class challenge": intro and result card).
 - Logs a `teachers` gallery event on open, `classroom_link` (`method`) on
-  copy, and `open` with `from: teachers`.
+  copy, `challenge_link` on Make (`game_id`, `classroom`) and on copy
+  (`game_id`, `method`), and `open` with `from: teachers`.
 
 ## Classroom mode
 
@@ -252,6 +269,7 @@ of the teacher page's subject table.
 | `arcade.clientId` | anonymous id (kept by "Reset everything"; "New anonymous id" replaces it) |
 | `arcade.telemetryOptOut` | `"1"` = send no play stats or gallery events |
 | `arcade.classroom` | `"1"` = classroom mode (above); "Reset everything" keeps it |
+| `arcade.challenge` | class challenge results, `{ "<game>/<code>": … }`, the last 40 ([daily.md](daily.md)); not exported |
 
 Export (`arcade-progress.json`): `{ format: "emergent-arcade-progress",
 version: 1, exported_at, achievements, seenVersion, seenIntro, bests }`. Import

@@ -539,6 +539,77 @@ for (const vp of VIEWPORTS) {
     return `${dailyGame.id}: ${lb.join(" | ")}`;
   });
 
+  await check(tag("class challenge: teacher link, seeded run, card with the code"), async () => {
+    const chGame = games.filter((g) => g.daily && g.status !== "archived").sort((x, y) => x.id.localeCompare(y.id)).find((g) => g.id !== (dailyGame && dailyGame.id)) || dailyGame;
+    assert(chGame, "no game with daily");
+    await page.goto(`${base}#/teachers`);
+    await page.waitForSelector("#teachersView:not([hidden])");
+    const options = await page.locator("#challengeGame option").evaluateAll((os) => os.map((o) => o.value));
+    assert(options.length === games.filter((g) => g.daily && g.status !== "archived").length, `options ${options}`);
+    await page.selectOption("#challengeGame", chGame.id);
+    await page.locator("#challengeMake").click();
+    await page.waitForSelector("#challengeOut:not([hidden])");
+    const withClass = await page.locator("#challengeLink").inputValue();
+    const m = withClass.match(/\?class=1#\/challenge\/([a-z0-9-]+)\/([a-z2-9]{5})$/);
+    assert(m && m[1] === chGame.id, withClass);
+    const code = m[2];
+    assert((await page.locator("#challengeCode").textContent()) === code.toUpperCase(), "code shown");
+    assert((await page.locator("#challengeStatus").textContent()).includes(coarse ? "Tap Copy" : "Click Copy"), "tap/click wording");
+    await page.locator("#challengeClass").uncheck(); // keep stats on for the rows below
+    const link = await page.locator("#challengeLink").inputValue();
+    assert(link === `${base}#/challenge/${chGame.id}/${code}`, link);
+    assert(await noHScroll(page), "horizontal scroll");
+    await shot("challenge-teacher");
+
+    await page.goto(link);
+    await page.waitForSelector("#cabinet:not([hidden])");
+    await waitGame(page);
+    const tagDate = Daily.challengeDate(code);
+    const frame = page.frames().find((f) => f.url().includes(`daily=${tagDate}`));
+    assert(frame, `frame src ${await page.locator("#gameFrame").getAttribute("src")}`);
+    assert((await frame.evaluate(() => location.search)).includes(`daily=${tagDate}`), "the game didn't get the challenge seed");
+    assert((await page.locator("#cabVersion").textContent()) === `Challenge ${code.toUpperCase()}`, "title bar tag");
+    assert(await page.locator("#dailyBtn").isVisible(), "no result button");
+    if (await page.locator("#panel").isVisible()) {
+      assert((await page.locator("#aboutDaily").textContent()).includes(`Class challenge ${code.toUpperCase()}`), "intro note");
+      await page.locator("#aboutPlay").click();
+    }
+    const post = (msg) => frame.evaluate(([id, m2]) => parent.postMessage(Object.assign({ game: id }, m2), "*"), [chGame.id, msg]);
+    const n0 = rows.length;
+    await post({ type: "arcade:result", outcome: "win", time: 9, score: 1, run: "chal1", daily: tagDate, level: 3 });
+    await post({ type: "arcade:result", outcome: "loss", time: 9, score: 1, run: "chal1", daily: tagDate, level: 4 });
+    await post({ type: "arcade:final", run: "chal1", score: 1, daily: tagDate });
+    await page.waitForSelector('#panel:not([hidden]) [data-body="daily"]:not([hidden])', { timeout: 5000 });
+    await page.waitForFunction(() => document.getElementById("dailyCard").src.startsWith("blob:"), null, { timeout: 5000 });
+    assert((await page.locator("#panelTitle").textContent()) === `Challenge ${code.toUpperCase()}`, "panel title");
+    const alt = await page.locator("#dailyCard").getAttribute("alt");
+    assert(alt.includes(`class challenge ${code.toUpperCase()} · ${chGame.title}`) && alt.includes("🟩🟥"), alt);
+    assert(await page.locator("#challengeNote").isVisible() && !(await page.locator("#dailyBoard").isVisible()), "board shown for a challenge");
+    await shot("challenge-result");
+    for (let i = 0; i < 40 && rows.slice(n0).filter((x) => x.kind === "round").length < 2; i++) await page.waitForTimeout(50);
+    const rounds = rows.slice(n0).filter((x) => x.kind === "round");
+    assert(rounds.length === 2 && rounds.every((x) => x.challenge === code && x.challenge_first === 1 && x.daily === undefined && x.score === undefined && x.board === undefined), JSON.stringify(rounds[0]));
+    assert(rows.slice(n0).some((x) => x.action === "challenge" && x.challenge === code), "no challenge event");
+    if (!coarse) {
+      await page.locator("#dailyShare").click();
+      await page.waitForSelector(".toast:has-text('Result copied')", { timeout: 3000 });
+      const clip = await page.evaluate(() => navigator.clipboard.readText());
+      assert(clip.includes(`class challenge ${code.toUpperCase()}`) && clip.includes(`#/challenge/${chGame.id}/${code}`), clip);
+    }
+    // A second run is practice; the Daily's own entry is untouched.
+    await page.keyboard.press("Escape");
+    await post({ type: "arcade:result", outcome: "win", time: 9, score: 1, run: "chal2", daily: tagDate, level: 3 });
+    for (let i = 0; i < 40 && rows.slice(n0).filter((x) => x.kind === "round").length < 3; i++) await page.waitForTimeout(50);
+    const practice = rows.slice(n0).filter((x) => x.kind === "round")[2];
+    assert(practice && practice.challenge_first === 0, `practice ${JSON.stringify(practice)}`);
+    const stored = await page.evaluate(() => [localStorage.getItem("arcade.challenge"), localStorage.getItem("arcade.daily")]);
+    assert(stored[0].includes(`${chGame.id}/${code}`) && !(stored[1] || "").includes(tagDate), "stored in the wrong place");
+    await page.goto(`${base}#/challenge/${chGame.id}/abc`);
+    await page.waitForSelector("#galleryView:not([hidden])");
+    assert((await page.locator("#galleryStatus").textContent()).includes("class challenge link doesn't work"), "bad link notice");
+    return `${chGame.id} ${code.toUpperCase()} → ${tagDate}`;
+  });
+
   await check(tag("sort, verb filter, search in the hash"), async () => {
     await page.selectOption("#sort", "title");
     const titles = await page.locator("#gameList h3 > span:first-child").allTextContents();

@@ -217,6 +217,8 @@ function merge(prevGames, rows, prevNames, prevDaily) {
       if (r.action === "handle") seen();
       continue;
     }
+    // A class challenge's rounds go to no board (docs/daily.md, "Class challenge").
+    if (r.challenge != null) continue;
     if (r.score == null || r.score === "") continue;
     if (r.daily != null) {
       // A daily round: only the first run, on the game the date picked,

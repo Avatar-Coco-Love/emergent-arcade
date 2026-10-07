@@ -10,6 +10,7 @@
 //   arcade.leaderboardOptOut   "1" = send scores without a name, off the leaderboard (kept on reset)
 //   arcade.recent              [ids], most recently opened first
 //   arcade.daily               { date: { game, first, marks, ... } }, Daily Challenge results (assets/daily.js)
+//   arcade.challenge           { "<game>/<code>": { ... } }, class challenge results (assets/daily.js, not exported)
 //   arcade.clientId            anonymous id for feedback/telemetry (kept on reset)
 //   arcade.telemetryOptOut     "1" = don't send play stats (kept on reset)
 //   arcade.classroom           "1" = classroom mode (assets/classroom.js, kept on reset)
@@ -19,7 +20,7 @@ window.ArcadeProgress = (function () {
   const Ach = window.ArcadeAchievements;
   const FORMAT = "emergent-arcade-progress";
   const ID = /^[a-z0-9-]{1,64}$/;
-  const RESETTABLE = /^arcade\.(achievements|best|seenIntro|seenVersion|rated|nudged)\.|^arcade\.(recent|daily)$/;
+  const RESETTABLE = /^arcade\.(achievements|best|seenIntro|seenVersion|rated|nudged)\.|^arcade\.(recent|daily|challenge)$/;
 
   // 0 = never opened. Browsers that opened a game before versions were
   // remembered count as having seen the current one (no badge).

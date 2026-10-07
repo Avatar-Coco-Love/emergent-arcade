@@ -167,6 +167,25 @@
         <p id="classLinkStatus" class="status" role="status"></p>
       </section>
 
+      <section class="teach-section" aria-labelledby="challengeTitle">
+        <h3 id="challengeTitle">Class challenge</h3>
+        <p>Make a link that gives everyone the same run of one game, so the class can compare results. Each student's first run is their result; after that it's practice. There's no leaderboard and nothing to sign up for: students show you the result card at the end (📅 in the game) or read their score out.</p>
+        <div class="challenge-make">
+          <label for="challengeGame">Game</label>
+          <select id="challengeGame"></select>
+          <label class="check"><input type="checkbox" id="challengeClass" checked> <span>With classroom mode</span></label>
+          <button type="button" class="secondary" id="challengeMake">Make a class challenge</button>
+        </div>
+        <div id="challengeOut" hidden>
+          <div class="class-link">
+            <input type="text" id="challengeLink" readonly aria-label="Class challenge link">
+            <button type="button" class="primary" id="challengeCopy">Copy challenge link</button>
+          </div>
+          <p class="small">Code <b id="challengeCode"></b> · <a id="challengeTry" href="#/">Try it yourself</a> <span class="muted">(your own first run counts in this browser)</span></p>
+        </div>
+        <p id="challengeStatus" class="status" role="status"></p>
+      </section>
+
       <section class="teach-section" aria-labelledby="teachTopicsTitle">
         <h3 id="teachTopicsTitle">Games by subject</h3>
         <p class="muted small">From the games' own topic tags, so it's always current. A subject opens the gallery filtered to it; a game opens it.</p>
@@ -440,9 +459,12 @@
                 <button type="button" class="secondary" id="dailySave">Save image</button>
                 <button type="button" class="secondary" id="dailyAgain">Play again</button>
               </div>
-              <h3>Today's board</h3>
-              <ol id="dailyLb" class="lb-list"></ol>
-              <p id="dailyLbNote" class="muted lb-note"></p>
+              <p id="challengeNote" class="daily-note" hidden>No leaderboard for a class challenge. Show this card to your teacher, share it, or read your score out.</p>
+              <div id="dailyBoard">
+                <h3>Today's board</h3>
+                <ol id="dailyLb" class="lb-list"></ol>
+                <p id="dailyLbNote" class="muted lb-note"></p>
+              </div>
             </div>
 
             <form data-body="rate" id="feedbackForm" class="feedback" novalidate>

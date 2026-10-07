@@ -2,7 +2,8 @@
 // plus the games-by-subject table (built here from games.json and
 // assets/topics.js, so it never lags; each topic has a "Download all as zip",
 // assets/bundle.js), the classroom mode link
-// (assets/classroom.js) and the "I used this in class" form, sent as a kind
+// (assets/classroom.js), the class challenge link (#/challenge/<id>/<code>,
+// assets/daily.js) and the "I used this in class" form, sent as a kind
 // "classroom" row (assets/feedback.js). docs/gallery.md, "Teacher page".
 window.ArcadeTeachers = (function () {
   const { el } = window.ArcadeUI;
@@ -12,6 +13,8 @@ window.ArcadeTeachers = (function () {
   const Classroom = window.ArcadeClassroom;
   const Feedback = window.ArcadeFeedback;
   const telemetry = window.ArcadeTelemetry;
+  const Daily = window.ArcadeDaily;
+  const Wording = window.ArcadeWording;
 
   let games = [];
   let shown = false;
@@ -105,6 +108,58 @@ window.ArcadeTeachers = (function () {
   });
   $("classLinkText").addEventListener("focus", () => $("classLinkText").select());
 
+  // ---------- class challenge ----------
+
+  // Games that can build a seeded run (`daily` in the manifest).
+  function renderChallengeGames() {
+    const keep = $("challengeGame").value;
+    const list = games.filter((g) => g.daily && g.status !== "archived").sort((a, b) => a.title.localeCompare(b.title));
+    $("challengeGame").replaceChildren(...list.map((g) => el("option", { value: g.id, textContent: g.title })));
+    if (list.some((g) => g.id === keep)) $("challengeGame").value = keep;
+  }
+
+  let code = null;
+  function syncChallenge() {
+    const id = $("challengeGame").value;
+    $("challengeOut").hidden = !code;
+    if (!code || !id) return;
+    $("challengeLink").value = Daily.challengeUrl(id, code, $("challengeClass").checked);
+    $("challengeCode").textContent = Daily.codeLabel(code);
+    $("challengeTry").href = `#/challenge/${id}/${code}`;
+  }
+
+  // A new code each press; changing the game or the checkbox keeps it.
+  $("challengeMake").addEventListener("click", () => {
+    code = Daily.newCode();
+    syncChallenge();
+    const g = games.find((x) => x.id === $("challengeGame").value);
+    $("challengeStatus").textContent = Wording.text(`Ready: ${g ? g.title : "the game"}, code ${Daily.codeLabel(code)}. {Tap} Copy challenge link and paste it wherever your class finds links. Make a new one for each class.`);
+    $("challengeStatus").className = "status ok";
+    telemetry.event("challenge_link", { game_id: $("challengeGame").value, classroom: $("challengeClass").checked ? 1 : 0 });
+  });
+  for (const id of ["challengeGame", "challengeClass"]) $(id).addEventListener("change", syncChallenge);
+
+  $("challengeCopy").addEventListener("click", async () => {
+    let method = "copy";
+    try {
+      await navigator.clipboard.writeText($("challengeLink").value);
+      $("challengeStatus").textContent = "Copied. Paste it wherever your class finds links.";
+      $("challengeStatus").className = "status ok";
+    } catch (_) {
+      method = "select";
+      $("challengeLink").focus();
+      $("challengeLink").select();
+      $("challengeStatus").textContent = "Copy the selected link.";
+      $("challengeStatus").className = "status";
+    }
+    telemetry.event("challenge_link", { game_id: $("challengeGame").value, method });
+  });
+  $("challengeLink").addEventListener("focus", () => $("challengeLink").select());
+  $("challengeTry").addEventListener("click", () => {
+    lastLink = $("challengeTry");
+    window.dispatchEvent(new CustomEvent("arcade:teachers-open"));
+  });
+
   // ---------- "I used this in class" ----------
 
   const form = $("classForm");
@@ -163,6 +218,7 @@ window.ArcadeTeachers = (function () {
     if (!built) {
       renderTable();
       renderGamePicks();
+      renderChallengeGames();
       built = true;
     }
     renderClassroom();
@@ -179,7 +235,8 @@ window.ArcadeTeachers = (function () {
   // Back from a game: focus the link the teacher used.
   function focusGame(id) {
     const href = `#/play/${id}`;
-    const link = lastLink && lastLink.isConnected && lastLink.getAttribute("href") === href ? lastLink : document.querySelector(`#teachTopicRows a[href="${href}"]`);
+    const mine = lastLink && lastLink.isConnected && (lastLink.getAttribute("href") === href || lastLink.getAttribute("href").startsWith(`#/challenge/${id}/`));
+    const link = mine ? lastLink : document.querySelector(`#teachTopicRows a[href="${href}"]`);
     if (link) link.focus({ preventScroll: true });
   }
 

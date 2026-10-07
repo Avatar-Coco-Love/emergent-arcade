@@ -9,6 +9,7 @@
 //          #/spotlight                     games that need playtesters (assets/spotlight.js)
 //          #/teachers                      the teacher page (assets/teachers.js)
 //          #/daily                         today's Daily Challenge (assets/daily.js, docs/daily.md)
+//          #/challenge/<id>/<code>         a class challenge: that game in daily mode, the code's seed
 (function () {
   const UI = window.ArcadeUI;
   const { el } = UI;
@@ -468,6 +469,26 @@
         return;
       }
     }
+    // A class challenge (teacher page): a game with `daily`, any code.
+    const chMatch = location.hash.match(/^#\/challenge\/([a-z0-9-]+)\/([A-Za-z0-9]+)\/?$/);
+    const chCode = chMatch && chMatch[2].toLowerCase();
+    const chGame = chMatch && Daily.isCode(chCode) && games.find((g) => g.id === chMatch[1] && g.daily && g.status !== "archived");
+    if (chGame) {
+      const open = Cabinet.current();
+      if (!open) {
+        galleryScroll = window.scrollY;
+        listHash = fromRecords || galleryHash;
+      }
+      if (!open || open.id !== chGame.id || Cabinet.challenge() !== chCode) {
+        const src = pendingOpen || { from: "challenge" };
+        telemetry.event("open", { game_id: chGame.id, game_version: chGame.version, from: src.from, challenge: chCode, sort: state.sort || "featured" });
+      }
+      pendingOpen = null;
+      $("backLink").href = listHash;
+      galleryView.hidden = true;
+      Cabinet.open(chGame, { challenge: chCode });
+      return;
+    }
     const match = location.hash.match(/^#\/play\/([a-z0-9-]+)/);
     const game = match && games.find((g) => g.id === match[1]);
     if (game) {
@@ -500,6 +521,9 @@
     if (match) {
       galleryStatus.className = "status gallery-status err";
       galleryStatus.textContent = `There's no game called "${match[1]}". Here are all of them.`;
+    } else if (/^#\/challenge\//.test(location.hash)) {
+      galleryStatus.className = "status gallery-status err";
+      galleryStatus.textContent = "This class challenge link doesn't work (a game or code is wrong). Ask for the link again. Here are all the games.";
     }
     if (fromRecords) window.scrollTo(0, 0);
     if (closing) {

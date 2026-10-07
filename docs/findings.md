@@ -218,6 +218,12 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   then move those (a sweep along one wall took 2 of 3). One free pickup on
   the first level teaches what they are. *A collectible must sit off the
   solution's lanes.* Aqueduct. bots.
+- A new kind of shared seeded run can ride the daily protocol with no game
+  change: hand the game a seed shaped like the date it already parses but
+  outside every real date (month 13+), and send its score under another
+  name, because the board builder takes any scored round without `daily`
+  as a leaderboard row. *A class challenge rode the Daily's date field.*
+  Class challenge PR. tests (`test-daily.mjs`).
 
 ## Accessibility
 
