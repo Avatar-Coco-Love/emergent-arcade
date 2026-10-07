@@ -243,10 +243,15 @@
       "id": "murmuration",
       "title": "Murmuration",
       "file": "murmuration.html",
-      "version": 6,
+      "version": 7,
       "added": "2026-09-27",
-      "updated": "2026-10-05",
+      "updated": "2026-10-07",
       "changes": [
+        {
+          "version": 7,
+          "date": "2026-10-07",
+          "text": "Easier to steer on a phone: the lure now shows a ring around your {finger} and a dashed circle for how far it reaches. The ring turns red while it is spooking birds, so you can see when to lead further ahead."
+        },
         {
           "version": 6,
           "date": "2026-10-05",
@@ -280,7 +285,7 @@
       ],
       "blurb": "Lure a flock of starlings through a string of gates before night falls. Startle them for speed, but panic spreads from bird to bird.",
       "goal": "Fly 15 birds through each of the 5 gates, in order and close together, before night falls (60 seconds of light) and before the flock drops below 15 birds.",
-      "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. {Hold} anywhere and calm birds fly toward your {finger}; keep holding and move it to lead them. The lure pulls hardest on birds near it, but birds that get too close are spooked. {Tap} to startle the birds near the {tap}: they panic (turning red) and burst away from it. Scared birds still match their neighbors' heading, so a {tap} just behind the flock sends it surging forward, the fastest way across open sky. A gate only counts birds that flew through it in the last few seconds, so bring the flock through together. The sky darkens as the light runs out (the time left is in the bottom bar); if the flock hasn't cleared all 5 gates by nightfall, the round is lost. Fear spreads to neighbors and fades over time. Scared birds ignore your lure, birds packed too tightly get scared on their own, and panicked birds can fly off the edge of the sky and be lost, so be careful startling near the edges.",
+      "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. {Hold} anywhere and calm birds fly toward your {finger}; keep holding and move it to lead them. The dashed circle shows how far the lure reaches; it pulls hardest on birds near it, but birds that fly inside the ring around your {finger} are spooked, and the ring turns red. So keep it ahead of the flock and keep moving, rather than pressing on the birds. {Tap} to startle the birds near the {tap}: they panic (turning red) and burst away from it. Scared birds still match their neighbors' heading, so a {tap} just behind the flock sends it surging forward, the fastest way across open sky. A gate only counts birds that flew through it in the last few seconds, so bring the flock through together. The sky darkens as the light runs out (the time left is in the bottom bar); if the flock hasn't cleared all 5 gates by nightfall, the round is lost. Fear spreads to neighbors and fades over time. Scared birds ignore your lure, birds packed too tightly get scared on their own, and panicked birds can fly off the edge of the sky and be lost, so be careful startling near the edges.",
       "keyboard": "Arrows move the cursor · hold Space to lure toward it · Enter or X startles at it · Enter flies again after a round",
       "mechanics": [
         {

@@ -1,6 +1,6 @@
 # Murmuration: design notes
 
-**v6** (2026-10-05, accessibility: keys, live region, readable count, reduced motion; v5 canvas label) · playtest: https://claude.ai/artifact/WM5YoxYKzykKTMw9nFuLQm · balance: `node scripts/balance-murmuration.mjs 300`
+**v7** (2026-10-07, phone steering: visible lure ring + reach, red while spooking; no physics change) · v6 accessibility · playtest (v7): https://claude.ai/artifact/WM5YoxYKzykKTMw9nFuLQm · balance: `node scripts/balance-murmuration.mjs 300`
 **Lure** (hold) and **startle** (tap), sharing **fear per bird**. v4 = v3 gameplay
 (PR #10) plus `arcade:result` telemetry.
 
@@ -9,6 +9,47 @@
 Win: 15+ birds through each of 5 gates, in order, within `GATE_WINDOW` s of each
 other, before night (`DUSK`). Lose: night falls, or the flock drops below 15.
 7 achievements (in `games/games.json`); Swift = finish with `SPARE` s of light left.
+
+## Phone steering (v7, `node scripts/gestures-murmuration.mjs`)
+
+A phone tester (n=1) found the flock hard to direct. Gesture check at
+390×760, real pointer timing, 3 flocks per gesture (v6 → v7 is draw-only,
+so fear and movement match v6):
+
+| Gesture | verb | ring red | scared /40 | toward |
+|---|---|---|---|---|
+| tap 80 ms behind flock | startle | – | 12 | 0 |
+| press 150 ms still | startle | – | 1 | 0 |
+| press 250 ms still | lure | 17% | 0 | 2 |
+| hold 3 s, 110 ahead | lure | 86% | 28–34 | 34–42 |
+| hold 3 s on the flock | lure | 80% | 40 | −33 |
+| grab flock, drag 150 | lure | 79% | 32–35 | 94 |
+| press 70 ahead, drag 150 | lure | 63% | 15–19 | 135–159 |
+
+- Cause: the **lure spook**, not the timer. `LURE_SPOOK=0` → holding ahead
+  scares 0/40 and moves the flock 79; `CROWD_FEAR=0` changes nothing. Birds
+  dive through the lure at full pull, a few cross the 30 radius, contagion
+  spreads it. A parked or grabbing finger scares the flock in ~1 s, and on
+  v6 the lure (a 10-unit ring) was hidden under the fingertip, so the
+  player saw birds ignore them with no cause.
+- Fix (draw only): the lure ring sits at `LURE_SPOOK_R` (56 CSS px across at
+  390 wide, past a fingertip) with a dark under-stroke, turns red with a
+  faint fill while any bird is inside it, and a faint dashed circle shows
+  `LURE_R`. The keys cursor's lure uses the same drawing.
+- Rejected: softening the spook. A pull that fades inside 40–70 (birds
+  settle around the finger) and/or a spook graded by distance put every
+  bot at 99–100% by 45 s (v6: lure80 61%, smart90 71% @45) and erased the
+  startle's edge. The spook is the game's main brake; changing it is a
+  rebalance (with a shorter `DUSK`), not an input fix.
+- `HOLD_MS` 200 kept: a 150 ms press meant as a lure startles, but away
+  from the flock it touches ~1 bird, and the burst ring makes it legible.
+
+## Round stats (v7, `arcade:result`)
+
+`reason`: `night` or `scattered` (losses only). `stats`: `startles` (taps),
+`lure_s` (s lure on), `spook_s` (s with birds inside the lure's spook ring,
+i.e. ring red), `gates` (cleared), `birds` (left). Bots: `spook_s` isn't
+measured yet; humans parking the lure show `spook_s` near `lure_s`.
 
 ## Accessibility (v6, `node scripts/a11y-audit.mjs murmuration`: 5 pass, motion partial by design, 3/3 runs)
 
@@ -59,7 +100,7 @@ Grep `const [A-Z_]* = ` for the rest (flocking, edges, input timing).
 | 4 | 230, 440 | 0° |
 | 5 | 290, 110 | 30° |
 
-## Balance (v3 gameplay, 300 seeds, ±3 pts)
+## Balance (v3 gameplay, 300 seeds, ±3 pts; v7 unchanged: 150 seeds lure80 81%, smart90 88% @60)
 
 | Bot | win @50 s | @60 s | @70 s |
 |---|---|---|---|
@@ -97,6 +138,10 @@ dusk for the first round, or check what share of gates the tester reached
 - The lever: after a tap, scared birds ignore the lure for several seconds
   while fear decays (`FEAR_DECAY`, the lure/fear cutoff). Next revision
   should try letting mildly scared birds still follow the lure.
-- Not yet hand-played on a phone (only rendered headlessly at 390×760).
+- Phone: one tester found steering hard on v6 (2026-10-07); v7 shows the
+  spook. If players still park the lure, next try a rebalance that softens
+  the spook (above) with a shorter `DUSK` to keep bots near 80–90%.
+- Read v7's `stats` (below) before the next revision: if `spook_s`
+  stays a large share of `lure_s` on losses, the ring isn't teaching.
 
 History (older versions, balance tables, playtests): `docs/history/murmuration.md`
