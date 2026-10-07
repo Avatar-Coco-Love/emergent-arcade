@@ -197,11 +197,15 @@
   }
 
   // Tell the gallery how a round ended (anonymous play telemetry, see
-  // docs/telemetry.md). time is seconds of unpaused play this round.
+  // docs/telemetry.md). time is seconds of unpaused play this round; stats
+  // say how the flock was steered (keys in docs/games/murmuration.md).
   function report(result) {
     if (window.parent !== window) {
+      const r1 = v => Math.round(v * 10) / 10;
       window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
-        outcome: result === 'won' ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
+        outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
+        ...(result === 'won' ? {} : { reason: elapsed >= DUSK ? 'night' : 'scattered' }),
+        stats: { startles, lure_s: r1(play.lure), spook_s: r1(play.spook), gates: gate, birds: birds.length } }, '*');
     }
   }
 
@@ -240,6 +244,7 @@
   const playAgainBtn = document.getElementById('playAgain');
 
   let birds, gate, passed, startles, elapsed, state, msgTimer, lure, rings, shock, lastClear = 0;
+  let play;                        // seconds this round with the lure on, and with birds inside its spook ring
   const roundEarned = new Set();
 
   function newFlock() {
@@ -260,6 +265,7 @@
     gate = 0;
     passed = new Map(); // bird -> time it crossed the active gate
     startles = 0;
+    play = { lure: 0, spook: 0 };
     elapsed = 0;
     lure = null;
     rings = [];
@@ -390,6 +396,7 @@
   // ---------- simulation ----------
   function step(dt) {
     elapsed += dt;
+    let spooking = false;
     const fears = birds.map(b => b.fear); // contagion reads last step's fear
     const near = [];                      // (distance², index) pairs of one bird's neighbors
     for (let i = 0; i < birds.length; i++) {
@@ -431,7 +438,7 @@
       if (maxF * CONTAGION_KEEP > f) f += (maxF * CONTAGION_KEEP - f) * CONTAGION * dt;
       if (close > CROWD_N) f += (close - CROWD_N) * CROWD_FEAR * dt;
       const lureD = lure && lure.on ? Math.hypot(lure.x - b.x, lure.y - b.y) : Infinity;
-      if (lureD < LURE_SPOOK_R) f += LURE_SPOOK * dt;
+      if (lureD < LURE_SPOOK_R) { f += LURE_SPOOK * dt; spooking = true; }
       b.fear = Math.max(0, Math.min(1, f));
 
       const calm = 1 - b.fear;
@@ -474,6 +481,9 @@
       b.vx *= clamped / speed;
       b.vy *= clamped / speed;
     }
+
+    if (lure && lure.on) play.lure += dt;
+    if (spooking) play.spook += dt;
 
     const [g1x, g1y, g2x, g2y] = gateEnds(GATES[gate]);
     for (let i = birds.length - 1; i >= 0; i--) {

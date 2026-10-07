@@ -44,6 +44,13 @@ so fear and movement match v6):
 - `HOLD_MS` 200 kept: a 150 ms press meant as a lure startles, but away
   from the flock it touches ~1 bird, and the burst ring makes it legible.
 
+## Round stats (v7, `arcade:result`)
+
+`reason`: `night` or `scattered` (losses only). `stats`: `startles` (taps),
+`lure_s` (s lure on), `spook_s` (s with birds inside the lure's spook ring,
+i.e. ring red), `gates` (cleared), `birds` (left). Bots: `spook_s` isn't
+measured yet; humans parking the lure show `spook_s` near `lure_s`.
+
 ## Accessibility (v6, `node scripts/a11y-audit.mjs murmuration`: 5 pass, motion partial by design, 3/3 runs)
 
 - Gate count `n/15` from `fs(12)` (≥ 12.5 CSS px; 15 sky units at 360 px
@@ -134,7 +141,7 @@ dusk for the first round, or check what share of gates the tester reached
 - Phone: one tester found steering hard on v6 (2026-10-07); v7 shows the
   spook. If players still park the lure, next try a rebalance that softens
   the spook (above) with a shorter `DUSK` to keep bots near 80–90%.
-- Telemetry has no per-round startle/lure counts; adding `startles` and
-  lure seconds to `arcade:result` would show how phone players steer.
+- Read v7's `stats` (below) before the next revision: if `spook_s`
+  stays a large share of `lure_s` on losses, the ring isn't teaching.
 
 History (older versions, balance tables, playtests): `docs/history/murmuration.md`
