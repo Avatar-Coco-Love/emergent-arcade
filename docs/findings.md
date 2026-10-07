@@ -223,11 +223,13 @@ overturns a rule, update its tag here and add the evidence to its log entry.
 
 - A keyboard line can list only housekeeping keys (undo, restart): read
   it verb by verb; every verb needs a key path, and Tab stays the
-  browser's. 10 of 20 games need a pointer for every verb. *A keyboard
-  line can hide that no verb has a key.* audit.
+  browser's. At the audit (2026-10-05), 10 of 20 games needed a pointer
+  for every verb. *A keyboard line can hide that no verb has a key.*
+  audit.
 - Reduced motion: keep the simulation, stop the decoration (flicker,
-  smoke, shimmer). Only 1 game reads the setting. *Most games ignore
-  reduced motion; idle turn-based games pass for free.* audit.
+  smoke, shimmer). At the audit only 1 game read the setting. *Most
+  games ignore reduced motion; idle turn-based games pass for free.*
+  audit.
 - Canvas text in a 400 px design space shrinks to 8–9 px at 360 px wide
   and loses contrast over the scene: size it from the CSS width (12 px+),
   give labels a backing. *Canvas text shrinks with the board.* audit.
