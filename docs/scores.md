@@ -325,6 +325,9 @@ player's random name, since the builder runs every check again.
 
 ## Open ideas
 
+- Keep a typed name and tag across browsers without accounts: a recovery
+  code (the client id) in the Records panel and Export. Brief and ready
+  prompt: [ideas/identity.md](ideas/identity.md).
 - `names` grows with players who typed a name (about 80 bytes each), not
   with games. If it ever matters, free the claims of players who are on no
   board and haven't played for months.
