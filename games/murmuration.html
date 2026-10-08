@@ -140,19 +140,21 @@
   const GAME_ID = 'murmuration';
   const W = 400, H = 600;
   const START_BIRDS = 40;
-  const GATE_NEED = 15;            // birds that must fly through each gate...
-  const GATE_WINDOW = 4;           // ...within this many seconds of each other
-  const GATE_HALF = 55;            // half the gap between a gate's posts
-  const DUSK = 60;                 // seconds of daylight: clear every gate before night falls
-  const SPARE = 15;                // Swift: finish with this many seconds of light left
-  // Gate centers and the angle of the line between their posts (degrees).
-  const GATES = [
-    { x: 95, y: 400, a: 60 },
-    { x: 300, y: 280, a: 60 },
-    { x: 120, y: 170, a: 0 },
-    { x: 230, y: 440, a: 0 },      // open sky on both sides, so a startle can carry the flock through
-    { x: 290, y: 110, a: 30 },
+  // § nights: one row per night (docs/games/murmuration.md). Row 0 is the
+  // classic night (v7's numbers). need: birds that must fly through each
+  // gate, within `window` seconds of each other; half: half the gap between
+  // a gate's posts; dusk: seconds of daylight; spook: LURE_SPOOK, fear per
+  // second inside the lure's spook ring; startle: taps allowed. Gates: center
+  // and the angle of the line between the posts (degrees). nv: the night's
+  // revision (telemetry), so retuning one night doesn't mix its numbers.
+  const NIGHTS = [
+    { id: 'classic', name: 'Classic night', nv: 1, startle: true, need: 15, half: 55, window: 4, dusk: 60, spook: 0.9,
+      gates: [{ x: 95, y: 400, a: 60 }, { x: 300, y: 280, a: 60 }, { x: 120, y: 170, a: 0 },
+        { x: 230, y: 440, a: 0 },    // open sky on both sides, so a startle can carry the flock through
+        { x: 290, y: 110, a: 30 }] },
   ];
+  // The night being flown (set by newFlock from its NIGHTS row).
+  let NIGHT, GATE_NEED, GATE_WINDOW, GATE_HALF, DUSK, LURE_SPOOK, GATES;
   const VIEW = 40;                 // how far a bird sees its neighbors
   const SEP = 14;                  // personal space
   const CROWD_R = 12, CROWD_N = 5; // more than CROWD_N birds this close is stressful
@@ -165,8 +167,7 @@
   const LURE_ACCEL = 160;
   const LURE_R = 150;              // the lure only reaches birds this close...
   const LURE_FULL = 90;            // ...and pulls at full strength only within this distance
-  const LURE_SPOOK_R = 30;         // but it spooks birds that come closer than this
-  const LURE_SPOOK = 0.9;          // fear per second inside the spook radius
+  const LURE_SPOOK_R = 30;         // but it spooks birds that come closer than this (LURE_SPOOK: per night)
   const SWIRL = 70;                // calm birds keep turning, so a flock left alone circles in place
   const NEIGHBORS = 7;             // birds match heading with their few nearest neighbors, like real starlings
   const WANDER = 25;               // each calm bird drifts left and right on its own...
@@ -247,7 +248,9 @@
   let play;                        // seconds this round with the lure on, and with birds inside its spook ring
   const roundEarned = new Set();
 
-  function newFlock() {
+  function newFlock(night = 0) {
+    NIGHT = NIGHTS[night];
+    ({ need: GATE_NEED, window: GATE_WINDOW, half: GATE_HALF, dusk: DUSK, spook: LURE_SPOOK, gates: GATES } = NIGHT);
     birds = [];
     for (let i = 0; i < START_BIRDS; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -519,7 +522,7 @@
         unlock('flock-home');
         if (birds.length === START_BIRDS) unlock('no-bird-left');
         if (startles <= 3) unlock('soft-touch');
-        if (DUSK - elapsed >= SPARE) unlock('swift');
+        if (DUSK - elapsed >= DUSK * 0.25) unlock('swift');
         if (DUSK - elapsed < 5) unlock('last-light');
         endGame('won');
         return;
@@ -710,8 +713,8 @@
     releaseLure();
   });
 
-  document.getElementById('resetBtn').addEventListener('click', newFlock);
-  playAgainBtn.addEventListener('click', newFlock);
+  document.getElementById('resetBtn').addEventListener('click', () => newFlock());
+  playAgainBtn.addEventListener('click', () => newFlock());
 
   // § keys: the same verbs without a pointer. Arrows move a cursor over the
   // sky while held (slow at first for aiming a startle, then fast enough to
@@ -775,7 +778,7 @@
     }
     if (paused) return;
     if (state !== 'playing') {
-      if (k === 'enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); newFlock(); }
+      if (k === 'enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); newFlock(0); }
       return;
     }
     if (k === 'space') {

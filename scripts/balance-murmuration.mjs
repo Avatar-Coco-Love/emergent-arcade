@@ -35,13 +35,8 @@ const BOTS = {
   smart90: { lead: 90, startle: { mode: 'smart', every: 2, back: 10, room: 110, align: 0.7 } },
 };
 
-function buildDebug(overrides) {
+function buildDebug() {
   let html = fs.readFileSync(SRC, 'utf8');
-  for (const [k, v] of Object.entries(overrides)) {
-    const re = new RegExp(`(\\b${k} = )[^,;]+`);
-    if (!re.test(html)) throw new Error('no const ' + k);
-    html = html.replace(re, `$1${v}`);
-  }
   const seed = `<script>
 let __s = 1;
 Math.random = function() { __s |= 0; __s = __s + 0x6D2B79F5 | 0; let t = Math.imul(__s ^ __s >>> 15, 1 | __s);
@@ -55,7 +50,8 @@ window.__seed = s => { __s = s; };
   window.__dbg = {
     get birds() { return birds; }, get gate() { return gate; }, get state() { return state; },
     get elapsed() { return elapsed; }, get passed() { return passed.size; }, get startles() { return startles; },
-    earned: roundEarned, GATES, W, H, step, startle, newFlock, draw, fitSky,
+    get GATES() { return GATES; },
+    earned: roundEarned, NIGHTS, W, H, step, startle, newFlock, draw, fitSky,
     setGate(k) { gate = k; },
     setLure(x, y) { lure = x == null ? null : { x, y, on: true }; },
   };
@@ -67,10 +63,11 @@ window.__seed = s => { __s = s; };
 }
 
 // Runs inside the page.
-function playInPage({ seed, bot }) {
+function playInPage({ seed, bot, night, dusk }) {
   const D = window.__dbg;
+  D.NIGHTS[night].dusk = dusk; // night pushed out, so one set of runs gives several dusk times
   window.__seed(seed);
-  D.newFlock();
+  D.newFlock(night);
   const dt = 1 / 60, hyp = Math.hypot;
   let luring = true, lastTap = -99, t = 0, lastGate = 0, taps = 0, tick = 0;
   const gateTimes = [];
@@ -136,7 +133,7 @@ async function run(bot, runs, file, browser, workers = 8) {
   await Promise.all(Array.from({ length: workers }, async () => {
     const page = await browser.newPage();
     await page.goto(pathToFileURL(file).href);
-    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: 1000 + i, bot }); }
+    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: 1000 + i, bot, night: 0, dusk: 200 }); }
     await page.close();
   }));
   return results;
@@ -154,7 +151,7 @@ function report(name, rs) {
 
 const runs = +process.argv[2] || 300;
 const names = (process.argv[3] || Object.keys(BOTS).join(',')).split(',');
-const file = buildDebug({ DUSK: 200 });
+const file = buildDebug();
 const browser = await chromium.launch();
 for (const n of names) {
   if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
