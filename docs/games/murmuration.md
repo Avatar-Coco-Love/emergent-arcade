@@ -1,7 +1,7 @@
 # Murmuration: design notes
 
 **v8** (2026-10-08): Chapter 1, The Gathering. Brief: `murmuration-chapter1.md`;
-later chapters: `murmuration-story.md`. Playtest (v8): PLAYTEST_LINK ·
+later chapters: `murmuration-story.md`. Playtest (v8): https://claude.ai/artifact/Dmg9WeDyBJqfRirJuEAf2f ·
 balance: `node scripts/balance-murmuration.mjs 60 lure60,lure80 --night N`,
 `… --run`, `… --check` · history (v1-v7, phone steering, v6 a11y):
 `docs/history/murmuration.md`.
