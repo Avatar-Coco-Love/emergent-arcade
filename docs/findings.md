@@ -233,9 +233,18 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   name, because the board builder takes any scored round without `daily`
   as a leaderboard row. *A class challenge rode the Daily's date field.*
   Class challenge PR. tests (`test-daily.mjs`).
+- With a resource carried between levels, balance the run, not the level:
+  per-level win rates (lure60: 90/72/97/58% on nights 3-6) hide the flock
+  bleeding ~8 birds a night, which a whole-run bot shows (25/60 chapters
+  cleared). Add a run mode to the harness before tuning single levels.
+  *Per-level win rates hide a carried resource bleeding.* Murmuration v8. bots.
 
 ## Accessibility
 
+- A game that opens on a still card (title, dawn) reads **pass** on the
+  motion audit even if play moves: the audit's taps rarely hit the start
+  button. Record the in-play verdict by hand. *An opening card hides play
+  motion from the audit.* Murmuration v8. audit.
 - A keyboard line can list only housekeeping keys (undo, restart): read
   it verb by verb; every verb needs a key path, and Tab stays the
   browser's. At the audit (2026-10-05), 10 of 20 games needed a pointer

@@ -135,7 +135,7 @@ rows are unchanged; "where did players stop" is derived from them (a
 session's play time beyond its finished rounds means they left mid-round).
 
 Games without levels can send `reason` and `stats` too (Hot Iron,
-Hourglass Delivery, Murmuration and Pressure Grid do). The summary then adds losses by
+Hourglass Delivery and Pressure Grid do). The summary then adds losses by
 reason and the median of each stat for wins and for losses.
 `validate.mjs` requires `arcade:result` in every game whose `goal` doesn't
 start with "Sandbox".

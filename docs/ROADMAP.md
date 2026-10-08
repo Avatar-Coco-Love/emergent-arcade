@@ -102,7 +102,7 @@ Each revision:
 | orbit-garden | v6 | 1 garden, 40 seeds | Successive gardens, leftover seeds carry over; score = gardens bloomed |  |
 | hot-iron | v4 | 1 blade | A run of commissions, harder profiles, fuel carried over; score = blades forged |  |
 | loom | v2 | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held |  |
-| murmuration | v4 | 5 gates, 1 night | Nights in a row with new gate layouts, the flock carried over |  |
+| murmuration | v8 | Chapter 1: 6 nights, flock carried over (+ Classic night) | Nights in a row with new gate layouts, the flock carried over; score = gates cleared in a migration | Depth pass started: chapter 1 (v8), awaiting playtest; next the gallery save/load PR, then chapter 2 (`docs/games/murmuration-story.md`) |
 | wildfire-line | v3 | 1 fire | Fire seasons with more houses and wind shifts; score = houses saved |  |
 | hourglass-delivery | v3 | 8 glasses | Endless belt that speeds up by glasses filled, not by time; score = glasses filled |  |
 | island-census | v1 | 8 seasons | Endless years with new events; score = seasons survived |  |

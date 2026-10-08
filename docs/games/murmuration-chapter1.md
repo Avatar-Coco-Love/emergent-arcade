@@ -1,6 +1,7 @@
 # Murmuration v8: Chapter 1 build brief
 
-Written 2026-10-08 after a brainstorm and a bot simulation. All six open
+**Status: built as v8 (2026-10-08).** Results, deviations and the live
+numbers: `docs/games/murmuration.md`. Written 2026-10-08 after a brainstorm and a bot simulation. All six open
 decisions were confirmed by the user. Background, the full idea ledger
 and later chapters: `docs/games/murmuration-story.md`. Current game:
 `docs/games/murmuration.md` (v7). Sessions reading this for other reasons:
@@ -43,7 +44,7 @@ id. Never push to `main`.
 
 ## The nights (source of truth for numbers)
 
-Machine-readable copy with the bots: `docs/games/murmuration-ch1-nights.json`.
+Built: the game's `NIGHTS` table is now the only copy (the JSON prototype copy was deleted).
 Sky 400x600, flock starts around (270, 480). Gate = x, y, angle (degrees,
 the line between the posts). Spook is `LURE_SPOOK`. "Startle" = taps allowed.
 

@@ -1623,3 +1623,25 @@ bot at ~100% by 45 s (v6: 61–71%), so the spook is the balance brake. v7
 fix is draw-only: ring at the spook radius (56 CSS px), red while birds
 are inside, dashed reach circle. *Evidence: gesture check + bots; one
 player's report. Provisional until phone players' win rate moves.*
+
+## Per-level win rates hide a carried resource bleeding
+
+Murmuration v8 (Chapter 1, six nights, flock carried over with a tally).
+Night by night at 60 seeds, the lure60 bot (stand-in for a typical player)
+wins 98/95/90/72/97/58%, which reads as "gentle, then two tests". The
+`--run` mode (one seed flies all six nights, flock from the game's own
+tally) shows the flock at each dawn: 40, 44, 46, 40, 33, 40, roost 30. Lure
+play loses ~8 birds on each of nights 3 and 4, so night 5's dawn is 33
+(4 of 60 runs end before night 5, 5 before night 6) and only 25/60 clear the
+chapter, below the 58% of night 6 alone. Tapping bots stay near the cap
+(smart90: 53 at night 6's dawn, 58/60 chapters). So the carried flock
+works as a health bar and as the startle's reward, which no single-night
+number showed.
+
+## An opening card hides play motion from the audit
+
+Murmuration v8 opens on night 1's dawn card with the flock frozen behind
+it. `a11y-audit.mjs` taps 5 random points on a phone and then measures idle
+motion; none hit "Fly", so it measured the still card and reported motion
+**pass** (v6-v7: partial, all of it the flock). The game's motion didn't
+change. Record the in-play verdict in `docs/accessibility.md` by hand.
