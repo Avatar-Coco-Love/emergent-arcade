@@ -70,25 +70,36 @@
   }
   #msg:empty { display: none; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  #endCard {
+  /* Cards: dawn, tally, run over, chapter, classic result. Still (no
+     animation), on a dark backing; text 12.5 CSS px and up. */
+  #card {
     position: absolute;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: min(86%, 300px);
-    padding: 18px 16px;
+    width: min(88%, 310px);
+    max-height: calc(100% - 16px);
+    overflow: auto;
+    padding: 16px 16px 14px;
     border-radius: 12px;
-    background: rgba(26, 23, 38, 0.94);
+    background: rgba(26, 23, 38, 0.95);
     border: 1px solid #36304a;
     text-align: center;
   }
-  #endCard[hidden] { display: none; }
-  #endCard h2 { margin: 0 0 6px; font-size: 1.3rem; }
-  #endCard h2.won { color: #c4b5fd; }
-  #endCard h2.lost { color: #ff9a8a; }
-  #endCard p { margin: 0 0 4px; color: #cfc9dc; font-size: 0.9rem; }
-  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
-  #playAgain:disabled { opacity: 0.4; }
+  #card[hidden] { display: none; }
+  #card .sub { margin: 0 0 2px; color: var(--muted); font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase; }
+  #card h2 { margin: 0 0 8px; font-size: 1.3rem; }
+  #card h2.won { color: #c4b5fd; }
+  #card h2.lost { color: #ff9a8a; }
+  #card p { margin: 0 0 6px; color: #d6d0e2; font-size: 0.9rem; line-height: 1.35; }
+  #card p.story { font-style: italic; color: #c9c2d8; }
+  #card p.keys { color: var(--muted); font-size: 0.8rem; }
+  #card .btns { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  #card button { width: 100%; }
+  #card button.main { font-weight: 600; background: #4c3d7a; border-color: #7a66b8; }
+  #card button:disabled { opacity: 0.4; }
+  #card button[hidden] { display: none; }
+  #card button:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 2px; }
   .bar {
     flex: none;
     display: flex;
@@ -119,19 +130,23 @@
       <canvas id="sky" role="img" aria-label="Murmuration sky. Hold to lure the flock, tap or click to startle it. Keys: arrows move a cursor, hold Space to lure, Enter or X startles."></canvas>
       <p id="msg" aria-hidden="true"></p>
       <p id="say" class="sr" role="status"></p>
-      <div id="endCard" hidden>
-        <h2 id="endTitle"></h2>
-        <p id="endDetail"></p>
-        <p id="endAch"></p>
-        <button id="playAgain">Play again</button>
+      <div id="card" role="dialog" aria-labelledby="cardTitle" hidden>
+        <p class="sub" id="cardSub"></p>
+        <h2 id="cardTitle"></h2>
+        <div id="cardBody"></div>
+        <div class="btns">
+          <button id="cardMain" class="main"></button>
+          <button id="cardAlt"></button>
+        </div>
       </div>
     </div>
   </div>
   <div class="bar">
+    <span id="hudNightBox">Night <b id="hudNight"></b></span>
     <span>Birds <b id="hudBirds"></b></span>
     <span>Gate <b id="hudGate"></b></span>
     <span>Night in <b id="hudDusk"></b></span>
-    <span>Startles <b id="hudStartles"></b></span>
+    <span id="hudStartleBox">Startles <b id="hudStartles"></b></span>
     <button id="resetBtn">New flock</button>
   </div>
 
@@ -152,7 +167,40 @@
       gates: [{ x: 95, y: 400, a: 60 }, { x: 300, y: 280, a: 60 }, { x: 120, y: 170, a: 0 },
         { x: 230, y: 440, a: 0 },    // open sky on both sides, so a startle can carry the flock through
         { x: 290, y: 110, a: 30 }] },
+    // Chapter 1, "The Gathering" (docs/games/murmuration-chapter1.md). story and
+    // rule are the dawn card's lines ({tap}: tap or click, for this device).
+    { id: 'dusk', name: 'Dusk', nv: 1, startle: false, need: 12, half: 70, window: 5, dusk: 45, spook: 0.45,
+      gates: [{ x: 120, y: 430, a: 105 }, { x: 300, y: 320, a: 59 }, { x: 110, y: 210, a: 120 }, { x: 280, y: 90, a: 55 }],
+      story: 'The flock gathers at the marsh.',
+      rule: 'Lure only tonight: hold ahead of the flock and draw it through each gate.' },
+    { id: 'second-flight', name: 'Second flight', nv: 1, startle: false, need: 13, half: 65, window: 4.5, dusk: 50, spook: 0.65,
+      gates: [{ x: 300, y: 330, a: 10 }, { x: 120, y: 260, a: 110 }, { x: 260, y: 150, a: 52 }, { x: 100, y: 440, a: 29 }],
+      story: 'Another dusk, another route.',
+      rule: 'The sky is less forgiving: birds spook if you press too close.' },
+    { id: 'first-tap', name: 'First tap', nv: 1, startle: true, need: 13, half: 60, window: 4.5, dusk: 60, spook: 0.9,
+      gates: [{ x: 130, y: 440, a: 106 }, { x: 310, y: 160, a: 33 }, { x: 90, y: 250, a: 68 }, { x: 300, y: 480, a: 138 }],
+      story: 'Open sky. The old birds know a trick.',
+      rule: '{Tap} behind the flock to throw it forward. Taps scare the birds they touch.' },
+    { id: 'open-sky', name: 'Open sky', nv: 1, startle: true, need: 13, half: 55, window: 4, dusk: 60, spook: 0.9,
+      gates: [{ x: 90, y: 380, a: 119 }, { x: 290, y: 200, a: 48 }, { x: 270, y: 470, a: 4 }, { x: 100, y: 150, a: 152 }],
+      story: 'Long crossings between the gates.',
+      rule: '{Tap}ping behind the flock saves seconds on the long runs.' },
+    { id: 'breather', name: 'Breather', nv: 1, startle: true, need: 12, half: 65, window: 5, dusk: 40, spook: 0.9,
+      gates: [{ x: 200, y: 400, a: 135 }, { x: 310, y: 230, a: 33 }, { x: 150, y: 90, a: 131 }],
+      recruits: [{ x: 165, y: 320, n: 4 }],
+      story: 'A short night. Stragglers wait in the reeds.',
+      rule: 'A small group rests off the route; fly near it and it will join.' },
+    { id: 'the-edge', name: 'The edge', nv: 1, startle: true, need: 13, half: 50, window: 4, dusk: 60, spook: 0.9,
+      gates: [{ x: 70, y: 420, a: 90 }, { x: 330, y: 300, a: 90 }, { x: 70, y: 170, a: 90 }, { x: 250, y: 70, a: 0 }],
+      story: 'The cliffs. The gates hang close to the border.',
+      rule: 'Near the border a spooked bird can be lost: keep the lure off the flock, {tap} from inside it.' },
   ];
+  const CHAPTER = NIGHTS.length - 1;          // nights in the migration
+  const FLOCK_CAP = 55;                       // the flock never grows past this
+  const MISS_COST = 3, CLEAR_BONUS = 4;       // tally: birds per gate missed, birds for clearing every gate
+  // Night 1's half spook could later be tested against full spook, split by
+  // the run id's parity (docs/games/murmuration-chapter1.md). Off: too few players.
+  const AB_SPOOK = false;
   // The night being flown (set by newFlock from its NIGHTS row).
   let NIGHT, GATE_NEED, GATE_WINDOW, GATE_HALF, DUSK, LURE_SPOOK, GATES;
   const VIEW = 40;                 // how far a bird sees its neighbors
@@ -197,17 +245,31 @@
     }
   }
 
-  // Tell the gallery how a round ended (anonymous play telemetry, see
-  // docs/telemetry.md). time is seconds of unpaused play this round; stats
-  // say how the flock was steered (keys in docs/games/murmuration.md).
-  function report(result) {
-    if (window.parent !== window) {
-      const r1 = v => Math.round(v * 10) / 10;
-      window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
-        outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
-        ...(result === 'won' ? {} : { reason: elapsed >= DUSK ? 'night' : 'scattered' }),
-        stats: { startles, lure_s: r1(play.lure), spook_s: r1(play.spook), gates: gate, birds: birds.length } }, '*');
-    }
+  // § telemetry: one arcade:result per night (anonymous play telemetry,
+  // docs/telemetry.md). time is seconds of unpaused play this night; stats and
+  // the extra fields say how the flock was steered (keys in
+  // docs/games/murmuration.md). Kept in lastResult for the balance harness.
+  let lastResult = null;
+  function report(result, t) {
+    const r1 = v => Math.round(v * 10) / 10;
+    const n = NIGHTS.indexOf(NIGHT), won = result === 'won';
+    const msg = { type: 'arcade:result', game: GAME_ID,
+      outcome: won ? 'win' : 'loss', time: r1(elapsed),
+      ...(won ? {} : { reason: elapsed >= DUSK ? 'night' : 'scattered' }),
+      ...(n ? { level: n } : {}), run: play.run, attempt: play.attempt,
+      stats: { gates: gate, birds: birds.length, flock0: play.flock0, startles,
+        lure_s: r1(play.lure), spook_s: r1(play.spook), lost: play.lost, lost_pan: play.lostPan,
+        light_left: won ? r1(DUSK - elapsed) : 0, scared_pk: Math.round(play.scaredPk * 100),
+        cohesion: r1(play.cohN ? play.coh / play.cohN : 0),
+        tap_back: play.taps[0], tap_side: play.taps[1], tap_front: play.taps[2] },
+      nv: NIGHT.nv, night_id: NIGHT.id, gate_t: play.gateT.map(r1), idle_s: r1(play.idle),
+      ...(play.firstIn >= 0 ? { first_in_s: r1(play.firstIn), input: play.input } : {}),
+      spook: LURE_SPOOK };
+    // Migration nights: the score is the gates cleared so far in this migration.
+    if (t) Object.assign(msg, { score: t.gates, board: 'ch1', flock_end: t.after, run_over: t.over ? 1 : 0,
+      ...(t.done ? { chapter_done: won ? 1 : 0 } : {}) });
+    lastResult = msg;
+    if (window.parent !== window) window.parent.postMessage(msg, '*');
   }
 
   // Scale the sky to the largest 2:3 box that fits the space it's given, and
@@ -240,70 +302,239 @@
     if (evt.data && evt.data.type === 'arcade:resume') paused = false;
   });
 
-  const endCard = document.getElementById('endCard');
   const hudDusk = document.getElementById('hudDusk');
-  const playAgainBtn = document.getElementById('playAgain');
+  const resetBtn = document.getElementById('resetBtn');
+  const $ = id => document.getElementById(id);
 
   let birds, gate, passed, startles, elapsed, state, msgTimer, lure, rings, shock, lastClear = 0;
-  let play;                        // seconds this round with the lure on, and with birds inside its spook ring
+  let play;                        // this night's numbers for telemetry (report())
   const roundEarned = new Set();
+  const attempts = [];             // nights started in this page session, by night
+  let classicId = '';              // a classic night's run id
 
   function newFlock(night = 0) {
     NIGHT = NIGHTS[night];
     ({ need: GATE_NEED, window: GATE_WINDOW, half: GATE_HALF, dusk: DUSK, spook: LURE_SPOOK, gates: GATES } = NIGHT);
+    if (AB_SPOOK && night === 1 && run && parseInt(run.id.slice(-1), 36) % 2) LURE_SPOOK = NIGHTS[2].spook;
+    // A migration night starts with the flock the last one left (survivors keep
+    // their quirks); the classic night always starts with START_BIRDS.
+    const q = night && run ? run.q : null;
+    const count = night && run ? run.flock : START_BIRDS;
+    const k = Math.sqrt(Math.max(1, count / START_BIRDS)); // a bigger flock starts in a bigger patch
     birds = [];
-    for (let i = 0; i < START_BIRDS; i++) {
+    for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
+      const old = q && q[i];
       birds.push({
-        x: 270 + (Math.random() - 0.5) * 100,
-        y: 480 + (Math.random() - 0.5) * 60,
+        x: 270 + (Math.random() - 0.5) * 100 * k,
+        y: 480 + (Math.random() - 0.5) * 60 * k,
         vx: Math.cos(a) * 60, vy: Math.sin(a) * 60,
         fear: 0, hit: false,
         // Individual quirks keep the flock from settling into a neat lattice.
-        sep: SEP * (0.8 + Math.random() * 0.45),
-        turn: 0.6 + Math.random() * 0.8,
+        sep: SEP * (old ? old[0] : 0.8 + Math.random() * 0.45),
+        turn: old ? old[1] : 0.6 + Math.random() * 0.8,
         wander: 0,
       });
+    }
+    // Recruits: calm stragglers resting off the route. Nothing special about
+    // them: they join by ordinary flocking once the flock flies within VIEW.
+    // (Only nights with recruits draw these random numbers.)
+    for (const r of NIGHT.recruits || []) {
+      for (let i = 0; i < r.n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        birds.push({
+          x: r.x + (Math.random() - 0.5) * 30, y: r.y + (Math.random() - 0.5) * 30,
+          vx: Math.cos(a) * MIN_SPEED, vy: Math.sin(a) * MIN_SPEED,
+          fear: 0, hit: false, sep: SEP * (0.8 + Math.random() * 0.45), turn: 0.6 + Math.random() * 0.8,
+          wander: 0, recruit: true,
+        });
+      }
     }
     gate = 0;
     passed = new Map(); // bird -> time it crossed the active gate
     startles = 0;
-    play = { lure: 0, spook: 0 };
+    play = { lure: 0, spook: 0, idle: 0, lost: 0, lostPan: 0, scaredPk: 0, coh: 0, cohN: 0, ticks: 0,
+      taps: [0, 0, 0], gateT: [], firstIn: -1, input: '', flock0: birds.length,
+      run: night && run ? run.id : classicId, attempt: attempts[night] || 1 };
     elapsed = 0;
     lure = null;
     rings = [];
     shock = null;
     roundEarned.clear();
     state = 'playing';
-    endCard.hidden = true;
-    heard = { gate: 0, birds: START_BIRDS, lostAt: 0, light: 0 };
+    hideCard();
+    heard = { gate: 0, birds: birds.length, lostAt: 0, light: LIGHT_MARKS.filter(m => m >= DUSK).length };
     [kb.x, kb.y] = CUR_START;
-    say('Guide the flock through the glowing gate before night falls.');
+    if (!night) say('Guide the flock through the glowing gate before night falls.');
   }
 
   function endGame(result) {
     state = result;
-    report(result);
     releaseLure();
     msgEl.textContent = '';
-    const title = document.getElementById('endTitle');
-    title.className = result;
+    tally = NIGHT === NIGHTS[0] ? null : tallyNight(result);
+    report(result, tally);
+    if (tally) showTally(); else showClassicEnd(result);
+  }
+
+  // § run: the whole migration in one plain, JSON-safe object (under 1 KB),
+  // ready for the gallery's save/load channel (next PR: it will store
+  // serializeRun() and call restoreRun() for "Continue"). night: the next
+  // night to fly; flock: birds at its dawn; gates: cleared so far (the
+  // score); q: each bird's quirks [separation factor, turn], survivors first.
+  const MAX_GATES = NIGHTS.slice(1).reduce((s, N) => s + N.gates.length, 0);
+  let run = null, tally = null;
+  const r2 = v => Math.round(v * 100) / 100;
+  function newId() {
+    const a = new Uint32Array(2);
+    crypto.getRandomValues(a); // not Math.random: the flock's random sequence stays the balance bots'
+    return (a[0].toString(36) + a[1].toString(36)).slice(0, 12);
+  }
+  function freshRun() { return { v: 1, id: newId(), night: 1, flock: START_BIRDS, gates: 0, q: [] }; }
+  function serializeRun() { return run && JSON.parse(JSON.stringify(run)); }
+  // Starts the run's next night at its dawn card. Rejects anything malformed.
+  function restoreRun(o) {
+    const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+    if (!o || o.v !== 1 || !/^[a-z0-9]{1,16}$/.test(String(o.id)) || !int(o.night, 1, CHAPTER)
+      || !int(o.flock, 0, FLOCK_CAP) || !int(o.gates, 0, MAX_GATES) || !Array.isArray(o.q)) return false;
+    const q = o.q.filter(p => Array.isArray(p) && p[0] >= 0.8 && p[0] <= 1.25 && p[1] >= 0.6 && p[1] <= 1.4)
+      .slice(0, FLOCK_CAP).map(p => [+p[0], +p[1]]);
+    run = { v: 1, id: o.id, night: o.night, flock: o.flock, gates: o.gates, q };
+    tally = null;
+    showDawn();
+    return true;
+  }
+  // The flock tally after a migration night: birds lost stay lost, each gate
+  // missed costs MISS_COST more, clearing every gate brings CLEAR_BONUS.
+  function tallyNight(result) {
+    const n = NIGHTS.indexOf(NIGHT), won = result === 'won';
+    const missed = GATES.length - gate, alive = birds.length;
+    const after = Math.max(0, Math.min(FLOCK_CAP, alive - MISS_COST * missed + (won ? CLEAR_BONUS : 0)));
+    const gates = (run ? run.gates : 0) + gate;
+    const done = n === CHAPTER;
+    const over = !done && after < NIGHTS[n + 1].need; // too few birds to pass tomorrow's gates
+    run = run && !done && !over
+      ? { v: 1, id: run.id, night: n + 1, flock: after, gates, q: birds.slice(0, after).map(b => [r2(b.sep / SEP), r2(b.turn)]) }
+      : null;
+    return { night: n, won, gate, missed, alive, lost: play.flock0 - alive, after, gates, over, done };
+  }
+
+  // § cards: the dawn of each night, its tally, run over, the chapter's end
+  // and the classic night's result. Each is announced through the live region
+  // and takes focus; Enter or Space presses its main button.
+  const card = $('card'), cardMain = $('cardMain'), cardAlt = $('cardAlt');
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const words = text => text.replace(/\{Tap\}/g, fine ? 'Click' : 'Tap').replace(/\{tap\}/g, fine ? 'click' : 'tap');
+  let cardActs = null, cardTimer = null, keysUsed = false;
+  function showCard({ sub = '', title, cls = '', lines, main, alt = null, lock = false }) {
+    $('cardSub').textContent = sub;
+    $('cardTitle').textContent = title;
+    $('cardTitle').className = cls;
+    const body = $('cardBody');
+    body.textContent = '';
+    for (const [text, c] of lines) {
+      if (!text) continue;
+      const el = document.createElement('p');
+      if (c) el.className = c;
+      el.textContent = text;
+      body.appendChild(el);
+    }
+    cardMain.textContent = main[0];
+    cardAlt.textContent = alt ? alt[0] : '';
+    cardAlt.hidden = !alt;
+    cardActs = { main: main[1], alt: alt && alt[1] };
+    card.hidden = false;
+    msgEl.textContent = '';
+    const end = t => /[.!?:]$/.test(t) ? t : t + '.';
+    speak([sub, title, ...lines.map(l => l[0])].filter(Boolean).map(end).join(' ') + ` Enter: ${main[0]}.`);
+    clearTimeout(cardTimer);
+    // After a night ends, taps that were already on their way must not skip the card.
+    const ready = () => {
+      cardMain.disabled = cardAlt.disabled = false;
+      if (!card.hidden) cardMain.focus({ preventScroll: true });
+    };
+    if (lock) { cardMain.disabled = cardAlt.disabled = true; cardTimer = setTimeout(ready, END_INPUT_LOCK_MS); }
+    else ready();
+  }
+  // Focus leaves the card with it, or Space would press a hidden button instead of luring.
+  function hideCard() {
+    card.hidden = true;
+    if (card.contains(document.activeElement)) document.activeElement.blur();
+  }
+  cardMain.addEventListener('click', () => cardActs && cardActs.main());
+  cardAlt.addEventListener('click', () => cardActs && cardActs.alt && cardActs.alt());
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const earnedLine = when => roundEarned.size ? `🏆 ${plural(roundEarned.size, 'achievement')} earned ${when}` : '';
+
+  function showDawn() {
+    const n = run.night, N = NIGHTS[n];
+    newFlock(n);
+    state = 'dawn';
+    const waiting = (N.recruits || []).reduce((s, r) => s + r.n, 0);
+    const keys = `Keys: arrows move the cursor, hold Space to lure${N.startle ? ', X startles' : ''}.`;
+    showCard({ sub: `Night ${n} of ${CHAPTER}`, title: N.name,
+      lines: [[N.story, 'story'], [words(N.rule)],
+        [`Flock: ${plural(run.flock, 'bird')}${waiting ? ` (and ${waiting} waiting)` : ''} · ${N.gates.length} gates, ${N.need} birds each · ${N.dusk} s of light.`],
+        [fine || keysUsed ? keys : '', 'keys']],
+      main: ['Fly', fly], alt: n === 1 ? ['Classic night', startClassic] : null });
+  }
+  function fly() {
+    if (state !== 'dawn') return;
+    const n = run.night;
+    play.attempt = attempts[n] = (attempts[n] || 0) + 1;
+    hideCard();
+    state = 'playing';
+    say(`${NIGHT.name}: lead the flock through the glowing gate before night falls.`);
+  }
+  function startClassic() {
+    run = tally = null;
+    classicId = newId();
+    attempts[0] = (attempts[0] || 0) + 1;
+    newFlock(0);
+    play.attempt = attempts[0];
+  }
+  function newMigration() { restoreRun(freshRun()); }
+
+  function showTally() {
+    const t = tally;
+    const title = t.won ? 'Night cleared' : elapsed >= DUSK ? 'Night fell' : 'The flock scattered';
+    showCard({ sub: `Night ${t.night} of ${CHAPTER} · ${NIGHT.name}`, title, cls: t.won ? 'won' : 'lost', lock: true,
+      lines: [[`Gates cleared: ${t.gate} of ${GATES.length}${t.won ? ` with ${clock(DUSK - elapsed)} of light left` : ''}.`],
+        [`${plural(t.alive, 'bird')} flew on${t.lost ? `; ${t.lost} lost` : ''}.`],
+        [t.won ? `Every gate cleared: ${CLEAR_BONUS} birds join the flock.` : t.missed ? `${plural(t.missed, 'gate')} missed: ${MISS_COST * t.missed} birds turn back.` : ''],
+        [`${t.done ? 'Flock at the roost' : 'Flock for tomorrow'}: ${plural(t.after, 'bird')}.`],
+        [`Migration: ${t.gates} of ${MAX_GATES} gates.`],
+        [earnedLine('tonight')]],
+      main: t.done || t.over ? ['Continue', showEnd] : ['Next night', () => restoreRun(serializeRun())] });
+  }
+  // Run over, or the chapter's end. Score counts either way.
+  function showEnd() {
+    const t = tally;
+    if (t.over) {
+      showCard({ sub: `Night ${t.night} of ${CHAPTER}`, title: 'The migration ends', cls: 'lost',
+        lines: [[`The flock is down to ${plural(t.after, 'bird')}, and the gates on night ${t.night + 1} need ${NIGHTS[t.night + 1].need}.`],
+          [`Gates cleared: ${t.gates} of ${MAX_GATES}.`]],
+        main: ['Fly the migration again', newMigration], alt: ['Classic night', startClassic] });
+    } else {
+      showCard({ sub: 'Chapter 1 · The Gathering', title: t.won ? 'Chapter complete' : 'The flock lands short of the roost',
+        cls: t.won ? 'won' : 'lost',
+        lines: [[t.won ? 'Six nights flown: the flock reaches the roost.' : 'Six nights flown, but the last gates were missed.'],
+          [`Gates cleared: ${t.gates} of ${MAX_GATES}. Flock: ${plural(t.after, 'bird')}.`],
+          ['Chapter 2 is on its way.', 'story']],
+        main: ['Fly it again', newMigration], alt: ['Classic night', startClassic] });
+    }
+  }
+  function showClassicEnd(result) {
     const night = result === 'lost' && elapsed >= DUSK;
-    title.textContent = result === 'won' ? 'Flock home!' : night ? 'Night fell' : 'The flock scattered';
-    document.getElementById('endDetail').textContent = result === 'won'
-      ? `All ${GATES.length} gates with ${birds.length} bird${birds.length === 1 ? '' : 's'} in ${clock(elapsed)}, ${clock(DUSK - elapsed)} before dark.`
-      : night
-        ? `The flock was still at gate ${gate + 1} of ${GATES.length} when the light ran out.`
-        : `Only ${birds.length} bird${birds.length === 1 ? '' : 's'} left; a gate needs ${GATE_NEED}.`;
-    const n = roundEarned.size;
-    document.getElementById('endAch').textContent = n
-      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
-      : '';
-    // Taps that were already on their way must not skip this.
-    playAgainBtn.disabled = true;
-    endCard.hidden = false;
-    speak(`${title.textContent}. ${document.getElementById('endDetail').textContent}${n ? ' ' + document.getElementById('endAch').textContent.replace('🏆 ', '') + '.' : ''} Enter to fly again.`);
-    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    showCard({ sub: 'Classic night', title: result === 'won' ? 'Flock home!' : night ? 'Night fell' : 'The flock scattered',
+      cls: result, lock: true,
+      lines: [[result === 'won'
+        ? `All ${GATES.length} gates with ${plural(birds.length, 'bird')} in ${clock(elapsed)}, ${clock(DUSK - elapsed)} before dark.`
+        : night
+          ? `The flock was still at gate ${gate + 1} of ${GATES.length} when the light ran out.`
+          : `Only ${plural(birds.length, 'bird')} left; a gate needs ${GATE_NEED}.`],
+        [earnedLine('this round')]],
+      main: ['Fly again', startClassic], alt: ['The migration', newMigration] });
   }
 
   function clock(sec) {
@@ -376,8 +607,13 @@
   // ---------- mechanic 2: startle (tap) ----------
   // Writes fear directly and shoves nearby birds away from the tap.
   function startle(x, y) {
-    if (state !== 'playing') return;
+    if (state !== 'playing' || !NIGHT.startle) return; // nights without startle: taps do nothing
     startles++;
+    // Where the tap fell relative to the flock's heading (telemetry): behind,
+    // beside or ahead of the main cluster.
+    const c = mainCluster(), dx = x - c.x, dy = y - c.y, d = Math.hypot(dx, dy), sp = Math.hypot(c.vx, c.vy);
+    const ahead = d > 1 && sp > 1 ? (dx * c.vx + dy * c.vy) / (d * sp) : 0;
+    play.taps[ahead < -0.5 ? 0 : ahead > 0.5 ? 2 : 1]++;
     rings.push({ x, y, t: 0 });
     let touched = 0;
     for (const b of birds) {
@@ -394,6 +630,21 @@
     }
     // Watch how far this panic spreads beyond the birds the tap touched.
     shock = touched ? { t: 0 } : null;
+  }
+
+  // The main cluster: the mean of the birds within 70 of the centre, refined
+  // three times (as the balance bots find it), and its mean velocity.
+  function mainCluster() {
+    let x = 0, y = 0, vx = 0, vy = 0;
+    for (const b of birds) { x += b.x; y += b.y; }
+    x /= birds.length || 1; y /= birds.length || 1;
+    for (let it = 0; it < 3; it++) {
+      let sx = 0, sy = 0, n = 0;
+      vx = 0; vy = 0;
+      for (const b of birds) if (Math.hypot(b.x - x, b.y - y) < 70) { sx += b.x; sy += b.y; vx += b.vx; vy += b.vy; n++; }
+      if (n) { x = sx / n; y = sy / n; vx /= n; vy /= n; }
+    }
+    return { x, y, vx, vy };
   }
 
   // ---------- simulation ----------
@@ -487,6 +738,21 @@
 
     if (lure && lure.on) play.lure += dt;
     if (spooking) play.spook += dt;
+    if (!lure && !kb.held.size) play.idle += dt;
+    let scared = 0;
+    for (const b of birds) if (b.fear >= SCARED) scared++;
+    play.scaredPk = Math.max(play.scaredPk, scared / (birds.length || 1));
+    // Cohesion: mean distance to the nearest neighbour, every 0.5 s.
+    if (play.ticks++ % 30 === 0 && birds.length > 1) {
+      let sum = 0;
+      for (const b of birds) {
+        let m = Infinity;
+        for (const o of birds) if (o !== b) m = Math.min(m, (o.x - b.x) ** 2 + (o.y - b.y) ** 2);
+        sum += Math.sqrt(m);
+      }
+      play.coh += sum / birds.length;
+      play.cohN++;
+    }
 
     const [g1x, g1y, g2x, g2y] = gateEnds(GATES[gate]);
     for (let i = birds.length - 1; i >= 0; i--) {
@@ -496,6 +762,8 @@
       b.y += b.vy * dt;
       if (crosses(px, py, b.x, b.y, g1x, g1y, g2x, g2y)) passed.set(b, elapsed);
       if (b.x < -15 || b.x > W + 15 || b.y < -15 || b.y > H + 15) {
+        play.lost++;
+        if (b.fear >= PANIC) play.lostPan++;
         birds.splice(i, 1);
         passed.delete(b);
       }
@@ -516,14 +784,21 @@
     if (passed.size >= GATE_NEED) {
       lastClear = passed.size;
       gate++;
+      play.gateT.push(elapsed);
       passed = new Map();
       if (gate === 1) unlock('first-gate');
       if (gate >= GATES.length) {
+        // Per night: every gate cleared (the classic night's 5, or a migration night's).
         unlock('flock-home');
-        if (birds.length === START_BIRDS) unlock('no-bird-left');
-        if (startles <= 3) unlock('soft-touch');
+        if (!play.lost) unlock('no-bird-left');
+        if (NIGHT.startle && startles <= 3) unlock('soft-touch'); // free on a night with no startle
         if (DUSK - elapsed >= DUSK * 0.25) unlock('swift');
         if (DUSK - elapsed < 5) unlock('last-light');
+        if (GATES.length >= 3 && play.spook < 2 && !startles && play.lure >= 10) unlock('gentle-hand');
+        if (NIGHT === NIGHTS[CHAPTER]) {
+          unlock('gathered');
+          if (play.lost <= 2) unlock('edge-dancer');
+        }
         endGame('won');
         return;
       }
@@ -661,6 +936,9 @@
 
     if (kb.shown && state === 'playing') drawCursor();
 
+    $('hudNight').textContent = run || tally ? `${NIGHTS.indexOf(NIGHT)}/${CHAPTER}` : 'Classic';
+    $('hudStartleBox').hidden = !NIGHT.startle;
+    resetBtn.textContent = !run && !tally ? 'New flock' : performance.now() - resetArmed < 3000 ? 'Start over?' : 'Start over';
     document.getElementById('hudBirds').textContent = birds.length;
     document.getElementById('hudGate').textContent = `${Math.min(gate + 1, GATES.length)}/${GATES.length}`;
     document.getElementById('hudStartles').textContent = startles;
@@ -685,10 +963,12 @@
     pointerDown = true;
     downAt = performance.now();
     startPx = [evt.clientX, evt.clientY];
+    noteInput('touch');
     const [x, y] = toSky(evt);
-    lure = { x, y, on: false };
+    // With no startle tonight a press lures at once; otherwise a short one startles.
+    lure = { x, y, on: !NIGHT.startle };
     clearTimeout(holdTimer);
-    holdTimer = setTimeout(() => { if (lure) lure.on = true; }, HOLD_MS);
+    if (NIGHT.startle) holdTimer = setTimeout(() => { if (lure) lure.on = true; }, HOLD_MS);
   });
 
   canvas.addEventListener('pointermove', evt => {
@@ -713,8 +993,19 @@
     releaseLure();
   });
 
-  document.getElementById('resetBtn').addEventListener('click', () => newFlock());
-  playAgainBtn.addEventListener('click', () => newFlock());
+  // The bar's button: a new classic flock, or (migration) start over from
+  // night 1, which takes a second press within 3 s so a stray tap can't end a run.
+  let resetArmed = -1e9;
+  resetBtn.addEventListener('click', () => {
+    if (!run && !tally) return startClassic();
+    if (performance.now() - resetArmed < 3000) { resetArmed = -1e9; newMigration(); }
+    else resetArmed = performance.now();
+  });
+  // Telemetry: when the first input of a night came, and from what.
+  function noteInput(kind) {
+    if (kind === 'keys') keysUsed = true;
+    if (state === 'playing' && play.firstIn < 0) { play.firstIn = elapsed; play.input = kind; }
+  }
 
   // § keys: the same verbs without a pointer. Arrows move a cursor over the
   // sky while held (slow at first for aiming a startle, then fast enough to
@@ -772,24 +1063,31 @@
       evt.preventDefault();
       if (onButton) evt.target.blur();
       if (paused || state !== 'playing') return;
+      noteInput('keys');
       kb.held.add(evt.key);
       kb.shown = true;
       return;
     }
     if (paused) return;
     if (state !== 'playing') {
-      if (k === 'enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); newFlock(0); }
+      // A card is up: Enter or Space presses its main button.
+      if ((k === 'enter' || k === 'space') && !card.hidden) {
+        evt.preventDefault();
+        if (!evt.repeat && !cardMain.disabled) cardMain.click();
+      }
       return;
     }
     if (k === 'space') {
       evt.preventDefault();
       kb.shown = true;
       if (evt.repeat || kb.lure || pointerDown) return;
+      noteInput('keys');
       kb.lure = true;
       lure = { x: kb.x, y: kb.y, on: true };
-    } else if (k === 'enter' || k === 'x') {
+    } else if ((k === 'enter' || k === 'x') && NIGHT.startle) { // ignored on nights without startle
       evt.preventDefault();
       kb.shown = true;
+      noteInput('keys');
       if (!evt.repeat) startle(kb.x, kb.y);
     }
   });
@@ -815,7 +1113,8 @@
     requestAnimationFrame(frame);
   }
 
-  newFlock();
+  // The game opens on night 1's dawn card.
+  newMigration();
   requestAnimationFrame(frame);
 })();
 // § a11y label

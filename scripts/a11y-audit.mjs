@@ -464,7 +464,7 @@ const KEY_COVER = {
   "surprise-party": ["Arrows move · Enter whispers, next house · hold O: door · G guest, D door, B birthday · Space wait · U undo · R restart", ALL],
   "geode": ["← → temperature · T switches arrows to a cursor · S/Enter seed · hold C cleave · I foreign ion · H harvest · M sound", ALL],
   "island-census": ["Arrows pick a meadow · Enter/Space release rabbits · F then an arrow picks a path, F fences/unfences it · N next season", ALL],
-  "murmuration": ["Arrows move the cursor · hold Space to lure toward it · Enter or X startles at it · Enter flies again after a round", ALL],
+  "murmuration": ["Arrows move the cursor · hold Space to lure toward it · Enter or X startles (night 3 on) · Enter continues", ALL],
   "hourglass-delivery": ["Arrows move the cursor · hold Space pours · K then an arrow knocks · G next glass, L next ledge · Enter plays again", ALL],
   "orbit-garden": ["Arrows move the cursor · Enter places a planet · Space aims (arrows: angle, strength), Space flings · N next planet", ALL],
   "wildfire-line": ["Arrows move the cursor · Space starts or stops cutting along its path · Enter lights a backburn at the cursor", ALL],
