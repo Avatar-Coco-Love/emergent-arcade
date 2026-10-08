@@ -129,6 +129,9 @@ level get an `L0` line (Murmuration's classic night). Each line ends with
 the median of every stat and of every numeric extra field the game sends
 (`flock_end 44 spook 0.45 …`); arrays and text extras are left out.
 `--input rows.json` summarizes a saved `--format json` export the same way.
+`--pool` adds, per game, the same lines pooled across game versions for
+levels that send `nv` (`L3 nv1 (v8+v9, 5p)`): a revision that leaves a
+level alone (same `nv`) keeps adding to its count instead of starting over.
 
 Cost: one extra ~150-byte cell per round and no extra requests. Session
 rows are unchanged; "where did players stop" is derived from them (a
