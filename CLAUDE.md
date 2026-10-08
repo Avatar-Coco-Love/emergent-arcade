@@ -81,6 +81,8 @@ material moves to a file sessions don't read by default.
 - The session-start hook prints the branch status. If it says the branch's PR
   was merged, restart it with the command it gives before doing anything.
   If it lists commits stranded on another `claude/*` branch, tell the user.
+  If it says the live site is behind main, tell the user first: merged work
+  isn't live until the Pages deploy finishes (a stuck run blocks the queue).
 - Never push to a branch whose PR is already merged or closed.
 - Finish in this order: validate, update `docs/games/<id>.md` (constants,
   balance tables, open ideas; superseded parts to `docs/history/<id>.md`), push, open the PR, then publish the game file

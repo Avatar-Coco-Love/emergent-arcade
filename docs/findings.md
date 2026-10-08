@@ -153,6 +153,15 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   settling particles); test it with a noisy bot. *A hint that waits for
   stillness never shows in tilt mode.* Bubble Glass. players (n=2) confirm
   the fix.
+- When one press picks between two verbs by a timer (still = hold verb,
+  moved = drag verb), give the drag the benefit of the doubt: people rest
+  a finger before dragging. Hold ≥ ~350 ms, and let an early drag undo
+  the hold verb. *A short hold timer steals the drag verb.* Ant Trails v8.
+  players (n=1).
+- A verb's danger zone must show past the finger. Measure which rule
+  fails (switch each off in a gesture check) before retuning, and keep
+  fixes draw-only when the rule is the balance brake. *A lure you can't see
+  scares the flock for no visible reason.* Murmuration v7. players (n=1).
 
 ## Bots vs people
 
@@ -224,12 +233,34 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   name, because the board builder takes any scored round without `daily`
   as a leaderboard row. *A class challenge rode the Daily's date field.*
   Class challenge PR. tests (`test-daily.mjs`).
+- With a resource carried between levels, balance the run, not the level:
+  per-level win rates (lure60: 90/72/97/58% on nights 3-6) hide the flock
+  bleeding ~8 birds a night, which a whole-run bot shows (25/60 chapters
+  cleared). Add a run mode to the harness before tuning single levels.
+  *Per-level win rates hide a carried resource bleeding.* Murmuration v8. bots.
+- Recalibrate which bot stands for a human once humans have played: the
+  brief assumed `lure60`, but 2 players won all six v8 nights first try,
+  night 6 in 33 s (lure60 58% / 53 s, lure80 93% / 26 s), and called it
+  too easy. Chapter 2 was tuned to `lure80`. *Humans outplayed the bot
+  chosen to stand for them.* Murmuration v9. players (n=2) + bots.
+- An obstacle that kills on contact needs avoidance that holds until
+  near panic: scaled linearly with fear (like the edges), bots lost 10-20
+  birds a night on rocks, mostly half-scared birds from crowding and the
+  lure ring; with (1 − (fear/PANIC)³) it fell to 0-2 and only panic or a
+  startle beside a rock costs birds. *Linear fear scaling made rocks kill
+  half-scared birds.* Murmuration v9. bots.
 
 ## Accessibility
 
 Short form: the measured numbers and the full story are in the log entry
 named in *italics*.
 
+- A game that opens on a still card reads **pass** on the motion audit
+  even if play moves: record the in-play verdict by hand. *An opening
+  card hides play motion from the audit.* Murmuration v8. audit.
+- Anti-aliased card text can "merge" with the sky in the colour audit:
+  shorten or lay out the text before changing colours. *Card text edges
+  tripped the colour audit.* Murmuration v9. audit.
 - Read the keyboard line verb by verb: every verb needs a key path; Tab
   stays the browser's. *A keyboard line can hide that no verb has a key.*
   audit.

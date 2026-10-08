@@ -1610,3 +1610,67 @@ focus. The canvas is labelled at load with the device's word and the
 keys.
 
 *Evidence: audit.*
+
+### A short hold timer steals the drag verb
+
+Ant Trails v1–v7 decided trail vs rain at 150 ms: a press that hadn't moved
+10 px by then rained, and the gesture stayed rain. A phone player
+(2026-10-07) kept getting rain when she meant a trail: she rested her
+finger on the start point before dragging, as people do when aiming. The
+rain also wiped the trail she'd drawn there, so the mistake cost twice.
+v8: `HOLD_MS` 350, and a drag of 20 px within 250 ms of the rain starting
+turns it into a trail and restores the wiped scent. Headless gesture check:
+rest 250 ms then drag → trail (was rain); rest 450 ms then quick drag →
+rescued trail; rest 900 ms then drag → rain kept; slow drag after rain →
+rain kept. Murmuration has the same split (tap startle < 200 ms vs hold
+lure), still to check. Measure: `rescues` vs `rains` in round telemetry.
+
+## A lure you can't see scares the flock for no visible reason
+
+Murmuration v6, one phone tester: "hard to direct the birds". Gesture check
+(`scripts/gestures-murmuration.mjs`, 390×760): holding the lure still 110
+ahead scared 34/40 birds in 3 s, holding it on the flock 40/40, grabbing
+the flock and dragging 32/40. With `LURE_SPOOK=0` all were 0/40; crowding
+off changed nothing. So the 30-unit spook radius, through contagion, is
+what fails, and on a phone the 10-unit lure ring sat under the fingertip.
+Softening the spook (pull fading near the lure, or graded spook) put every
+bot at ~100% by 45 s (v6: 61–71%), so the spook is the balance brake. v7
+fix is draw-only: ring at the spook radius (56 CSS px), red while birds
+are inside, dashed reach circle. *Evidence: gesture check + bots; one
+player's report. Provisional until phone players' win rate moves.*
+
+## Per-level win rates hide a carried resource bleeding
+
+Murmuration v8 (Chapter 1, six nights, flock carried over with a tally).
+Night by night at 60 seeds, the lure60 bot (stand-in for a typical player)
+wins 98/95/90/72/97/58%, which reads as "gentle, then two tests". The
+`--run` mode (one seed flies all six nights, flock from the game's own
+tally) shows the flock at each dawn: 40, 44, 46, 40, 33, 40, roost 30. Lure
+play loses ~8 birds on each of nights 3 and 4, so night 5's dawn is 33
+(4 of 60 runs end before night 5, 5 before night 6) and only 25/60 clear the
+chapter, below the 58% of night 6 alone. Tapping bots stay near the cap
+(smart90: 53 at night 6's dawn, 58/60 chapters). So the carried flock
+works as a health bar and as the startle's reward, which no single-night
+number showed.
+
+## An opening card hides play motion from the audit
+
+Murmuration v8 opens on night 1's dawn card with the flock frozen behind
+it. `a11y-audit.mjs` taps 5 random points on a phone and then measures idle
+motion; none hit "Fly", so it measured the still card and reported motion
+**pass** (v6-v7: partial, all of it the flock). The game's motion didn't
+change. Record the in-play verdict in `docs/accessibility.md` by hand.
+
+## Card text edges tripped the colour audit
+
+Murmuration v9. The dawn card gained a third button ("Chapter 2") and a
+longer "Chapter 1 · Night 1 of 6" line. `a11y-audit.mjs` then failed the
+colour check: protan `#b46c8a` (sunset sky) ≈ `#827b8d` at 0.9% of the
+screen. The grey was anti-aliased card text (light text on the dark card),
+which the audit clusters like any other colour; with fewer text pixels it
+stayed under the 0.5% line. Removing the new marsh scene or the water strip
+changed nothing; a single secondary button, or two side by side plus a
+shorter flock line ("40 birds · 4 gates × 12 birds · 45 s of light"),
+passed. Not a real colour clash, but cheaper to lay out than to argue.
+
+*Evidence: audit.*

@@ -16,4 +16,25 @@ for b in $(git branch -r --format='%(refname:short)' | grep -E '^origin/(claude/
   n=$(git cherry origin/main "$b" 2>/dev/null | grep -c '^+')
   [ "$n" != 0 ] && echo "git: $b has $n commit(s) not in main: $(git log -1 --format=%s "$b")"
 done
+# Is the live site on main? The deploy tags index.html's assets/ links with
+# ?v=<commit> (pages.yml). In Oct 2026 one stuck deploy held the Pages queue
+# and 12 merges never went live while every PR looked done.
+site=$(sed -nE 's/.*siteUrl: *"([^"]*)".*/\1/p' assets/config.js 2>/dev/null)
+live=$(timeout 10 curl -fsS "${site}?nocache=$(date +%s)" 2>/dev/null | grep -o 'assets/config\.js?v=[0-9a-f]*' | head -1 | cut -d= -f2)
+if [ -z "$live" ]; then
+  echo "deploy: couldn't read the live site's commit"
+elif [ "$(git rev-parse --short=7 origin/main)" = "$live" ]; then
+  echo "deploy: live site is on main ($live)"
+elif ! git cat-file -e "$live^{commit}" 2>/dev/null; then
+  echo "deploy: live site is on $live, not in origin/main's history"
+else
+  n=$(git rev-list --first-parent --count "$live..origin/main")
+  since=$(git log --first-parent --reverse --format=%ct "$live..origin/main" | head -1)
+  mins=$(( ($(date +%s) - since) / 60 ))
+  if [ "$mins" -lt 20 ]; then
+    echo "deploy: $n merge(s) on main still deploying (${mins} min)"
+  else
+    echo "deploy: LIVE SITE IS $n MERGE(S) BEHIND MAIN, oldest undeployed one $((mins / 60))h $((mins % 60))m ago. Tell the user. A stuck Pages run (status waiting/pending) blocks every later deploy: cancel it (mcp__github__actions_run_trigger cancel_workflow_run) and the queued one deploys main."
+  fi
+fi
 exit 0

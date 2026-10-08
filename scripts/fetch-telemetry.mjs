@@ -8,6 +8,8 @@
 // Usage:
 //   FEEDBACK_READ_KEY=... node scripts/fetch-telemetry.mjs [--game <id>] [--format json|csv|summary]
 //   node scripts/fetch-telemetry.mjs --input rows.json [--game <id>]   (summarize a saved --format json export)
+//   ... --pool   also one line per level and revision (nv) across game versions:
+//                a level a revision left alone (same nv) keeps adding up players
 //
 // Same endpoint and key as scripts/fetch-feedback.mjs; see docs/telemetry.md.
 import { readFileSync } from "node:fs";
@@ -22,6 +24,7 @@ const opt = (name, fallback) => {
 };
 
 const game = opt("game", "");
+const pool = args.includes("--pool");
 const format = opt("format", "summary");
 const input = opt("input", "");
 let rowsIn;
@@ -152,6 +155,7 @@ for (const [k, rows] of [...groups].sort()) {
   else if (rounds.some((r) => r.reason || r.stats)) roundDetail(rounds);
   if (ach.size) console.log(`  achievements: ${[...ach].sort((a, b) => b[1] - a[1]).map(([id, n]) => `${id} ${n}`).join(", ")}`);
 }
+if (pool) pooledLevels(data.rows);
 if (galleryRows.length) gallerySummary(galleryRows);
 dailySummary(data.rows, galleryRows);
 
@@ -237,23 +241,60 @@ function parseStats(str) {
   return out;
 }
 
-function levelSummary(rounds, sessions) {
-  const lv = rounds.filter((r) => Number(r.level) > 0);
-  const levels = [...new Set(lv.map((r) => Number(r.level)))].sort((a, b) => a - b);
-  console.log("  by level: tries (first tries) · win rate (first try) · median win/loss time · losses by reason · median stats");
+// Columns every round row can have; any other numeric field is a game's own
+// extra (docs/telemetry.md, "Games with levels"), shown as medians.
+function extras(r) {
+  const base = ["kind", "game_id", "game_version", "session_id", "client_id", "device", "round", "outcome", "seconds",
+    "submitted_at", "received_at", "level", "run", "attempt", "reason", "stats", "score_epoch", "lb", "nv"];
+  const out = {};
+  for (const [k, v] of Object.entries(r)) if (!base.includes(k) && v !== "" && v != null && typeof v !== "object" && Number.isFinite(Number(v))) out[k] = Number(v);
+  return out;
+}
+function medians(objs) {
+  return [...new Set(objs.flatMap(Object.keys))].map((k) => `${k} ${median(objs.filter((x) => k in x).map((x) => x[k]))}`).join(" ");
+}
+
+// One line per level, and per level revision (nv) when the game sends one,
+// so retuning one level doesn't mix its numbers. Rounds with no level (e.g.
+// Murmuration's classic night) get a line "L0" of their own.
+function hasNv(r) { return r.nv != null && r.nv !== ""; }
+function levelKey(r) { return `${Number(r.level) > 0 ? Number(r.level) : 0}${hasNv(r) ? ` nv${r.nv}` : ""}`; }
+function levelLines(rounds, key, prefix, note = () => "") {
+  const levels = [...new Set(rounds.map(key))].sort((a, b) => parseFloat(a) - parseFloat(b) || a.localeCompare(b));
   for (const L of levels) {
-    const at = lv.filter((r) => Number(r.level) === L);
+    const at = rounds.filter((r) => key(r) === L);
     const first = at.filter((r) => Number(r.attempt || 1) === 1);
     const won = at.filter((r) => r.outcome === "win");
     const reasons = new Map();
     for (const r of at) if (r.outcome === "loss") reasons.set(r.reason || "?", (reasons.get(r.reason || "?") || 0) + 1);
-    const stats = at.map((r) => parseStats(r.stats));
-    const keys = [...new Set(stats.flatMap(Object.keys))];
-    const med = keys.map((k) => `${k} ${median(stats.filter((x) => k in x).map((x) => x[k]))}`).join(" ");
-    console.log(`    L${L}: ${at.length} (${first.length}) · ${pct(won.length, at.length)} (${pct(first.filter((r) => r.outcome === "win").length, first.length)})` +
+    const med = medians(at.map((r) => parseStats(r.stats)));
+    const ext = medians(at.map(extras));
+    console.log(`${prefix}${L}${note(at)}: ${at.length} (${first.length}) · ${pct(won.length, at.length)} (${pct(first.filter((r) => r.outcome === "win").length, first.length)})` +
       ` · ${secs(median(won.map((r) => Number(r.seconds))))}/${secs(median(at.filter((r) => r.outcome === "loss").map((r) => Number(r.seconds))))}` +
-      ` · ${[...reasons].map(([k, n]) => `${k} ${n}`).join(", ") || "-"} · ${med || "-"}`);
+      ` · ${[...reasons].map(([k, n]) => `${k} ${n}`).join(", ") || "-"} · ${med || "-"}${ext ? ` · ${ext}` : ""}`);
   }
+}
+
+// --pool: per game, levels that carry nv, across every version that sent
+// them. Same level + same nv = the same content, so a revision that leaves a
+// level alone doesn't reset its count. Leads with versions and players.
+function pooledLevels(rows) {
+  const byGame = new Map();
+  for (const r of rows) {
+    if (r.kind !== "round" || !(Number(r.level) > 0) || !hasNv(r)) continue;
+    if (!byGame.has(r.game_id)) byGame.set(r.game_id, []);
+    byGame.get(r.game_id).push(r);
+  }
+  for (const [id, rounds] of [...byGame].sort()) {
+    console.log(`\n${id}, pooled by level and nv across versions: versions, players · then as "by level"`);
+    levelLines(rounds, levelKey, "    L", (at) => ` (v${[...new Set(at.map((r) => r.game_version))].sort((a, b) => a - b).join("+v")}, ${new Set(at.map((r) => r.client_id)).size}p)`);
+  }
+}
+
+function levelSummary(rounds, sessions) {
+  const lv = rounds.filter((r) => Number(r.level) > 0);
+  console.log("  by level: tries (first tries) · win rate (first try) · median win/loss time · losses by reason · median stats · median extras");
+  levelLines(rounds, levelKey, "    L");
 
   // Runs: the furthest level each one won, and how many retries it took.
   const runs = new Map();

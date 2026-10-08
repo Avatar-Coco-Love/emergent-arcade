@@ -243,10 +243,25 @@
       "id": "murmuration",
       "title": "Murmuration",
       "file": "murmuration.html",
-      "version": 6,
+      "version": 9,
       "added": "2026-09-27",
-      "updated": "2026-10-05",
+      "updated": "2026-10-08",
       "changes": [
+        {
+          "version": 9,
+          "date": "2026-10-08",
+          "text": "Chapter 2, The High Pass: five mountain nights under a colder sky, with crags to steer around (a scared bird can hit one), a crosswind and ringed gates that count only calm birds. Each chapter has its own scene and leaderboard, and can be flown on its own."
+        },
+        {
+          "version": 8,
+          "date": "2026-10-08",
+          "text": "Chapter 1, The Gathering: six nights in a row, each with its own gates and one new idea, and the flock you keep flies on to the next night. Your score is the gates cleared in the migration. The single night is still there as Classic night."
+        },
+        {
+          "version": 7,
+          "date": "2026-10-07",
+          "text": "Easier to steer on a phone: the lure now shows a ring around your {finger} and a dashed circle for how far it reaches. The ring turns red while it is spooking birds, so you can see when to lead further ahead."
+        },
         {
           "version": 6,
           "date": "2026-10-05",
@@ -278,10 +293,10 @@
           "text": "First version."
         }
       ],
-      "blurb": "Lure a flock of starlings through a string of gates before night falls. Startle them for speed, but panic spreads from bird to bird.",
-      "goal": "Fly 15 birds through each of the 5 gates, in order and close together, before night falls (60 seconds of light) and before the flock drops below 15 birds.",
-      "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. {Hold} anywhere and calm birds fly toward your {finger}; keep holding and move it to lead them. The lure pulls hardest on birds near it, but birds that get too close are spooked. {Tap} to startle the birds near the {tap}: they panic (turning red) and burst away from it. Scared birds still match their neighbors' heading, so a {tap} just behind the flock sends it surging forward, the fastest way across open sky. A gate only counts birds that flew through it in the last few seconds, so bring the flock through together. The sky darkens as the light runs out (the time left is in the bottom bar); if the flock hasn't cleared all 5 gates by nightfall, the round is lost. Fear spreads to neighbors and fades over time. Scared birds ignore your lure, birds packed too tightly get scared on their own, and panicked birds can fly off the edge of the sky and be lost, so be careful startling near the edges.",
-      "keyboard": "Arrows move the cursor · hold Space to lure toward it · Enter or X startles at it · Enter flies again after a round",
+      "blurb": "Lead a flock of starlings through two chapters of nights: the marsh, then the mountains. Lure them with a held {finger}, startle them for speed, and keep enough birds for the next night.",
+      "goal": "Fly the flock through a chapter of nights: Chapter 1, The Gathering (6 nights over the marsh), or Chapter 2, The High Pass (5 nights in the mountains, with crags, wind and calm gates). Each night, bring enough birds through every gate before dark; the birds you keep fly on to the next night. Your score is the gates cleared in the chapter (23 in Chapter 1, 19 in Chapter 2).",
+      "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. {Hold} anywhere and calm birds fly toward your {finger}; keep holding and move it to lead them. The dashed circle shows how far the lure reaches; birds that fly inside the small ring around your {finger} are spooked and the ring turns red, so keep it ahead of the flock and keep moving. From night 3, {tap} to startle the birds near the {tap}: they burst away from it, so a {tap} just behind the flock sends it surging forward. A gate counts only birds that flew through it together, and the number beside it says how many it needs. Fear spreads to neighbors, scared birds ignore your lure, and panicked birds can fly off the edge of the sky. After each night the flock is tallied: lost birds stay lost, each gate missed costs 3 more, clearing every gate brings 4 new birds. If the flock is too small for the next night's gates, the migration ends. In Chapter 2, crags stand in the sky: calm birds swerve round them, but a scared bird can fly into one and is lost, so never startle beside the rocks. Wind bands carry every bird sideways, and ringed gates count only calm birds. Each chapter can be flown on its own from its first night. Classic night is the single 5-gate night from earlier versions.",
+      "keyboard": "Arrows move the cursor · hold Space to lure toward it · Enter or X startles (night 3 on) · Enter continues",
       "mechanics": [
         {
           "name": "lure",
@@ -301,17 +316,17 @@
         {
           "id": "first-gate",
           "title": "Takeoff",
-          "description": "Fly the flock through the first gate."
+          "description": "Fly the flock through a gate."
         },
         {
           "id": "flock-home",
           "title": "Murmuration",
-          "description": "Clear all 5 gates."
+          "description": "Clear every gate of a night."
         },
         {
           "id": "no-bird-left",
           "title": "No Bird Left Behind",
-          "description": "Clear all 5 gates without losing a single bird."
+          "description": "Clear every gate of a night without losing a single bird."
         },
         {
           "id": "chain-panic",
@@ -321,36 +336,70 @@
         {
           "id": "soft-touch",
           "title": "Soft Touch",
-          "description": "Clear all 5 gates with 3 or fewer startles."
+          "description": "Clear every gate of a night with startles (night 3 on, or Classic) using 3 or fewer."
         },
         {
           "id": "swift",
           "title": "Swift",
-          "description": "Clear all 5 gates with at least 15 seconds of daylight left."
+          "description": "Clear every gate of a night with a quarter of its daylight left."
         },
         {
           "id": "last-light",
           "title": "Last Light",
-          "description": "Clear the last gate with under 5 seconds of daylight left."
+          "description": "Clear the last gate of a night with under 5 seconds of daylight left."
+        },
+        {
+          "id": "gentle-hand",
+          "title": "Gentle Hand",
+          "description": "Clear a night of 3+ gates with no startles, luring for 10+ seconds with the ring red for under 2."
+        },
+        {
+          "id": "gathered",
+          "title": "The Gathering",
+          "description": "Clear night 6, The edge, and finish Chapter 1."
+        },
+        {
+          "id": "edge-dancer",
+          "title": "Edge Dancer",
+          "description": "Clear night 6, The edge, losing 2 birds or fewer that night."
+        },
+        {
+          "id": "sure-wings",
+          "title": "Sure Wings",
+          "description": "Clear every gate of a night with crags without losing a bird on the rocks."
+        },
+        {
+          "id": "into-the-wind",
+          "title": "Into the Wind",
+          "description": "Clear every gate of a windy night losing 2 birds or fewer."
+        },
+        {
+          "id": "high-pass",
+          "title": "The High Pass",
+          "description": "Clear night 5 of Chapter 2, The high pass, and finish the chapter."
         }
       ],
       "score": {
-        "label": "Fastest flight",
-        "better": "lower",
-        "format": "time",
-        "from": "time",
-        "wins": true,
-        "max": 3600,
-        "epoch": 1
+        "label": "Gates in a chapter",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 23,
+        "epoch": 2,
+        "boardList": [
+          "ch1",
+          "ch2"
+        ]
       }
     },
     {
       "id": "ant-trails",
       "title": "Ant Trails",
       "file": "ant-trails.html",
-      "version": 7,
+      "version": 8,
       "added": "2026-09-27",
-      "updated": "2026-10-05",
+      "updated": "2026-10-07",
       "changes": [
         {
           "version": 7,

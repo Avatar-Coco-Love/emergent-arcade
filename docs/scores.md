@@ -56,7 +56,7 @@ its own `score`, and bumps `epoch`.
 |---|---|---|
 | pressure-grid | Stars (own `score`, total over levels, v8 / epoch 2) | 15 (3 per level, 5 levels so far) |
 | orbit-garden | Fastest bloom (time, wins) | none |
-| murmuration | Fastest flight (time, wins) | none |
+| murmuration | Gates in a chapter (own `score`, boards `ch1` and `ch2`, v9 / epoch 2: chapter 1 unchanged) | 23 (chapter 1; chapter 2 has 19) |
 | ant-trails | Days survived (level, wins) | 6 |
 | wildfire-line | Fastest burnout (time, wins) | none |
 | hourglass-delivery | Glasses filled (`stats.filled`) | 8 |
