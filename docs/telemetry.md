@@ -122,6 +122,14 @@ counts and seconds; never text a player typed. Each game documents its keys
 in `docs/games/<id>.md`. The gallery and the server both drop anything
 malformed, so a bad field loses that field, not the row.
 
+Reading it: `fetch-telemetry.mjs` prints one line per level, and per level
+revision when the game sends `nv` (a number bumped when one level is
+retuned, so its old and new numbers don't mix: `L3 nv2`). Rounds with no
+level get an `L0` line (Murmuration's classic night). Each line ends with
+the median of every stat and of every numeric extra field the game sends
+(`flock_end 44 spook 0.45 …`); arrays and text extras are left out.
+`--input rows.json` summarizes a saved `--format json` export the same way.
+
 Cost: one extra ~150-byte cell per round and no extra requests. Session
 rows are unchanged; "where did players stop" is derived from them (a
 session's play time beyond its finished rounds means they left mid-round).
