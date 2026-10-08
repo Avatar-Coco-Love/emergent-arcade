@@ -1,7 +1,8 @@
 // Phone-size gesture check for Murmuration's two verbs (hold = lure, tap = startle).
 //
-// Usage: node scripts/gestures-murmuration.mjs [CONST=value,...]
-//   e.g. node scripts/gestures-murmuration.mjs LURE_SPOOK=0 (try a constant first)
+// Usage: node scripts/gestures-murmuration.mjs [--night N] [field=value,...]
+//   e.g. node scripts/gestures-murmuration.mjs --night 1      (night 1: lure only, half spook)
+//        node scripts/gestures-murmuration.mjs spook=0         (try a NIGHTS field first; 0 = classic)
 //
 // Opens a debug copy of games/murmuration.html at 390x760 with touch, runs the
 // real animation loop, and replays press-and-drag gestures with real timing
@@ -23,19 +24,14 @@ try { ({ chromium } = await import('playwright')); } catch {
 
 const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), '../games/murmuration.html');
 
-function buildDebug(overrides) {
+function buildDebug() {
   let html = fs.readFileSync(SRC, 'utf8');
-  for (const [k, v] of Object.entries(overrides)) {
-    const re = new RegExp(`(\\b${k} = )[^,;]+`);
-    if (!re.test(html)) throw new Error('no const ' + k);
-    html = html.replace(re, `$1${v}`);
-  }
-  const tail = '  newFlock();\n  requestAnimationFrame(frame);\n})();';
+  const tail = '  newMigration();\n  requestAnimationFrame(frame);\n})();';
   if (!html.includes(tail)) throw new Error('game file layout changed: update buildDebug()');
   html = html.replace(tail, `
   window.__dbg = {
     get birds() { return birds; }, get startles() { return startles; }, get lure() { return lure; },
-    W, H, newFlock, LURE_SPOOK_R,
+    W, H, newFlock, NIGHTS, LURE_SPOOK_R,
   };
   newFlock();
   requestAnimationFrame(frame);
@@ -62,8 +58,16 @@ const GESTURES = [
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 390, height: 760 }, hasTouch: true, isMobile: true });
-await page.goto(pathToFileURL(buildDebug(Object.fromEntries((process.argv[2] || '').split(',').filter(Boolean).map(kv => kv.split('='))))).href);
+const args = process.argv.slice(2);
+const night = args.includes('--night') ? +args[args.indexOf('--night') + 1] : 0;
+const overrides = Object.fromEntries((args.find(a => a.includes('=')) || '').split(',').filter(Boolean).map(kv => kv.split('=')));
+await page.goto(pathToFileURL(buildDebug()).href);
 await page.waitForTimeout(300);
+console.log(await page.evaluate(({ night, overrides }) => {
+  const N = window.__dbg.NIGHTS[night];
+  for (const [k, v] of Object.entries(overrides)) { if (!(k in N)) throw new Error('no NIGHTS field ' + k); N[k] = +v; }
+  return `night ${night} ${N.id}: spook ${N.spook}, startle ${N.startle ? 'on' : 'off (a press lures at once)'}`;
+}, { night, overrides }));
 { // how big the lure ring is on this phone, against a ~40 px fingertip
   const box = await page.locator('#sky').boundingBox();
   const r = await page.evaluate(() => window.__dbg.LURE_SPOOK_R);
@@ -83,7 +87,7 @@ const clamp = ([x, y]) => [Math.max(20, Math.min(380, x)), Math.max(20, Math.min
 for (const g of GESTURES) {
   const results = [];
   for (let rep = 0; rep < 3; rep++) {
-    await page.evaluate(() => window.__dbg.newFlock());
+    await page.evaluate(n => window.__dbg.newFlock(n), night);
     await page.waitForTimeout(1500); // let the flock settle
     const box = await page.locator('#sky').boundingBox();
     const c0 = await snap();

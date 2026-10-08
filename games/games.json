@@ -243,10 +243,15 @@
       "id": "murmuration",
       "title": "Murmuration",
       "file": "murmuration.html",
-      "version": 7,
+      "version": 8,
       "added": "2026-09-27",
-      "updated": "2026-10-07",
+      "updated": "2026-10-08",
       "changes": [
+        {
+          "version": 8,
+          "date": "2026-10-08",
+          "text": "Chapter 1, The Gathering: six nights in a row, each with its own gates and one new idea, and the flock you keep flies on to the next night. Your score is the gates cleared in the migration. The single night is still there as Classic night."
+        },
         {
           "version": 7,
           "date": "2026-10-07",
@@ -283,10 +288,10 @@
           "text": "First version."
         }
       ],
-      "blurb": "Lure a flock of starlings through a string of gates before night falls. Startle them for speed, but panic spreads from bird to bird.",
-      "goal": "Fly 15 birds through each of the 5 gates, in order and close together, before night falls (60 seconds of light) and before the flock drops below 15 birds.",
-      "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. {Hold} anywhere and calm birds fly toward your {finger}; keep holding and move it to lead them. The dashed circle shows how far the lure reaches; it pulls hardest on birds near it, but birds that fly inside the ring around your {finger} are spooked, and the ring turns red. So keep it ahead of the flock and keep moving, rather than pressing on the birds. {Tap} to startle the birds near the {tap}: they panic (turning red) and burst away from it. Scared birds still match their neighbors' heading, so a {tap} just behind the flock sends it surging forward, the fastest way across open sky. A gate only counts birds that flew through it in the last few seconds, so bring the flock through together. The sky darkens as the light runs out (the time left is in the bottom bar); if the flock hasn't cleared all 5 gates by nightfall, the round is lost. Fear spreads to neighbors and fades over time. Scared birds ignore your lure, birds packed too tightly get scared on their own, and panicked birds can fly off the edge of the sky and be lost, so be careful startling near the edges.",
-      "keyboard": "Arrows move the cursor · hold Space to lure toward it · Enter or X startles at it · Enter flies again after a round",
+      "blurb": "Lead a flock of starlings through six nights of gates. Lure them with a held {finger}, startle them for speed, and keep enough birds for the next night.",
+      "goal": "Fly the flock through the six nights of Chapter 1, The Gathering: each night, bring enough birds through every gate before dark. The birds you keep fly on to the next night. Your score is the gates cleared in the migration (23 in all).",
+      "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. {Hold} anywhere and calm birds fly toward your {finger}; keep holding and move it to lead them. The dashed circle shows how far the lure reaches; birds that fly inside the small ring around your {finger} are spooked and the ring turns red, so keep it ahead of the flock and keep moving. From night 3, {tap} to startle the birds near the {tap}: they burst away from it, so a {tap} just behind the flock sends it surging forward. A gate counts only birds that flew through it together, and the number beside it says how many it needs. Fear spreads to neighbors, scared birds ignore your lure, and panicked birds can fly off the edge of the sky. After each night the flock is tallied: lost birds stay lost, each gate missed costs 3 more, clearing every gate brings 4 new birds. If the flock is too small for the next night's gates, the migration ends. Classic night is the single 5-gate night from earlier versions.",
+      "keyboard": "Arrows move the cursor · hold Space to lure toward it · Enter or X startles (night 3 on) · Enter continues",
       "mechanics": [
         {
           "name": "lure",
@@ -306,17 +311,17 @@
         {
           "id": "first-gate",
           "title": "Takeoff",
-          "description": "Fly the flock through the first gate."
+          "description": "Fly the flock through a gate."
         },
         {
           "id": "flock-home",
           "title": "Murmuration",
-          "description": "Clear all 5 gates."
+          "description": "Clear every gate of a night."
         },
         {
           "id": "no-bird-left",
           "title": "No Bird Left Behind",
-          "description": "Clear all 5 gates without losing a single bird."
+          "description": "Clear every gate of a night without losing a single bird."
         },
         {
           "id": "chain-panic",
@@ -326,27 +331,45 @@
         {
           "id": "soft-touch",
           "title": "Soft Touch",
-          "description": "Clear all 5 gates with 3 or fewer startles."
+          "description": "Clear every gate of a night with startles (night 3 on, or Classic) using 3 or fewer."
         },
         {
           "id": "swift",
           "title": "Swift",
-          "description": "Clear all 5 gates with at least 15 seconds of daylight left."
+          "description": "Clear every gate of a night with a quarter of its daylight left."
         },
         {
           "id": "last-light",
           "title": "Last Light",
-          "description": "Clear the last gate with under 5 seconds of daylight left."
+          "description": "Clear the last gate of a night with under 5 seconds of daylight left."
+        },
+        {
+          "id": "gentle-hand",
+          "title": "Gentle Hand",
+          "description": "Clear a night of 3+ gates with no startles, luring for 10+ seconds with the ring red for under 2."
+        },
+        {
+          "id": "gathered",
+          "title": "The Gathering",
+          "description": "Clear night 6, The edge, and finish Chapter 1."
+        },
+        {
+          "id": "edge-dancer",
+          "title": "Edge Dancer",
+          "description": "Clear night 6, The edge, losing 2 birds or fewer that night."
         }
       ],
       "score": {
-        "label": "Fastest flight",
-        "better": "lower",
-        "format": "time",
-        "from": "time",
-        "wins": true,
-        "max": 3600,
-        "epoch": 1
+        "label": "Gates in a migration",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 23,
+        "epoch": 2,
+        "boardList": [
+          "ch1"
+        ]
       }
     },
     {

@@ -237,22 +237,38 @@ function parseStats(str) {
   return out;
 }
 
+// Columns every round row can have; any other numeric field is a game's own
+// extra (docs/telemetry.md, "Games with levels"), shown as medians.
+function extras(r) {
+  const base = ["kind", "game_id", "game_version", "session_id", "client_id", "device", "round", "outcome", "seconds",
+    "submitted_at", "received_at", "level", "run", "attempt", "reason", "stats", "score_epoch", "lb", "nv"];
+  const out = {};
+  for (const [k, v] of Object.entries(r)) if (!base.includes(k) && v !== "" && v != null && typeof v !== "object" && Number.isFinite(Number(v))) out[k] = Number(v);
+  return out;
+}
+function medians(objs) {
+  return [...new Set(objs.flatMap(Object.keys))].map((k) => `${k} ${median(objs.filter((x) => k in x).map((x) => x[k]))}`).join(" ");
+}
+
 function levelSummary(rounds, sessions) {
   const lv = rounds.filter((r) => Number(r.level) > 0);
-  const levels = [...new Set(lv.map((r) => Number(r.level)))].sort((a, b) => a - b);
-  console.log("  by level: tries (first tries) · win rate (first try) · median win/loss time · losses by reason · median stats");
+  // One line per level, and per level revision (nv) when the game sends one,
+  // so retuning one level doesn't mix its numbers. Rounds with no level (e.g.
+  // Murmuration's classic night) get a line "L0" of their own.
+  const key = (r) => `${Number(r.level) > 0 ? Number(r.level) : 0}${r.nv != null && r.nv !== "" ? ` nv${r.nv}` : ""}`;
+  const levels = [...new Set(rounds.map(key))].sort((a, b) => parseFloat(a) - parseFloat(b) || a.localeCompare(b));
+  console.log("  by level: tries (first tries) · win rate (first try) · median win/loss time · losses by reason · median stats · median extras");
   for (const L of levels) {
-    const at = lv.filter((r) => Number(r.level) === L);
+    const at = rounds.filter((r) => key(r) === L);
     const first = at.filter((r) => Number(r.attempt || 1) === 1);
     const won = at.filter((r) => r.outcome === "win");
     const reasons = new Map();
     for (const r of at) if (r.outcome === "loss") reasons.set(r.reason || "?", (reasons.get(r.reason || "?") || 0) + 1);
-    const stats = at.map((r) => parseStats(r.stats));
-    const keys = [...new Set(stats.flatMap(Object.keys))];
-    const med = keys.map((k) => `${k} ${median(stats.filter((x) => k in x).map((x) => x[k]))}`).join(" ");
+    const med = medians(at.map((r) => parseStats(r.stats)));
+    const ext = medians(at.map(extras));
     console.log(`    L${L}: ${at.length} (${first.length}) · ${pct(won.length, at.length)} (${pct(first.filter((r) => r.outcome === "win").length, first.length)})` +
       ` · ${secs(median(won.map((r) => Number(r.seconds))))}/${secs(median(at.filter((r) => r.outcome === "loss").map((r) => Number(r.seconds))))}` +
-      ` · ${[...reasons].map(([k, n]) => `${k} ${n}`).join(", ") || "-"} · ${med || "-"}`);
+      ` · ${[...reasons].map(([k, n]) => `${k} ${n}`).join(", ") || "-"} · ${med || "-"}${ext ? ` · ${ext}` : ""}`);
   }
 
   // Runs: the furthest level each one won, and how many retries it took.
