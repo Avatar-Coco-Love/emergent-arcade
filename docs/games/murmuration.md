@@ -1,7 +1,7 @@
 # Murmuration: design notes
 
 **v9** (2026-10-08): Chapter 2, The High Pass (nights 7-11), and a scene per
-chapter. Chapter 1 (v8) unchanged. Playtest (v9): PLAYTEST_LINK ·
+chapter. Chapter 1 (v8) unchanged. Playtest (v9): https://claude.ai/artifact/5qBbq53fGXboWAEUKveUL2 ·
 balance: `node scripts/balance-murmuration.mjs 40 lure60,lure80 --night N`,
 `… --run --chapter 2`, `… --check` · ideas ledger: `murmuration-story.md` ·
 history (v1-v8 tables, v8 players): `docs/history/murmuration.md`.
