@@ -912,6 +912,8 @@ once (a resize still paints at once, since it clears the canvas).
 *Evidence: solver lines for all ten levels replayed by keys only (★★★,
 messages checked), audit 6/6, playthrough by pointer unchanged.*
 
+Moved from `docs/findings.md` (2026-10-07): example line, "Poured 7 left, now 10. 2 cells burst in a chain of 2 waves. 1 ring left.", plus one line per cursor step.
+
 ## A saturated colour turns into text grey for colour-blind eyes
 
 Island Census v3. After the map got lightness bands, the colour audit
@@ -1116,6 +1118,8 @@ scratch dir), twice, identical, then identical to v8 (200 runs × 13 bots).
 *Evidence: keys-only playthrough (desktop, keys only); idle diff with 2
 blooming × old/new × normal/reduced × planets hidden, 3 runs; audit 3/3
 plus 2/2 on two scripted late rounds; balance old×2 and new identical.*
+
+Moved from `docs/findings.md` (2026-10-07): aim is two values; a tap steps 1° or 1%, a held key ramps after 0.3 s.
 
 ## A band's step belongs on the rule's line, not near it
 
@@ -1595,6 +1599,17 @@ Rule: a feature that adds a dialog, a collapsed panel or a confirm adds it
 to `views` in `auditGallery()` with a state per step; a view that is never
 opened has no failures to show.
 
+## A picker key must leave Tab and focused buttons alone
+
+Rail Yard v3 (moved from `docs/findings.md` in the 2026-10-07 cleanup,
+which shortened that file to one rule per line). Picking a car with Tab
+trapped keyboard players inside the cabinet's frame. Space now picks
+(Shift+Space goes back), but once Tab was free, players landed on the
+game's own buttons, so the game lets Space through when a button has
+focus. The canvas is labelled at load with the device's word and the
+keys.
+
+*Evidence: audit.*
 
 ### A short hold timer steals the drag verb
 
@@ -1645,3 +1660,17 @@ it. `a11y-audit.mjs` taps 5 random points on a phone and then measures idle
 motion; none hit "Fly", so it measured the still card and reported motion
 **pass** (v6-v7: partial, all of it the flock). The game's motion didn't
 change. Record the in-play verdict in `docs/accessibility.md` by hand.
+
+## Card text edges tripped the colour audit
+
+Murmuration v9. The dawn card gained a third button ("Chapter 2") and a
+longer "Chapter 1 · Night 1 of 6" line. `a11y-audit.mjs` then failed the
+colour check: protan `#b46c8a` (sunset sky) ≈ `#827b8d` at 0.9% of the
+screen. The grey was anti-aliased card text (light text on the dark card),
+which the audit clusters like any other colour; with fewer text pixels it
+stayed under the 0.5% line. Removing the new marsh scene or the water strip
+changed nothing; a single secondary button, or two side by side plus a
+shorter flock line ("40 birds · 4 gates × 12 birds · 45 s of light"),
+passed. Not a real colour clash, but cheaper to lay out than to argue.
+
+*Evidence: audit.*

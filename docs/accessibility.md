@@ -1,6 +1,6 @@
 # Accessibility audit
 
-Run on **2026-10-05** (`teachers.md`, idea 6), after the gallery fixes;
+Run on **2026-10-05** (`history/teachers.md`, idea 6), after the gallery fixes;
 label column and Rail Yard's keyboard rerun after the canvas-label batch;
 rows for Rail Yard, Aqueduct and Counterfeit Scale rerun 2026-10-07.
 Rerun the audit with:
@@ -13,7 +13,7 @@ Rerun the audit with:
 The script's own output has the details (colours, ratios, which text). It
 exits 1 only if a gallery-side check fails. Game rows are reports: each game
 fixes its own row in a revision PR (lines in `docs/games/<id>.md`, "Open
-ideas", and in `ideas/teachers.md`, idea 6).
+ideas", and in `history/teachers.md`, idea 6).
 
 ## The checks
 

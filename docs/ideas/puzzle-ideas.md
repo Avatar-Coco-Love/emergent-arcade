@@ -1,7 +1,8 @@
 # Procedural puzzle ideas (2026-10-02 discussion)
 
 Index of six generated-puzzle ideas, one file each. None is built or
-approved. Format follows `docs/ideas/tidewright.md` (a brief, not a spec).
+approved. Format follows the Tidewright brief, a brief, not a spec
+(`docs/history/tidewright.md`, "Original design brief").
 Other briefs (e.g. `coat-check.md`, a working-memory game) are listed in
 `README.md`.
 

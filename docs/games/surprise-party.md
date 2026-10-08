@@ -1,6 +1,6 @@
 # Surprise Party: design notes
 
-v4 (2026-10-05, accessibility; v3 canvas label; v2 2026-10-04 Daily Challenge). Brief: `docs/ideas/surprise-party.md`. Go/no-go runs and
+v4 (2026-10-05, accessibility; v3 canvas label; v2 2026-10-04 Daily Challenge). Brief: `docs/history/surprise-party.md`. Go/no-go runs and
 superseded house designs: `docs/history/surprise-party.md`.
 Harness: `node scripts/balance-surprise-party.mjs [trials] [1|2|both]`
 (cuts the `// § sim` block out of the game; `show <id>`, `gen [n] [k]` dev

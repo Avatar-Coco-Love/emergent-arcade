@@ -172,9 +172,12 @@ window.ArcadeTelemetry = (function () {
   }
 
   // "Script error." is a cross-origin script (a browser extension) with no
-  // detail to act on.
+  // detail to act on. The gallery has no inline scripts, so an error whose
+  // file isn't one of our .js files was injected by the browser (in-app
+  // browsers' autofill, Android webview loggers): skip it too.
+  const ours = (f) => { try { const u = new URL(f); return u.origin === location.origin && /\.js$/.test(u.pathname); } catch (_) { return false; } };
   window.addEventListener("error", (e) => {
-    if (!e.message || /^Script error\.?$/.test(e.message)) return;
+    if (!e.message || /^Script error\.?$/.test(e.message) || !ours(e.filename)) return;
     error("gallery", { message: e.message, line: e.lineno, col: e.colno, file: String(e.filename || "").replace(/^.*\//, "") });
   });
   window.addEventListener("unhandledrejection", (e) => {

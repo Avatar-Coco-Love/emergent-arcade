@@ -5,7 +5,7 @@ balance: `node scripts/balance-tidewright.mjs 200`
 Verbs: **shore up** (flick) and **sluice** (tap), sharing **wall height `H`
 and standing water `W` per column** (32 columns). Endless: seasons of 6
 waves (each a `win`), until the village floods (mean `W` ≥ `FLOOD_D`).
-Score: waves held in the run. 5 achievements. Brief: `docs/ideas/tidewright.md`.
+Score: waves held in the run. 5 achievements. Brief: `docs/history/tidewright.md`.
 
 ## How it works
 

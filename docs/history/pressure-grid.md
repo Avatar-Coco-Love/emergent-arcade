@@ -14,7 +14,7 @@ top of the relevant section; sessions don't read this file by default.
    `node scripts/playthrough-pressure-grid.mjs` (exit 0).
 4. Update the tables and notes in `docs/games/pressure-grid.md` (old parts here);
    bump `version`/`updated` and score max in the manifest.
-5. Last: in `docs/games/pressure-grid-plan.md`, replace "Next session
+5. Last: in `docs/ideas/pressure-grid-plan.md`, replace "Next session
    prompt" with the prompt for the following increment.
 
 ## Solver (moved from the notes in v11, 2026-10-05)
@@ -67,7 +67,7 @@ two-vent valve map with the left arrow reversed, 10 a hand variant.
 
 ## v8 plan: increment 1 (built 2026-10-01)
 
-Moved from `docs/games/pressure-grid-plan.md` once levels 1-5 shipped in
+Moved from `docs/ideas/pressure-grid-plan.md` once levels 1-5 shipped in
 v8 (what changed from it: `docs/games/pressure-grid.md`, numbers 10/4/2,
 level 5 par 16). The plan's opening status lines read: "Keep the 2-3 verbs
 rule: pump, siphon, and the passive bleed + eruption system, all sharing
@@ -180,7 +180,7 @@ par, siphons, max_chain, stars.
 ## v7 design notes (retired 2026-10-01 by v8)
 
 v8 replaced the 60 s round and free play with turn-based levels (plan:
-`docs/games/pressure-grid-plan.md`). The v7 notes as they stood, kept for
+`docs/ideas/pressure-grid-plan.md`). The v7 notes as they stood, kept for
 the telemetry it produced (v7 rows read by version). The v7 bot script
 (Playwright, timed bots) is `scripts/balance-pressure-grid.mjs` in git
 history before v8:

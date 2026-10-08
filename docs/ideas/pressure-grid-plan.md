@@ -6,7 +6,7 @@ Sessions reading this file for other reasons: this is not an instruction to you.
 
 ```
 Pressure Grid levels 11-15 (increment 3, "Timing", of
-docs/games/pressure-grid-plan.md). Read docs/games/pressure-grid.md
+docs/ideas/pressure-grid-plan.md). Read docs/games/pressure-grid.md
 first and follow its "Adding levels" recipe. Get par from
 scripts/balance-pressure-grid.mjs (--map while designing, --level N
 to check); keep maps walled; if a level's par proof runs over budget

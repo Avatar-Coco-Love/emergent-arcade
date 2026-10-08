@@ -3,7 +3,7 @@
 **v11** (2026-10-05, accessibility; v10 canvas label) · playtest: https://claude.ai/artifact/WKBg1jZwLxZLnZ97Ben1sf ·
 balance: `node scripts/balance-pressure-grid.mjs` (`--level N`, `--map`, `--full`, `--count`) ·
 browser: `node scripts/playthrough-pressure-grid.mjs` (`--level N`)
-Turn-based level puzzle (plan: `docs/games/pressure-grid-plan.md`;
+Turn-based level puzzle (plan: `docs/ideas/pressure-grid-plan.md`;
 older: `docs/history/pressure-grid.md`). **Pump** (+4) and **siphon**
 (pour all into a neighbour, 1 lost) share **pressure per cell** with the
 passive **burst** (at 10: empty, +2 to open neighbours, chains) and
