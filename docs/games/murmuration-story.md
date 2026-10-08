@@ -1,6 +1,9 @@
 # Murmuration: story mode (ideas ledger and plan)
 
-Status: **ideas and prerequisites only, nothing built.** Current design:
+Status: **Chapter 1 is specified and confirmed: build brief in
+`docs/games/murmuration-chapter1.md` (v8). Nothing built yet.** After that PR the
+next one is the **gallery save/load channel** ("PR A" below), which chapter 2
+needs. The rest are ideas. Current design:
 `docs/games/murmuration.md` (v7). Written 2026-10-08 from a brainstorm; the
 numbers below are starting points worked out from the constants, not
 simulated. Sessions reading this for other reasons: not an instruction.

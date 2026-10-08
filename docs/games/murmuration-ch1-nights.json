@@ -1,0 +1,20 @@
+[
+ {"name":"Dusk","bots":["lure60","lure80"],"times":[15,20,25,30,40,45],
+  "consts":{"GATE_NEED":12,"GATE_HALF":70,"GATE_WINDOW":5,"LURE_SPOOK":0.45,"DUSK":45},
+  "gates":[{"x":120,"y":430,"a":105},{"x":300,"y":320,"a":59},{"x":110,"y":210,"a":120},{"x":280,"y":90,"a":55}]},
+ {"name":"Second flight","bots":["lure60","lure80"],"times":[20,25,30,40,50],
+  "consts":{"GATE_NEED":13,"GATE_HALF":65,"GATE_WINDOW":4.5,"LURE_SPOOK":0.65,"DUSK":50},
+  "gates":[{"x":300,"y":330,"a":10},{"x":120,"y":260,"a":110},{"x":260,"y":150,"a":52},{"x":100,"y":440,"a":29}]},
+ {"name":"First tap","bots":["lure60","lure80","rear100","smart90"],"times":[30,40,50,55,60],
+  "consts":{"GATE_NEED":13,"GATE_HALF":60,"GATE_WINDOW":4.5,"LURE_SPOOK":0.9,"DUSK":60},
+  "gates":[{"x":130,"y":440,"a":106},{"x":310,"y":160,"a":33},{"x":90,"y":250,"a":68},{"x":300,"y":480,"a":138}]},
+ {"name":"Open sky","bots":["lure60","lure80","rear100","smart90"],"times":[30,40,50,55,60],
+  "consts":{"GATE_NEED":13,"GATE_HALF":55,"GATE_WINDOW":4,"LURE_SPOOK":0.9,"DUSK":60},
+  "gates":[{"x":90,"y":380,"a":119},{"x":290,"y":200,"a":48},{"x":270,"y":470,"a":4},{"x":100,"y":150,"a":152}]},
+ {"name":"Breather","bots":["lure60","lure80"],"times":[15,20,25,30,40],
+  "consts":{"GATE_NEED":12,"GATE_HALF":65,"GATE_WINDOW":5,"LURE_SPOOK":0.9,"DUSK":40},
+  "gates":[{"x":200,"y":400,"a":135},{"x":310,"y":230,"a":33},{"x":150,"y":90,"a":131}]},
+ {"name":"The edge","bots":["lure60","lure80","rear100","smart90"],"times":[40,50,60,70],
+  "consts":{"GATE_NEED":13,"GATE_HALF":50,"GATE_WINDOW":4,"LURE_SPOOK":0.9,"DUSK":60},
+  "gates":[{"x":70,"y":420,"a":90},{"x":330,"y":300,"a":90},{"x":70,"y":170,"a":90},{"x":250,"y":70,"a":0}]}
+]
