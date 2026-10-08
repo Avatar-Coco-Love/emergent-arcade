@@ -144,4 +144,7 @@ dusk for the first round, or check what share of gates the tester reached
 - Read v7's `stats` (below) before the next revision: if `spook_s`
   stays a large share of `lure_s` on losses, the ring isn't teaching.
 
+- Story mode (16 nights, gate types, bird types, save channel, telemetry
+  plan): `docs/games/murmuration-story.md`. Ideas only, nothing built.
+
 History (older versions, balance tables, playtests): `docs/history/murmuration.md`
