@@ -4,6 +4,7 @@
 //   node scripts/balance-murmuration.mjs 300 lure80,smart90       classic night (v7 numbers)
 //   node scripts/balance-murmuration.mjs 60 lure60,lure80 --night 1
 //   node scripts/balance-murmuration.mjs 50 lure60,smart90 --run    whole Chapter 1 migration
+//   node scripts/balance-murmuration.mjs 50 lure80 --run --chapter 2  Chapter 2 from a fresh flock
 //   node scripts/balance-murmuration.mjs --check                     telemetry keys + run state (one line)
 //
 // Builds a debug copy of games/murmuration.html (state on window, seeded
@@ -13,7 +14,9 @@
 // for several dusk times ("@60: 79%" = wins by 60 s). On migration nights the
 // bot's lure is clamped to the sky (a finger can't leave it); on the classic
 // night it isn't, so its numbers stay comparable with v3-v7.
-// --run: each seed flies nights 1-6 in a row with the real dusk, flock carried
+// Bots lead a little upwind and slide the lure sideways around crags; smart90
+// never taps near one. (No crags or wind in Chapter 1, so its numbers hold.)
+// --run: each seed flies a chapter's nights in a row with the real dusk, flock carried
 // over by the game's own tally; one line per bot (median flock at each dawn).
 // Needs Playwright (installed globally in Claude Code cloud sessions).
 import fs from 'fs';
@@ -59,9 +62,9 @@ window.__seed = s => { __s = s; };
     get birds() { return birds; }, get gate() { return gate; }, get state() { return state; },
     get elapsed() { return elapsed; }, get passed() { return passed.size; }, get startles() { return startles; },
     get GATES() { return GATES; }, get run() { return run; }, get tally() { return tally; },
-    get lastResult() { return lastResult; },
-    newRun() { run = freshRun(); tally = null; }, serializeRun, restoreRun,
-    earned: roundEarned, NIGHTS, W, H, step, startle, newFlock, draw, fitSky,
+    get lastResult() { return lastResult; }, get CRAGS() { return CRAGS; },
+    newRun(ch = 1) { run = freshRun(CHAPTERS[ch - 1]); tally = null; }, serializeRun, restoreRun,
+    earned: roundEarned, NIGHTS, CHAPTERS, W, H, step, startle, newFlock, draw, fitSky, windAt,
     setGate(k) { gate = k; },
     setLure(x, y) { lure = x == null ? null : { x, y, on: true }; },
   };
@@ -111,7 +114,15 @@ function playInPage({ seed, bot, night, dusk, clamp, fresh = true }) {
       const meanFear = bs.reduce((s, b) => s + b.fear, 0) / bs.length;
       if (luring && meanFear > 0.3) luring = false;
       if (!luring && meanFear < 0.15) luring = true;
-      const lx = c.cx + dx * bot.lead, ly = c.cy + dy * bot.lead;
+      // Wind: hold the lure a little upwind. Crags: when one sits between the
+      // flock and the lure, slide the lure sideways so the flock passes clear.
+      let lx = c.cx + dx * bot.lead - D.windAt(c.cy) * 0.6, ly = c.cy + dy * bot.lead;
+      for (const k of D.CRAGS) {
+        const ox = k.x - c.cx, oy = k.y - c.cy, s = ox * dx + oy * dy;
+        if (s < -k.r || s > bot.lead + 40) continue;
+        const px = ox - dx * s, py = oy - dy * s, pd = hyp(px, py) || 0.01, clear = k.r + 45;
+        if (pd < clear) { lx -= px / pd * (clear - pd) * 1.3; ly -= py / pd * (clear - pd) * 1.3; }
+      }
       if (!luring) D.setLure(null);
       else if (clamp) D.setLure(Math.min(D.W - 12, Math.max(12, lx)), Math.min(D.H - 12, Math.max(12, ly)));
       else D.setLure(lx, ly);
@@ -128,6 +139,7 @@ function playInPage({ seed, bot, night, dusk, clamp, fresh = true }) {
           tx = c.cx + dx * (rp - S.back); ty = c.cy + dy * (rp - S.back);
           const px = c.cx + dx * S.room, py = c.cy + dy * S.room;
           if (px < 25 || px > D.W - 25 || py < 25 || py > D.H - 25) ok = false;
+          if (D.CRAGS.some(k => hyp(k.x - tx, k.y - ty) < k.r + 90)) ok = false; // never beside the rocks
         }
         if (ok) { D.startle(tx, ty); lastTap = t; taps++; }
       }
@@ -138,7 +150,7 @@ function playInPage({ seed, bot, night, dusk, clamp, fresh = true }) {
   }
   if (D.state === 'won') gateTimes.push(t);
   return { won: D.state === 'won', t, birds: D.birds.length, taps: D.startles, gateTimes,
-    lost: D.lastResult.stats.lost, after: D.tally && D.tally.after, over: D.tally && D.tally.over,
+    lost: D.lastResult.stats.lost, rock: D.lastResult.stats.lost_rock, after: D.tally && D.tally.after, over: D.tally && D.tally.over,
     // Recruits that joined: within sight (VIEW 40) of a bird of the original flock.
     recruits: D.birds.filter(b => b.recruit && D.birds.some(o => !o.recruit && hyp(o.x - b.x, o.y - b.y) < 40)).length };
 }
@@ -164,22 +176,22 @@ function report(name, rs, times, gates, recruits) {
   const wins = rs.filter(r => r.won);
   const scattered = rs.filter(r => !r.won).length;
   console.log(`${name.padEnd(9)} ${times.map(win).join(' ')}  winmed ${med(wins.map(r => r.t)).toFixed(0)}s  taps ${med(rs.map(r => r.taps))}` +
-    `  lost(win) ${med(wins.map(r => r.lost))}  scattered ${scattered}/${rs.length}  s/gate ${perGate.join('/')}` +
+    `  lost(win) ${med(wins.map(r => r.lost))} rock ${med(rs.map(r => r.rock))}  scattered ${scattered}/${rs.length}  s/gate ${perGate.join('/')}` +
     (recruits ? `  recruits joined (win) ${wins.reduce((s, r) => s + r.recruits, 0)}/${recruits * wins.length}` : ''));
 }
 
 // A whole migration per seed: nights 1-6 with their real dusk, the flock from the game's tally.
-async function migration(bot, runs, file, browser, nights) {
+async function migration(bot, runs, file, browser, nights, ch) {
   return pool(runs, file, browser, async (page, seed) => {
-    await page.evaluate(() => window.__dbg.newRun());
+    await page.evaluate(c => window.__dbg.newRun(c.n), ch);
     const dawns = [], wins = [];
     let gates = 0;
-    for (let n = 1; n < nights.length; n++) {
+    for (let n = ch.first; n <= ch.last; n++) {
       dawns.push(await page.evaluate(() => window.__dbg.run.flock));
-      const r = await page.evaluate(playInPage, { seed, bot, night: n, dusk: nights[n].dusk, clamp: true, fresh: n === 1 });
+      const r = await page.evaluate(playInPage, { seed, bot, night: n, dusk: nights[n].dusk, clamp: true, fresh: n === ch.first });
       wins.push(r.won);
       gates = await page.evaluate(() => window.__dbg.tally.gates);
-      if (!(await page.evaluate(() => window.__dbg.run))) { if (n === nights.length - 1) dawns.push(r.after); break; }
+      if (!(await page.evaluate(() => window.__dbg.run))) { if (n === ch.last) dawns.push(r.after); break; }
     }
     return { dawns, wins, gates };
   });
@@ -187,8 +199,8 @@ async function migration(bot, runs, file, browser, nights) {
 
 // --check: the per-night arcade:result carries every documented key, the classic
 // night none of the migration's, and the run state is small, JSON-safe and validated.
-const STAT_KEYS = 'gates birds flock0 startles lure_s spook_s lost lost_pan light_left scared_pk cohesion tap_back tap_side tap_front'.split(' ');
-const EXTRA_KEYS = 'level run attempt nv night_id gate_t idle_s spook score board flock_end run_over'.split(' ');
+const STAT_KEYS = 'gates birds flock0 startles lure_s spook_s lost lost_pan lost_rock light_left scared_pk cohesion tap_back tap_side tap_front'.split(' ');
+const EXTRA_KEYS = 'level run attempt nv night_id gate_t idle_s spook score board ch flock_end run_over'.split(' ');
 async function check(file, browser) {
   const page = await browser.newPage();
   await page.goto(pathToFileURL(file).href);
@@ -197,28 +209,37 @@ async function check(file, browser) {
     await page.evaluate(playInPage, { seed: 7, bot, night: n, dusk: n ? (await page.evaluate(k => window.__dbg.NIGHTS[k].dusk, n)) : 60, clamp: n > 0, fresh: n === 1 || !n });
     return page.evaluate(() => JSON.parse(JSON.stringify(window.__dbg.lastResult)));
   };
-  await page.evaluate(() => window.__dbg.newRun());
   let saved = 0;
-  for (let n = 1; n <= 6; n++) {
-    if (!(await page.evaluate(() => window.__dbg.run))) { bad.push(`run ended before night ${n}`); break; }
-    saved = Math.max(saved, await page.evaluate(() => JSON.stringify(window.__dbg.serializeRun()).length));
-    const r = await night(n, BOTS.smart90);
-    const keys = Object.keys(r.stats);
-    for (const k of STAT_KEYS) if (!keys.includes(k)) bad.push(`night ${n}: stats.${k} missing`);
-    if (keys.length > 16) bad.push(`night ${n}: ${keys.length} stats (max 16)`);
-    for (const k of EXTRA_KEYS) if (!(k in r)) bad.push(`night ${n}: ${k} missing`);
-    if (r.level !== n || r.board !== 'ch1') bad.push(`night ${n}: level ${r.level}, board ${r.board}`);
-    if (n === 6 && !('chapter_done' in r)) bad.push('night 6: chapter_done missing');
+  const chapters = await page.evaluate(() => window.__dbg.CHAPTERS);
+  for (const ch of chapters) {
+    await page.evaluate(c => window.__dbg.newRun(c), ch.n);
+    for (let n = ch.first; n <= ch.last; n++) {
+      if (!(await page.evaluate(() => window.__dbg.run))) { bad.push(`run ended before night ${n}`); break; }
+      saved = Math.max(saved, await page.evaluate(() => JSON.stringify(window.__dbg.serializeRun()).length));
+      const r = await page.evaluate(playInPage, { seed: 7, bot: BOTS.smart90, night: n,
+        dusk: await page.evaluate(k => window.__dbg.NIGHTS[k].dusk, n), clamp: true, fresh: n === ch.first })
+        .then(() => page.evaluate(() => JSON.parse(JSON.stringify(window.__dbg.lastResult))));
+      const keys = Object.keys(r.stats);
+      for (const k of STAT_KEYS) if (!keys.includes(k)) bad.push(`night ${n}: stats.${k} missing`);
+      if (keys.length > 16) bad.push(`night ${n}: ${keys.length} stats (max 16)`);
+      for (const k of EXTRA_KEYS) if (!(k in r)) bad.push(`night ${n}: ${k} missing`);
+      if (r.level !== n || r.board !== ch.board || r.ch !== ch.n) bad.push(`night ${n}: level ${r.level}, board ${r.board}, ch ${r.ch}`);
+      if (n === ch.last && !('chapter_done' in r)) bad.push(`night ${n}: chapter_done missing`);
+      const calm = await page.evaluate(() => window.__dbg.GATES.some(g => g.calm));
+      if (calm !== 'calm_rej' in r) bad.push(`night ${n}: calm_rej ${calm ? 'missing' : 'sent'}`);
+      if (Object.keys(r).length > 48) bad.push(`night ${n}: ${Object.keys(r).length} keys`);
+    }
   }
   const c = await night(0, BOTS.smart90);
   for (const k of ['level', 'score', 'board', 'flock_end']) if (k in c) bad.push(`classic sends ${k}`);
   if (c.night_id !== 'classic') bad.push('classic night_id');
-  const junk = await page.evaluate(() => [null, {}, { v: 1, id: 'x', night: 9, flock: 40, gates: 0, q: [] },
+  const junk = await page.evaluate(() => [null, {}, { v: 1, id: 'x', night: 99, flock: 40, gates: 0, q: [] },
+    { v: 1, id: 'x', night: 7, flock: 40, gates: 40, q: [] },
     { v: 1, id: 'BAD!', night: 1, flock: 40, gates: 0, q: [] }, { v: 1, id: 'x', night: 2, flock: 99, gates: 0, q: [] }]
     .map(o => window.__dbg.restoreRun(o)));
   if (junk.some(Boolean)) bad.push('restoreRun accepted junk');
   if (saved > 1024) bad.push(`run state ${saved} bytes`);
-  console.log(bad.length ? `FAIL ${bad.join('; ')}` : `ok   telemetry: ${STAT_KEYS.length} stats + ${EXTRA_KEYS.length + 1} extra keys on nights 1-6, none of the migration's on classic; run state <= ${saved} bytes, junk rejected`);
+  console.log(bad.length ? `FAIL ${bad.join('; ')}` : `ok   telemetry: ${STAT_KEYS.length} stats + ${EXTRA_KEYS.length + 1} extra keys on every migration night, boards per chapter, none of the migration's on classic; run state <= ${saved} bytes, junk rejected`);
   await page.close();
   return !bad.length;
 }
@@ -227,13 +248,17 @@ const args = process.argv.slice(2);
 const flagAt = args.indexOf('--night');
 const night = flagAt >= 0 ? +args[flagAt + 1] : 0;
 const runMode = args.includes('--run');
-const pos = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1] === '--night'));
+const chAt = args.indexOf('--chapter');
+const chapterN = chAt >= 0 ? +args[chAt + 1] : 1;
+const pos = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--night', '--chapter'].includes(args[i - 1])));
 const runs = +pos[0] || 300;
 const file = buildDebug();
 const browser = await chromium.launch();
+let CH;
 const nights = await (async () => {
   const page = await browser.newPage();
   await page.goto(pathToFileURL(file).href);
+  CH = await page.evaluate(() => window.__dbg.CHAPTERS);
   const N = await page.evaluate(() => window.__dbg.NIGHTS.map(n => ({ id: n.id, dusk: n.dusk, gates: n.gates.length, need: n.need,
     recruits: (n.recruits || []).reduce((s, r) => s + r.n, 0) })));
   await page.close();
@@ -245,11 +270,12 @@ const names = (pos[1] || (runMode || night ? 'lure60,lure80,smart90' : Object.ke
 for (const n of names) if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
 if (runMode) {
   for (const n of names) {
-    const rs = await migration(BOTS[n], runs, file, browser, nights);
+    const ch = CH[chapterN - 1], len = ch.last - ch.first + 1;
+    const rs = await migration(BOTS[n], runs, file, browser, nights, ch);
     const at = k => med(rs.filter(r => r.dawns.length > k).map(r => r.dawns[k]));
     const reached = k => rs.filter(r => r.dawns.length > k).length;
-    console.log(`${n.padEnd(9)} flock at dawn ${nights.slice(1).map((_, k) => `n${k + 1} ${at(k)} (${reached(k)})`).join(' · ')} · roost ${at(nights.length - 1)} (${reached(nights.length - 1)})` +
-      `  chapter cleared ${rs.filter(r => r.wins.length === nights.length - 1 && r.wins.at(-1)).length}/${runs}  gates med ${med(rs.map(r => r.gates))}`);
+    console.log(`${n.padEnd(9)} flock at dawn ${Array.from({ length: len }, (_, k) => `n${ch.first + k} ${at(k)} (${reached(k)})`).join(' · ')} · end ${at(len)} (${reached(len)})` +
+      `  chapter cleared ${rs.filter(r => r.wins.length === len && r.wins.at(-1)).length}/${runs}  gates med ${med(rs.map(r => r.gates))}`);
   }
 } else {
   const N = nights[night];
