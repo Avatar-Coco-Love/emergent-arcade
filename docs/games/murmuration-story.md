@@ -35,27 +35,39 @@ got there, longest 556 s).
 ## Pacing pattern (16 nights)
 
 Introduce, practice, combine, test; every 3rd or 4th night a breather.
-Pace needed (path length / `DUSK`): classic 21 u/s; keep nights 1-4 at
-14, 19, 20, 20 and let chapters raise it by at most ~1 per night.
+Do not size a night by path length / `DUSK`: the first estimate was off by
+2x (a 625-unit path took lure bots 8-10 s, the 1,268-unit classic path
+40 s). Size nights by bot win rates (below). Typical humans track `lure60`
+(36% win vs lure60's 45% on the classic night).
 
-**Chapter 1, The Gathering (6 nights, first PR)**
+**Chapter 1, The Gathering (6 nights, first PR). Simulated 2026-10-08**
+(`scratchpad` copy of the balance bots with a per-night gate list, lure
+clamped to the sky, 50-60 seeds; classic night calibrates at lure60 45%,
+lure80 85%, smart90 93% @60). Win % at the chosen DUSK; lure60 stands in
+for a typical human.
 
-| # | Night | Beat | Gates | Notes |
-|---|---|---|---|---|
-| 1 | Dusk | introduce lure | 3, need 12, half 70, window 5 s, DUSK 45 | startle off, half spook; path 625 |
-| 2 | Second flight | practice | 4 | new layout, nothing new |
-| 3 | First tap | introduce startle | 4, need 13 | open sky; dawn line "Tap behind the flock to throw it forward" |
-| 4 | Open sky | practice | 4 | long runs (~300+) where a rear tap pays; bots: lure80 55-65%, smart90 85-90% |
-| 5 | Breather | recruit | 3-4 | short, a recruit group joins |
-| 6 | The edge | test (startle costs) | 4, need 14, half 45 | gates 50 from the border; rear tap loses birds |
+| # | Night | Beat | Config (need / half / window / DUSK / spook) | Gates (x, y, angle) | lure60 | lure80 | smart90 |
+|---|---|---|---|---|---|---|---|
+| 1 | Dusk | introduce lure | 12 / 70 / 5 s / 45 / 0.45 | (120,430,105) (300,320,59) (110,210,120) (280,90,55) | 98% (median 18 s) | 100% (11 s) | - |
+| 2 | Second flight | practice | 13 / 65 / 4.5 s / 50 / 0.65 | (300,330,10) (120,260,110) (260,150,52) (100,440,29) | 94% (31 s) | 100% (21 s) | - |
+| 3 | First tap | introduce startle | 13 / 60 / 4.5 s / 60 / 0.9 | (130,440,106) (310,160,33) (90,250,68) (300,480,138) | 92% (29 s) | 96% (19 s) | 100% (21 s) |
+| 4 | Open sky | practice | 13 / 55 / 4 s / 60 / 0.9 | (90,380,119) (290,200,48) (270,470,4) (100,150,152) | 70% (49 s) | 100% (27 s) | 100% (23 s) |
+| 5 | Breather | recruit | 12 / 65 / 5 s / 40 / 0.9 | (200,400,135) (310,230,33) (150,90,131); 4 recruits near (165,320) | 94% (16 s) | 94% (13 s) | - |
+| 6 | The edge | test | 13 / 50 / 4 s / 60 / 0.9 | (70,420,90) (330,300,90) (70,170,90) (250,70,0) | 62% (48 s) | 92% (29 s) | 92% (25 s) |
 
-Layout sketches from the brainstorm (sky 400x600, flock starts 270,480; all
-to be re-tuned; angles roughly perpendicular to the path):
-- Dusk: (110,420,110) (290,270,50) (150,100,140).
-- Long haul: (130,440,106) (310,160,33) (90,250,68) (300,480,138); path 1,028, DUSK 55.
-- The edge: (50,420,90) (350,300,90) (50,170,90) (250,70,0); path 1,102.
-- Crosswind (chapter 2): wind band y 200-360, ~25 u/s^2 east;
-  (120,440,105) (170,130,0) (320,110,90) (290,460,0) (110,300,90); path 1,213.
+Findings that changed the plan:
+- Night 1 with 3 gates took lure bots 8-10 s; 4 gates gives 11-18 s.
+- Night 3: the tap helps (smart90 21 s vs lure60 29 s) but lure80 is as
+  fast (19 s): the tap is comfortable and optional there, as an intro should be.
+- Night 4: tapping pays (rear100 23 s, smart90 23 s vs lure60 49 s).
+- **Night 6 reversed the hypothesis.** On the edge layout the *lure* loses
+  the birds (lure bots lose 9-12 on a win; rear100/smart90 lose 1-3): the
+  lure ahead of the flock near the border spooks birds into panic, and
+  panicked birds ignore the border. So the lesson is "the lure's spook near
+  an edge costs birds; a tap from inside the flock is cleaner". Gates at
+  x=50/350 were too harsh (lure60 20% @70); x=70/330 with half 50 is a fair test.
+- Night 4 gates at x>=310 also bled birds (10); keep gates x<=290 there.
+- Recruits are not simulated yet.
 
 **Chapter 2 (sketch)**: crosswind alone, narrow/wide gates, calm gates,
 ordered gates. **Chapter 3 (sketch)**: hawk, fear gates, bird types and type
@@ -114,7 +126,8 @@ player (won, 40 s, `spook_s` 8.5 of `lure_s` 29.9); 94% touch. Thin, so
 before locking designs, **watch 2-3 people play on a phone** (night 1 above
 all).
 
-**PR A: gallery save channel** (separate PR, helps every multi-level game;
+**PR A: gallery save channel. Not needed for Chapter 1** (6 nights are
+~4-6 min, one sitting; needed before chapter 2). Separate PR, helps every multi-level game;
 Pressure Grid's notes already ask for it)
 - Handshake mirroring `arcade:best`: the game posts `arcade:ready`; the
   gallery replies `arcade:load { data | null }`; the game posts
