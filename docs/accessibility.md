@@ -45,7 +45,7 @@ the honest end state, not a fix still owed.
 | offline index | pass | pass | pass | pass | pass | pass (13.6 px) |
 | recovery code | pass | pass | pass | pass | pass | pass |
 | settings | pass | pass (2026-10-07: danger buttons were 2.5:1 in dark, now dark text) | pass | pass | pass | pass |
-| murmuration | partial (v6: reads it; all idle motion is the flock. v8 audit says pass: it measures the still dawn card) | pass (v8: cards ≥ 6.4:1) | pass | pass (v8: cursor, hold Space, X from night 3; cards take focus, Enter/Space) | pass (v8, live region reads every card) | pass (v8: 12.8 px) |
+| murmuration | partial (v6: reads it; all idle motion is the flock. v8 audit says pass: it measures the still dawn card) | pass (v8: cards ≥ 6.4:1) | pass | pass (v8: cursor, hold Space, X from night 3; cards take focus, Enter/Space) | pass (v8, live region reads every card; v9: calm gates announced, ringed posts + "calm" label, not colour alone) | pass (v8: 12.8 px) |
 | orbit-garden | pass (v8: reads it; petals still. The old pass was timing: petals spin only after a bloom, 0.00% with planets hidden) | pass (v8: hint backing) | pass (v8, late screens too) | pass (v8: cursor, Enter places, Space aims and flings, N jumps) | pass (v8, live region) | pass |
 | wildfire-line | pass (v4) | pass | pass (v4: lightness bands) | pass (v4: cursor) | pass (v4) | pass |
 | ant-trails | partial (v7: reads it; legs and raindrops still; all idle motion is the ants and scent) | pass (v7: backings) | pass (v7, late screens too) | pass (v7: cursor, hold Space trail, hold W wash) | pass (v7, live region) | pass (v7) |

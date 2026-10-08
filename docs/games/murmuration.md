@@ -1,130 +1,114 @@
 # Murmuration: design notes
 
-**v8** (2026-10-08): Chapter 1, The Gathering. Brief: `murmuration-chapter1.md`;
-later chapters: `murmuration-story.md`. Playtest (v8): https://claude.ai/artifact/Dmg9WeDyBJqfRirJuEAf2f ·
-balance: `node scripts/balance-murmuration.mjs 60 lure60,lure80 --night N`,
-`… --run`, `… --check` · history (v1-v7, phone steering, v6 a11y):
-`docs/history/murmuration.md`.
+**v9** (2026-10-08): Chapter 2, The High Pass (nights 7-11), and a scene per
+chapter. Chapter 1 (v8) unchanged. Playtest (v9): https://claude.ai/artifact/5qBbq53fGXboWAEUKveUL2 ·
+balance: `node scripts/balance-murmuration.mjs 40 lure60,lure80 --night N`,
+`… --run --chapter 2`, `… --check` · ideas ledger: `murmuration-story.md` ·
+history (v1-v8 tables, v8 players): `docs/history/murmuration.md`.
 
 ## How it works
 
-The game opens on night 1's dawn card (Fly · Classic night). Six nights in
-a row (`NIGHTS` rows 1-6, `// § nights`); each night: `need` birds through
-every gate in order, within `window` s of each other, before `dusk`. Lost
-night: the night falls or the flock drops under `need`. No replay of a
-lost night: the run moves on with the flock tally.
+Nights in chapters (`NIGHTS` rows, `CHAPTERS`, `// § nights`); each night:
+`need` birds through every gate in order, within `window` s of each other,
+before `dusk`. A lost night isn't replayed: the run moves on with the tally
+`after = min(55, alive − 3 × gates missed + 4 if all cleared)`; next dawn
+needs `after ≥` next `need`, else "The migration ends". Start 40, cap 55,
+fear resets each dawn, survivors keep quirks (`sep`, `turn`).
 
-- **Tally** (`tallyNight`): `after = min(55, alive − 3 × gates missed + 4 if
-  every gate cleared)`. Next dawn needs `after ≥` next night's `need`, else
-  "The migration ends". After night 6 always the chapter card ("Chapter
-  complete" if cleared, else "The flock lands short of the roost").
-- Start flock 40, cap 55; fear resets each dawn; survivors keep their quirks
-  (`sep`, `turn`), new birds draw their own. A flock above 40 starts in a
-  patch scaled by √(n/40).
-- Nights 1-2: no startle (a press lures at once, no `HOLD_MS`; X/Enter
-  ignored). Night 5: 4 recruits near (165,320), plain calm birds (`recruit:
-  true`) that join by flocking; `Math.random` is drawn for them only there.
-- **Classic night** (row 0, v7's night): no carry-over, tally or score.
-  Bots reproduce v7 exactly (150 seeds: lure80 81%, smart90 88% @60).
-- **Run state** (`// § run`): `run = { v: 1, id, night, flock, gates, q }`
-  (q: quirks, survivors first), JSON-safe, ≤ 667 bytes in `--check`.
-  `serializeRun()` / `restoreRun(o)` (validates, rejects junk) start every
-  night; the gallery save/load PR will call them for "Continue".
-- `AB_SPOOK = false`: if set, odd run ids fly night 1 at full spook.
+- **Chapters**: 1 The Gathering (nights 1-6, scene `marsh`, board `ch1`),
+  2 The High Pass (7-11, scene `pass`, board `ch2`). A chapter's first dawn
+  card offers the other chapter and Classic night, so chapter 2 can be
+  flown on its own (40 birds). Clearing or finishing chapter 1 offers "Fly
+  on to Chapter 2" with `max(40, flock)` and the same run id. "Start over"
+  restarts the current chapter.
+- **Crags** (`crags: [{x, y, r}]`): calm birds swerve within `CRAG_M` 36 of
+  the rock, force `CRAG_TURN` 30 × (1 − (fear/PANIC)³) × depth, plus a
+  sideways slide; panicked birds don't swerve. A bird inside `r` is lost
+  (`lost_rock`, a feather burst). First try (linear in fear, like the
+  edges, 24/30): bots lost 10-20 birds a night on rocks, mostly at fear
+  0.25-0.5 from crowding and the lure ring, so the cube keeps half-scared
+  birds steering.
+- **Wind** (`wind: [{y0, y1, v}]`): every bird drifts `v` units/s sideways
+  inside the band (eases in over 15 units). Drawn as a band, streaks and
+  chevrons (streaks still under reduced motion).
+- **Calm gates** (`calm: true`): only birds with fear < `SCARED` count;
+  others crossing add to `calm_rej`. Ringed posts, dotted pale-blue line,
+  "calm n/need" label, announced when it becomes the active gate.
+- **Scenes** (`SCENES`): sky colours per chapter plus land in the bottom
+  ~120 units (marsh: tree line, water shimmer, reeds; pass: two mountain
+  ranges, snow caps). Classic keeps the plain v7 sky.
+- **Run state**: `run = { v: 1, id, night, flock, gates (this chapter), q }`,
+  ≤ 667 bytes; `restoreRun` validates night 1-11 and gates per chapter.
 
-## Nights (numbers in the file, `NIGHTS`)
+## Nights (numbers in the file, `NIGHTS`; all `nv: 1`)
 
-| # | id | startle | need | half | window | dusk | spook | gates |
-|---|---|---|---|---|---|---|---|---|
-| 0 | classic | on | 15 | 55 | 4 | 60 | 0.9 | 5 |
-| 1 | dusk | off | 12 | 70 | 5 | 45 | 0.45 | 4 |
-| 2 | second-flight | off | 13 | 65 | 4.5 | 50 | 0.65 | 4 |
-| 3 | first-tap | on | 13 | 60 | 4.5 | 60 | 0.9 | 4 |
-| 4 | open-sky | on | 13 | 55 | 4 | 60 | 0.9 | 4 |
-| 5 | breather | on | 12 | 65 | 5 | 40 | 0.9 | 3 + 4 recruits |
-| 6 | the-edge | on | 13 | 50 | 4 | 60 | 0.9 | 4 |
+| # | id | need | half | window | dusk | gates | new thing |
+|---|---|---|---|---|---|---|---|
+| 1-6 | Chapter 1 | 12-13 | 50-70 | 4-5 | 40-60 | 3-4 | lure, startle, recruits, edges (history) |
+| 7 | crags | 13 | 60 | 4.5 | 55 | 4 | 4 crags (r 22-30) |
+| 8 | crosswind | 13 | 55 | 4.5 | 45 | 4 | wind y 220-360, +45 |
+| 9 | still-air | 12 | 65 | 5 | 55 | 3 calm | 5 recruits at (90,250) |
+| 10 | the-gorge | 13 | 60 | 4.5 | 60 | 4 | 4 crags + wind y 120-250, −40 |
+| 11 | the-high-pass | 13 | 55 | 4 | 60 | 4 (last calm) | 4 crags + wind y 180-300, +40 |
 
-All `nv: 1`. Bump a night's `nv` when retuning it (telemetry lines split by it).
+## Balance (v9, 40 seeds, win % at the night's dusk, median win time)
 
-## Balance (v8 game, 60 seeds, win % at the night's dusk, median win time)
+Humans beat the bots in v8: 2 players won all 12 nights first try; night 6
+in 33 s losing ~9 (lure60 58% / 53 s, lure80 93% / 26 s). So chapter 2 is
+tuned with **lure80 as the typical human**, not lure60.
 
-| # | lure60 | lure80 | rear100 | smart90 | brief target (lure60 / lure80 / smart90) |
+| # | lure60 | lure80 | rear100 | smart90 | rocks lost (win, lure80/smart90) |
 |---|---|---|---|---|---|
-| 1 | 98% (18 s) | 100% (11 s) | – | – | 98 / 100 / – |
-| 2 | 95% (31 s) | 100% (21 s) | – | – | 94 / 100 / – |
-| 3 | 90% (29 s) | 98% (19 s) | 97% (25 s) | 98% (20 s) | 92 / 96 / 100 |
-| 4 | 72% (50 s) | 100% (27 s) | 97% (29 s) | 100% (25 s) | 70 / 100 / 100 |
-| 5 | 97% (14 s) | 98% (11 s) | – | 100% (8 s) | 94 / 94 / – |
-| 6 | 58% (53 s) | 93% (26 s) | 90% (22 s) | 92% (24 s) | 62 / 92 / 92 |
+| 7 | 73% (43 s) | 85% (33 s) | 70% | 83% (34 s) | 0 / 0 |
+| 8 | 78% (27 s) | 88% (25 s) | 85% | 88% (21 s) | – |
+| 9 | 10% (93 s) | 75% (33 s) | 68% | 70% (36 s) | – |
+| 10 | 55% (47 s) | 63% (40 s) | 83% | 78% (37 s) | 0 / 0 |
+| 11 | ~15% | 68% (45 s) | ~68% | 80% (41 s) | 1 / 2 |
 
-All within ±8 points: no night retuned. Night 6: lure bots lose 9-11 birds
-on a win, tappers 1-3 (the edge punishes the lure, not the tap). Night 5
-(recruits now simulated): ~90% of recruits end within sight of the flock
-(212-221/240 on wins), no stall (win median 14 s vs 16 s unsimulated).
+Night 11 at dusk 65 was 78/83; 60 chosen for a test night. Night 9's
+lure60 collapse is the lesson (a close lure keeps the ring red, so birds
+aren't calm at the gate): watch human `spook_s` and `calm_rej` there.
 
-**Whole migration** (`--run`, 60 seeds; median flock at each dawn, runs
-that got there):
-
-| bot | n1 | n2 | n3 | n4 | n5 | n6 | roost | chapter cleared | gates |
-|---|---|---|---|---|---|---|---|---|---|
-| lure60 | 40 | 44 | 46 | 40 | 33 (56) | 40 (55) | 30 | 25/60 | 22 |
-| lure80 | 40 | 44 | 48 | 40 | 35 | 41 | 31 | 53/60 | 23 |
-| rear100 | 40 | 44 | 48 | 48 | 46 | 51 | 45 | 59/60 | 23 |
-| smart90 | 40 | 44 | 48 | 47 | 47 | 53 | 49 | 58/60 | 23 |
-
-The flock is a real health bar for lure-only play (nights 3-4 cost lure
-bots ~8 birds each); tapping keeps it near the cap.
-
-**Night 1 on a phone** (`gestures-murmuration.mjs --night 1`, 3 flocks per
-gesture, noisy): holding 3 s, 110 ahead scares 10/40 (classic 24/40) and
-moves the flock 46; dragging from ahead 23/40 scared (classic 22/40). The
-ring is red 86-99% of a hold (classic 59-88%): at half spook fewer birds
-panic, so more stay inside the ring. Watch `spook_s` / `lure_s` on night 1.
+**Whole chapter 2** (`--run --chapter 2`, 40 seeds; median flock at each
+dawn): lure80 40 · 40 · 35 · 35 · 30 → 25, cleared 14/40, gates 17/19;
+smart90 40 · 43 · 40 · 44 · 38 → 32, cleared 23/40; rear100 14/40; lure60
+2/40 (gates 10). Chapter 1 for comparison: lure80 53/60, smart90 58/60.
 
 ## Score, telemetry (one `arcade:result` per night, `// § telemetry`)
 
-Score: gates cleared so far in the migration (`score`, board `ch1`, max
-23, higher, epoch 2; `wins: false`). Classic posts no `score`/`board`
-(`scores.js` drops a result with no number).
+Score: gates cleared so far **in the chapter** (`score`, board `ch1` or
+`ch2`, max 23, higher, epoch 2 unchanged: chapter 1 means the same;
+`wins: false`). Classic posts no `score`/`board`.
 
-`outcome`, `time` (night clock), `level` 1-6 (classic: none), `run` (id per
-migration; classic: per round), `attempt` (starts of this night this page
-session), `reason` on losses (`night`, `scattered`).
+`outcome`, `time`, `level` 1-11 (classic: none), `run` (id per migration,
+kept into chapter 2), `attempt`, `reason` on losses (`night`, `scattered`).
+`stats` (15): `gates`, `birds`, `flock0`, `startles`, `lure_s`, `spook_s`,
+`lost` (all birds lost, rocks included), `lost_pan` (off the sky in
+panic), `lost_rock`, `light_left`, `scared_pk`, `cohesion`, `tap_back` /
+`tap_side` / `tap_front`. Extras: `nv`, `night_id`, `gate_t`, `idle_s`,
+`first_in_s` + `input`, `spook`, `calm_rej` (nights with a calm gate);
+migration: `score`, `board`, `ch`, `flock_end`, `run_over`,
+`chapter_done` (a chapter's last night). `fetch-telemetry.mjs --pool`
+pools nights 1-6 across v8 and v9 (same `nv`).
 
-`stats` (14): `gates` cleared, `birds` alive at the end, `flock0` alive at
-dawn (with recruits), `startles`, `lure_s`, `spook_s` (s with the ring red),
-`lost` (birds off the sky), `lost_pan` (of those, fear ≥ `PANIC`),
-`light_left` (0 on a loss), `scared_pk` (peak % of birds ≥ `SCARED`),
-`cohesion` (mean nearest-neighbour distance, every 0.5 s), `tap_back` /
-`tap_side` / `tap_front` (tap vs the main cluster's heading: cos < −0.5,
-between, > 0.5).
+## Achievements (13; all 7 old ones still earnable on Classic)
 
-Extras: `nv`, `night_id`, `gate_t` (s at each gate cleared), `idle_s` (no
-lure and no arrow held), `first_in_s` and `input` (`touch` or `keys`;
-both left out if no input), `spook` (the night's `LURE_SPOOK`); migration
-only: `score`, `board`, `flock_end` (after the tally), `run_over` (0/1),
-`chapter_done` (night 6: 1 if cleared). Read with `fetch-telemetry.mjs`
-(lines by level and `nv`, medians of extras).
-
-## Achievements (per night; all 7 old ones still earnable on Classic)
-
-`first-gate` a gate · `flock-home` every gate of a night · `no-bird-left`
-none lost that night · `soft-touch` ≤ 3 startles on a cleared night with
-startle (not nights 1-2, where it would be free) · `swift` ¼ of the dusk
-left (15 s on Classic) · `last-light` < 5 s left · `chain-panic` as
-before · `gentle-hand` 3+ gates, no startles, `lure_s` ≥ 10, `spook_s` < 2 ·
-`gathered` clear night 6 · `edge-dancer` clear night 6 losing ≤ 2.
+`first-gate` · `flock-home` · `no-bird-left` · `soft-touch` ≤ 3 startles
+(startle nights) · `swift` ¼ of the dusk left · `last-light` < 5 s left ·
+`chain-panic` · `gentle-hand` · `gathered` / `edge-dancer` (night 6) ·
+v9: `sure-wings` a crag night cleared with no rock losses · `into-the-wind`
+a wind night cleared losing ≤ 2 · `high-pass` clear night 11.
 
 ## Accessibility (`a11y-audit.mjs murmuration`: 6 pass)
 
-Cards are a `role="dialog"` with DOM text ≥ 12.8 px on a dark backing,
-announced in full through `#say`, still (no animation); the main button
-takes focus once the 1 s lock after a night lifts (Enter or Space presses
-it anywhere), and focus leaves with the card, so Space lures again. Dawn
-cards show the keys line on a fine pointer or once keys were used.
-Motion now reads **pass** only because the game opens on a still card; in
-play the flock is the motion, as in v6 (partial by design). Keys: arrows,
-hold Space, Enter/X startles (nights 3-6 and Classic).
+Cards: `role="dialog"`, text ≥ 12.8 px on a dark backing, announced via
+`#say`, focus on the main button after the 1 s lock; the two secondary
+buttons sit side by side. The audit's colour check counts anti-aliased
+card text: a third stacked button plus the longer dawn line pushed it
+over 0.5% (protan, text grey vs sunset pink) — fixed by the side-by-side
+row and the shorter "40 birds · 4 gates × 12 birds · 45 s" line. Calm
+gates are told by post shape and label, not colour. Keys: arrows, hold
+Space, Enter/X startles (nights 3-11 and Classic).
 
 ## Shared constants (`games/murmuration.html`)
 
@@ -133,22 +117,19 @@ hold Space, Enter/X startles (nights 3-6 and Classic).
 | FEAR_DECAY | 0.12/s | CONTAGION / CONTAGION_KEEP | 4.0 / 0.85 |
 | PANIC / SCARED | 0.75 / 0.25 | CROWD_R / CROWD_N / CROWD_FEAR | 12 / 5 / 0.1 |
 | LURE_ACCEL / LURE_R / LURE_FULL | 160 / 150 / 90 | LURE_SPOOK_R | 30 |
-| STARTLE_R / _FEAR / _PUSH | 70 / 0.6 / 330 | MIN_SPEED / CALM_MAX / PANIC_EXTRA | 45 / 100 / 140 |
-
-## Players (2026-10-08, `fetch-telemetry.mjs`)
-
-v4: 7 players, 14 rounds, 36% won, longest player 556 s. v7: 1 player,
-3 rounds (won 2, `spook_s` 8.5 of `lure_s` 29.9). 94-100% touch. Nobody
-has reached 10 minutes.
+| STARTLE_R / _FEAR / _PUSH | 70 / 0.6 / 330 | CRAG_M / CRAG_TURN | 36 / 30 |
 
 ## Open ideas / risks
 
-- A migration is 4-6 min of night clock (bots: 2-4 min): under the 10-min
-  target. Chapters 2-3 and replay are what get there.
-- Half spook on night 1 may make night 2's 0.65 feel like a step: compare
-  `spook_s` by level.
-- Night 4 takes lure-only players ~50 s of 60 and ~8 birds: the first
-  real squeeze. If first-try losses pile up there, lengthen its dusk.
-- Recruits count in the tally while alive even if they never join.
-- Later: a per-night replay picker, a "next gate" line on demand (G),
-  stars per night from `spook_s`.
+- Feedback behind v9 (2 players, 2026-10-08): "smooth, birds easy to
+  guide, wants obstacles, too easy" and "nights too similar". Check after
+  3+ players: chapter 2 first-try win rate per night vs lure80, and
+  whether chapter 1 should get harder (bump those nights' `nv`).
+- Night 9 may be harsh for close-lure players; if first tries there fail
+  with high `calm_rej`, widen `half` or lengthen `dusk` (bump `nv`).
+- Bots: lure ahead with crag sidestep and an upwind offset; nobody
+  measured a phone thumb in wind yet (`gestures-murmuration.mjs` has no
+  wind). Watch `lost_rock` by night.
+- Chapter 3 ledger (`murmuration-story.md`): hawk, fear gates, bird types,
+  storm. Save/load in the gallery is still not built; chapters can be
+  flown on their own meanwhile.

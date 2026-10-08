@@ -96,6 +96,8 @@
   #card p.keys { color: var(--muted); font-size: 0.8rem; }
   #card .btns { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
   #card button { width: 100%; }
+  #card .alts { display: flex; gap: 8px; }
+  #card .alts button { flex: 1; padding: 8px 6px; }
   #card button.main { font-weight: 600; background: #4c3d7a; border-color: #7a66b8; }
   #card button:disabled { opacity: 0.4; }
   #card button[hidden] { display: none; }
@@ -136,7 +138,10 @@
         <div id="cardBody"></div>
         <div class="btns">
           <button id="cardMain" class="main"></button>
-          <button id="cardAlt"></button>
+          <div class="alts">
+            <button id="cardAlt"></button>
+            <button id="cardAlt2"></button>
+          </div>
         </div>
       </div>
     </div>
@@ -194,15 +199,58 @@
       gates: [{ x: 70, y: 420, a: 90 }, { x: 330, y: 300, a: 90 }, { x: 70, y: 170, a: 90 }, { x: 250, y: 70, a: 0 }],
       story: 'The cliffs. The gates hang close to the border.',
       rule: 'Near the border a spooked bird can be lost: keep the lure off the flock, {tap} from inside it.' },
+    // Chapter 2, "The High Pass": one new thing per night. crags: rocks in the
+    // sky ({x, y, r}); calm birds swerve around them, scared ones less, panicked
+    // ones not at all, and a bird that hits one is lost. wind: bands of sky
+    // ({y0, y1, v}) that carry every bird sideways at v units per second
+    // (+ = right). A gate with calm: true counts only calm birds (fear < SCARED).
+    { id: 'crags', name: 'Crags', nv: 1, startle: true, need: 13, half: 60, window: 4.5, dusk: 55, spook: 0.9,
+      gates: [{ x: 115, y: 390, a: 70 }, { x: 295, y: 250, a: 110 }, { x: 125, y: 135, a: 70 }, { x: 290, y: 450, a: 20 }],
+      crags: [{ x: 190, y: 420, r: 26 }, { x: 200, y: 300, r: 30 }, { x: 215, y: 175, r: 24 }, { x: 185, y: 520, r: 22 }],
+      story: 'The mountains begin. Rocks stand in the way.',
+      rule: 'Calm birds swerve around a crag; scared ones fly straight into it and are lost. Never startle beside the rocks.' },
+    { id: 'crosswind', name: 'Crosswind', nv: 1, startle: true, need: 13, half: 55, window: 4.5, dusk: 45, spook: 0.9,
+      gates: [{ x: 110, y: 420, a: 100 }, { x: 290, y: 170, a: 60 }, { x: 90, y: 120, a: 100 }, { x: 300, y: 430, a: 140 }],
+      wind: [{ y0: 220, y1: 360, v: 45 }],
+      story: 'A wind pours down the valley.',
+      rule: 'Inside the wind band every bird drifts with it. Lead the flock upwind of the gate.' },
+    { id: 'still-air', name: 'Still air', nv: 1, startle: true, need: 12, half: 65, window: 5, dusk: 55, spook: 0.9,
+      gates: [{ x: 150, y: 380, a: 120, calm: true }, { x: 300, y: 200, a: 40, calm: true }, { x: 110, y: 110, a: 120, calm: true }],
+      recruits: [{ x: 90, y: 250, n: 5 }],
+      story: 'A quiet tarn under the peaks. Stragglers rest by the water.',
+      rule: 'Ringed gates count only calm birds: no startles near them, and keep the lure ring white.' },
+    { id: 'the-gorge', name: 'The gorge', nv: 1, startle: true, need: 13, half: 60, window: 4.5, dusk: 60, spook: 0.9,
+      gates: [{ x: 120, y: 410, a: 90 }, { x: 290, y: 280, a: 90 }, { x: 110, y: 160, a: 90 }, { x: 290, y: 80, a: 20 }],
+      crags: [{ x: 205, y: 350, r: 28 }, { x: 200, y: 215, r: 28 }, { x: 330, y: 380, r: 22 }, { x: 60, y: 300, r: 22 }],
+      wind: [{ y0: 120, y1: 250, v: -40 }],
+      story: 'The walls close in, and the wind finds the gap.',
+      rule: 'Rocks and wind together: swing wide of the crags on the downwind side.' },
+    { id: 'the-high-pass', name: 'The high pass', nv: 1, startle: true, need: 13, half: 55, window: 4, dusk: 60, spook: 0.9,
+      gates: [{ x: 300, y: 330, a: 100 }, { x: 100, y: 330, a: 80 }, { x: 260, y: 160, a: 120 }, { x: 140, y: 95, a: 60, calm: true }],
+      crags: [{ x: 200, y: 400, r: 26 }, { x: 200, y: 280, r: 30 }, { x: 195, y: 215, r: 24 }, { x: 320, y: 230, r: 20 }],
+      wind: [{ y0: 180, y1: 300, v: 40 }],
+      story: 'The last climb before the far side.',
+      rule: 'Everything at once, and the last gate wants calm birds.' },
   ];
-  const CHAPTER = NIGHTS.length - 1;          // nights in the migration
+  // Chapters: a run of nights with its own scene and leaderboard (board).
+  // Each chapter can be flown on its own, starting from START_BIRDS.
+  const CHAPTERS = [
+    { n: 1, name: 'The Gathering', first: 1, last: 6, board: 'ch1', scene: 'marsh',
+      roost: 'the flock reaches the roost', next: 'Chapter 2 waits beyond the mountains.' },
+    { n: 2, name: 'The High Pass', first: 7, last: 11, board: 'ch2', scene: 'pass',
+      roost: 'the flock crosses the mountains', next: 'Chapter 3 is on its way.' },
+  ];
+  const chapterOf = n => CHAPTERS.find(c => n >= c.first && n <= c.last);
+  const LAST_NIGHT = NIGHTS.length - 1;
   const FLOCK_CAP = 55;                       // the flock never grows past this
   const MISS_COST = 3, CLEAR_BONUS = 4;       // tally: birds per gate missed, birds for clearing every gate
   // Night 1's half spook could later be tested against full spook, split by
   // the run id's parity (docs/games/murmuration-chapter1.md). Off: too few players.
   const AB_SPOOK = false;
   // The night being flown (set by newFlock from its NIGHTS row).
-  let NIGHT, GATE_NEED, GATE_WINDOW, GATE_HALF, DUSK, LURE_SPOOK, GATES;
+  let NIGHT, GATE_NEED, GATE_WINDOW, GATE_HALF, DUSK, LURE_SPOOK, GATES, CRAGS, WIND;
+  const CRAG_M = 36;               // calm birds start to swerve this far from a crag's rock...
+  const CRAG_TURN = 30;            // ...this hard (like EDGE_TURN), less as fear nears panic, not at all in panic
   const VIEW = 40;                 // how far a bird sees its neighbors
   const SEP = 14;                  // personal space
   const CROWD_R = 12, CROWD_N = 5; // more than CROWD_N birds this close is stressful
@@ -258,15 +306,15 @@
       ...(won ? {} : { reason: elapsed >= DUSK ? 'night' : 'scattered' }),
       ...(n ? { level: n } : {}), run: play.run, attempt: play.attempt,
       stats: { gates: gate, birds: birds.length, flock0: play.flock0, startles,
-        lure_s: r1(play.lure), spook_s: r1(play.spook), lost: play.lost, lost_pan: play.lostPan,
+        lure_s: r1(play.lure), spook_s: r1(play.spook), lost: play.lost, lost_pan: play.lostPan, lost_rock: play.lostRock,
         light_left: won ? r1(DUSK - elapsed) : 0, scared_pk: Math.round(play.scaredPk * 100),
         cohesion: r1(play.cohN ? play.coh / play.cohN : 0),
         tap_back: play.taps[0], tap_side: play.taps[1], tap_front: play.taps[2] },
       nv: NIGHT.nv, night_id: NIGHT.id, gate_t: play.gateT.map(r1), idle_s: r1(play.idle),
       ...(play.firstIn >= 0 ? { first_in_s: r1(play.firstIn), input: play.input } : {}),
-      spook: LURE_SPOOK };
-    // Migration nights: the score is the gates cleared so far in this migration.
-    if (t) Object.assign(msg, { score: t.gates, board: 'ch1', flock_end: t.after, run_over: t.over ? 1 : 0,
+      spook: LURE_SPOOK, ...(GATES.some(g => g.calm) ? { calm_rej: play.calmRej } : {}) };
+    // Migration nights: the score is the gates cleared so far in this chapter.
+    if (t) Object.assign(msg, { score: t.gates, board: chapterOf(n).board, ch: chapterOf(n).n, flock_end: t.after, run_over: t.over ? 1 : 0,
       ...(t.done ? { chapter_done: won ? 1 : 0 } : {}) });
     lastResult = msg;
     if (window.parent !== window) window.parent.postMessage(msg, '*');
@@ -306,7 +354,7 @@
   const resetBtn = document.getElementById('resetBtn');
   const $ = id => document.getElementById(id);
 
-  let birds, gate, passed, startles, elapsed, state, msgTimer, lure, rings, shock, lastClear = 0;
+  let birds, gate, passed, startles, elapsed, state, msgTimer, lure, rings, puffs, shock, lastClear = 0;
   let play;                        // this night's numbers for telemetry (report())
   const roundEarned = new Set();
   const attempts = [];             // nights started in this page session, by night
@@ -315,6 +363,9 @@
   function newFlock(night = 0) {
     NIGHT = NIGHTS[night];
     ({ need: GATE_NEED, window: GATE_WINDOW, half: GATE_HALF, dusk: DUSK, spook: LURE_SPOOK, gates: GATES } = NIGHT);
+    CRAGS = NIGHT.crags || [];
+    SCENE = SCENES[night ? chapterOf(night).scene : 'classic'];
+    WIND = NIGHT.wind || [];
     if (AB_SPOOK && night === 1 && run && parseInt(run.id.slice(-1), 36) % 2) LURE_SPOOK = NIGHTS[2].spook;
     // A migration night starts with the flock the last one left (survivors keep
     // their quirks); the classic night always starts with START_BIRDS.
@@ -353,12 +404,13 @@
     gate = 0;
     passed = new Map(); // bird -> time it crossed the active gate
     startles = 0;
-    play = { lure: 0, spook: 0, idle: 0, lost: 0, lostPan: 0, scaredPk: 0, coh: 0, cohN: 0, ticks: 0,
+    play = { lure: 0, spook: 0, idle: 0, lost: 0, lostPan: 0, lostRock: 0, calmRej: 0, scaredPk: 0, coh: 0, cohN: 0, ticks: 0,
       taps: [0, 0, 0], gateT: [], firstIn: -1, input: '', flock0: birds.length,
       run: night && run ? run.id : classicId, attempt: attempts[night] || 1 };
     elapsed = 0;
     lure = null;
     rings = [];
+    puffs = [];
     shock = null;
     roundEarned.clear();
     state = 'playing';
@@ -377,12 +429,14 @@
     if (tally) showTally(); else showClassicEnd(result);
   }
 
-  // § run: the whole migration in one plain, JSON-safe object (under 1 KB),
-  // ready for the gallery's save/load channel (next PR: it will store
+  // § run: one chapter of the migration in a plain, JSON-safe object (under
+  // 1 KB), ready for the gallery's save/load channel (it will store
   // serializeRun() and call restoreRun() for "Continue"). night: the next
-  // night to fly; flock: birds at its dawn; gates: cleared so far (the
-  // score); q: each bird's quirks [separation factor, turn], survivors first.
-  const MAX_GATES = NIGHTS.slice(1).reduce((s, N) => s + N.gates.length, 0);
+  // night to fly; flock: birds at its dawn; gates: cleared so far in this
+  // chapter (the score); q: each bird's quirks [separation factor, turn],
+  // survivors first. id: one per migration, kept from chapter to chapter.
+  const chapterGates = c => NIGHTS.slice(c.first, c.last + 1).reduce((s, N) => s + N.gates.length, 0);
+  const MAX_GATES = Math.max(...CHAPTERS.map(chapterGates));
   let run = null, tally = null;
   const r2 = v => Math.round(v * 100) / 100;
   function newId() {
@@ -390,13 +444,13 @@
     crypto.getRandomValues(a); // not Math.random: the flock's random sequence stays the balance bots'
     return (a[0].toString(36) + a[1].toString(36)).slice(0, 12);
   }
-  function freshRun() { return { v: 1, id: newId(), night: 1, flock: START_BIRDS, gates: 0, q: [] }; }
+  function freshRun(c = CHAPTERS[0]) { return { v: 1, id: newId(), night: c.first, flock: START_BIRDS, gates: 0, q: [] }; }
   function serializeRun() { return run && JSON.parse(JSON.stringify(run)); }
   // Starts the run's next night at its dawn card. Rejects anything malformed.
   function restoreRun(o) {
     const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
-    if (!o || o.v !== 1 || !/^[a-z0-9]{1,16}$/.test(String(o.id)) || !int(o.night, 1, CHAPTER)
-      || !int(o.flock, 0, FLOCK_CAP) || !int(o.gates, 0, MAX_GATES) || !Array.isArray(o.q)) return false;
+    if (!o || o.v !== 1 || !/^[a-z0-9]{1,16}$/.test(String(o.id)) || !int(o.night, 1, LAST_NIGHT)
+      || !int(o.flock, 0, FLOCK_CAP) || !int(o.gates, 0, chapterGates(chapterOf(o.night))) || !Array.isArray(o.q)) return false;
     const q = o.q.filter(p => Array.isArray(p) && p[0] >= 0.8 && p[0] <= 1.25 && p[1] >= 0.6 && p[1] <= 1.4)
       .slice(0, FLOCK_CAP).map(p => [+p[0], +p[1]]);
     run = { v: 1, id: o.id, night: o.night, flock: o.flock, gates: o.gates, q };
@@ -407,26 +461,33 @@
   // The flock tally after a migration night: birds lost stay lost, each gate
   // missed costs MISS_COST more, clearing every gate brings CLEAR_BONUS.
   function tallyNight(result) {
-    const n = NIGHTS.indexOf(NIGHT), won = result === 'won';
+    const n = NIGHTS.indexOf(NIGHT), won = result === 'won', ch = chapterOf(n);
     const missed = GATES.length - gate, alive = birds.length;
     const after = Math.max(0, Math.min(FLOCK_CAP, alive - MISS_COST * missed + (won ? CLEAR_BONUS : 0)));
     const gates = (run ? run.gates : 0) + gate;
-    const done = n === CHAPTER;
+    const done = n === ch.last;
     const over = !done && after < NIGHTS[n + 1].need; // too few birds to pass tomorrow's gates
-    run = run && !done && !over
-      ? { v: 1, id: run.id, night: n + 1, flock: after, gates, q: birds.slice(0, after).map(b => [r2(b.sep / SEP), r2(b.turn)]) }
-      : null;
-    return { night: n, won, gate, missed, alive, lost: play.flock0 - alive, after, gates, over, done };
+    const q = birds.slice(0, after).map(b => [r2(b.sep / SEP), r2(b.turn)]);
+    const id = run ? run.id : newId();
+    run = run && !done && !over ? { v: 1, id, night: n + 1, flock: after, gates, q } : null;
+    return { night: n, ch, won, gate, missed, alive, lost: play.flock0 - alive, after, gates, over, done, id, q };
   }
+  // The next chapter after a chapter's end: the same migration (run id), and
+  // the flock that arrived flies on, rested back up to START_BIRDS if smaller.
+  function nextChapter() {
+    const t = tally, c = CHAPTERS[t.ch.n];
+    restoreRun({ v: 1, id: t.id, night: c.first, flock: Math.max(START_BIRDS, t.after), gates: 0, q: t.q });
+  }
+  const flyChapter = c => () => restoreRun(freshRun(c));
 
   // § cards: the dawn of each night, its tally, run over, the chapter's end
   // and the classic night's result. Each is announced through the live region
   // and takes focus; Enter or Space presses its main button.
-  const card = $('card'), cardMain = $('cardMain'), cardAlt = $('cardAlt');
+  const card = $('card'), cardMain = $('cardMain'), cardAlts = [$('cardAlt'), $('cardAlt2')];
   const fine = window.matchMedia('(pointer: fine)').matches;
   const words = text => text.replace(/\{Tap\}/g, fine ? 'Click' : 'Tap').replace(/\{tap\}/g, fine ? 'click' : 'tap');
   let cardActs = null, cardTimer = null, keysUsed = false;
-  function showCard({ sub = '', title, cls = '', lines, main, alt = null, lock = false }) {
+  function showCard({ sub = '', title, cls = '', lines, main, alts = [], lock = false }) {
     $('cardSub').textContent = sub;
     $('cardTitle').textContent = title;
     $('cardTitle').className = cls;
@@ -440,20 +501,20 @@
       body.appendChild(el);
     }
     cardMain.textContent = main[0];
-    cardAlt.textContent = alt ? alt[0] : '';
-    cardAlt.hidden = !alt;
-    cardActs = { main: main[1], alt: alt && alt[1] };
+    cardAlts.forEach((b, i) => { b.textContent = alts[i] ? alts[i][0] : ''; b.hidden = !alts[i]; });
+    cardActs = { main: main[1], alts: alts.map(a => a[1]) };
     card.hidden = false;
     msgEl.textContent = '';
     const end = t => /[.!?:]$/.test(t) ? t : t + '.';
     speak([sub, title, ...lines.map(l => l[0])].filter(Boolean).map(end).join(' ') + ` Enter: ${main[0]}.`);
     clearTimeout(cardTimer);
     // After a night ends, taps that were already on their way must not skip the card.
+    const buttons = [cardMain, ...cardAlts];
     const ready = () => {
-      cardMain.disabled = cardAlt.disabled = false;
+      for (const b of buttons) b.disabled = false;
       if (!card.hidden) cardMain.focus({ preventScroll: true });
     };
-    if (lock) { cardMain.disabled = cardAlt.disabled = true; cardTimer = setTimeout(ready, END_INPUT_LOCK_MS); }
+    if (lock) { for (const b of buttons) b.disabled = true; cardTimer = setTimeout(ready, END_INPUT_LOCK_MS); }
     else ready();
   }
   // Focus leaves the card with it, or Space would press a hidden button instead of luring.
@@ -462,21 +523,26 @@
     if (card.contains(document.activeElement)) document.activeElement.blur();
   }
   cardMain.addEventListener('click', () => cardActs && cardActs.main());
-  cardAlt.addEventListener('click', () => cardActs && cardActs.alt && cardActs.alt());
+  cardAlts.forEach((b, i) => b.addEventListener('click', () => cardActs && cardActs.alts[i] && cardActs.alts[i]()));
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
   const earnedLine = when => roundEarned.size ? `🏆 ${plural(roundEarned.size, 'achievement')} earned ${when}` : '';
+  const nightOf = n => { const c = chapterOf(n); return `Chapter ${c.n} · Night ${n - c.first + 1} of ${c.last - c.first + 1}`; };
+  // The other chapters, as card buttons ("Chapter 2"), and the classic night.
+  const otherChapters = c => CHAPTERS.filter(o => o !== c).map(o => [`Chapter ${o.n}`, flyChapter(o)]);
 
   function showDawn() {
-    const n = run.night, N = NIGHTS[n];
+    const n = run.night, N = NIGHTS[n], c = chapterOf(n);
     newFlock(n);
     state = 'dawn';
     const waiting = (N.recruits || []).reduce((s, r) => s + r.n, 0);
     const keys = `Keys: arrows move the cursor, hold Space to lure${N.startle ? ', X startles' : ''}.`;
-    showCard({ sub: `Night ${n} of ${CHAPTER}`, title: N.name,
+    // A chapter's first night (fresh flock) also offers the other chapters and the classic night.
+    const start = n === c.first && !run.q.length;
+    showCard({ sub: nightOf(n), title: N.name,
       lines: [[N.story, 'story'], [words(N.rule)],
-        [`Flock: ${plural(run.flock, 'bird')}${waiting ? ` (and ${waiting} waiting)` : ''} · ${N.gates.length} gates, ${N.need} birds each · ${N.dusk} s of light.`],
+        [`${plural(run.flock, 'bird')}${waiting ? ` (+${waiting} waiting)` : ''} · ${N.gates.length} gates × ${N.need} birds · ${N.dusk} s of light.`],
         [fine || keysUsed ? keys : '', 'keys']],
-      main: ['Fly', fly], alt: n === 1 ? ['Classic night', startClassic] : null });
+      main: ['Fly', fly], alts: start ? [...otherChapters(c), ['Classic night', startClassic]].slice(0, 2) : [] });
   }
   function fly() {
     if (state !== 'dawn') return;
@@ -484,7 +550,7 @@
     play.attempt = attempts[n] = (attempts[n] || 0) + 1;
     hideCard();
     state = 'playing';
-    say(`${NIGHT.name}: lead the flock through the glowing gate before night falls.`);
+    say(`${NIGHT.name}: lead the flock through the glowing gate before night falls.${GATES[0].calm ? ' Calm gate: only calm birds count.' : ''}`);
   }
   function startClassic() {
     run = tally = null;
@@ -496,32 +562,35 @@
   function newMigration() { restoreRun(freshRun()); }
 
   function showTally() {
-    const t = tally;
+    const t = tally, total = chapterGates(t.ch);
     const title = t.won ? 'Night cleared' : elapsed >= DUSK ? 'Night fell' : 'The flock scattered';
-    showCard({ sub: `Night ${t.night} of ${CHAPTER} · ${NIGHT.name}`, title, cls: t.won ? 'won' : 'lost', lock: true,
+    showCard({ sub: `${nightOf(t.night)} · ${NIGHT.name}`, title, cls: t.won ? 'won' : 'lost', lock: true,
       lines: [[`Gates cleared: ${t.gate} of ${GATES.length}${t.won ? ` with ${clock(DUSK - elapsed)} of light left` : ''}.`],
-        [`${plural(t.alive, 'bird')} flew on${t.lost ? `; ${t.lost} lost` : ''}.`],
+        [`${plural(t.alive, 'bird')} flew on${t.lost ? `; ${t.lost} lost` : ''}${play.lostRock ? ` (${play.lostRock} on the rocks)` : ''}.`],
         [t.won ? `Every gate cleared: ${CLEAR_BONUS} birds join the flock.` : t.missed ? `${plural(t.missed, 'gate')} missed: ${MISS_COST * t.missed} birds turn back.` : ''],
-        [`${t.done ? 'Flock at the roost' : 'Flock for tomorrow'}: ${plural(t.after, 'bird')}.`],
-        [`Migration: ${t.gates} of ${MAX_GATES} gates.`],
+        [`${t.done ? 'Flock at the end of the chapter' : 'Flock for tomorrow'}: ${plural(t.after, 'bird')}.`],
+        [`Chapter ${t.ch.n}: ${t.gates} of ${total} gates.`],
         [earnedLine('tonight')]],
       main: t.done || t.over ? ['Continue', showEnd] : ['Next night', () => restoreRun(serializeRun())] });
   }
   // Run over, or the chapter's end. Score counts either way.
   function showEnd() {
-    const t = tally;
+    const t = tally, c = t.ch, total = chapterGates(c), next = CHAPTERS[c.n];
+    const again = [`Fly Chapter ${c.n} again`, flyChapter(c)];
     if (t.over) {
-      showCard({ sub: `Night ${t.night} of ${CHAPTER}`, title: 'The migration ends', cls: 'lost',
-        lines: [[`The flock is down to ${plural(t.after, 'bird')}, and the gates on night ${t.night + 1} need ${NIGHTS[t.night + 1].need}.`],
-          [`Gates cleared: ${t.gates} of ${MAX_GATES}.`]],
-        main: ['Fly the migration again', newMigration], alt: ['Classic night', startClassic] });
+      showCard({ sub: nightOf(t.night), title: 'The migration ends', cls: 'lost',
+        lines: [[`The flock is down to ${plural(t.after, 'bird')}, and the gates of the next night need ${NIGHTS[t.night + 1].need}.`],
+          [`Chapter ${c.n}: ${t.gates} of ${total} gates.`]],
+        main: again, alts: [...otherChapters(c), ['Classic night', startClassic]].slice(0, 2) });
     } else {
-      showCard({ sub: 'Chapter 1 · The Gathering', title: t.won ? 'Chapter complete' : 'The flock lands short of the roost',
+      const nights = c.last - c.first + 1;
+      showCard({ sub: `Chapter ${c.n} · ${c.name}`, title: t.won ? 'Chapter complete' : 'The flock falls short',
         cls: t.won ? 'won' : 'lost',
-        lines: [[t.won ? 'Six nights flown: the flock reaches the roost.' : 'Six nights flown, but the last gates were missed.'],
-          [`Gates cleared: ${t.gates} of ${MAX_GATES}. Flock: ${plural(t.after, 'bird')}.`],
-          ['Chapter 2 is on its way.', 'story']],
-        main: ['Fly it again', newMigration], alt: ['Classic night', startClassic] });
+        lines: [[t.won ? `${nights} nights flown: ${c.roost}.` : `${nights} nights flown, but the last gates were missed.`],
+          [`Gates cleared: ${t.gates} of ${total}. Flock: ${plural(t.after, 'bird')}.`],
+          [next ? `Chapter ${next.n}, ${next.name}: the flock flies on with ${plural(Math.max(START_BIRDS, t.after), 'bird')}.` : c.next, 'story']],
+        main: next ? [`Fly on to Chapter ${next.n}`, nextChapter] : again,
+        alts: next ? [again, ['Classic night', startClassic]] : [...otherChapters(c), ['Classic night', startClassic]].slice(0, 2) });
     }
   }
   function showClassicEnd(result) {
@@ -534,7 +603,7 @@
           ? `The flock was still at gate ${gate + 1} of ${GATES.length} when the light ran out.`
           : `Only ${plural(birds.length, 'bird')} left; a gate needs ${GATE_NEED}.`],
         [earnedLine('this round')]],
-      main: ['Fly again', startClassic], alt: ['The migration', newMigration] });
+      main: ['Fly again', startClassic], alts: CHAPTERS.map(o => [`Chapter ${o.n}`, flyChapter(o)]) });
   }
 
   function clock(sec) {
@@ -565,7 +634,7 @@
     if (gate > heard.gate) {
       heard.gate = gate;
       const left = GATES.length - gate;
-      speak(`Gate ${gate} cleared with ${lastClear} birds. ${left} gate${left === 1 ? '' : 's'} left.`);
+      speak(`Gate ${gate} cleared with ${lastClear} birds. ${left} gate${left === 1 ? '' : 's'} left.${left && GATES[gate].calm ? ' Next is a calm gate: only calm birds count.' : ''}`);
     }
     // Losses come in bursts: say the new size once it has held for a second.
     if (birds.length < heard.birds) {
@@ -648,6 +717,14 @@
   }
 
   // ---------- simulation ----------
+  // The wind's sideways speed at height y (the bands of the night's wind).
+  function windAt(y) {
+    for (const w of WIND) {
+      const k = Math.min(1, (y - w.y0) / 15, (w.y1 - y) / 15); // eases in over 15 units at each side
+      if (k > 0) return w.v * k;
+    }
+    return 0;
+  }
   function step(dt) {
     elapsed += dt;
     let spooking = false;
@@ -726,6 +803,18 @@
       if (b.x > W - EDGE) ax -= (b.x - (W - EDGE)) * edge;
       if (b.y < EDGE) ay += (EDGE - b.y) * edge;
       if (b.y > H - EDGE) ay -= (b.y - (H - EDGE)) * edge;
+      // Crags: the same rule as the edges. Calm birds swerve, sliding round the
+      // side they are already heading for; panicked ones fly straight on.
+      if (CRAGS.length && b.fear < PANIC) {
+        const turn = (1 - (b.fear / PANIC) ** 3) * CRAG_TURN; // strong until close to panic
+        for (const c of CRAGS) {
+          const dx = b.x - c.x, dy = b.y - c.y, d = Math.hypot(dx, dy) || 1, m = c.r + CRAG_M - d;
+          if (m <= 0) continue;
+          const nx = dx / d, ny = dy / d, side = b.vx * -ny + b.vy * nx >= 0 ? 1 : -1;
+          ax += (nx - ny * side * 0.6) * m * turn;
+          ay += (ny + nx * side * 0.6) * m * turn;
+        }
+      }
 
       b.vx += ax * dt;
       b.vy += ay * dt;
@@ -754,16 +843,21 @@
       play.cohN++;
     }
 
-    const [g1x, g1y, g2x, g2y] = gateEnds(GATES[gate]);
+    const [g1x, g1y, g2x, g2y] = gateEnds(GATES[gate]), calmGate = GATES[gate].calm;
     for (let i = birds.length - 1; i >= 0; i--) {
       const b = birds[i];
       const px = b.x, py = b.y;
-      b.x += b.vx * dt;
+      b.x += (b.vx + windAt(b.y)) * dt; // the wind carries every bird, scared or calm
       b.y += b.vy * dt;
-      if (crosses(px, py, b.x, b.y, g1x, g1y, g2x, g2y)) passed.set(b, elapsed);
-      if (b.x < -15 || b.x > W + 15 || b.y < -15 || b.y > H + 15) {
+      if (crosses(px, py, b.x, b.y, g1x, g1y, g2x, g2y)) {
+        if (!calmGate || b.fear < SCARED) passed.set(b, elapsed);
+        else play.calmRej++;
+      }
+      const rock = CRAGS.find(c => Math.hypot(b.x - c.x, b.y - c.y) < c.r);
+      if (rock || b.x < -15 || b.x > W + 15 || b.y < -15 || b.y > H + 15) {
         play.lost++;
-        if (b.fear >= PANIC) play.lostPan++;
+        if (rock) { play.lostRock++; puffs.push({ x: b.x, y: b.y, t: 0 }); }
+        else if (b.fear >= PANIC) play.lostPan++;
         birds.splice(i, 1);
         passed.delete(b);
       }
@@ -780,6 +874,8 @@
     }
     for (const r of rings) r.t += dt;
     rings = rings.filter(r => r.t < 0.5);
+    for (const p of puffs) p.t += dt;
+    puffs = puffs.filter(p => p.t < 0.8);
 
     if (passed.size >= GATE_NEED) {
       lastClear = passed.size;
@@ -795,10 +891,13 @@
         if (DUSK - elapsed >= DUSK * 0.25) unlock('swift');
         if (DUSK - elapsed < 5) unlock('last-light');
         if (GATES.length >= 3 && play.spook < 2 && !startles && play.lure >= 10) unlock('gentle-hand');
-        if (NIGHT === NIGHTS[CHAPTER]) {
+        if (NIGHT.id === 'the-edge') {
           unlock('gathered');
           if (play.lost <= 2) unlock('edge-dancer');
         }
+        if (CRAGS.length && !play.lostRock) unlock('sure-wings');
+        if (WIND.length && play.lost <= 2) unlock('into-the-wind');
+        if (NIGHT.id === 'the-high-pass') unlock('high-pass');
         endGame('won');
         return;
       }
@@ -807,10 +906,26 @@
   }
 
   // ---------- drawing ----------
-  // Sky colors at sunset and at night: [r, g, b] pairs.
-  const SKY_TOP = [[91, 75, 138], [14, 12, 34]];
-  const SKY_MID = [[192, 112, 138], [34, 27, 66]];
-  const SKY_LOW = [[246, 178, 107], [58, 40, 84]];
+  // § scenes: each chapter's sky and horizon. Colors are [sunset, night]
+  // pairs of [r, g, b]; the land stays in the bottom 120 units, below where
+  // calm birds fly (EDGE), and lighter than the birds.
+  const SCENES = {
+    classic: { top: [[91, 75, 138], [14, 12, 34]], mid: [[192, 112, 138], [34, 27, 66]], low: [[246, 178, 107], [58, 40, 84]] },
+    // Chapter 1: the marsh at sunset, a tree line and still water.
+    marsh: { top: [[91, 75, 138], [14, 12, 34]], mid: [[192, 112, 138], [34, 27, 66]], low: [[246, 178, 107], [58, 40, 84]],
+      land: [
+        { fill: [[108, 64, 94], [32, 24, 52]], pts: [0, 562, 30, 552, 55, 558, 90, 545, 120, 556, 160, 548, 200, 557, 240, 543, 275, 554, 320, 547, 360, 558, 400, 550, 400, 600, 0, 600] },
+        { fill: [[232, 160, 120], [52, 40, 78]], pts: [0, 574, 400, 574, 400, 600, 0, 600] }],
+      reeds: true },
+    // Chapter 2: a cold sky over the mountains, snow on the far peaks.
+    pass: { top: [[52, 74, 132], [9, 13, 34]], mid: [[128, 144, 196], [24, 32, 68]], low: [[238, 202, 178], [44, 48, 86]],
+      land: [
+        { fill: [[118, 128, 178], [26, 30, 60]], snow: [[240, 243, 252], [74, 80, 116]],
+          pts: [0, 560, 40, 522, 75, 546, 120, 486, 160, 532, 190, 516, 235, 474, 280, 526, 320, 500, 360, 540, 400, 506, 400, 600, 0, 600] },
+        { fill: [[78, 84, 124], [16, 18, 40]],
+          pts: [0, 582, 50, 556, 100, 576, 150, 548, 210, 580, 260, 562, 310, 586, 360, 552, 400, 572, 400, 600, 0, 600] }] },
+  };
+  let SCENE = SCENES.classic;
   function mix([a, b], t) {
     return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
   }
@@ -820,30 +935,121 @@
   const still = () => motionQ.matches;
   const STARS = [];
   for (let i = 0; i < 40; i++) STARS.push([Math.random() * W, Math.random() * H * 0.6, 0.5 + Math.random() * 0.8]);
+  function drawLand(dark) {
+    for (const l of SCENE.land || []) {
+      const p = l.pts;
+      ctx.fillStyle = mix(l.fill, dark);
+      ctx.beginPath();
+      ctx.moveTo(p[0], p[1]);
+      for (let i = 2; i < p.length; i += 2) ctx.lineTo(p[i], p[i + 1]);
+      ctx.fill();
+      if (l.snow) { // a cap on each peak: the slopes' top quarter
+        ctx.fillStyle = mix(l.snow, dark);
+        for (let i = 2; i < p.length - 6; i += 2) {
+          if (!(p[i + 1] < p[i - 1] && p[i + 1] < p[i + 3]) || p[i + 1] > 530) continue;
+          const lx = p[i] + (p[i - 2] - p[i]) * 0.25, ly = p[i + 1] + (p[i - 1] - p[i + 1]) * 0.25;
+          const rx = p[i] + (p[i + 2] - p[i]) * 0.25, ry = p[i + 1] + (p[i + 3] - p[i + 1]) * 0.25;
+          ctx.beginPath();
+          ctx.moveTo(p[i], p[i + 1]); ctx.lineTo(rx, ry); ctx.lineTo((p[i] + rx) / 2, ry - 2);
+          ctx.lineTo(p[i], ry + 1); ctx.lineTo((p[i] + lx) / 2, ly - 2); ctx.lineTo(lx, ly);
+          ctx.fill();
+        }
+      }
+    }
+    if (SCENE.reeds) { // shimmer on the water, then reeds at its edge
+      ctx.strokeStyle = `rgba(255,236,214,${0.55 - dark * 0.35})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const [x, y, w] of [[40, 580, 60], [150, 586, 90], [290, 579, 70], [90, 593, 50], [250, 594, 80]]) { ctx.moveTo(x, y); ctx.lineTo(x + w, y); }
+      ctx.stroke();
+      ctx.strokeStyle = mix([[96, 62, 88], [22, 18, 38]], dark);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let x = 6; x < W; x += 9 + (x * 7) % 11) {
+        const h = 14 + (x * 13) % 16, lean = ((x * 5) % 7 - 3) * 0.8;
+        ctx.moveTo(x, 600); ctx.quadraticCurveTo(x, 600 - h * 0.6, x + lean, 600 - h);
+      }
+      ctx.stroke();
+    }
+  }
+  // Wind bands: a faint band with streaks blowing through it (still under
+  // reduced motion) and chevrons at both ends pointing downwind.
+  function drawWind() {
+    const t = still() ? 0 : elapsed;
+    for (const w of WIND) {
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
+      ctx.fillRect(0, w.y0, W, w.y1 - w.y0);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      const dir = Math.sign(w.v), len = 22;
+      for (let i = 0; i < 16; i++) {
+        const y = w.y0 + 10 + ((i * 37) % 97) / 97 * (w.y1 - w.y0 - 20);
+        const x = (((i * 71) % 400 + w.v * t * 1.5) % (W + 60) + W + 60) % (W + 60) - 30;
+        ctx.moveTo(x, y); ctx.lineTo(x - dir * len, y);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const ym = (w.y0 + w.y1) / 2;
+      for (const x0 of [14, W - 30]) for (let k = 0; k < 3; k++) {
+        const x = x0 + k * 7 * dir + (dir < 0 ? 14 : 0);
+        ctx.moveTo(x, ym - 6); ctx.lineTo(x + 5 * dir, ym); ctx.lineTo(x, ym + 6);
+      }
+      ctx.stroke();
+    }
+  }
+  // A crag: a jagged rock (its shape fixed by its place in the sky), lit from
+  // the sunset side, with a pale rim at night like the birds.
+  function drawCrag(c, dark) {
+    const pts = [];
+    for (let i = 0; i < 9; i++) {
+      const a = i / 9 * Math.PI * 2, k = 0.92 + 0.2 * Math.abs(Math.sin(c.x * 0.37 + c.y * 0.11 + i * 2.3));
+      pts.push(c.x + Math.cos(a) * c.r * k, c.y + Math.sin(a) * c.r * k);
+    }
+    const path = () => { ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]); ctx.closePath(); };
+    path();
+    ctx.fillStyle = mix([[86, 76, 92], [30, 28, 44]], dark);
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = mix([[132, 118, 128], [48, 46, 68]], dark); // the lit face
+    ctx.beginPath(); ctx.arc(c.x - c.r * 0.35, c.y - c.r * 0.4, c.r * 0.75, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    path();
+    ctx.strokeStyle = `rgba(236,228,255,${0.25 + dark * 0.4})`;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
   function draw() {
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
     // The sky darkens from sunset to night as the light runs out.
     const dark = Math.min(1, elapsed / DUSK);
     const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, mix(SKY_TOP, dark));
-    sky.addColorStop(0.55, mix(SKY_MID, dark));
-    sky.addColorStop(1, mix(SKY_LOW, Math.pow(dark, 1.5))); // the horizon glow lingers
+    sky.addColorStop(0, mix(SCENE.top, dark));
+    sky.addColorStop(0.55, mix(SCENE.mid, dark));
+    sky.addColorStop(1, mix(SCENE.low, Math.pow(dark, 1.5))); // the horizon glow lingers
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
     if (dark > 0.5) {
       ctx.fillStyle = `rgba(255,255,255,${(dark - 0.5) * 1.6})`;
       for (const [x, y, r] of STARS) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
     }
+    drawLand(dark);
+    drawWind();
+    for (const c of CRAGS) drawCrag(c, dark);
 
     // Gates: the active one glows and fills gold as birds pass; the next is faint.
     for (let k = GATES.length - 1; k >= gate; k--) {
       const active = k === gate;
       if (!active && k > gate + 1) continue;
       const [x1, y1, x2, y2] = gateEnds(GATES[k]);
+      const calm = GATES[k].calm;
       ctx.globalAlpha = active ? 1 : 0.3;
       ctx.lineWidth = 3;
-      ctx.setLineDash([6, 6]);
-      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.setLineDash(calm ? [2, 5] : [6, 6]);
+      ctx.strokeStyle = calm ? 'rgba(190,235,255,0.9)' : 'rgba(255,255,255,0.8)';
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
       ctx.setLineDash([]);
       if (active && state === 'playing') {
@@ -853,7 +1059,7 @@
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t); ctx.stroke();
         // Count beside the gate line, not on it, on a dark backing: white on
         // the sunset sky was 3.5:1, and birds fly behind it.
-        const f = fs(12), label = `${passed.size}/${GATE_NEED}`;
+        const f = fs(12), label = `${calm ? 'calm ' : ''}${passed.size}/${GATE_NEED}`;
         ctx.font = `600 ${f}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -868,11 +1074,27 @@
         ctx.fillText(label, lx, ly + 1);
         ctx.textBaseline = 'alphabetic';
       }
-      ctx.fillStyle = '#fff';
+      // Posts: dots, or rings on a calm gate (shape, not only color, says which).
       for (const [px, py] of [[x1, y1], [x2, y2]]) {
-        ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px, py, calm ? 6 : 4.5, 0, Math.PI * 2);
+        if (!calm) { ctx.fillStyle = '#fff'; ctx.fill(); continue; }
+        for (const [c, w] of [['rgba(13,11,22,0.7)', 4.5], ['#e6f7ff', 2]]) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.stroke(); }
       }
       ctx.globalAlpha = 1;
+    }
+
+    // A bird lost on a crag: a burst of feathers.
+    for (const p of puffs) {
+      const k = p.t / 0.8, r = still() ? 6 : 3 + 9 * k;
+      ctx.strokeStyle = `rgba(240,232,255,${0.8 * (1 - k)})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3 + 0.4;
+        ctx.moveTo(p.x + Math.cos(a) * r * 0.5, p.y + Math.sin(a) * r * 0.5);
+        ctx.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r);
+      }
+      ctx.stroke();
     }
 
     // Startle shockwaves.
@@ -936,7 +1158,8 @@
 
     if (kb.shown && state === 'playing') drawCursor();
 
-    $('hudNight').textContent = run || tally ? `${NIGHTS.indexOf(NIGHT)}/${CHAPTER}` : 'Classic';
+    const n = NIGHTS.indexOf(NIGHT), c = n && chapterOf(n);
+    $('hudNight').textContent = c ? `${n - c.first + 1}/${c.last - c.first + 1}` : 'Classic';
     $('hudStartleBox').hidden = !NIGHT.startle;
     resetBtn.textContent = !run && !tally ? 'New flock' : performance.now() - resetArmed < 3000 ? 'Start over?' : 'Start over';
     document.getElementById('hudBirds').textContent = birds.length;
@@ -993,12 +1216,12 @@
     releaseLure();
   });
 
-  // The bar's button: a new classic flock, or (migration) start over from
-  // night 1, which takes a second press within 3 s so a stray tap can't end a run.
+  // The bar's button: a new classic flock, or (migration) start the chapter
+  // over from its first night, which takes a second press within 3 s so a stray tap can't end a run.
   let resetArmed = -1e9;
   resetBtn.addEventListener('click', () => {
     if (!run && !tally) return startClassic();
-    if (performance.now() - resetArmed < 3000) { resetArmed = -1e9; newMigration(); }
+    if (performance.now() - resetArmed < 3000) { resetArmed = -1e9; flyChapter(chapterOf(NIGHTS.indexOf(NIGHT)))(); }
     else resetArmed = performance.now();
   });
   // Telemetry: when the first input of a night came, and from what.

@@ -238,6 +238,17 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   bleeding ~8 birds a night, which a whole-run bot shows (25/60 chapters
   cleared). Add a run mode to the harness before tuning single levels.
   *Per-level win rates hide a carried resource bleeding.* Murmuration v8. bots.
+- Recalibrate which bot stands for a human once humans have played: the
+  brief assumed `lure60`, but 2 players won all six v8 nights first try,
+  night 6 in 33 s (lure60 58% / 53 s, lure80 93% / 26 s), and called it
+  too easy. Chapter 2 was tuned to `lure80`. *Humans outplayed the bot
+  chosen to stand for them.* Murmuration v9. players (n=2) + bots.
+- An obstacle that kills on contact needs avoidance that holds until
+  near panic: scaled linearly with fear (like the edges), bots lost 10-20
+  birds a night on rocks, mostly half-scared birds from crowding and the
+  lure ring; with (1 − (fear/PANIC)³) it fell to 0-2 and only panic or a
+  startle beside a rock costs birds. *Linear fear scaling made rocks kill
+  half-scared birds.* Murmuration v9. bots.
 
 ## Accessibility
 
@@ -245,6 +256,11 @@ overturns a rule, update its tag here and add the evidence to its log entry.
   motion audit even if play moves: the audit's taps rarely hit the start
   button. Record the in-play verdict by hand. *An opening card hides play
   motion from the audit.* Murmuration v8. audit.
+- The colour audit clusters every pixel, so anti-aliased text on a dark
+  card can "merge" with the sky behind it once the card has enough text
+  (a third button and a longer line pushed a dawn card to 0.9%). Shorten
+  or lay out the text before changing colours. *Card text edges tripped
+  the colour audit.* Murmuration v9. audit.
 - A keyboard line can list only housekeeping keys (undo, restart): read
   it verb by verb; every verb needs a key path, and Tab stays the
   browser's. At the audit (2026-10-05), 10 of 20 games needed a pointer

@@ -243,10 +243,15 @@
       "id": "murmuration",
       "title": "Murmuration",
       "file": "murmuration.html",
-      "version": 8,
+      "version": 9,
       "added": "2026-09-27",
       "updated": "2026-10-08",
       "changes": [
+        {
+          "version": 9,
+          "date": "2026-10-08",
+          "text": "Chapter 2, The High Pass: five mountain nights under a colder sky, with crags to steer around (a scared bird can hit one), a crosswind and ringed gates that count only calm birds. Each chapter has its own scene and leaderboard, and can be flown on its own."
+        },
         {
           "version": 8,
           "date": "2026-10-08",
@@ -288,9 +293,9 @@
           "text": "First version."
         }
       ],
-      "blurb": "Lead a flock of starlings through six nights of gates. Lure them with a held {finger}, startle them for speed, and keep enough birds for the next night.",
-      "goal": "Fly the flock through the six nights of Chapter 1, The Gathering: each night, bring enough birds through every gate before dark. The birds you keep fly on to the next night. Your score is the gates cleared in the migration (23 in all).",
-      "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. {Hold} anywhere and calm birds fly toward your {finger}; keep holding and move it to lead them. The dashed circle shows how far the lure reaches; birds that fly inside the small ring around your {finger} are spooked and the ring turns red, so keep it ahead of the flock and keep moving. From night 3, {tap} to startle the birds near the {tap}: they burst away from it, so a {tap} just behind the flock sends it surging forward. A gate counts only birds that flew through it together, and the number beside it says how many it needs. Fear spreads to neighbors, scared birds ignore your lure, and panicked birds can fly off the edge of the sky. After each night the flock is tallied: lost birds stay lost, each gate missed costs 3 more, clearing every gate brings 4 new birds. If the flock is too small for the next night's gates, the migration ends. Classic night is the single 5-gate night from earlier versions.",
+      "blurb": "Lead a flock of starlings through two chapters of nights: the marsh, then the mountains. Lure them with a held {finger}, startle them for speed, and keep enough birds for the next night.",
+      "goal": "Fly the flock through a chapter of nights: Chapter 1, The Gathering (6 nights over the marsh), or Chapter 2, The High Pass (5 nights in the mountains, with crags, wind and calm gates). Each night, bring enough birds through every gate before dark; the birds you keep fly on to the next night. Your score is the gates cleared in the chapter (23 in Chapter 1, 19 in Chapter 2).",
+      "howToPlay": "The flock steers itself: birds stay close to their neighbors and match their heading. {Hold} anywhere and calm birds fly toward your {finger}; keep holding and move it to lead them. The dashed circle shows how far the lure reaches; birds that fly inside the small ring around your {finger} are spooked and the ring turns red, so keep it ahead of the flock and keep moving. From night 3, {tap} to startle the birds near the {tap}: they burst away from it, so a {tap} just behind the flock sends it surging forward. A gate counts only birds that flew through it together, and the number beside it says how many it needs. Fear spreads to neighbors, scared birds ignore your lure, and panicked birds can fly off the edge of the sky. After each night the flock is tallied: lost birds stay lost, each gate missed costs 3 more, clearing every gate brings 4 new birds. If the flock is too small for the next night's gates, the migration ends. In Chapter 2, crags stand in the sky: calm birds swerve round them, but a scared bird can fly into one and is lost, so never startle beside the rocks. Wind bands carry every bird sideways, and ringed gates count only calm birds. Each chapter can be flown on its own from its first night. Classic night is the single 5-gate night from earlier versions.",
       "keyboard": "Arrows move the cursor · hold Space to lure toward it · Enter or X startles (night 3 on) · Enter continues",
       "mechanics": [
         {
@@ -357,10 +362,25 @@
           "id": "edge-dancer",
           "title": "Edge Dancer",
           "description": "Clear night 6, The edge, losing 2 birds or fewer that night."
+        },
+        {
+          "id": "sure-wings",
+          "title": "Sure Wings",
+          "description": "Clear every gate of a night with crags without losing a bird on the rocks."
+        },
+        {
+          "id": "into-the-wind",
+          "title": "Into the Wind",
+          "description": "Clear every gate of a windy night losing 2 birds or fewer."
+        },
+        {
+          "id": "high-pass",
+          "title": "The High Pass",
+          "description": "Clear night 5 of Chapter 2, The high pass, and finish the chapter."
         }
       ],
       "score": {
-        "label": "Gates in a migration",
+        "label": "Gates in a chapter",
         "better": "higher",
         "format": "count",
         "from": "score",
@@ -368,7 +388,8 @@
         "max": 23,
         "epoch": 2,
         "boardList": [
-          "ch1"
+          "ch1",
+          "ch2"
         ]
       }
     },
