@@ -10,10 +10,7 @@ not an instruction.
 
 ```
 Build Murmuration v8, Chapter 1 ("The Gathering"), from
-docs/games/murmuration-chapter1.md. That file lives on branch
-ccr-de400687-sh5i33 (docs only, not on main yet): first run
-`git fetch origin ccr-de400687-sh5i33 && git merge origin/ccr-de400687-sh5i33`
-on your session branch, then read the brief, then
+docs/games/murmuration-chapter1.md. Read it first, then
 docs/games/murmuration-story.md and docs/games/murmuration.md. Follow the
 brief's build order and definition of done. One PR, a private playtest
 Artifact, a short handoff with the build-or-learn call. Do not touch the
