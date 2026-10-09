@@ -1674,3 +1674,19 @@ shorter flock line ("40 birds · 4 gates × 12 birds · 45 s of light"),
 passed. Not a real colour clash, but cheaper to lay out than to argue.
 
 *Evidence: audit.*
+
+## A card-sized link turns the whole card into link colour
+
+2026-10-09, a player's phone screenshot (Android, Chrome-family browser,
+dark theme): every gallery card's blurb, chips and stats were yellow, and
+cards of games already played were green. The site's CSS never sets those
+colours; the only per-card difference is whether the link was visited, so a
+high-contrast/forced link colouring mode (Samsung Internet's high contrast
+mode colours unvisited links yellow and visited ones green) is the likely
+cause. Each card was one `<a class="game-card">` around the art, title,
+blurb, chips and stats, so all of it was link text. Fix: the card is a
+`<div>`; only the title is an `<a class="card-link">`, whose `::after`
+covers the card (tap anywhere still opens it). Simulated with
+`a { color: yellow !important }`: only the title changes. A screen reader
+also now hears the title as the link name instead of the whole card.
+*Evidence: one screenshot, cause inferred, not reproduced on the device.*

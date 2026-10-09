@@ -133,10 +133,15 @@
       "id": "orbit-garden",
       "title": "Orbit Garden",
       "file": "orbit-garden.html",
-      "version": 8,
+      "version": 9,
       "added": "2026-09-26",
-      "updated": "2026-10-05",
+      "updated": "2026-10-09",
       "changes": [
+        {
+          "version": 9,
+          "date": "2026-10-09",
+          "text": "A voyage: gardens one after another, with leftover seeds carried over. New gardens bring rocks, dead moons, wild planets and 4-bloom goals, then endless deep-sky gardens that wither faster. Score is now gardens bloomed in one voyage. Three new achievements."
+        },
         {
           "version": 8,
           "date": "2026-10-05",
@@ -178,9 +183,9 @@
           "text": "First version, with achievements."
         }
       ],
-      "blurb": "Place planets, fling seeds around them, and grow a garden in orbit. Every seed that lands makes its planet pull harder.",
-      "goal": "Get 3 planets blooming at the same time before your 40 seeds run out.",
-      "howToPlay": "Seeds launch from the launcher at the bottom and bend around every planet on their way up. Each seed that lands makes its planet heavier, and heavier planets pull harder, so a big planet can start stealing seeds meant for its neighbors. Every seed you fling makes every planet wither a little, so misses cost you twice. Seeds fly slowly and curve a lot: drag upward to fling, and aim by the short dotted preview, not straight at the planet. There's no rush; take your time lining up each shot.",
+      "blurb": "Place planets, fling seeds around them, and grow gardens in orbit on a voyage through rocks and dead moons. Every seed that lands makes its planet pull harder.",
+      "goal": "Bloom as many gardens in a row as you can. In each, get 3 planets blooming at once (4 in some gardens) before your seeds run out. Leftover seeds carry to the next garden.",
+      "howToPlay": "Seeds launch from the launcher at the bottom and bend around every planet on their way up. Each seed that lands makes its planet heavier, and heavier planets pull harder, so a big planet can start stealing seeds meant for its neighbors. Every seed you fling makes every planet wither a little, so misses cost you twice. Seeds fly slowly and curve a lot: drag upward to fling, and aim by the short dotted preview, not straight at the planet. There's no rush; take your time lining up each shot. Each garden adds something new: rocks that swallow seeds, dead moons that pull seeds off course but never grow, planets that are already growing. A lost garden is tried again from its start, and seeds you save are added to the next garden's 25 new seeds.",
       "keyboard": "Arrows move the cursor · Enter places a planet · Space aims (arrows: angle, strength), Space flings · N next planet",
       "mechanics": [
         {
@@ -194,8 +199,10 @@
           "description": "Drag upward to launch a seed from the launcher; it curves around planets and adds mass to the one it lands on."
         }
       ],
-      "sharedState": "Planet mass: placing creates it, landed seeds add to it, and it sets how hard each planet pulls on every seed. Each fling withers every planet a little, and blooming is read from it.",
-      "topics": ["mechanics"],
+      "sharedState": "Planet mass: placing creates it, landed seeds add to it, and it sets how hard each planet pulls on every seed. Each fling withers every planet a little, and blooming is read from it. Seeds left over carry to the next garden.",
+      "topics": [
+        "mechanics"
+      ],
       "accent": "#8be07a",
       "achievements": [
         {
@@ -211,7 +218,7 @@
         {
           "id": "frugal",
           "title": "Frugal Gardener",
-          "description": "Complete a garden with 15 or more seeds left."
+          "description": "Complete a garden using 25 seeds or fewer."
         },
         {
           "id": "gravity-assist",
@@ -227,16 +234,31 @@
           "id": "full-sky",
           "title": "Full Sky",
           "description": "Have 5 planets in the sky at once."
+        },
+        {
+          "id": "moon-sling",
+          "title": "Moon Sling",
+          "description": "Land a seed that swung close past a dead moon."
+        },
+        {
+          "id": "voyager",
+          "title": "Voyager",
+          "description": "Bloom 5 gardens in one voyage."
+        },
+        {
+          "id": "deep-space",
+          "title": "Deep Space",
+          "description": "Bloom 10 gardens in one voyage."
         }
       ],
       "score": {
-        "label": "Fastest bloom",
-        "better": "lower",
-        "format": "time",
-        "from": "time",
-        "wins": true,
-        "max": 3600,
-        "epoch": 1
+        "label": "Gardens bloomed",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 500,
+        "epoch": 2
       }
     },
     {
