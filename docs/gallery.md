@@ -374,6 +374,9 @@ Rules the audit enforces, from its first run (2026-10-05):
 - No text under 12 px (0.75rem) at phone width.
 - State is never colour alone: rating stars are hollow when off, pressed
   chips are filled.
+- Game cards are a `<div>`; only the title is a link (`.card-link`), stretched
+  over the card by `::after`. A whole-card `<a>` let high-contrast modes
+  recolour all its text (findings, Accessibility).
 - Every Tab stop shows a 3:1 focus ring; Play puts focus in the game frame
   and Shift+Tab leaves it (unless the game keeps Tab: Rail Yard).
 - `prefers-reduced-motion` turns off every animation and transition (the

@@ -255,6 +255,10 @@ overturns a rule, update its tag here and add the evidence to its log entry.
 Short form: the measured numbers and the full story are in the log entry
 named in *italics*.
 
+- Make only the title a link, stretched over the card with `::after`;
+  never wrap a whole card in `<a>`. High-contrast browser modes paint all
+  link text (yellow, visited green). *A card-sized link turns the whole
+  card into link colour.* Gallery. player screenshot (n=1).
 - A game that opens on a still card reads **pass** on the motion audit
   even if play moves: record the in-play verdict by hand. *An opening
   card hides play motion from the audit.* Murmuration v8. audit.

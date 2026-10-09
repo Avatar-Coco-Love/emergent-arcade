@@ -89,7 +89,9 @@
   #endCard h2.won { color: #8be07a; }
   #endCard h2.lost { color: #ff9a8a; }
   #endCard p { margin: 0 0 4px; color: #c8c8d2; font-size: 0.9rem; }
-  #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
+  #playAgain, #newVoyage { margin-top: 12px; width: 100%; font-weight: 600; }
+  #newVoyage { margin-top: 8px; font-weight: 400; }
+  #newVoyage[hidden] { display: none; }
   #playAgain:disabled { opacity: 0.4; }
   .bar {
     flex: none;
@@ -125,14 +127,16 @@
         <p id="endDetail"></p>
         <p id="endAch"></p>
         <button id="playAgain">Play again</button>
+        <button id="newVoyage" hidden>New voyage</button>
       </div>
     </div>
   </div>
   <div class="bar">
+    <span>Garden <b id="hudGarden"></b></span>
     <span>Seeds <b id="hudSeeds"></b></span>
     <span>Blooming <b id="hudBlooms"></b></span>
     <span>Planets <b id="hudPlanets"></b></span>
-    <button id="resetBtn">New garden</button>
+    <button id="resetBtn">Restart garden</button>
   </div>
 
 <script>
@@ -162,6 +166,51 @@
   const TRAIL_POINTS = 14;
   const PREVIEW_STEPS = 70;        // aim preview length, in double steps (~1.2 s)
 
+  // § voyage: gardens in a row. Leftover seeds carry over (plus REFILL, up to
+  // MAX_SEEDS); a lost garden is retried from its start with the seeds it
+  // started with. Each hand-made garden adds one thing to aim around: rocks
+  // (no pull, a seed that hits one is lost), dead moons (pull like a planet,
+  // never grow, eat seeds), wild planets (already growing). Past them,
+  // gardenDef() brings gardens 2-8 back in laps ("deep sky"), mirrored every
+  // other lap, withering DEEP_WITHER faster per lap, and from lap 2 asking for
+  // one more bloom. (Random layouts swung from 0% to 100% for the bots.)
+  const REFILL = 25;
+  const MAX_SEEDS = 60;
+  const DEEP_WITHER = 0.01;        // extra wither per lap past the hand-made gardens
+  const GARDENS = [
+    { name: 'First garden', hint: '', goal: 3 },
+    { name: 'Rock field', hint: 'A seed that hits a rock is lost.', goal: 3,
+      rocks: [[45, 300, 18], [200, 110, 18]] },
+    { name: 'Dead moon', hint: 'The grey moon pulls seeds but never grows. Seeds that hit it are lost.', goal: 3,
+      moons: [[200, 330, 3]] },
+    { name: 'Wild planets', hint: 'Two planets already grow here. Bloom 4 at once.', goal: 4,
+      wild: [[90, 210, 4.5], [310, 210, 4.5]] },
+    { name: 'Twin moons', hint: 'Two moons bend every shot.', goal: 3,
+      moons: [[50, 250, 2], [350, 250, 2]] },
+    { name: 'Narrow gap', hint: 'A wall of rocks with one gap in it.', goal: 3,
+      rocks: [[25, 240, 22], [80, 240, 22], [132, 240, 20], [268, 240, 20], [320, 240, 22], [375, 240, 22]] },
+    { name: 'Heavy moon', hint: 'A heavy moon pulls every seed upward.', goal: 3,
+      moons: [[200, 105, 4.5]], wild: [[200, 230, 3]], rocks: [[40, 420, 18], [360, 420, 18]] },
+    { name: 'Dry sky', hint: 'Planets wither faster here.', goal: 3, wither: 0.13,
+      wild: [[200, 150, 3.5]], rocks: [[340, 440, 18]] },
+  ];
+  function gardenDef(n) {
+    if (n <= GARDENS.length) return GARDENS[n - 1];
+    const k = n - GARDENS.length;               // 1, 2, 3 ...
+    const lap = Math.ceil(k / (GARDENS.length - 1));
+    const base = GARDENS[1 + (k - 1) % (GARDENS.length - 1)];
+    const flip = lap % 2 ? (([x, y, v]) => [W - x, y, v]) : (b => b);
+    const first = (k - 1) % (GARDENS.length - 1) === 0;
+    return {
+      name: `${base.name}, deep sky ${lap}`,
+      hint: !first ? '' : lap === 1 ? 'Gardens come back mirrored, and planets wither faster each time.'
+        : lap === 2 ? 'From here on, bloom one more planet.' : 'Planets wither faster again.',
+      goal: Math.min(4, base.goal + (lap >= 2 ? 1 : 0)),
+      wither: (base.wither || WITHER_PER_FLING) + DEEP_WITHER * lap,
+      rocks: (base.rocks || []).map(flip), moons: (base.moons || []).map(flip), wild: (base.wild || []).map(flip),
+    };
+  }
+
   const canvas = document.getElementById('sky');
   const ctx = canvas.getContext('2d');
   const msgEl = document.getElementById('msg');
@@ -180,12 +229,18 @@
     }
   }
 
-  // Tell the gallery how a round ended (anonymous play telemetry, see
-  // docs/telemetry.md). time is seconds of unpaused play this round.
+  // Tell the gallery how a garden ended (anonymous play telemetry, see
+  // docs/telemetry.md). time is seconds of unpaused play this garden; score
+  // is gardens bloomed this voyage; stats keys in docs/games/orbit-garden.md.
   function report(result) {
     if (window.parent !== window) {
-      window.parent.postMessage({ type: 'arcade:result', game: GAME_ID,
-        outcome: result === 'won' ? 'win' : 'loss', time: Math.round(elapsed * 10) / 10 }, '*');
+      const won = result === 'won';
+      const msg = { type: 'arcade:result', game: GAME_ID, outcome: won ? 'win' : 'loss',
+        time: Math.round(elapsed * 10) / 10, level: garden, run: runId, attempt,
+        score: won ? garden : garden - 1,
+        stats: { start: startSeeds, used: startSeeds - seedsLeft, landed, lost, goal } };
+      if (!won) msg.reason = 'seeds';
+      window.parent.postMessage(msg, '*');
     }
   }
 
@@ -224,20 +279,50 @@
   const endCard = document.getElementById('endCard');
   const playAgainBtn = document.getElementById('playAgain');
 
+  const newVoyageBtn = document.getElementById('newVoyage');
   let planets, seeds, seedsLeft, streak, elapsed, state, msgTimer;
+  let rocks = [], moons = [], garden = 1, def = GARDENS[0], goal = GOAL_BLOOMS, wither = WITHER_PER_FLING;
+  let startSeeds = START_SEEDS, runId = '', attempt = 0, landed = 0, lost = 0;
   const roundEarned = new Set();
 
-  function newGarden() {
+  function newVoyage() {
+    garden = 1;
+    startSeeds = START_SEEDS;
+    attempt = 0;
+    runId = Math.random().toString(36).slice(2, 10) || 'run';
+    startGarden();
+  }
+  function nextGarden() {
+    startSeeds = Math.min(MAX_SEEDS, seedsLeft + REFILL);
+    garden++;
+    attempt = 0;
+    startGarden();
+  }
+  // Starts (or restarts) the current garden with the seeds it began with.
+  function startGarden() {
+    def = gardenDef(garden);
+    attempt++;
+    goal = def.goal;
+    wither = def.wither || WITHER_PER_FLING;
+    rocks = (def.rocks || []).map(([x, y, r]) => ({ x, y, r }));
+    moons = (def.moons || []).map(([x, y, mass]) => ({ x, y, mass }));
     planets = [];
+    for (const [x, y, mass] of def.wild || []) {
+      planets.push({ x, y, mass, flash: 0, bloomedOnce: false, n: planets.length + 1, was: false });
+    }
     seeds = [];
-    seedsLeft = START_SEEDS;
+    seedsLeft = startSeeds;
     streak = 0;
     elapsed = 0;
+    landed = 0;
+    lost = 0;
     roundEarned.clear();
     state = 'playing';
     endCard.hidden = true;
     kb.aimOn = false;
-    say(`${TAP[0].toUpperCase() + TAP.slice(1)} the sky to place your first planet.`);
+    document.getElementById('hudGarden').textContent = garden;
+    say(garden === 1 ? `${TAP[0].toUpperCase() + TAP.slice(1)} the sky to place your first planet.`
+      : `Garden ${garden}: ${def.name}. ${startSeeds} seeds, bloom ${goal}. ${def.hint}`, 6000);
   }
 
   function endGame(result) {
@@ -245,15 +330,19 @@
     report(result);
     msgEl.textContent = '';
     kb.aimOn = false;
+    const won = result === 'won';
     const title = document.getElementById('endTitle');
-    title.textContent = result === 'won' ? 'Garden complete!' : 'Out of seeds';
+    title.textContent = won ? `Garden ${garden} bloomed!` : 'Out of seeds';
     title.className = result;
-    document.getElementById('endDetail').textContent = result === 'won'
-      ? `Won with ${seedsLeft} seed${seedsLeft === 1 ? '' : 's'} to spare.`
-      : `${planets.filter(blooming).length} of ${GOAL_BLOOMS} planets were blooming.`;
+    const plural = n => `${n} seed${n === 1 ? '' : 's'}`;
+    document.getElementById('endDetail').textContent = won
+      ? `${plural(seedsLeft)} left, plus ${REFILL}: garden ${garden + 1} starts with ${Math.min(MAX_SEEDS, seedsLeft + REFILL)}.`
+      : `${planets.filter(blooming).length} of ${goal} planets were blooming. Gardens bloomed this voyage: ${garden - 1}.`;
+    playAgainBtn.textContent = won ? 'Next garden' : `Try garden ${garden} again`;
+    newVoyageBtn.hidden = won || garden === 1;
     const n = roundEarned.size;
     document.getElementById('endAch').textContent = n
-      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
+      ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this garden`
       : '';
     // Taps that were already on their way (fast flinging) must not skip this.
     playAgainBtn.disabled = true;
@@ -264,28 +353,36 @@
   }
 
   // On screen for 3 s, and spoken (#msg itself is aria-hidden).
-  function say(text) {
+  function say(text, ms = 3000) {
     speak(text);
     msgEl.textContent = text;
     clearTimeout(msgTimer);
-    msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, 3000);
+    msgTimer = setTimeout(() => { if (state === 'playing') msgEl.textContent = ''; }, ms);
   }
 
   function radius(p) { return 6 + 5 * Math.sqrt(p.mass); }
   function blooming(p) { return p.mass >= BLOOM_MASS; }
 
-  // Gravity from every planet: reads the mass that both player verbs write.
+  // Gravity from every planet (the mass both player verbs write) and moon.
   function accel(x, y) {
     let ax = 0, ay = 0;
-    for (const p of planets) {
-      const dx = p.x - x, dy = p.y - y;
-      const d2 = dx * dx + dy * dy + SOFTEN * SOFTEN;
-      const f = G * p.mass / (d2 * Math.sqrt(d2));
-      ax += f * dx;
-      ay += f * dy;
+    for (const list of [planets, moons]) {
+      for (const p of list) {
+        const dx = p.x - x, dy = p.y - y;
+        const d2 = dx * dx + dy * dy + SOFTEN * SOFTEN;
+        const f = G * p.mass / (d2 * Math.sqrt(d2));
+        ax += f * dx;
+        ay += f * dy;
+      }
     }
     return [ax, ay];
   }
+  // The rock or moon at (x, y), within `pad` of its edge, if any.
+  function obstacleAt(x, y, pad = 0) {
+    return rocks.find(k => Math.hypot(k.x - x, k.y - y) < k.r + pad)
+      || moons.find(m => Math.hypot(m.x - x, m.y - y) < radius(m) + pad);
+  }
+  const obstacleName = o => o.r ? 'a rock' : 'the moon';
 
   // ---------- mechanic 1: place ----------
   function placePlanet(x, y) {
@@ -296,6 +393,8 @@
     for (const p of planets) {
       if (Math.hypot(p.x - x, p.y - y) < radius(p) + radius(probe) + 8) return say('Too close to another planet.');
     }
+    const o = obstacleAt(x, y, radius(probe) + 8);
+    if (o) return say(`Too close to ${obstacleName(o)}.`);
     // Planets are numbered for the live region: the lowest number not in use.
     let n = 1;
     while (planets.some(p => p.n === n)) n++;
@@ -327,7 +426,7 @@
     seedsLeft--;
     // Passive system: the garden withers per seed flung, not per second, so
     // flinging faster never outruns it (docs/findings.md).
-    for (const p of planets) p.mass -= WITHER_PER_FLING;
+    for (const p of planets) p.mass -= wither;
     speak(`Seed flung, ${seedsLeft} left.`);
   }
 
@@ -347,23 +446,28 @@
         if (s.trail.length > TRAIL_POINTS) s.trail.shift();
       }
 
+      for (const m of moons) if (Math.hypot(m.x - s.x, m.y - s.y) < radius(m) + 30) s.nearMoon = true;
       const hit = planets.find(p => Math.hypot(p.x - s.x, p.y - s.y) < radius(p));
       if (hit) {
         hit.mass += SEED_MASS;
         hit.flash = 0.25;
         seeds.splice(i, 1);
         streak++;
+        landed++;
         if (streak >= 5) unlock('green-thumb');
         // Landed while heading more than 90 degrees away from where it was flung.
         if (s.vx * s.vx0 + s.vy * s.vy0 < 0) unlock('gravity-assist');
+        if (s.nearMoon) unlock('moon-sling');
         speak(`Seed landed on planet ${hit.n}: ${massWords(hit)}.`);
         continue;
       }
+      const o = obstacleAt(s.x, s.y);
       const out = s.x < -60 || s.x > W + 60 || s.y < -60 || s.y > H + 60;
-      if (out || s.t > SEED_LIFETIME) {
+      if (o || out || s.t > SEED_LIFETIME) {
         seeds.splice(i, 1);
         streak = 0;
-        speak('Seed lost in space.');
+        lost++;
+        speak(o ? `Seed hit ${obstacleName(o)}.` : 'Seed lost in space.');
       }
     }
 
@@ -377,7 +481,7 @@
       }
       if (blooming(p) !== p.was) {
         p.was = blooming(p);
-        speak(p.was ? `Planet ${p.n} is blooming. ${planets.filter(blooming).length} of ${GOAL_BLOOMS} blooming.`
+        speak(p.was ? `Planet ${p.n} is blooming. ${planets.filter(blooming).length} of ${goal} blooming.`
           : `Planet ${p.n} withered below blooming.`);
       }
       if (p.mass < DEAD_MASS) {
@@ -387,9 +491,11 @@
     }
 
     const blooms = planets.filter(blooming).length;
-    if (blooms >= GOAL_BLOOMS) {
+    if (blooms >= goal) {
       unlock('garden-complete');
-      if (seedsLeft >= 15) unlock('frugal');
+      if (startSeeds - seedsLeft <= 25) unlock('frugal');
+      if (garden >= 5) unlock('voyager');
+      if (garden >= 10) unlock('deep-space');
       endGame('won');
     } else if (seedsLeft === 0 && seeds.length === 0) {
       endGame('lost');
@@ -420,6 +526,8 @@
     ctx.arc(LAUNCH.x, LAUNCH.y, 5, 0, Math.PI * 2);
     ctx.fill();
 
+    for (const k of rocks) drawRock(k);
+    for (const m of moons) drawMoon(m);
     for (const p of planets) drawPlanet(p);
 
     for (const s of seeds) {
@@ -439,8 +547,45 @@
     if (kb.shown && state === 'playing' && !kb.aimOn) drawCursor();
 
     document.getElementById('hudSeeds').textContent = seedsLeft;
-    document.getElementById('hudBlooms').textContent = `${planets.filter(blooming).length}/${GOAL_BLOOMS}`;
+    document.getElementById('hudBlooms').textContent = `${planets.filter(blooming).length}/${goal}`;
     document.getElementById('hudPlanets').textContent = `${planets.length}/${MAX_PLANETS}`;
+  }
+
+  // Rocks: lumpy grey polygons (shape, not colour, tells them from moons).
+  function drawRock(k) {
+    ctx.fillStyle = '#4a4650';
+    ctx.strokeStyle = '#6e6878';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < 9; i++) {
+      const a = i * Math.PI * 2 / 9, rr = k.r * (0.9 + 0.12 * (((i * 37 + k.x * 3 + k.y) | 0) % 5) / 4);
+      const x = k.x + Math.cos(a) * rr, y = k.y + Math.sin(a) * rr;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+  // Moons: pale round bodies with craters and a faint ring for their pull.
+  function drawMoon(m) {
+    const r = radius(m);
+    ctx.strokeStyle = 'rgba(200,200,220,0.14)';
+    ctx.lineWidth = 1;
+    for (const k of [1.9, 2.8]) {
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, r * k, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#a8a8b8';
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#7c7c8c';
+    for (const [cx, cy, cr] of [[-0.35, -0.25, 0.22], [0.3, 0.2, 0.28], [-0.1, 0.45, 0.14]]) {
+      ctx.beginPath();
+      ctx.arc(m.x + cx * r, m.y + cy * r, cr * r, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   function drawPlanet(p) {
@@ -531,8 +676,9 @@
   canvas.addEventListener('pointerup', onUp);
   canvas.addEventListener('pointercancel', () => { pointerDown = false; aim = null; });
 
-  document.getElementById('resetBtn').addEventListener('click', newGarden);
-  playAgainBtn.addEventListener('click', newGarden);
+  document.getElementById('resetBtn').addEventListener('click', startGarden);
+  playAgainBtn.addEventListener('click', () => (state === 'won' ? nextGarden() : startGarden()));
+  newVoyageBtn.addEventListener('click', newVoyage);
 
   // § live region: what matters, in words, at most once per frame (placing,
   // flinging, where a seed landed, blooming and withering, the cursor's place
@@ -598,9 +744,11 @@
     let fit = 'a planet fits here';
     const probe = { mass: PLANET_START_MASS };
     const near = planets.find(q => Math.hypot(q.x - kb.x, q.y - kb.y) < radius(q) + radius(probe) + 8);
+    const o = obstacleAt(kb.x, kb.y, radius(probe) + 8);
     if (kb.y > NO_PLANET_BELOW) fit = 'too close to the launcher';
     else if (planets.length >= MAX_PLANETS) fit = 'the sky is full';
     else if (near) fit = `too close to planet ${near.n}`;
+    else if (o) fit = `too close to ${obstacleName(o)}`;
     return `Empty sky, ${where(kb.x, kb.y)}: ${fit}.`;
   }
   // The aim, and where its dotted preview goes (the same path drawAim draws).
@@ -616,6 +764,8 @@
       x += vx * STEP * 2; y += vy * STEP * 2;
       const hit = planets.find(p => Math.hypot(p.x - x, p.y - y) < radius(p));
       if (hit) return `${words} The dotted line reaches planet ${hit.n}.`;
+      const o = obstacleAt(x, y);
+      if (o) return `${words} The dotted line hits ${obstacleName(o)}.`;
       if (x < 0 || x > W || y < 0) return `${words} The dotted line leaves the sky.`;
     }
     let best = planets[0];
@@ -714,7 +864,7 @@
     requestAnimationFrame(frame);
   }
 
-  newGarden();
+  newVoyage();
   requestAnimationFrame(frame);
 })();
 // § a11y label

@@ -99,7 +99,7 @@ Each revision:
 | ant-trails | v5 | 6-day run | Endless days after day 6 with rising twists; score = days survived |  |
 | terrace-garden | v2 | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run |  |
 | pressure-grid | v9 | Levels 1–10 with stars (was a 60 s challenge) | Stages with rising targets on new grid shapes; score = eruptions over the run | In progress: levels 1–5 (v8), 6–10 (v9); plan: `docs/ideas/pressure-grid-plan.md`, 5 levels per PR |
-| orbit-garden | v6 | 1 garden, 40 seeds | Successive gardens, leftover seeds carry over; score = gardens bloomed |  |
+| orbit-garden | v9 | Voyage: 8 gardens (rocks, moons, wild planets), then mirrored laps that wither faster | Successive gardens, leftover seeds carry over; score = gardens bloomed | Depth pass done (v9), awaiting playtest |
 | hot-iron | v4 | 1 blade | A run of commissions, harder profiles, fuel carried over; score = blades forged |  |
 | loom | v2 | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held |  |
 | murmuration | v8 | Chapter 1: 6 nights, flock carried over (+ Classic night) | Nights in a row with new gate layouts, the flock carried over; score = gates cleared in a migration | Depth pass started: chapter 1 (v8), awaiting playtest; next the gallery save/load PR, then chapter 2 (`docs/games/murmuration-story.md`) |

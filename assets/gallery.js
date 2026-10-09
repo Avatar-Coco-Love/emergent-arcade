@@ -194,19 +194,23 @@
       el("span", { textContent: [bestText(game), trophies(game)].filter(Boolean).join(" · ") }),
     ]);
     fillPlays(meta.querySelector(".card-plays"), game);
-    const link = el("a", { className: "game-card", href: `#/play/${game.id}` }, [
+    // Only the title is a link (stretched over the card by CSS): browsers in
+    // high-contrast mode recolor all link text, so a card-sized link turned
+    // the blurb, chips and stats yellow or green (visited) on phones.
+    const title = el("a", { className: "card-link", href: `#/play/${game.id}`, textContent: game.title });
+    title.addEventListener("click", () => { pendingOpen = { from, position: index + 1 }; });
+    const card = el("div", { className: "game-card" }, [
       thumb(game),
       el("div", { className: "card-body" }, [
-        el("h3", {}, [el("span", { textContent: game.title }), ...pills(game)]),
+        el("h3", {}, [title, ...pills(game)]),
         el("p", { textContent: game.blurb }),
         el("div", { className: "chips" }, chips),
         meta,
       ]),
     ]);
-    link.dataset.id = game.id;
-    if (game.accent) link.style.setProperty("--card-accent", game.accent);
-    link.addEventListener("click", () => { pendingOpen = { from, position: index + 1 }; });
-    return el("li", {}, [link]);
+    card.dataset.id = game.id;
+    if (game.accent) card.style.setProperty("--card-accent", game.accent);
+    return el("li", {}, [card]);
   }
 
   function renderContinue() {
@@ -531,7 +535,7 @@
     if (closing) {
       // Back where the player left off, with focus on the card they opened.
       window.scrollTo(0, galleryScroll);
-      const back = document.querySelector(`.game-card[data-id="${closing.id}"]`);
+      const back = document.querySelector(`.game-card[data-id="${closing.id}"] .card-link`);
       if (back) back.focus({ preventScroll: true });
     }
   }

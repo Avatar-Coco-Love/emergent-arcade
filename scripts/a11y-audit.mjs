@@ -846,7 +846,7 @@ async function auditGallery() {
       const notes = [];
       if (v.target === "gallery") {
         // Open the first card with Enter: the game (or its intro) gets focus.
-        await page.evaluate(() => document.querySelector(".game-card a, a.game-card, .game-card").focus());
+        await page.evaluate(() => document.querySelector(".game-card .card-link").focus());
         await page.keyboard.press("Enter");
         await page.waitForSelector("#cabinet:not([hidden])", { timeout: 5000 });
         await sleep(300);

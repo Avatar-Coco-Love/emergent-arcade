@@ -612,7 +612,7 @@ for (const vp of VIEWPORTS) {
 
   await check(tag("sort, verb filter, search in the hash"), async () => {
     await page.selectOption("#sort", "title");
-    const titles = await page.locator("#gameList h3 > span:first-child").allTextContents();
+    const titles = await page.locator("#gameList .card-link").allTextContents();
     assert(titles.join() === [...titles].sort((a, b) => a.localeCompare(b)).join(), "not sorted by title");
     await page.locator(".verb-chip", { hasText: new RegExp(`^${W("hold")}$`) }).click();
     const hash = await page.evaluate(() => location.hash);
@@ -659,7 +659,7 @@ for (const vp of VIEWPORTS) {
     const g = games.find((x) => (x.topics || []).length && x.status !== "archived");
     const label = Topics.get(g.topics[0]).label;
     await page.fill("#search", label);
-    const found = await page.locator("#gameList h3 > span:first-child").allTextContents();
+    const found = await page.locator("#gameList .card-link").allTextContents();
     assert(found.includes(g.title), `search "${label}" missed ${g.title}`);
     await page.goto(`${base}#/?topic=no-such-topic`);
     await page.waitForSelector(".game-card");
