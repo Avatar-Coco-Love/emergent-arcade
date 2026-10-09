@@ -132,6 +132,12 @@ blooming, 9 seeds, seeds in flight, hint on; cursor or aim preview on).
   moons are named when the cursor or the dots reach them, not listed.
 - Deep laps reuse gardens 2–8; new hand-made gardens (moving comet,
   a moon that drifts) would freshen laps 2+.
+- **User's v10 wishlist (2026-10-09), propose options before building:**
+  preset worlds with planets already placed (v9 has a few wild planets);
+  planets of different sizes; different space backdrops; planet colours
+  or textures; different kinds of blooms; asteroid storms (moving rocks
+  shooting across the screen); more achievements. Let v9 playtest
+  feedback decide which come first.
 - Feeding one planet at a time still beats feeding evenly.
 - Not yet hand-played on a phone.
 
