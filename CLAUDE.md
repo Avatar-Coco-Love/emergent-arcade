@@ -78,6 +78,9 @@ material moves to a file sessions don't read by default.
 
 ## Session workflow (one PR per conversation)
 
+- Propose before building: investigate first, then tell the user what you
+  found, your ideas and the option you recommend, and wait for their input
+  before changing any files. This covers bug fixes and game designs alike.
 - The session-start hook prints the branch status. If it says the branch's PR
   was merged, restart it with the command it gives before doing anything.
   If it lists open PRs, or commits on a `claude/*` or `ccr-*` branch with no
