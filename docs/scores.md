@@ -155,6 +155,17 @@ builder (`scripts/names.mjs`); tests: `node scripts/test-names.mjs`
   as f, "vv" as w, spaces removed. "C0co", "co co" and Cyrillic "Сосо" are
   all "Coco". Kept short on purpose: folding "rn" as m or "ck" as k turns
   ordinary names ("Fukuda") into list words.
+- **Age question** (added 2026-10-16, `assets/name-ctl.js`). Some players
+  are under 13, so "Type a name" first asks "How old are you?" with
+  [Under 13] [13 or older]; neither answer is marked as the right one.
+  13 or older opens the form. Under 13 keeps the random name: "Typed names
+  are for players 13 or older, so the leaderboard shows you as Amber
+  Otter", with "Pick another name" ("Use a random name" if a typed one is
+  already saved, which it removes). The answer is kept only for the page
+  load (both copies of the controls share it), never stored or sent, so
+  it is asked again on the next visit (the owner's choice: the question
+  only shows to players who want to type a name). Restoring a code or an
+  import can bring back a name typed earlier; that is not re-asked.
 - **First claim wins.** The builder gives a name (by key) to the first
   player hash whose row claims it, in received order. A later claimant's
   rows are shown under their random name; the gallery reads the claims from
