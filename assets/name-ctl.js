@@ -25,6 +25,12 @@ window.ArcadeNameCtl = (function () {
     telemetry.event("handle", Scores.listed() ? Object.assign(nameFields(), { lb: 1 }) : { lb: 0 });
   }
 
+  // A typed name is for players 13 or older (docs/scores.md, "Age
+  // question"). Asked when "Type a name" is first opened in a visit; the
+  // answer lives only in this page load, shared by both copies of the
+  // controls, and is never stored or sent. "old", "young" or null.
+  let age = null;
+
   // opts: { toast(text, opts), onChange() } — onChange redraws whatever
   // shows the name (the panel or the Records view) after a change here.
   function create(p, opts) {
@@ -33,7 +39,7 @@ window.ArcadeNameCtl = (function () {
     const rename = el("button", { type: "button", className: "linkish", id: `${p}Rename`, textContent: "Pick another name" });
     const type = el("button", { type: "button", className: "linkish", id: `${p}Type`, textContent: "Type a name" });
     type.setAttribute("aria-expanded", "false");
-    type.setAttribute("aria-controls", `${p}NameForm`);
+    type.setAttribute("aria-controls", `${p}Age ${p}NameForm`);
     const note = el("p", { id: `${p}NameNote`, className: "lb-name-note", hidden: true });
     const input = el("input", { id: `${p}NameInput`, type: "text", maxLength: 32, autocomplete: "nickname", autocapitalize: "words", spellcheck: false });
     const save = el("button", { type: "submit", className: "primary", id: `${p}NameSave`, textContent: "Save" });
@@ -45,6 +51,19 @@ window.ArcadeNameCtl = (function () {
       el("div", { className: "lb-name-row" }, [input, save, cancel]),
       msg,
     ]);
+
+    // ---------- age question ----------
+    // Neutral: nothing says which answer opens the form until one is picked.
+    const ageQ = el("p", { id: `${p}AgeQ`, textContent: "How old are you?" });
+    const young = el("button", { type: "button", className: "secondary", id: `${p}AgeYoung`, textContent: "Under 13" });
+    const old = el("button", { type: "button", className: "secondary", id: `${p}AgeOld`, textContent: "13 or older" });
+    const ageAsk = el("div", { className: "lb-name-row", role: "group" }, [young, old]);
+    ageAsk.setAttribute("aria-labelledby", ageQ.id);
+    const youngText = el("p", { id: `${p}AgeText` });
+    const youngRename = el("button", { type: "button", className: "primary", id: `${p}AgeRename`, textContent: "Pick another name" });
+    const youngOk = el("button", { type: "button", className: "secondary", id: `${p}AgeOk`, textContent: "OK" });
+    const ageNo = el("div", { hidden: true }, [youngText, el("div", { className: "lb-name-row" }, [youngRename, youngOk])]);
+    const ageBox = el("div", { id: `${p}Age`, className: "lb-name lb-age", hidden: true }, [el("div", {}, [ageQ, ageAsk]), ageNo]);
 
     // ---------- recovery code: save ----------
     const idSave = el("button", { type: "button", className: "linkish", id: `${p}IdSave`, textContent: "Save your leaderboard identity" });
@@ -90,6 +109,7 @@ window.ArcadeNameCtl = (function () {
         type,
       ]),
       note,
+      ageBox,
       form,
       el("div", { className: "lb-me lb-id-row" }, [idSave, idUse]),
       box,
@@ -117,6 +137,7 @@ window.ArcadeNameCtl = (function () {
 
     function closeForm() {
       form.hidden = true;
+      ageBox.hidden = true;
       type.setAttribute("aria-expanded", "false");
     }
 
@@ -174,16 +195,56 @@ window.ArcadeNameCtl = (function () {
       return check;
     }
 
-    type.addEventListener("click", () => {
-      if (!form.hidden) return closeForm();
-      closeSave();
-      closeUse();
+    // Under 13: the random name only. A typed name already saved here gives
+    // way to it ("Pick another name" removes the typed one).
+    function showYoung() {
+      ageAsk.parentNode.hidden = true;
+      ageNo.hidden = false;
+      youngText.textContent = `Typed names are for players 13 or older, so the leaderboard shows you as ${Scores.handle()}. Want a different one?`;
+      youngRename.textContent = Scores.typedName() ? "Use a random name" : "Pick another name";
+      youngRename.focus();
+    }
+
+    function openForm() {
+      ageBox.hidden = true;
       form.hidden = false;
       type.setAttribute("aria-expanded", "true");
       input.value = Scores.typedName();
       save.disabled = true;
       checkTyped();
       input.focus();
+    }
+
+    type.addEventListener("click", () => {
+      if (!form.hidden || !ageBox.hidden) return closeForm();
+      closeSave();
+      closeUse();
+      type.setAttribute("aria-expanded", "true");
+      if (age === "old") return openForm();
+      ageBox.hidden = false;
+      if (age === "young") return showYoung();
+      ageAsk.parentNode.hidden = false;
+      ageNo.hidden = true;
+      young.focus();
+    });
+    old.addEventListener("click", () => {
+      age = "old";
+      openForm();
+    });
+    young.addEventListener("click", () => {
+      age = "young";
+      showYoung();
+    });
+    youngRename.addEventListener("click", () => {
+      closeForm();
+      Scores.newHandle();
+      sendHandle();
+      opts.onChange();
+      type.focus();
+    });
+    youngOk.addEventListener("click", () => {
+      closeForm();
+      type.focus();
     });
     input.addEventListener("input", checkTyped);
     cancel.addEventListener("click", () => {

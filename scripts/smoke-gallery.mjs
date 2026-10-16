@@ -432,6 +432,7 @@ for (const vp of VIEWPORTS) {
       await page.locator("#lbListed").check();
       // Typed name: instant checks, then saved and sent in the handle event.
       await page.locator("#lbType").click();
+      await page.locator("#lbAgeOld").click();
       const typeName = async (text) => {
         await page.locator("#lbNameInput").fill(text);
         await page.waitForFunction((t) => document.getElementById("lbNameInput").value === t && document.getElementById("lbNameMsg").textContent !== "", text);
@@ -732,6 +733,7 @@ for (const vp of VIEWPORTS) {
     assert(await noHScroll(page), "horizontal scroll");
     // The name controls work here too, and the open row follows the new name.
     await page.locator("#recType").click();
+    await page.locator("#recAgeOld").click();
     await page.locator("#recNameInput").fill("Pip");
     await page.waitForFunction(() => !document.getElementById("recNameSave").disabled);
     await page.locator("#recNameSave").click();
@@ -959,10 +961,31 @@ for (const vp of VIEWPORTS) {
         await pg.waitForFunction(() => document.querySelector('.rec-row[data-id="pressure-grid"] .rec-lead').textContent.includes("Jade Owl"));
       };
       const n = rows.length;
+      // Under 13: no name form, the random name only, asked again next visit.
+      const [u, pu] = await fresh();
+      await openRecords(pu);
+      await pu.locator("#recType").click();
+      assert((await pu.locator("#recAgeQ").textContent()) === "How old are you?" && await pu.locator("#recNameForm").isHidden(), "age question first");
+      await pu.locator("#recAgeYoung").click();
+      const youngText = await pu.locator("#recAgeText").textContent();
+      const randomName = await pu.locator("#recHandle").textContent();
+      assert(youngText.includes("13 or older") && youngText.includes(randomName) && await pu.locator("#recNameForm").isHidden(), youngText);
+      await pu.locator("#recAgeOk").click();
+      await pu.locator("#recType").click();
+      assert(await pu.locator("#recAgeText").isVisible() && await pu.locator("#recAgeYoung").isHidden(), "asked again in the same visit");
+      await pu.locator("#recAgeRename").click();
+      assert((await pu.locator("#recHandle").textContent()) !== randomName, "no new random name");
+      assert(!(await pu.evaluate(() => Object.keys(localStorage).some((k) => /age/i.test(k)))), "age answer stored");
+      await pu.reload();
+      await pu.waitForSelector("#recordsView:not([hidden]) .rec-row");
+      await pu.locator("#recType").click();
+      assert(await pu.locator("#recAgeYoung").isVisible(), "not asked again on the next visit");
+      await u.close();
       // Browser A: type a name; the callout offers the code.
       const [a, pa] = await fresh();
       await openRecords(pa);
       await pa.locator("#recType").click();
+      await pa.locator("#recAgeOld").click();
       await pa.locator("#recNameInput").fill("AvatarCoco");
       await pa.waitForFunction(() => !document.getElementById("recNameSave").disabled);
       await pa.locator("#recNameSave").click();
