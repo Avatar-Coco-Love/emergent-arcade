@@ -43,6 +43,14 @@ revision of a game whose current version has fewer than 3 players (bugs,
 crashes, accessibility and the first depth pass excepted), and every
 handoff makes a "build or go learn" call with its numbers.
 
+**Update 2026-10-16** (cross-project data review, owner's choices; not
+built yet): some players may be under 13, so a **typed leaderboard name
+needs a "13 or older?" question first**; younger players keep the random
+name. The arcade also gets its **own privacy page** (one per project, like
+Animal Mail Route's), linked from the footer note and the teacher page.
+Play data stays as it is: it already collects only what the fetch
+scripts use.
+
 ## Principle: depth before volume
 
 Shipping a new game an hour is easy. Making any one of them great is hard.
