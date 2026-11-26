@@ -1,6 +1,6 @@
 # Ant Trails: design notes
 
-**v9** (2026-11-26, depth pass: endless days; v8 2026-10-07 touch fix) · playtest: https://claude.ai/artifact/N4YrCNUahHvf4UAtQY3nrF ·
+**v9** (2026-11-26, depth pass: endless days) · playtest: https://claude.ai/artifact/N4YrCNUahHvf4UAtQY3nrF ·
 balance: `node scripts/balance-ant-trails.mjs 100 wash,far,novice RETRY=3,MAX=30`
 Verbs: **trail** (drag) and **wash** (hold), sharing **scent per ground cell**
 (40×60 grid, 10 px cells, 0–1). A run of six days, each a round with its own
