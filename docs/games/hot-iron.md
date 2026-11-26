@@ -1,6 +1,6 @@
 # Hot Iron: design notes
 
-**v7** (2026-11-26, depth pass: a run of commissions) · playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz ·
+**v7** (2026-11-26, depth pass: a run of commissions) · playtest: https://claude.ai/artifact/MJxJk64gsbA1FpCLAaY1vz ·
 balance: `node scripts/balance-hot-iron.mjs 300`
 **Heat** (hold) and **strike** (tap) share **temperature and thickness per
 bar segment** (16 segments, thickness starts at 1). Win: every segment within
