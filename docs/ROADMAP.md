@@ -107,7 +107,7 @@ Each revision:
 | Game | Now ver | Now | Depth direction (a proposal, not a spec) | Status |
 |---|---|---|---|---|
 | bubble-glass | v7 | 21 boxes in 3 chapters (was 5 levels, ~1.5 min; v5 levels 13/14/16; v6–7 accessibility) | More boxes from the Evolution list (sand types, second bubble, fixtures), grouped in chapters; score = total time over a chapter | Depth pass done (v3–v4), chapter time score; awaiting playtest |
-| ant-trails | v8 | 6-day run | Endless days after day 6 with rising twists; score = days survived |  |
+| ant-trails | v9 | 6 days + endless late summer, colony carried | Endless days after day 6 with rising twists; score = days survived | Depth pass done (v9), awaiting playtest |
 | terrace-garden | v5 | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run |  |
 | pressure-grid | v11 | Levels 1–10 with stars (was a 60 s challenge) | Stages with rising targets on new grid shapes; score = eruptions over the run | Levels 1–10 built (v8–v9); 11–20 proposed (`docs/ideas/pressure-grid-plan.md`) |
 | orbit-garden | v9 | Voyage: 8 gardens (rocks, moons, wild planets), then mirrored laps that wither faster | Successive gardens, leftover seeds carry over; score = gardens bloomed | Depth pass done (v9), awaiting playtest |

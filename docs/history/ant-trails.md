@@ -1,5 +1,47 @@
 # Ant Trails: history
 
+## v7 accessibility details (moved 2026-11-26, v9)
+
+### Accessibility (v7, `node scripts/a11y-audit.mjs ant-trails`: 5 pass, motion partial by design, 3/3 runs)
+
+- Keys (`// § keys`): arrows move a cursor while held (90 → 240/s over
+  0.6 s, from 200, 480), hold Space lays a trail along its path,
+  hold W washes under it (key up before `HOLD_MS`, 350 ms: nothing, like a finger), H
+  jumps to the nest, N to the next pile (nearest first); a jump with Space
+  held lays a straight trail, like a swipe. Same `pressAt` / `beginTrail` /
+  `moveTo` as the pointer. Enter presses the end card's button. Tab free;
+  Space/Enter on a focused button press it.
+- Live region `#say` (`#msg` aria-hidden, `say()` speaks): what the cursor
+  is on (nest, pile and crumbs, spider, trail), trail laid + meter, rain,
+  every 10 crumbs, colony under 13 (held 1 s), raids per 10, storm clouds,
+  30/15/5 s to sundown, the end card.
+- `#msg` and `#bonus` on dark backings; bonus 0.8 rem (12.8 px, was 11.5).
+  Contrast 6.7:1+, colour passes early and on scripted late copies (days
+  4–6, 60–75 s, dusk, rain, cursor), 6/6.
+- Reduced motion: legs and raindrops drawn still (`still()`). Idle canvas
+  diff 0.6–0.7%; ants hidden 0.00–0.05% (carriers' scent); scent hidden
+  too 0.00%: what moves is the simulation.
+
+
+## v5 balance table (moved 2026-11-26, v9)
+
+### Balance (v5, `node scripts/balance-ant-trails.mjs 200`, ±3–7 pts)
+
+Per day: % of runs that won it (of runs that reached it), median seconds to
+win it, median ants at dawn.
+
+| Bot | Day 1 (new) | Day 2 | Day 3 | Day 4 | Day 5 | Day 6 (full season) |
+|---|---|---|---|---|---|---|
+| idle | 91% · 39 s · 15 | 36% (40) · 80 s · 22 | 20% (54) | 5% (26) | 1% (20) | 0% |
+| trail | 100% · 17 s · 15 | 97% · 64 s · 24 | 82% (84) | 53% (65) | 36% (68) | 21% (57) |
+| wash | 100% · 17 s · 15 | 96% · 62 s · 24 | 90% (94) | 79% (88) | 68% (86) | **53%** (77) |
+| far | 100% · 17 s · 15 | 93% · 65 s · 24 | 88% (94) | 81% (93) | 60% (73) | 40% (67) |
+| novice | 99% · 38 s · 15 | 61% · 77 s · 22 | 27% (44) | 13% (47) | 4% (28) | 2% (43) |
+
+v7–v8 reproduce this byte for byte (bots skip input timing).
+
+
+
 Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/ant-trails.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.

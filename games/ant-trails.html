@@ -189,7 +189,8 @@
   const W = 400, H = 600;
   const CELL = 10, GW = W / CELL, GH = H / CELL; // scent grid: 40 x 60 cells
 
-  // The run: six days in a row. Ants alive at sundown carry over to the next day.
+  // The run: six days in a row, then endless late-summer days (§ endless days).
+  // Ants alive at sundown carry over to the next day.
   const START_ANTS = 15;           // colony on day 1
   const SPEEDS = [1, 2, 3];        // fast-forward button cycles through these
   const MIN_ANTS = 8;              // fewer ants than this and the colony gives up (the run ends)
@@ -211,7 +212,7 @@
     { name: 'First light', goal: 50, sun: 90, bonus: 'far',
       piles: [[315, 420, 15], [85, 270, 25], [300, 85, 40, 'far']], spiders: [[40, 60]],
       note: 'Lead the colony to food.' },
-    { name: 'Scattered crumbs', goal: 50, sun: 90, bonus: 'safe',
+    { name: 'Scattered crumbs', goal: 45, sun: 90, bonus: 'safe', // 50 before v9 (33% first tries)
       piles: [[110, 440, 8], [320, 380, 10], [60, 230, 12], [240, 250, 10], [350, 130, 12], [130, 80, 12]],
       spiders: [[360, 50]], note: 'Food is spread thin today.' },
     { name: 'Storm', goal: 50, sun: 90, bonus: 'swift', storm: true,
@@ -224,6 +225,18 @@
       piles: [[80, 330, 28], [320, 330, 28], [200, 190, 24], [330, 470, 10], [60, 120, 12]], spiders: [[40, 250]],
       note: 'Red ants raid the same food, and follow the same scent.' },
   ];
+  // § endless days: after day 6 the run goes on, one generated day at a time.
+  // Late day k (k = 1 for day 7): goal and spiders grow, storm and rivals take
+  // turns, both from LATE_BOTH on. A lost late day is retried with the same layout.
+  const LATE_GOAL0 = 60, LATE_GOAL_K = 5; // crumbs to bring home on late day k: GOAL0 + GOAL_K * k
+  const LATE_FOOD = 1.6;           // food on the ground, times the goal
+  const LATE_SPIDERS = [2, 2, 3, 3, 4]; // spiders on late days 1, 2, 3..., the last value from then on
+  const LATE_BOTH = 5;             // storm and rivals together from this late day on
+  const LATE_RIVALS0 = 18, LATE_RIVALS_K = 3, LATE_RIVALS_MAX = 36;
+  const LONG_SUMMER = 10;          // Long Summer: win this day in one run
+  const LATE_NAMES = ['Late summer', 'Long shadows', 'Thunderheads', 'Hungry season', 'Dog days', 'Last warmth'];
+  const LATE_BONUS = ['rainout', 'safe', 'far', 'swift'];
+  const SPIDER_DENS = [[40, 60], [360, 60], [40, 250], [360, 250], [200, 40]];
   const BONUS_TEXT = {
     far: 'clear the far pile', safe: `lose ${SAFE_LOST} ants or fewer`, swift: `win with ${SPARE} s to spare`,
     rainout: 'rain on each spider while it hunts',
@@ -277,6 +290,8 @@
   const RESCUE_MS = 250, RESCUE_PX = 20; // a finger dragging this far this soon after the rain
                                    // began meant a trail: undo the rain and draw it
   const END_INPUT_LOCK_MS = 1000;
+  const HOLD_WORD = window.matchMedia('(pointer: fine)').matches ? 'Click and hold' : 'Hold';
+  const HINT_MAX = 2, HINT_FOLLOW = 1.5; // wash hint: per run, and seconds a spider follows scent first
   const STEP = 1 / 60;
   const BEST_KEY = 'ant-trails-best';
 
@@ -350,12 +365,49 @@
   const rainLost = new Float32Array(GW * GH); // scent this rain wiped, put back by a rescue
   // The run
   let day, carry, pantry, runLost, bonuses, retries, dawnRun, runId, attempt;
+  let lateCfg = {}, everRained, nudges; // late-day layouts of this run; wash hint (§ wash hint)
   // What the player did today, for telemetry (see report()).
   let play;
   // One day
   let cfg, goal, sundown, ants, rivals, rivalNest, piles, spiders, storms, stormT;
-  let delivered, rivalDelivered, lost, hatched, gland, elapsed, state, rain, msgTimer, bonusMet, overnight;
+  let delivered, rivalDelivered, lost, hatched, gland, elapsed, state, rain, msgTimer, bonusMet, overnight, nudgedToday;
   const roundEarned = new Set();
+
+  function lateDay(d) {
+    const k = d - DAYS.length + 1;
+    const both = k >= LATE_BOTH, storm = both || k % 2 === 1, rival = both || k % 2 === 0;
+    const goal = LATE_GOAL0 + LATE_GOAL_K * k;
+    const nSp = LATE_SPIDERS[Math.min(k, LATE_SPIDERS.length) - 1];
+    const nPiles = 3 + Math.floor(Math.random() * 3);
+    const spots = [];
+    for (let tries = 0; spots.length < nPiles && tries < 400; tries++) {
+      const x = 50 + Math.random() * 300, y = 90 + Math.random() * 370;
+      if (Math.hypot(x - NEST.x, y - NEST.y) < 140) continue;
+      if (rival && Math.hypot(x - 200, y - 40) < 90) continue;
+      if (spots.some(q => Math.hypot(q[0] - x, q[1] - y) < 80)) continue;
+      spots.push([x, y]);
+    }
+    const food = Math.round(goal * LATE_FOOD);
+    const w = spots.map(() => 0.6 + Math.random());
+    const ws = w.reduce((a, b) => a + b, 0);
+    const piles = spots.map((q, i) => [q[0], q[1], Math.max(6, Math.round(food * w[i] / ws))]);
+    let far = 0;
+    piles.forEach((p, i) => { if (p[1] < piles[far][1]) far = i; });
+    piles[far][3] = 'far';
+    const dens = SPIDER_DENS.slice().sort(() => Math.random() - 0.5);
+    const spiders = [];
+    for (let i = 0; i < nSp; i++) spiders.push(dens[i % dens.length]);
+    const twist = [storm && 'storm clouds', rival && 'red ants', `${nSp} spiders`].filter(Boolean);
+    return { name: LATE_NAMES[(k - 1) % LATE_NAMES.length], goal, sun: 90, late: k,
+      bonus: LATE_BONUS[(k - 1) % LATE_BONUS.length], storm,
+      rival: rival ? { x: 200, y: 40, n: Math.min(LATE_RIVALS_MAX, LATE_RIVALS0 + LATE_RIVALS_K * k) } : null,
+      piles, spiders, note: `Harder each day: ${twist.join(', ')}.` };
+  }
+  function dayCfg(d) {
+    if (d < DAYS.length) return DAYS[d];
+    if (!lateCfg[d]) lateCfg[d] = lateDay(d);
+    return lateCfg[d];
+  }
 
   function loadBest() {
     try { return JSON.parse(localStorage.getItem(BEST_KEY)) || null; } catch (e) { return null; }
@@ -380,6 +432,9 @@
     runLost = 0;
     bonuses = 0;
     retries = 0;
+    lateCfg = {};
+    everRained = false;
+    nudges = 0;
     runId = Math.random().toString(36).slice(2, 10);
     attempt = 1;
     startDay();
@@ -387,7 +442,7 @@
 
   function startDay() {
     dawnRun = { carry, pantry, runLost, bonuses };
-    cfg = DAYS[day];
+    cfg = dayCfg(day);
     goal = cfg.goal;
     sundown = cfg.sun;
     const flip = Math.random() < 0.5;
@@ -411,6 +466,7 @@
     elapsed = 0;
     rain = null;
     bonusMet = false;
+    nudgedToday = false;
     roundEarned.clear();
     play = { dawn: ants.length, trails: 0, trailPx: 0, rains: 0, rescues: 0, rainS: 0, rainSpiderS: 0, first: -1, ffS: 0, keys: 0 };
     state = 'playing';
@@ -423,7 +479,7 @@
 
   function showBonus() {
     bonusEl.textContent = cfg.bonus
-      ? `${bonusMet ? '✓' : '☆'} Bonus: ${BONUS_TEXT[cfg.bonus]}` : 'Last day';
+      ? `${bonusMet ? '✓' : '☆'} Bonus: ${BONUS_TEXT[cfg.bonus]}` : 'Last day of summer';
     bonusEl.classList.toggle('done', bonusMet);
   }
   function meetBonus() {
@@ -440,15 +496,16 @@
       if (spare >= SPARE) unlock('swift');
       if (cfg.bonus === 'safe' && lost <= SAFE_LOST) meetBonus();
       if (cfg.bonus === 'swift' && spare >= SPARE) meetBonus();
-      if (cfg.storm) unlock('weathered');
-      if (cfg.spiders.length > 1) unlock('double-trouble');
-      if (cfg.rival && rivalDelivered < delivered / 2) unlock('turf-war');
+      if (cfg.storm && !cfg.late) unlock('weathered');
+      if (cfg.spiders.length > 1 && !cfg.late) unlock('double-trouble');
+      if (cfg.rival && !cfg.late && rivalDelivered < delivered / 2) unlock('turf-war');
       if (day === DAYS.length - 1 && !retries) unlock('full-season');
+      if (day + 1 >= LONG_SUMMER) unlock('long-summer');
     }
     pantry += delivered;
     runLost += lost;
     if (bonusMet) bonuses++;
-    if (result === 'won' && day < DAYS.length - 1) {
+    if (result === 'won') {
       state = 'night';
       const rest = Math.floor(Math.max(0, spare) / REST_S);
       overnight = { rest, bonus: bonusMet ? BONUS_ANTS : 0 };
@@ -463,7 +520,7 @@
     // Best run: most days won in a row without a retry.
     const best = loadBest();
     const reached = result === 'lost' ? day : day + 1;
-    const isBest = state !== 'night' && !retries && reached > 0 &&
+    const isBest = !retries && reached > 0 &&
       (!best || reached > best.days || (reached === best.days && pantry > best.crumbs));
     if (isBest) saveBest({ days: reached, crumbs: pantry });
 
@@ -475,19 +532,17 @@
     night.textContent = '';
     next.textContent = '';
     if (state === 'night') {
-      title.textContent = `Day ${day + 1} done`;
+      title.textContent = day === DAYS.length - 1 ? 'Summer’s end: pantry full!' : `Day ${day + 1} done`;
       detail.textContent = `${delivered} crumbs home in ${clock(elapsed)}. ${lost} ant${lost === 1 ? '' : 's'} lost.`;
       const parts = [];
       if (overnight.rest) parts.push(`+${overnight.rest} rested (spare daylight)`);
       if (overnight.bonus) parts.push(`+${overnight.bonus} bonus`);
       night.textContent = `Overnight: ${parts.length ? parts.join(', ') : 'no new ants'}. ${carry} ants at dawn.`;
-      const nd = DAYS[day + 1];
-      next.textContent = `Next, day ${day + 2}: ${nd.name}. ${nd.note}`;
+      const nd = dayCfg(day + 1);
+      next.textContent = (day === DAYS.length - 1
+        ? `All ${DAYS.length} days won${retries ? ` (${retries} retr${retries === 1 ? 'y' : 'ies'})` : ''}, ${pantry} crumbs banked. The colony keeps going. ` : '') +
+        `Next, day ${day + 2}: ${nd.name}. ${nd.note}`;
       playAgainBtn.textContent = `Start day ${day + 2}`;
-    } else if (state === 'won') {
-      title.textContent = 'Summer’s end: pantry full!';
-      detail.textContent = `All ${DAYS.length} days won${retries ? ` (${retries} retr${retries === 1 ? 'y' : 'ies'})` : ''}. ${pantry} crumbs banked, ${runLost} ant${runLost === 1 ? '' : 's'} lost, ${bonuses} bonus${bonuses === 1 ? '' : 'es'}.`;
-      playAgainBtn.textContent = 'New run';
     } else {
       title.textContent = why === 'sun' ? 'The sun went down' :
         why === 'ants' ? 'The colony gave up' : 'Not enough food left';
@@ -736,7 +791,7 @@
           a.carry = true;
           a.h += Math.PI;
           if (food.far && !food.n) {
-            unlock('long-haul');
+            if (day === 1) unlock('long-haul');
             if (cfg.bonus === 'far') meetBonus();
           }
         }
@@ -815,6 +870,19 @@
     }
   }
 
+  // § wash hint: players rarely find the hold (v8 telemetry: rains median 0 on
+  // every day). A spider hunting along a trail near ants, in a run with no rain
+  // yet, gets one hint per day, HINT_MAX per run.
+  function washHint() {
+    if (everRained || nudgedToday || nudges >= HINT_MAX || state !== 'playing') return;
+    const sp = spiders.find(s => s.eat <= 0 && s.followT > HINT_FOLLOW &&
+      ants.some(a => Math.hypot(a.x - s.x, a.y - s.y) < 70));
+    if (!sp) return;
+    nudgedToday = true;
+    nudges++;
+    say(`A spider is hunting on your trail! ${HOLD_WORD} on it to make it rain and wash its trail away (keys: W).`, 4500);
+  }
+
   function step(dt) {
     elapsed += dt;
     if (speed > 1) play.ffS += dt;
@@ -830,6 +898,8 @@
       }
       if (cfg.bonus === 'rainout' && spiders.every(s => s.rained)) meetBonus();
     }
+    if (rain) everRained = true;
+    washHint();
     stepStorms(dt);
     stepScent(dt);
     for (const a of ants) stepAnt(a, dt);
@@ -999,7 +1069,7 @@
       ctx.fillRect(0, 0, W, H);
     }
 
-    document.getElementById('hudDay').textContent = `${day + 1}/${DAYS.length}`;
+    document.getElementById('hudDay').textContent = day < DAYS.length ? `${day + 1}/${DAYS.length}` : `${day + 1}`;
     document.getElementById('hudCrumbs').textContent = `${delivered}/${goal}`;
     document.getElementById('hudAnts').textContent = ants.length;
     document.getElementById('hudRivalWrap').hidden = !rivalNest;
