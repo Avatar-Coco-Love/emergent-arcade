@@ -1691,3 +1691,17 @@ covers the card (tap anywhere still opens it). Simulated with
 `a { color: yellow !important }`: only the title changes. A screen reader
 also now hears the title as the link name instead of the whole card.
 *Evidence: one screenshot, cause inferred, not reproduced on the device.*
+
+## A second verb nobody finds
+
+2026-11-26, Ant Trails v8 telemetry: 5 players, 34 rounds over days 1–6.
+The median `rains` (hold to wash scent) was 0 on every day, as were
+`rain_s` and `rain_spider_s`, while the balance bots' best player (`wash`)
+depends on rain to get past day 4 (wash 65% vs trail 18% full seasons).
+Players still won 71% of rounds, so the game never forced the verb; the
+howToPlay text and the 'Rainmaker' achievement didn't teach it either. The
+bots assumed both verbs were known. v9 adds a one-time hint when a spider
+hunts on a trail near ants in a run with no rain yet ("Hold on it to make
+it rain", 2 per run). Check: `rains` > 0 on days 2–3 in v9 telemetry.
+
+*Evidence: players (n=5); the fix is untested.*

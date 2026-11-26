@@ -45,6 +45,15 @@ handoff makes a "build or go learn" call with its numbers.
 
 **Update 2026-11-26:** no merges since 2026-10-16. Last recorded numbers (2026-10-07): 43 players, 2–3 per version, 0 classroom reports. Telemetry wasn't readable in the cloud session (no `FEEDBACK_READ_KEY`). The privacy page is built. Murmuration v10 and Terrace Garden v5 were focus bug fixes (newer Chromium). Seven games still need their first depth pass (ant-trails, terrace-garden, hot-iron, loom, wildfire-line, hourglass-delivery, island-census); pressure-grid is half done. Next is learning, not new games: fetch telemetry, watch people play, share the Daily.
 
+**Update 2026-11-26 (later):** telemetry is readable in cloud sessions
+again. Numbers: 78 players opened the gallery (43 on 2026-10-07), still
+1–3 players on most current versions, 0 classroom reports, the Daily last
+played 2026-11-12 (1 player). Ant Trails v8 had the most (5 players, 1
+past 10 minutes in total); its median `rains` was 0 on every day, so its
+second verb went unused. Ant Trails v9 (depth pass: endless days, a wash
+hint) shipped from that. Next: learning, not building. Share Ant Trails
+and the Daily, and watch whether v9's hint turns into rains.
+
 **Update 2026-10-16** (cross-project data review, owner's choices): some
 players may be under 13, so a **typed leaderboard name needs a "13 or
 older?" question first**; younger players keep the random name (built,
