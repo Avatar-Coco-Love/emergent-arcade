@@ -3,6 +3,8 @@
 // Usage: node scripts/balance-ant-trails.mjs [runs=200] [bot,bot,...] [CONST=value,...]
 //   e.g. node scripts/balance-ant-trails.mjs 200 trail,wash EVAP=0.08,SMELL_R=25
 //   FROM=3 starts every run on day 3 with a fresh colony (START_ANTS ants).
+//   MAX=20 stops a run after this many days played (the run is endless after day 6, v9).
+//   RETRY=3 retries a lost day up to this many times per run, like a player who likes it.
 //
 // Builds a debug copy of games/ant-trails.html (state on window, seeded
 // Math.random, no animation loop), then plays seeded games in headless
@@ -63,7 +65,7 @@ window.__seed = s => { __s = s; };
     get state() { return state; }, get elapsed() { return elapsed; }, get delivered() { return delivered; },
     get rivalDelivered() { return rivalDelivered; }, get lost() { return lost; }, get gland() { return gland; },
     get rain() { return rain; }, get bonusMet() { return bonusMet; }, get sundown() { return sundown; },
-    earned: roundEarned, DAYS, NEST, INK_PX, W, H, step, layTrail, scentAt, newRun, nextDay,
+    earned: roundEarned, DAYS, NEST, INK_PX, W, H, step, layTrail, scentAt, newRun, nextDay, retryDay,
     setDay(n) { day = n; startDay(); },
     setRain(x, y) { if (x == null) rain = null; else if (rain) { rain.x = x; rain.y = y; } else rain = { x, y, t: 0 }; },
   };
@@ -75,7 +77,8 @@ window.__seed = s => { __s = s; };
 }
 
 // Runs inside the page: one whole run.
-function playInPage({ seed, bot, from }) {
+function playInPage({ seed, bot, from, maxDays, retry }) {
+  let retriesLeft = retry;
   const D = window.__dbg;
   window.__seed(seed);
   D.newRun();
@@ -157,6 +160,8 @@ function playInPage({ seed, bot, from }) {
     for (const id of D.earned) earned.add(id);
     days.push({ day: D.day, won: D.state !== 'lost', t: D.elapsed, lost: D.lost, dawn, bonus: D.bonusMet,
       delivered: D.delivered, rivals: D.rivalDelivered, washes });
+    if (days.length >= maxDays) break;
+    if (D.state === 'lost' && retriesLeft > 0) { retriesLeft--; D.retryDay(); continue; }
     if (D.state !== 'night') break;
     D.nextDay();
   }
@@ -169,7 +174,7 @@ async function run(bot, runs, file, browser, from, workers = 8) {
   await Promise.all(Array.from({ length: workers }, async () => {
     const page = await browser.newPage();
     await page.goto(pathToFileURL(file).href);
-    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: 1000 + i, bot, from }); }
+    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: 1000 + i, bot, from, maxDays: MAX_DAYS, retry: RETRY }); }
     await page.close();
   }));
   return results;
@@ -192,16 +197,21 @@ function report(name, rs, from, nDays) {
   const ach = {};
   for (const r of rs) for (const id of r.earned) ach[id] = (ach[id] || 0) + 1;
   const achs = Object.entries(ach).sort().map(([k, v]) => `${k} ${pct(v, rs.length)}%`).join(', ');
-  console.log(`${name.padEnd(6)} ${cols.join(' | ')} || ${achs}`);
+  // Endless (v9): days won per run, % reaching late days, run length in minutes.
+  const won = rs.map(r => r.days.filter(x => x.won).length);
+  const mins = rs.map(r => r.days.reduce((n, x) => n + x.t, 0) / 60);
+  const capped = rs.filter(r => r.days.length >= MAX_DAYS && r.days[r.days.length - 1].won).length;
+  const late = [7, 8, 10, 12].map(d => `d${d} ${pct(rs.filter(r => r.days.some(x => x.day === d - 1 && x.won)).length, rs.length)}%`).join(' ');
+  console.log(`${name.padEnd(6)} ${cols.join(' | ')} || won med ${med(won)} · ${late} · run ${med(mins).toFixed(1)} min (p75 ${(() => { const s = [...mins].sort((a, b) => a - b); return s[Math.floor(s.length * 0.75)] || 0; })().toFixed(1)}) · capped ${pct(capped, rs.length)}% || ${achs}`);
 }
 
 const runs = +process.argv[2] || 200;
 const names = (process.argv[3] || Object.keys(BOTS).join(',')).split(',');
 const overrides = {};
-let from = 0;
+let from = 0, MAX_DAYS = 20, RETRY = 0;
 for (const kv of (process.argv[4] || '').split(',').filter(Boolean)) {
   const [k, v] = kv.split('=');
-  if (k === 'FROM') from = +v - 1; else overrides[k] = v;
+  if (k === 'FROM') from = +v - 1; else if (k === 'MAX') MAX_DAYS = +v; else if (k === 'RETRY') RETRY = +v; else overrides[k] = v;
 }
 const file = buildDebug(overrides);
 const browser = await chromium.launch();
