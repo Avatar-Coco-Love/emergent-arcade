@@ -39,7 +39,7 @@ Score: days survived (no ceiling, `score.epoch` 2, plausibility `max` 200).
   following scent >1.5 s (`HINT_FOLLOW`) within 70 px of ants shows one hint
   ("Hold on it to make it rain…", "Click and hold" on a mouse, W on keys),
   once a day, 2 per run (`HINT_MAX`).
-- **Best run** (v9): saved after each won day, not only at the run's end.
+- **Best run** (v9): saved after each won day.
 - **Day 1:** warm-up, one pile ~160 px from the nest, no spider. Colony
   starts at 15 (`START_ANTS`) so day 2 starts with ~22 ants after the
   overnight hatch. Untouchable only counts on days with a spider.
