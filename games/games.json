@@ -736,10 +736,15 @@
       "id": "hot-iron",
       "title": "Hot Iron",
       "file": "hot-iron.html",
-      "version": 6,
+      "version": 7,
       "added": "2026-09-27",
-      "updated": "2026-10-05",
+      "updated": "2026-11-26",
       "changes": [
+        {
+          "version": 7,
+          "date": "2026-11-26",
+          "text": "A run of commissions: a practice bar that forgives dull red, six shapes (new: Spearhead, Twin waist), then endless bars. Leftover fuel carries over; a lost bar is retried. Score: commissions forged in one run. Two new achievements."
+        },
         {
           "version": 6,
           "date": "2026-10-05",
@@ -772,8 +777,8 @@
         }
       ],
       "blurb": "Heat an iron bar and hammer it into shape: heat decides where the metal goes.",
-      "goal": "Hammer the bar until every segment matches the dashed outline. Three cracks, or running out of fuel with nothing left hot enough to work, ends the round.",
-      "howToPlay": "{Hold} anywhere above or below the bar to heat the part under your {finger} ({slide} to move the heat); it burns fuel from the gauge at the top. Heat spreads along the bar and always fades, and thin metal heats and cools faster. {Tap} to strike a segment once a small hammer mark shows above it. Temperature shows as colour: black iron is too cold to move (the hammer just bounces off), and striking dull red (a grey crack mark, no hammer yet) cracks the bar; from bright cherry through orange and yellow each blow thins the segment, hotter blows thin it more; white-hot metal (a flame over the hammer) burns away. The metal you knock out of a segment flows into its neighbours, mostly into the hotter one: a cold neighbour takes almost nothing. So to thicken a segment, get it hotter than the segment on the other side and strike the segment next to it. Arrows under a hot segment show where its metal will go if you strike it now. A green dot under a segment means it matches the outline. The legend at the bottom shows the working range. There is no clock: take your time, but fuel spent on metal that cools off is wasted.",
+      "goal": "Forge a run of commissions, one bar after another. Each bar is done when every segment matches the dashed outline; fuel you save carries over to the next bar. Three cracks, or running out of fuel with nothing hot enough to work, loses the bar and you try it again. The first bar is a practice bar that won't crack. After seven commissions they keep coming, each needing more metal moved and bringing less fresh fuel.",
+      "howToPlay": "{Hold} anywhere above or below the bar to heat the part under your {finger} ({slide} to move the heat); it burns fuel from the gauge at the top. Heat spreads along the bar and always fades, and thin metal heats and cools faster. {Tap} to strike a segment once a small hammer mark shows above it. Temperature shows as colour: black iron is too cold to move (the hammer just bounces off), and striking dull red (a grey crack mark, no hammer yet) cracks the bar; from bright cherry through orange and yellow each blow thins the segment, hotter blows thin it more; white-hot metal (a flame over the hammer) burns away. The metal you knock out of a segment flows into its neighbours, mostly into the hotter one: a cold neighbour takes almost nothing. So to thicken a segment, get it hotter than the segment on the other side and strike the segment next to it. Arrows under a hot segment show where its metal will go if you strike it now. A green dot under a segment means it matches the outline. The legend at the bottom shows the working range. There is no clock: take your time, but fuel spent on metal that cools off is wasted, and whatever fuel you have left tops up the next commission.",
       "keyboard": "← → move the cursor (Shift: half) · hold Space heats there · Enter or H strikes · O next off the outline · S status",
       "mechanics": [
         {
@@ -815,16 +820,26 @@
           "id": "burnt",
           "title": "Burned Through",
           "description": "Overheat a segment until it burns away to nothing."
+        },
+        {
+          "id": "journeyman",
+          "title": "Journeyman",
+          "description": "Forge 5 commissions in one run."
+        },
+        {
+          "id": "master",
+          "title": "Master Smith",
+          "description": "Forge 10 commissions in one run."
         }
       ],
       "score": {
-        "label": "Fastest forging",
-        "better": "lower",
-        "format": "time",
-        "from": "time",
-        "wins": true,
-        "max": 3600,
-        "epoch": 1
+        "label": "Commissions forged",
+        "better": "higher",
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 500,
+        "epoch": 2
       }
     },
     {

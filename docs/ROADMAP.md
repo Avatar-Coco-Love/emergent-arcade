@@ -111,7 +111,7 @@ Each revision:
 | terrace-garden | v5 | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run |  |
 | pressure-grid | v11 | Levels 1–10 with stars (was a 60 s challenge) | Stages with rising targets on new grid shapes; score = eruptions over the run | Levels 1–10 built (v8–v9); 11–20 proposed (`docs/ideas/pressure-grid-plan.md`) |
 | orbit-garden | v9 | Voyage: 8 gardens (rocks, moons, wild planets), then mirrored laps that wither faster | Successive gardens, leftover seeds carry over; score = gardens bloomed | Depth pass done (v9), awaiting playtest |
-| hot-iron | v6 | 1 blade | A run of commissions, harder profiles, fuel carried over; score = blades forged |  |
+| hot-iron | v7 | Practice bar + 6 commissions, then endless; fuel carried | A run of commissions, harder profiles, fuel carried over; score = commissions forged | Depth pass done (v7), awaiting playtest |
 | loom | v4 | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held |  |
 | murmuration | v10 | Ch. 1 (6 nights) + Ch. 2 The High Pass (5 nights), flock carried over (+ Classic night) | Nights in a row with new gate layouts, the flock carried over; score = gates cleared in a migration | Depth pass done (v8–v9), awaiting 3+ players; save/load PR not built (`docs/games/murmuration-story.md`) |
 | wildfire-line | v4 | 1 fire | Fire seasons with more houses and wind shifts; score = houses saved |  |

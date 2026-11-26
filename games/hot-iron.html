@@ -89,7 +89,9 @@
   #endCard h2.lost { color: #ff9a8a; }
   #endCard p { margin: 0 0 4px; color: #d6cac2; font-size: 0.9rem; }
   #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
-  #playAgain:disabled { opacity: 0.4; }
+  #playAgain:disabled, #newRun:disabled { opacity: 0.4; }
+  #newRun { margin-top: 8px; width: 100%; }
+  #newRun[hidden] { display: none; }
   .bar {
     flex: none;
     display: flex;
@@ -123,13 +125,16 @@
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
         <p id="endAch"></p>
-        <button id="playAgain">Next bar</button>
+        <button id="playAgain">Next commission</button>
+        <button id="newRun" hidden>New run from commission 1</button>
       </div>
     </div>
   </div>
   <div class="bar">
+    <span>Job <b id="hudJob"></b></span>
     <span>Shape <b id="hudShape"></b></span>
-    <button id="resetBtn">New bar</button>
+    <span>Forged <b id="hudForged"></b></span>
+    <button id="resetBtn">Restart bar</button>
   </div>
 
 <script>
@@ -164,6 +169,15 @@
   const MAX_CRACKS = 3;
   const PROFILE_AMP = 0.35;        // targets range at most 1 ± this ...
   const TRANSPORT = 6;             // ... and all need this much metal moved
+  // § commissions (v7): a run of bars. Fuel left over carries to the next
+  // bar plus REFILL (up to FUEL_MAX). The first bar forgives dull-red blows.
+  // After the list: endless bars that need more metal moved and refill less.
+  const REFILL = 40;               // fuel added for each new commission
+  const ENDLESS_TRANSPORT = 0.3;   // endless: extra metal moved per commission
+  const ENDLESS_AMP = 0.45;        // endless: targets range at most 1 ± this
+  const REFILL_DROP = 2;           // endless: refill shrinks by this per commission ...
+  const REFILL_MIN = 20;           // ... down to this
+  const JOURNEY_AT = 5, MASTER_AT = 10; // achievements: commissions forged in one run
   const HOLD_DELAY_MS = 170;       // a press longer than this heats; shorter strikes
   const TAP_SLOP_PX = 14;
   const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win/loss
@@ -174,21 +188,40 @@
   // reachable without burning any away). Each is scaled so the same amount of
   // metal has to move (the sum over seams of the excess that must cross it
   // is TRANSPORT), at most 1 ± PROFILE_AMP.
-  const PROFILES = [
+  const SHAPES = [
     ['Double taper', x => 1 - Math.abs(x - 0.5)],
     ['Leaf blade', x => x < 0.25 ? 0.62 : 0.4 + 1.1 * Math.sin(Math.PI * Math.pow((x - 0.25) / 0.75, 0.8))],
     ['Waisted bar', x => Math.abs(x - 0.5)],
     ['Chisel', x => x < 0.6 ? 1.2 : 1.2 - 0.9 * (x - 0.6) / 0.4],
-  ].map(([name, f]) => {
+    ['Spearhead', x => x < 0.3 ? 0.55 : x < 0.72 ? 0.55 + 0.9 * (x - 0.3) / 0.42 : 1.45 - 1.1 * (x - 0.72) / 0.28],
+    ['Twin waist', x => Math.cos(4 * Math.PI * x)],
+  ];
+  function makeTarget(f, transport, amp) {
     const raw = Array.from({ length: N }, (_, i) => f((i + 0.5) / N));
     const mean = raw.reduce((a, b) => a + b, 0) / N;
     const dev = Math.max(...raw.map(v => Math.abs(v - mean)));
     const unit = raw.map(v => (v - mean) / dev);
     let F = 0, moved = 0;
     for (let i = 0; i < N - 1; i++) { F += unit[i]; moved += Math.abs(F); }
-    const k = Math.min(PROFILE_AMP, TRANSPORT / moved);
-    return { name, target: unit.map(v => 1 + k * v) };
-  });
+    const k = Math.min(amp, transport / moved);
+    return unit.map(v => 1 + k * v);
+  }
+  const PROFILES = SHAPES.map(([name, f]) => ({ name, target: makeTarget(f, TRANSPORT, PROFILE_AMP) }));
+  // The run: a gentle first bar, then each shape once, then endless.
+  const COMMISSIONS = [
+    { shape: 0, transport: 4, gentle: true },
+    { shape: 3 }, { shape: 0 }, { shape: 2 }, { shape: 1 }, { shape: 4 }, { shape: 5 },
+  ];
+  const ENDLESS_ORDER = [3, 0, 2, 1, 4, 5];
+  function jobFor(c) {
+    if (c <= COMMISSIONS.length) {
+      const j = COMMISSIONS[c - 1];
+      return { shape: j.shape, transport: j.transport || TRANSPORT, amp: PROFILE_AMP, gentle: !!j.gentle, refill: REFILL };
+    }
+    const k = c - COMMISSIONS.length;
+    return { shape: ENDLESS_ORDER[(k - 1) % ENDLESS_ORDER.length], transport: TRANSPORT + ENDLESS_TRANSPORT * k,
+      amp: ENDLESS_AMP, gentle: false, refill: Math.max(REFILL_MIN, REFILL - REFILL_DROP * k) };
+  }
 
   const canvas = document.getElementById('forge');
   const ctx = canvas.getContext('2d');
@@ -217,7 +250,8 @@
     const err = segs.reduce((a, s, i) => a + Math.abs(s.th - target[i]), 0) / N;
     const msg = { type: 'arcade:result', game: GAME_ID,
       outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
-      stats: { profile, off, err: r1(100 * err), strikes, cracks, clangs, stuck, hints,
+      level: job, run: runId, attempt, score: forged,
+      stats: { profile, start_fuel: r1(startFuel), warned, off, err: r1(100 * err), strikes, cracks, clangs, stuck, hints,
         heat_s: r1(heatTime), fuel: r1(fuel), burned: r1(100 * (N - segs.reduce((a, s) => a + s.th, 0)) / N),
         thin: segs.filter(s => s.th <= TH_MIN).length, first_input: firstInput === null ? -1 : r1(firstInput), keys: keyUses } };
     if (reason) msg.reason = reason;
@@ -252,18 +286,33 @@
   const endCard = document.getElementById('endCard');
   const playAgainBtn = document.getElementById('playAgain');
 
-  let segs, target, profile = Math.floor(Math.random() * PROFILES.length);
+  const newRunBtn = document.getElementById('newRun');
+  let segs, target, profile = 0, gentle = false, warned = 0;
+  let job = 1, forged = 0, startFuel = FUEL_MAX, runId = '', attempt = 0; // the run
   let fuel, cracks, strikes, elapsed, state, heatX, msgTimer;
   let clangs, stuck, heatTime, firstInput; // telemetry only
   let sparks = [], flows = [], rings = [], shake = 0, legendPulse = 0, readyPulse = 0;
   let hints, thickenHinted; // telemetry: hints shown this round
   let keyUses = 0, heardFuel = 0; // telemetry: key heats + key strikes; live region: fuel steps said
 
-  function newBar(p) {
-    profile = p === undefined ? (profile + 1) % PROFILES.length : p;
-    target = PROFILES[profile].target;
+  // A new run starts at commission 1 with a full gauge.
+  function newRun() {
+    job = 1; forged = 0; startFuel = FUEL_MAX; attempt = 0;
+    runId = Math.random().toString(36).slice(2, 10);
+    newBar();
+  }
+
+  // (Re)starts the current commission from its start: a lost bar is retried
+  // with the fuel it began with.
+  function newBar() {
+    const j = jobFor(job);
+    profile = j.shape;
+    gentle = j.gentle;
+    target = makeTarget(SHAPES[profile][1], j.transport, j.amp);
+    attempt++;
     segs = Array.from({ length: N }, () => ({ th: 1, T: 0, cracks: 0, hit: 0 }));
-    fuel = FUEL_MAX;
+    fuel = startFuel;
+    warned = 0;
     cracks = 0;
     strikes = 0;
     elapsed = 0;
@@ -277,28 +326,54 @@
     endCard.hidden = true;
     msgEl.textContent = '';
     document.getElementById('hudShape').textContent = PROFILES[profile].name;
+    document.getElementById('hudJob').textContent = job;
+    document.getElementById('hudForged').textContent = forged;
     kb.seen.clear();
-    speak(`New bar: ${PROFILES[profile].name}.`);
+    if (gentle) say('First commission, a practice bar: dull red will not crack it. Heat it, and strike where a hammer mark shows.', 6000);
+    else speak(`Commission ${job}: ${PROFILES[profile].name}, ${Math.round(100 * fuel / FUEL_MAX)}% fuel.`);
   }
 
   function endGame(result, why, reason) {
     state = result;
     heatX = null;
+    const won = result === 'won';
+    if (won) {
+      forged++;
+      if (forged >= JOURNEY_AT) unlock('journeyman');
+      if (forged >= MASTER_AT) unlock('master');
+    }
     report(result, reason);
     msgEl.textContent = '';
     const title = document.getElementById('endTitle');
-    title.textContent = result === 'won' ? `${PROFILES[profile].name} forged!` : why;
+    title.textContent = won ? `${PROFILES[profile].name} forged!` : why;
     title.className = result;
-    document.getElementById('endDetail').textContent = result === 'won'
-      ? `${strikes} strikes, ${Math.round(100 * fuel / FUEL_MAX)}% fuel left, ${cracks} crack${cracks === 1 ? '' : 's'}.`
-      : `${segs.filter((s, i) => Math.abs(s.th - target[i]) <= TOL).length} of ${N} segments were on the line.`;
+    let detail;
+    if (won) {
+      // The next commission starts with what is left plus its refill.
+      const done = job;
+      job++;
+      attempt = 0;
+      const next = jobFor(job);
+      const left = fuel;
+      startFuel = Math.min(FUEL_MAX, left + next.refill);
+      detail = `Commission ${done}: ${strikes} strikes, ${Math.round(100 * left / FUEL_MAX)}% fuel left, ${cracks} crack${cracks === 1 ? '' : 's'}. ` +
+        `${forged} forged this run. Next: ${PROFILES[next.shape].name}, ${Math.round(100 * startFuel / FUEL_MAX)}% fuel.`;
+    } else {
+      detail = `${segs.filter((s, i) => Math.abs(s.th - target[i]) <= TOL).length} of ${N} segments were on the line. ` +
+        `${forged} forged this run. Try commission ${job} again from its start.`;
+    }
+    document.getElementById('endDetail').textContent = detail;
+    document.getElementById('hudForged').textContent = forged;
+    playAgainBtn.textContent = won ? 'Next commission' : 'Try again';
+    newRunBtn.hidden = won;
     const n = roundEarned.size;
     document.getElementById('endAch').textContent = n
       ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round` : '';
-    speak(`${title.textContent} ${document.getElementById('endDetail').textContent} ${document.getElementById('endAch').textContent} Enter for the next bar.`);
+    speak(`${title.textContent} ${detail} ${document.getElementById('endAch').textContent} Enter for ${won ? 'the next commission' : 'another try'}.`);
     playAgainBtn.disabled = true;
+    newRunBtn.disabled = true;
     endCard.hidden = false;
-    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    setTimeout(() => { playAgainBtn.disabled = false; newRunBtn.disabled = false; }, END_INPUT_LOCK_MS);
   }
 
   function say(text, ms = 2500) {
@@ -333,6 +408,16 @@
       clangs++;
       legendPulse = 1.2;
       say('Clang! Black iron is too cold to move. Hold on it to heat it.');
+      return;
+    }
+    if (gentle && s.T < T_WORK) {
+      // v7: the practice bar forgives dull red, and says what would happen.
+      rings.push({ x: segX(i), t: 0.4 });
+      warned++;
+      hints++;
+      legendPulse = 1.2;
+      readyPulse = 3;
+      say('Too cool! On a real job dull red cracks the bar. Keep heating until it glows bright cherry and a hammer mark shows above it.', 5000);
       return;
     }
     strikes++;
@@ -384,7 +469,7 @@
     if (state !== 'playing') return;
     for (let i = 0; i < N; i++) if (!onTarget(i)) return;
     unlock('forged');
-    if (cracks === 0) unlock('clean');
+    if (cracks === 0 && warned === 0) unlock('clean');
     if (fuel >= FUEL_MAX * THRIFTY_LEFT) unlock('thrifty');
     endGame('won');
   }
@@ -505,7 +590,7 @@
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(34 + 200 * THRIFTY_LEFT, 13); ctx.lineTo(34 + 200 * THRIFTY_LEFT, 31); ctx.stroke(); // Thrifty mark
     drawFlame(20, 29, 7, heatX !== null && fuel > 0 ? 1 : 0.6);
-    for (let k = 0; k < MAX_CRACKS; k++) {
+    for (let k = 0; k < (gentle ? 0 : MAX_CRACKS); k++) {
       const cx = W - 70 + k * 24, cy = 22;
       ctx.strokeStyle = k < cracks ? '#ff6b57' : '#4a3a34';
       ctx.lineWidth = 2.2;
@@ -750,8 +835,9 @@
   canvas.addEventListener('pointerup', evt => release(evt, false));
   canvas.addEventListener('pointercancel', evt => release(evt, true));
 
-  document.getElementById('resetBtn').addEventListener('click', () => newBar(profile));
+  document.getElementById('resetBtn').addEventListener('click', () => { attempt--; newBar(); });
   playAgainBtn.addEventListener('click', () => newBar());
+  newRunBtn.addEventListener('click', () => newRun());
 
   // § live region: screen readers hear what changed, never the frame itself:
   // the cursor's segment when it stops (heat band in words, thickness against
@@ -954,7 +1040,7 @@
     requestAnimationFrame(frame);
   }
 
-  newBar(profile);
+  newRun();
   requestAnimationFrame(frame);
 })();
 // § a11y label
