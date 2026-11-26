@@ -67,3 +67,10 @@ out. Win: get through 8 seasons (two years). A season that ends with either
 total outside its census band is a strike; 3 strikes, or either species at
 0, loses. 6 achievements (in `games/games.json`).
 
+## Open ideas (moved v3 notes, 2026-11-26)
+
+- Novice 58% is below the ~75% Ant Trails aims for on day 1. Humans can
+  read the fox arrows, which the novice bot ignores, so check telemetry
+  (`reason`, `strikes`, `fences`/`unfences`) before easing it. Easiest
+  levers: `R_BAND_LO` 15 or a 4th strike (on the wider v1 draft these
+  moved novice 45% → 51% and 56%, idle 13% → 17% and 28%).

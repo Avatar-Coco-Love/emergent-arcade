@@ -132,15 +132,18 @@ One `arcade:result` per round, `reason` for a loss (`census` = 3 strikes,
 - Too many foxes (band top 16) almost never triggers: fox totals peak
   around 12–15. It is there so the meter reads as a band, and for the
   landing event. If players never see it, drop it or make fox booms bigger.
-- Novice 58% is below the ~75% Ant Trails aims for on day 1. Humans can
-  read the fox arrows, which the novice bot ignores, so check telemetry
-  (`reason`, `strikes`, `fences`/`unfences`) before easing it. Easiest
-  levers: `R_BAND_LO` 15 or a 4th strike (on the wider v1 draft these
-  moved novice 45% → 51% and 56%, idle 13% → 17% and 28%).
+- Novice 58% vs Ant Trails' ~75% day 1, and easing levers: history,
+  "Open ideas (moved v3 notes)".
 - Light Touch is earned by idle play on a lucky island (25%). Fine as a
   hint that doing less can work; tighten to 4 moves if it feels free.
-- Idea for depth: carry the island into a third year with a new event per
-  year (Ant Trails-style carry-over), or let the player choose which
-  meadow to survey (hide counts elsewhere).
+- Depth pass tried and parked (2026-11-26, not shipped): the island goes
+  on after year 2, year y bringing min(4, y − 1) events, a strike forgiven
+  after N clean seasons in a row. Reader median 13 / 15 / 17 seasons for
+  N = 4 / 3 / 2 (novice 9), and 15 even with one event a year: strikes
+  pile up whatever the events, and humans play a season in ~5 s (8 in a
+  median 43 s), so that's ~1.5 min. Length here needs slower, deeper
+  seasons, not more of them (e.g. the island grows: more meadows, moves).
+  v3 players leave after a 13 s median, before one season: check
+  onboarding first.
 
 History (older versions, balance tables, playtests): `docs/history/island-census.md`

@@ -125,7 +125,7 @@ Each revision:
 | murmuration | v10 | Ch. 1 (6 nights) + Ch. 2 The High Pass (5 nights), flock carried over (+ Classic night) | Nights in a row with new gate layouts, the flock carried over; score = gates cleared in a migration | Depth pass done (v8–v9), awaiting 3+ players; save/load PR not built (`docs/games/murmuration-story.md`) |
 | wildfire-line | v4 | 1 fire | Fire seasons with more houses and wind shifts; score = houses saved |  |
 | hourglass-delivery | v6 | Endless orders of 6 glasses, harder per order; sand carried | Endless belt that speeds up by glasses filled, not by time; score = glasses filled | Depth pass done (v6), awaiting playtest |
-| island-census | v3 | 8 seasons | Endless years with new events; score = seasons survived |  |
+| island-census | v3 | 8 seasons | Endless years with new events; score = seasons survived | Tried and parked 2026-11-26: best bot ~15 seasons (~1.5 min human), see notes |
 | tidewright | v3 | Endless seasons of 6 waves | Built with depth (endless, score = waves held); revise from playtest | Built with depth |
 | rail-yard | v4 | 10 levels, 2 chapters | Built with depth (score = yard points over the run); more chapters if playtests ask | Built with depth |
 | aqueduct | v8 | Warm-up + 5 levels, free pour | More levels; score = pearls, bullseyes, water brought home | Built with depth; v7–8 accessibility |
