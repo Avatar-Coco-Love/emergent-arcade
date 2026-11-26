@@ -46,9 +46,9 @@ handoff makes a "build or go learn" call with its numbers.
 **Update 2026-10-16** (cross-project data review, owner's choices): some
 players may be under 13, so a **typed leaderboard name needs a "13 or
 older?" question first**; younger players keep the random name (built,
-asked once per visit: `docs/scores.md`, "Age question"). Still to do:
-the arcade's **own privacy page** (one per project, like Animal Mail
-Route's), linked from the footer note and the teacher page.
+asked once per visit: `docs/scores.md`, "Age question"). The arcade's
+**own privacy page** is built too (2026-11-26, `assets/privacy.html`,
+linked from the footer, its note and the teacher page; `docs/gallery.md`).
 Play data stays as it is: it already collects only what the fetch
 scripts use.
 

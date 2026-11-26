@@ -39,6 +39,7 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/classroom.js` | `ArcadeClassroom`: classroom mode (`?class=1`, `on`, `set`, `link`), below |
 | `assets/teachers.js` | `ArcadeTeachers`: the teacher page (`#/teachers`), its subject table, classroom link and "I used this in class" form |
 | `assets/topics.js` | `ArcadeTopics`: the fixed topic tag list (`LIST`, `get`, `of`). Also run by the Node scripts through `scripts/topics.mjs` |
+| `assets/privacy.html` | the arcade's privacy page (below, "Privacy page"): plain HTML, no scripts, styled by `gallery.css` |
 | `assets/gallery.js` | cards, search/sort/verb and topic filters, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
 Script order in `index.html`: config, ui, identity, classroom, wording, topics, feedback, achievements, names, scores, daily, progress,
@@ -162,6 +163,21 @@ challenge (below), Games by subject, Privacy, Going further (GitHub links set fr
 - Logs a `teachers` gallery event on open, `classroom_link` (`method`) on
   copy, `challenge_link` on Make (`game_id`, `classroom`) and on copy
   (`game_id`, `method`), and `open` with `from: teachers`.
+
+## Privacy page
+
+`assets/privacy.html` (in `assets/` because only `index.html`, `assets/`
+and `games/` are published): what the arcade records, what it never
+collects, leaderboard names and the 13+ question, what stays on the
+device, how to turn it off, where data goes, and how to ask for removal
+(a GitHub issue with the 8-character id from Settings, or a rating
+comment). Plain language for parents, teachers and kids; no scripts, its
+own CSP, `gallery.css` for the look. Linked from the footer (always
+shown), the footer's play-stats note and the teacher page's Privacy
+section. Audited by `a11y-audit.mjs --gallery` ("privacy page"). **Keep
+it true:** when `assets/telemetry.js`, `assets/feedback.js`, the name
+controls or per-browser storage change what they send or keep, update
+the page and its "Last updated" date.
 
 ## Classroom mode
 

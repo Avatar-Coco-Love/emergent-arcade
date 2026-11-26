@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- The arcade's privacy page (docs/gallery.md, "Privacy page"). Plain HTML,
+     no scripts. Every claim here is checked against the code: update it
+     when assets/telemetry.js, assets/feedback.js, assets/scores.js or the
+     name controls change what they send or keep. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Emergent Arcade privacy</title>
+<meta name="description" content="What the Emergent Arcade records, what it never collects, and how to turn it off or ask for your data to be removed.">
+<meta name="theme-color" content="#0b0b10">
+<link rel="stylesheet" href="gallery.css">
+<style>
+  .priv-header { width: 100%; max-width: 760px; margin: 0 auto; padding: 16px 16px 0; }
+  .priv-header a { font-weight: 700; font-size: 1.1rem; text-decoration: none; color: var(--text); }
+  .priv-header a:hover, .priv-header a:focus-visible { text-decoration: underline; }
+  main h1 { font-size: 1.6rem; margin: 16px 0 4px; }
+  main h2 { font-size: 1.2rem; margin: 32px 0 8px; }
+  main p, main li { max-width: 68ch; }
+  main ul { padding-left: 1.25rem; }
+  main li { margin: 6px 0; }
+  .summary { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin: 16px 0; }
+  .summary h2 { margin-top: 4px; }
+  code { overflow-wrap: anywhere; }
+  .site-footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+  <header class="priv-header">
+    <a href="../">Emergent Arcade</a>
+  </header>
+  <main>
+    <h1>Privacy</h1>
+    <p class="muted">Last updated 26 November 2026</p>
+
+    <section class="summary" aria-labelledby="shortTitle">
+      <h2 id="shortTitle">The short version</h2>
+      <ul>
+        <li>There are <b>no accounts</b>, no sign-up and no ads. The arcade sets no cookies and uses no ad or tracking services.</li>
+        <li>To make the games better, it records <b>anonymous play stats</b>: which game, how long you played, wins and losses, scores and achievements. You can turn this off.</li>
+        <li>Leaderboards are <b>public</b>. They show a made-up name like "Amber Otter". Only players who say they are 13 or older can type their own name.</li>
+        <li>Your bests and achievements are saved <b>on your device</b>, not on a server.</li>
+      </ul>
+      <p><b>For kids:</b> you don't need to tell the arcade anything about yourself. Keep your made-up name, and never type your real name, school or where you live.</p>
+    </section>
+
+    <section aria-labelledby="statsTitle">
+      <h2 id="statsTitle">Play stats</h2>
+      <p>While you play, the arcade sends small notes like "this game, version 3, round won in 41 seconds". They help the people who make the games see which ones are too hard, too easy or too short. Each note can contain:</p>
+      <ul>
+        <li>the game and its version, how each round ended (win or loss), how long it took, the score, the level, and a few numbers about how it was played (counts and seconds, never text);</li>
+        <li>how long the game was open, and which achievements you unlocked;</li>
+        <li>whether the device uses a touch screen or a mouse;</li>
+        <li>a <b>random id for this browser</b> (like six random words: made up by the browser, nothing about you), and a random id for each visit to a game;</li>
+        <li>your leaderboard name (see below), and whether you chose to stay off the leaderboard;</li>
+        <li>how you use the gallery: which game you opened and from where, shares, downloads, sorting and filters. For searches, only how many letters you typed and how many games matched, never the words;</li>
+        <li>if something breaks: the error message and where in the code it happened (at most 5 per visit), so crashes on players' devices can be fixed.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="neverTitle">
+      <h2 id="neverTitle">What the arcade never collects</h2>
+      <ul>
+        <li>No real names (unless a player 13 or older types one as their leaderboard name), no email addresses (except the optional contact a teacher can give in the "I used this in class" form), no phone numbers, no photos, no location.</li>
+        <li>No cookies, no ads, no analytics or ad services, and no fonts or scripts loaded from other companies.</li>
+        <li>No browser or device details beyond "touch or mouse". The arcade's maintainer can't see your IP address: the storage service doesn't show it.</li>
+        <li>Nothing you type in the search box.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="namesTitle">
+      <h2 id="namesTitle">Leaderboard names</h2>
+      <ul>
+        <li>Everyone starts with a <b>random name</b> made of two words, like "Amber Otter". "Pick another name" draws a new one.</li>
+        <li>To <b>type your own name</b>, the arcade first asks "How old are you?". If you answer "Under 13", you keep a random name. Your answer isn't saved or sent anywhere; it's asked again on your next visit.</li>
+        <li>A typed name shows with four letters or numbers after it, like "Coco ·4F2A". Names are checked against a list of rude and reserved words, and names that slip through can be taken down.</li>
+        <li>Leaderboards are public: anyone can see the names, scores and dates on them. Use a nickname, never your real name.</li>
+        <li>In the 🏆 Records panel you can untick "Show my best on the leaderboard". Your scores then still go with the play stats, but without a name, and stay off the leaderboard.</li>
+        <li>Leaderboards never show the browser's random id, only a scrambled version of it, so the arcade can tell your own row apart.</li>
+      </ul>
+      <p>Your random id is also your <b>recovery code</b>: "Save your leaderboard identity" shows it so you can keep your name on another device. Anyone with the code can play as you, so keep it like a password.</p>
+    </section>
+
+    <section aria-labelledby="deviceTitle">
+      <h2 id="deviceTitle">What stays on your device</h2>
+      <p>Your achievements, best scores, Daily Challenge results, settings, random id and leaderboard name are saved in this browser's storage. Some games also keep their own best scores there. In Settings (the gear icon) you can export them to a file, import them on another device, or erase them with "Reset everything".</p>
+    </section>
+
+    <section aria-labelledby="feedbackTitle">
+      <h2 id="feedbackTitle">Ratings and feedback</h2>
+      <ul>
+        <li>When you rate a game, the arcade sends your stars, any comment and tags you add, the game and version, and the browser's random id. Please don't put personal details in a comment.</li>
+        <li>If the arcade's storage can't be reached, it offers to open the same rating as a <b>GitHub issue</b> instead. GitHub issues are public, and you send it yourself from your own GitHub account.</li>
+        <li>The teacher page's "I used this in class" form sends what the teacher writes (grade, subject, games, what worked and what didn't). The contact field is optional and only the maintainer sees it; it's never put in a public GitHub issue.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="offTitle">
+      <h2 id="offTitle">Turning it off</h2>
+      <ul>
+        <li><b>One browser:</b> Settings (the gear icon), untick "Send anonymous play stats from this browser". No play stats are sent from it after that, not even a note that you turned them off.</li>
+        <li><b>A whole class:</b> a teacher's classroom link (on the <a href="../#/teachers">teacher page</a>) sends no play stats and hides the name controls, ratings and feedback on every device that opens it.</li>
+        <li><b>Offline copies:</b> a game saved with "Download a copy" runs with no network and sends nothing.</li>
+        <li><b>Start fresh:</b> Settings, "New anonymous id" gives this browser a new random id, so it looks like a new player.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="whereTitle">
+      <h2 id="whereTitle">Where the data goes</h2>
+      <ul>
+        <li>Play stats, ratings and teacher reports go to a Google Sheet that belongs to the arcade's maintainer, through a small Google Apps Script. Only people with the maintainer's read key can read it back. The data is used to tune and fix the games, and to build the public leaderboards and play counts.</li>
+        <li>The site itself is hosted on GitHub Pages. Google and GitHub run those services under their own privacy policies.</li>
+        <li>Links to GitHub, and the "Help keep these games free" link, go to other websites with their own privacy policies.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="askTitle">
+      <h2 id="askTitle">Questions, or removing your data</h2>
+      <p>There are no accounts, so the arcade can only find your data by the browser's id. Settings (the gear icon) shows the first 8 characters of its scrambled version. To ask for your play stats or leaderboard name to be removed, or to ask anything about privacy:</p>
+      <ul>
+        <li>open an issue on the arcade's <a href="https://github.com/Avatar-Coco-Love/emergent-arcade/issues">GitHub page</a> (it's public, so include only those 8 characters, no personal details), or</li>
+        <li>send it as a comment with the &#9733; (Rate this game) button in any game (it goes to the maintainer, not a public page, unless it falls back to a GitHub issue as described above).</li>
+      </ul>
+      <p>A parent or teacher can ask on a child's behalf. Afterwards, "New anonymous id" in Settings keeps new play stats from being linked to the old ones.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a href="../">Back to the games</a> ·
+    <a href="../#/teachers">For teachers</a> ·
+    <a href="https://github.com/Avatar-Coco-Love/emergent-arcade">Source on GitHub</a>
+  </footer>
+</body>
+</html>

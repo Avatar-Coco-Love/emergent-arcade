@@ -23,7 +23,7 @@
 //             px): pass at 12 px and up, partial from 10 px.
 //
 // The gallery side also covers the topic download bar, the topic zip's
-// offline index.html (assets/bundle.js), the teacher page with a class
+// offline index.html (assets/bundle.js), the privacy page, the teacher page with a class
 // challenge made, and a class challenge (intro and result card).
 //
 // One line per target per check. Exit code 1 if a gallery-side check fails;
@@ -744,6 +744,7 @@ async function auditGallery() {
         await page.waitForSelector("#importIdentityRow:not([hidden])");
       }] },
     { target: "offline index", url: `${base}__offline/index.html`, full: true, ready: "a.play" },
+    { target: "privacy page", url: `${base}assets/privacy.html`, full: true, ready: "main h1" },
   ];
   // Runs fn(page) once per state of the view (once for views without states).
   async function eachState(v, ctxOpts, fn) {
