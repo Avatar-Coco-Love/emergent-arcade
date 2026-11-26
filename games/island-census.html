@@ -158,11 +158,12 @@
   const START_R = 60, START_F = 7;
   const LANDING = 4;               // foxes that swim over in the 'landing' event
   // Later years (v4): after the census the same island goes on. Year y >= 3
-  // brings min(4, y - 1) different events, announced a season ahead; a year
-  // with no strike forgives one. From year LATE_HARDER every event bites
+  // brings min(LATE_MAX_EVENTS, y - 1) different events, announced a season
+  // ahead; CLEAN_RUN seasons in a row without a strike forgive one. From year LATE_HARDER every event bites
   // harder each year (see eventScale).
   const LATE_HARDER = 6;
   const LATE_MAX_EVENTS = 4;        // most events in one late year
+  const CLEAN_RUN = 4;             // late years: seasons in a row without a strike that forgive one
   const YEAR_FIVE = 5, YEAR_TEN = 10; // achievements: years counted in full
   const LATE_STEP = 0.15;          // extra event strength per year from LATE_HARDER
   // Population model, rates per season (each season runs SUB small steps)
@@ -481,19 +482,16 @@
     else if (r > R_BAND_HI) strike = 'Too many rabbits';
     else if (f < F_BAND_LO) strike = 'Too few foxes';
     else if (f > F_BAND_HI) strike = 'Too many foxes';
-    if (strike) { strikes++; strikeLog.push(strike); yearStrikes++; }
+    if (strike) { strikes++; strikeLog.push(strike); yearStrikes = 0; } else yearStrikes++;
     // Achievements that read the census.
     if (f > 0 && meadows.some((m, i) => R[i] >= HAVEN_R && neighbours(i).every(p => p.fence))) unlock('safe-haven');
     if (s === 3 && !strike && f > 0 && r > 0) unlock('long-winter');
     season++;
     moves = MOVES;
     let forgiven = false;
-    if (endless && season % 4 === 0) {
-      // A late year ends: a clean one forgives a strike; plan the one after.
-      if (yearStrikes === 0 && strikes > 0) { strikes--; forgiven = true; }
-      yearStrikes = 0;
-      reportYear();
-    }
+    // Late years: CLEAN_RUN seasons in a row without a strike forgive one.
+    if (endless && yearStrikes >= CLEAN_RUN && strikes > 0) { strikes--; forgiven = true; yearStrikes = 0; }
+    if (endless && season % 4 === 0) reportYear();
     if (endless && season % 4 === 3) planYear(year(season) + 1);
     let reason = null;
     if (f === 0) reason = 'foxes';
@@ -508,8 +506,9 @@
       if (plan[season + 1]) up.push('Next season: ' + EVENTS[plan[season + 1]].text);
       const upcoming = up.join(' ');
       const head = endless && season % 4 === 0
-        ? `Year ${year(season - 1)} counted.` + (forgiven ? ' A clean year: one strike forgiven.' : '') : '';
-      pendingMsg = [head, strike ? `${strike}! Strike ${strikes} of ${MAX_STRIKES}.` : '', upcoming].filter(Boolean).join(' ');
+        ? `Year ${year(season - 1)} counted.` : '';
+      const fg = forgiven ? `${CLEAN_RUN} seasons in balance: one strike forgiven.` : '';
+      pendingMsg = [head, fg, strike ? `${strike}! Strike ${strikes} of ${MAX_STRIKES}.` : '', upcoming].filter(Boolean).join(' ');
     }
   }
   let pendingMsg = '';
@@ -564,7 +563,7 @@
       : result.reason === 'rabbits' ? `The last rabbit died in ${seasonLabel(season - 1)}.`
       : `Three seasons out of balance, by ${seasonLabel(season - 1)}.`;
     if (endless) endDetail.textContent += ` ${season} seasons counted on this island.`;
-    if (won) endDetail.textContent += ' The island goes on: each later year brings more surprises, and a clean year forgives a strike.';
+    if (won) endDetail.textContent += ' The island goes on: each later year brings more surprises, and four seasons in a row in balance forgive a strike.';
     playAgainBtn.textContent = won && !endless ? 'Keep counting' : 'New island';
     const titles = { 'census-taken': 'Census Taken', 'perfect-count': 'Perfect Count', 'safe-haven': 'Safe Haven',
       comeback: 'Comeback', 'long-winter': 'Long Winter', 'light-touch': 'Light Touch',
