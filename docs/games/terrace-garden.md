@@ -1,6 +1,6 @@
 # Terrace Garden: design notes
 
-**v5** (2026-11-26, bug fix: `window.focus()` on tap only when the frame lacks focus; newer Chromium blocked it) · v4 (2026-10-05, accessibility, PR #106) · playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV ·
+**v5** (2026-11-26, bug fix: `window.focus()` on tap only when the frame lacks focus; newer Chromium blocked it; playtest https://claude.ai/artifact/KGs8SCEizvBN3M4aoWCJDp) · v4 (2026-10-05, accessibility, PR #106) · playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV ·
 balance: `node scripts/balance-terrace-garden.mjs 100`
 Mechanics: **tilt** (phone tilt, tilt bar, or ← → / A D) and **gate** (tap, or keys),
 sharing the **water depth in every column** of a stepped hillside. A warm-up

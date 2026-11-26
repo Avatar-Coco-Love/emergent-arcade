@@ -166,6 +166,8 @@ challenge (below), Games by subject, Privacy, Going further (GitHub links set fr
 
 ## Privacy page
 
+Preview (before deploy): https://claude.ai/artifact/1wWuyWNbCx9uxgoBZQj6M5
+
 `assets/privacy.html` (in `assets/` because only `index.html`, `assets/`
 and `games/` are published): what the arcade records, what it never
 collects, leaderboard names and the 13+ question, what stays on the
