@@ -1,6 +1,6 @@
 # Loom: design notes
 
-**v5** (2026-11-26, depth pass: the Long Weave; v4 accessibility; v2 2026-09-29) · playtest: https://claude.ai/artifact/85uz8o6kFYJaZRyVatPwAf ·
+**v5** (2026-11-26, depth pass: the Long Weave; v4 accessibility; v2 2026-09-29) · playtest: https://claude.ai/artifact/B5fo53hcaYyDKNJms4RGyW ·
 balance: `node scripts/balance-loom.mjs 100`
 Verbs: **pull** (drag) and **pin** (tap), sharing **tension in every strand** of a 6×6 knotted net.
 
