@@ -23,3 +23,7 @@ Part of the findings checklist; index, evidence tags and how to add one in
   every level at phone sizes (portrait and landscape) with a hint showing.
   *Text over the board and a stale fit read as broken.* Rail Yard.
   feedback (n=1).
+- Check telemetry for a verb nobody uses: a median of 0 for its count on
+  every level means players never found it, whatever the bots say. Hint
+  it at the moment it pays, once, and watch the count. *A second verb
+  nobody finds.* Ant Trails. players (n=5).
