@@ -39,6 +39,7 @@ sheet and may not reach the clipboard, so share can do nothing there.)
 | `assets/classroom.js` | `ArcadeClassroom`: classroom mode (`?class=1`, `on`, `set`, `link`), below |
 | `assets/teachers.js` | `ArcadeTeachers`: the teacher page (`#/teachers`), its subject table, classroom link and "I used this in class" form |
 | `assets/topics.js` | `ArcadeTopics`: the fixed topic tag list (`LIST`, `get`, `of`). Also run by the Node scripts through `scripts/topics.mjs` |
+| `assets/privacy.html` | the arcade's privacy page (below, "Privacy page"): plain HTML, no scripts, styled by `gallery.css` |
 | `assets/gallery.js` | cards, search/sort/verb and topic filters, continue row, archive, header total, ⚙ settings, "About the arcade", routing, boot |
 
 Script order in `index.html`: config, ui, identity, classroom, wording, topics, feedback, achievements, names, scores, daily, progress,
@@ -77,7 +78,7 @@ ideas).
   [daily.md](daily.md)). The gallery's daily banner, above Continue playing,
   links here; hidden while filtering. Its "Play today's" button is the site
   accent; the game's accent is only its stripe (a pink fill failed the
-  colour-blind audit on Surprise Party's day, docs/findings.md).
+  colour-blind audit on Surprise Party's day, docs/findings/accessibility.md).
 - `#/challenge/<id>/<code>`: a class challenge, made on the teacher page:
   that game (one with `daily`) in daily mode with the code's seed, the
   result card with the code, no board ([daily.md](daily.md), "Class
@@ -162,6 +163,23 @@ challenge (below), Games by subject, Privacy, Going further (GitHub links set fr
 - Logs a `teachers` gallery event on open, `classroom_link` (`method`) on
   copy, `challenge_link` on Make (`game_id`, `classroom`) and on copy
   (`game_id`, `method`), and `open` with `from: teachers`.
+
+## Privacy page
+
+Preview (before deploy): https://claude.ai/artifact/1wWuyWNbCx9uxgoBZQj6M5
+
+`assets/privacy.html` (in `assets/` because only `index.html`, `assets/`
+and `games/` are published): what the arcade records, what it never
+collects, leaderboard names and the 13+ question, what stays on the
+device, how to turn it off, where data goes, and how to ask for removal
+(a GitHub issue with the 8-character id from Settings, or a rating
+comment). Plain language for parents, teachers and kids; no scripts, its
+own CSP, `gallery.css` for the look. Linked from the footer (always
+shown), the footer's play-stats note and the teacher page's Privacy
+section. Audited by `a11y-audit.mjs --gallery` ("privacy page"). **Keep
+it true:** when `assets/telemetry.js`, `assets/feedback.js`, the name
+controls or per-browser storage change what they send or keep, update
+the page and its "Last updated" date.
 
 ## Classroom mode
 
@@ -376,7 +394,7 @@ Rules the audit enforces, from its first run (2026-10-05):
   chips are filled.
 - Game cards are a `<div>`; only the title is a link (`.card-link`), stretched
   over the card by `::after`. A whole-card `<a>` let high-contrast modes
-  recolour all its text (findings, Accessibility).
+  recolour all its text (docs/findings/accessibility.md).
 - Every Tab stop shows a 3:1 focus ring; Play puts focus in the game frame
   and Shift+Tab leaves it (unless the game keeps Tab: Rail Yard).
 - `prefers-reduced-motion` turns off every animation and transition (the

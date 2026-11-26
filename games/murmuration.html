@@ -512,7 +512,8 @@
     const buttons = [cardMain, ...cardAlts];
     const ready = () => {
       for (const b of buttons) b.disabled = false;
-      if (!card.hidden) cardMain.focus({ preventScroll: true });
+      // Only when this frame has focus: Chromium blocks (and logs) focus moves without user activation.
+      if (!card.hidden && document.hasFocus()) cardMain.focus({ preventScroll: true });
     };
     if (lock) { for (const b of buttons) b.disabled = true; cardTimer = setTimeout(ready, END_INPUT_LOCK_MS); }
     else ready();

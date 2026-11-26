@@ -11,7 +11,7 @@ Check each community's self-promotion rules before posting. Replace [bracketed] 
 
 Terrace Garden: each plant needs its own depth of water. Tap the spring's valve, open gates between terraces, and tilt the whole hillside to push water where it's needed. Water that spills or leaks is gone for good, so it's a planning puzzle, not a timer. No clock, no way to lose a life.
 
-It's one of 13 small games in an arcade where every game combines 2-3 simple verbs that share one piece of state. They were all designed and written by an AI (Claude) under strict design rules, and I'm trying to find out which ones are actually fun for people.
+It's one of 20 small games in an arcade where every game combines 2-3 simple verbs that share one piece of state. They were all designed and written by an AI (Claude) under strict design rules, and I'm trying to find out which ones are actually fun for people.
 
 Play: [link]
 
@@ -29,7 +29,7 @@ Does day 4 feel fair? That's where I'm least sure.
 
 ## Hacker News (Show HN)
 
-**Title:** Show HN: An arcade of 13 browser games designed by an AI under strict design rules
+**Title:** Show HN: An arcade of 20 browser games designed by an AI under strict design rules
 
 I've been running an experiment: an AI designs and ships small browser games, and every game has to follow one rule. It combines 2-3 orthogonal verbs that share state (e.g. in Bubble Glass, turning a box of sand moves sand down and bubbles up at once, and melting glass changes what each turn does).
 
@@ -40,13 +40,13 @@ Play: [link]  Notes on what we've learned about shared-state mechanics: [link to
 ## Mastodon / Bluesky (short, attach a clip or GIF)
 
 Tilt a hillside to slosh water onto thirsty plants. No clock, no ads, plays on your phone. 💧🌱
-Terrace Garden: one of 13 tiny browser games built around shared-state mechanics. Tell me where you get stuck.
+Terrace Garden: one of 20 tiny browser games built around shared-state mechanics. Tell me where you get stuck.
 [link]
 #indiegame #browsergame #webgame #puzzlegame #gamedev
 
 ## X (under 280 chars)
 
-I'm testing 13 tiny browser games designed by an AI. Free, no download, phone or PC. Try Terrace Garden (tilt a hillside to water plants) and tell me where you get stuck: [link] #indiegame #browsergame #puzzlegame
+I'm testing 20 tiny browser games designed by an AI. Free, no download, phone or PC. Try Terrace Garden (tilt a hillside to water plants) and tell me where you get stuck: [link] #indiegame #browsergame #puzzlegame
 
 ## itch.io (page description)
 

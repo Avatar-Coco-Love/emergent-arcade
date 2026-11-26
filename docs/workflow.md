@@ -11,7 +11,7 @@ moves down a layer.
 | Layer | What | Size target |
 |---|---|---|
 | Always | `CLAUDE.md` | ~5 KB |
-| Per task | `docs/games/<id>.md` (current design), `docs/findings.md` (checklist), the doc for the part being changed | notes < 8 KB (validated), findings < 12 KB |
+| Per task | `docs/games/<id>.md` (current design), `docs/findings.md` (checklist index) and the theme files in `docs/findings/` the task touches, the doc for the part being changed | notes < 8 KB (validated), each findings theme < 8 KB |
 | By range | game files: `node scripts/outline.mjs <id>` first, then read the lines you need | outline ~1–3 KB per game |
 | By query | `node scripts/games.mjs [<id>]` instead of reading `games/games.json`; `fetch-telemetry.mjs --game <id>`, `fetch-feedback.mjs --game <id>` | one line per game |
 | Archive | `docs/history/<id>.md`, `docs/findings-log.md`, git history, old PRs | unbounded; grep a heading, never read whole |
@@ -63,7 +63,7 @@ yourself is cheaper.
 ## Scaling plan
 
 What will break first as the game count grows, and the intended fix
-(item 2 is built, the rest are not yet):
+(items 2 and 3 are built, the rest are not yet):
 
 1. **`games/games.json`** (~4 KB per game, loaded by the gallery on every
    visit; ~1 MB at 250 games). Split into a small index the gallery loads
@@ -77,7 +77,9 @@ What will break first as the game count grows, and the intended fix
    what to revise never means reading every game's data. Bot win rates are
    not in it (the balance scripts print text): compare with
    `scripts/balance-<id>.mjs`.
-3. **Findings**: when `docs/findings.md` passes ~12 KB, split by theme
-   (`docs/findings/<theme>.md`) and keep `findings.md` as the index.
+3. **Findings** (built, 2026-11-26): `docs/findings.md` passed ~22 KB, so
+   the rules moved by theme to `docs/findings/<theme>.md` and
+   `findings.md` is the index (themes, rule counts, when to read each).
+   Split a theme file again when it passes ~8 KB.
 4. **Branches**: turn on GitHub's "Automatically delete head branches" so
    merged session branches don't pile up.

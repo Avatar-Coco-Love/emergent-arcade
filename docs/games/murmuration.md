@@ -1,5 +1,7 @@
 # Murmuration: design notes
 
+**v10** (2026-11-26, bug fix only): the end card's focus move waits for
+`document.hasFocus()`; newer Chromium blocked and logged it (monkey test failed). Playtest (v10): https://claude.ai/artifact/LRnHu3DW33QT4Qv221fekj
 **v9** (2026-10-08): Chapter 2, The High Pass (nights 7-11), and a scene per
 chapter. Chapter 1 (v8) unchanged. Playtest (v9): https://claude.ai/artifact/5qBbq53fGXboWAEUKveUL2 ·
 balance: `node scripts/balance-murmuration.mjs 40 lure60,lure80 --night N`,

@@ -43,6 +43,7 @@ the honest end state, not a fix still owed.
 | topic download | pass | pass | pass | pass | pass | pass |
 | class challenge | pass | pass (2026-10-07: text under the sticky Play bar no longer sampled) | pass | pass | pass | pass |
 | offline index | pass | pass | pass | pass | pass | pass (13.6 px) |
+| privacy page | pass | pass | pass | pass | pass | pass (13.6 px) |
 | recovery code | pass | pass | pass | pass | pass | pass |
 | settings | pass | pass (2026-10-07: danger buttons were 2.5:1 in dark, now dark text) | pass | pass | pass | pass |
 | murmuration | partial (v6: reads it; all idle motion is the flock. v8 audit says pass: it measures the still dawn card) | pass (v8: cards ≥ 6.4:1) | pass | pass (v8: cursor, hold Space, X from night 3; cards take focus, Enter/Space) | pass (v8, live region reads every card; v9: calm gates announced, ringed posts + "calm" label, not colour alone) | pass (v8: 12.8 px) |

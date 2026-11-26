@@ -7,7 +7,8 @@ school networks may block):
 
 It has what this file used to: practical details (free, offline copies),
 games by subject (built from `games/games.json` and `assets/topics.js`, so
-it never lags), privacy, and going further. Plus the **classroom mode**
+it never lags), privacy (with a link to the full privacy page,
+`assets/privacy.html`), and going further. Plus the **classroom mode**
 link (`?class=1`: no play stats, no leaderboard names, no rating) and the
 **"I used this in class"** form.
 

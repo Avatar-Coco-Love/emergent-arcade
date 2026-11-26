@@ -2,8 +2,9 @@
 
 The full write-up behind each rule in `docs/findings.md`: the finding, the
 evidence, and how sure we are. Read only the entry you need (grep the
-heading); `docs/findings.md` is the checklist sessions read. New entries go
-at the bottom, with a one-line rule added to `docs/findings.md`. Bot-only
+heading); `docs/findings.md` is the checklist index sessions read, with the
+rules in `docs/findings/<theme>.md`. New entries go at the bottom, with a
+one-line rule added to the right theme file. Bot-only
 evidence is provisional until player data (`scripts/fetch-telemetry.mjs`)
 agrees.
 

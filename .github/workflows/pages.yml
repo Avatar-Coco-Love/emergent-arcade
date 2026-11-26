@@ -75,13 +75,13 @@ jobs:
     # Not on the hourly schedule (nothing changed) and not a deploy gate, so
     # a flaky browser run never holds back the leaderboards.
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # pinned: Playwright lags new Ubuntu images (26.04 broke the install)
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install Playwright and Chromium
         run: |
-          npm install --no-save --no-package-lock playwright@1.56.1
+          npm install --no-save --no-package-lock playwright@1.63.0
           npx playwright install --with-deps chromium
       - name: Monkey test every game
         run: node scripts/monkey-games.mjs

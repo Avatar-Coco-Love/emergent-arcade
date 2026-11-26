@@ -43,12 +43,14 @@ revision of a game whose current version has fewer than 3 players (bugs,
 crashes, accessibility and the first depth pass excepted), and every
 handoff makes a "build or go learn" call with its numbers.
 
+**Update 2026-11-26:** no merges since 2026-10-16. Last recorded numbers (2026-10-07): 43 players, 2–3 per version, 0 classroom reports. Telemetry wasn't readable in the cloud session (no `FEEDBACK_READ_KEY`). The privacy page is built. Murmuration v10 and Terrace Garden v5 were focus bug fixes (newer Chromium). Seven games still need their first depth pass (ant-trails, terrace-garden, hot-iron, loom, wildfire-line, hourglass-delivery, island-census); pressure-grid is half done. Next is learning, not new games: fetch telemetry, watch people play, share the Daily.
+
 **Update 2026-10-16** (cross-project data review, owner's choices): some
 players may be under 13, so a **typed leaderboard name needs a "13 or
 older?" question first**; younger players keep the random name (built,
-asked once per visit: `docs/scores.md`, "Age question"). Still to do:
-the arcade's **own privacy page** (one per project, like Animal Mail
-Route's), linked from the footer note and the teacher page.
+asked once per visit: `docs/scores.md`, "Age question"). The arcade's
+**own privacy page** is built too (2026-11-26, `assets/privacy.html`,
+linked from the footer, its note and the teacher page; `docs/gallery.md`).
 Play data stays as it is: it already collects only what the fetch
 scripts use.
 
@@ -102,23 +104,31 @@ Each revision:
 - Avoids a decay rate that turns the long mode into a tap-speed test
   (findings: "A decay rate turns a puzzle into a speed test").
 
-| Game | Ver | Now | Depth direction (a proposal, not a spec) | Status |
+| Game | Now ver | Now | Depth direction (a proposal, not a spec) | Status |
 |---|---|---|---|---|
-| bubble-glass | v4 | 21 boxes in 3 chapters (was 5 levels, ~1.5 min) | More boxes from the Evolution list (sand types, second bubble, fixtures), grouped in chapters; score = total time over a chapter | Depth pass done (v3–v4), chapter time score; awaiting playtest |
-| ant-trails | v5 | 6-day run | Endless days after day 6 with rising twists; score = days survived |  |
-| terrace-garden | v2 | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run |  |
-| pressure-grid | v9 | Levels 1–10 with stars (was a 60 s challenge) | Stages with rising targets on new grid shapes; score = eruptions over the run | In progress: levels 1–5 (v8), 6–10 (v9); plan: `docs/ideas/pressure-grid-plan.md`, 5 levels per PR |
+| bubble-glass | v7 | 21 boxes in 3 chapters (was 5 levels, ~1.5 min; v5 levels 13/14/16; v6–7 accessibility) | More boxes from the Evolution list (sand types, second bubble, fixtures), grouped in chapters; score = total time over a chapter | Depth pass done (v3–v4), chapter time score; awaiting playtest |
+| ant-trails | v8 | 6-day run | Endless days after day 6 with rising twists; score = days survived |  |
+| terrace-garden | v5 | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run |  |
+| pressure-grid | v11 | Levels 1–10 with stars (was a 60 s challenge) | Stages with rising targets on new grid shapes; score = eruptions over the run | Levels 1–10 built (v8–v9); 11–20 proposed (`docs/ideas/pressure-grid-plan.md`) |
 | orbit-garden | v9 | Voyage: 8 gardens (rocks, moons, wild planets), then mirrored laps that wither faster | Successive gardens, leftover seeds carry over; score = gardens bloomed | Depth pass done (v9), awaiting playtest |
-| hot-iron | v4 | 1 blade | A run of commissions, harder profiles, fuel carried over; score = blades forged |  |
-| loom | v2 | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held |  |
-| murmuration | v8 | Chapter 1: 6 nights, flock carried over (+ Classic night) | Nights in a row with new gate layouts, the flock carried over; score = gates cleared in a migration | Depth pass started: chapter 1 (v8), awaiting playtest; next the gallery save/load PR, then chapter 2 (`docs/games/murmuration-story.md`) |
-| wildfire-line | v3 | 1 fire | Fire seasons with more houses and wind shifts; score = houses saved |  |
-| hourglass-delivery | v3 | 8 glasses | Endless belt that speeds up by glasses filled, not by time; score = glasses filled |  |
-| island-census | v1 | 8 seasons | Endless years with new events; score = seasons survived |  |
-| tidewright | v1 | Endless seasons of 6 waves | Built with depth (endless, score = waves held); revise from playtest | New game |
-| rail-yard | v2 | 10 levels, 2 chapters | Built with depth (score = yard points over the run); more chapters if playtests ask | New game |
-| aqueduct | v6 | Warm-up + 5 levels, free pour | More levels; score = pearls, bullseyes, water brought home | New game (v5); v6 fixes phone tilt |
-| geode | v1 | Endless geodes, 3 chambers | Built with depth (score = carats banked over the run); revise from playtest (run length, shatter vs thin) | New game |
+| hot-iron | v6 | 1 blade | A run of commissions, harder profiles, fuel carried over; score = blades forged |  |
+| loom | v4 | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held |  |
+| murmuration | v10 | Ch. 1 (6 nights) + Ch. 2 The High Pass (5 nights), flock carried over (+ Classic night) | Nights in a row with new gate layouts, the flock carried over; score = gates cleared in a migration | Depth pass done (v8–v9), awaiting 3+ players; save/load PR not built (`docs/games/murmuration-story.md`) |
+| wildfire-line | v4 | 1 fire | Fire seasons with more houses and wind shifts; score = houses saved |  |
+| hourglass-delivery | v5 | 8 glasses | Endless belt that speeds up by glasses filled, not by time; score = glasses filled |  |
+| island-census | v3 | 8 seasons | Endless years with new events; score = seasons survived |  |
+| tidewright | v3 | Endless seasons of 6 waves | Built with depth (endless, score = waves held); revise from playtest | Built with depth |
+| rail-yard | v4 | 10 levels, 2 chapters | Built with depth (score = yard points over the run); more chapters if playtests ask | Built with depth |
+| aqueduct | v8 | Warm-up + 5 levels, free pour | More levels; score = pearls, bullseyes, water brought home | Built with depth; v7–8 accessibility |
+| geode | v3 | Endless geodes, 3 chambers | Built with depth (score = carats banked over the run); revise from playtest (run length, shatter vs thin) | Built with depth |
+| lighthouse-keeper | v4 | 8 nights + endless, oil carried | Built with depth | Built with depth |
+| mycelium | v4 | 8 seasons + endless | Built with depth | Built with depth |
+| coat-check | v4 | 12 shifts + Endless, Daily | Built with depth | Built with depth |
+| counterfeit-scale | v4 | 12 cases + Endless, Daily | Built with depth | Built with depth |
+| surprise-party | v4 | 15 houses + Party Season, Daily | Built with depth | Built with depth |
+
+Accessibility passes (2026-10-05..07) bumped versions without gameplay
+changes; telemetry counts reset with them.
 
 Order: the games players already stay longest in first (they're closest to
 10 minutes and show what works), then the rest by rating. Revisions from
@@ -138,8 +148,8 @@ At 15–30 games, a flat scroll stops working.
   which nothing else does"). Built: `node scripts/mechanic-map.mjs` (verb counts,
   pair grid, untried pairs; `--verbs a,b` adds candidate verbs). Shared-state
   kinds are not in the manifest, so not mapped yet.
-- Revisions outnumber new games. Candidates already on file: Murmuration's
-  startle vs. lure, Ant Trails winning 16% of the time when idle.
+- Revisions outnumber new games. Candidates: each game's notes file,
+  "Open ideas" (`docs/games/<id>.md`).
 - A shared balance harness, once copying bot scripts costs more than
   generalizing them.
 - A retire/archive path for low-rated games that revisions didn't fix.
