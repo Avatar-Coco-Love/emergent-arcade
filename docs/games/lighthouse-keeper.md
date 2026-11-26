@@ -28,9 +28,10 @@ nights: 8 scripted, then endless; oil carries over. Score = ships home.
 - **Shutter:** tap the lighthouse: lamp shut (no oil, no light) or open.
   The open lamp burns `LAMP`/s. At 0 oil it goes out (shuts itself,
   `wentOut`; v5) and can't be lit until a ship brings oil home, which then
-  waits in the tank until a tap lights it. Before v5 a dry lamp stayed open
-  and each 6-oil refill burned off in ~4 s ("5 back to zero immediately",
-  v2 player note). `dry_s` counts time out (was: open and dry).
+  waits in the tank until a tap lights it (before: a dry lamp stayed open
+  and each refill burned off in ~4 s). `dry_s` = time out.
+  Bots (v5 vs v4, same seeds): skilled identical (57); noshutter 44 vs 44
+  (100 runs; 50 runs read 36 vs 44: drift noise); novice 22 vs 23.
 - **Flare:** hold the lighthouse ≥ `HOLD_MS`, release to fire: charge c
   over `FLARE_S` sets radius `FLARE_R0`→`FLARE_R1` and cost
   `FLARE_MIN`→`FLARE_MAX` oil (the preview ring shows both). Centre 0.9 ×
