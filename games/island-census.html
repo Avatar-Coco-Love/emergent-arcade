@@ -157,6 +157,14 @@
   const MAX_STRIKES = 3;           // seasons outside the band that end the round
   const START_R = 60, START_F = 7;
   const LANDING = 4;               // foxes that swim over in the 'landing' event
+  // Later years (v4): after the census the same island goes on. Year y >= 3
+  // brings min(4, y - 1) different events, announced a season ahead; a year
+  // with no strike forgives one. From year LATE_HARDER every event bites
+  // harder each year (see eventScale).
+  const LATE_HARDER = 6;
+  const LATE_MAX_EVENTS = 4;        // most events in one late year
+  const YEAR_FIVE = 5, YEAR_TEN = 10; // achievements: years counted in full
+  const LATE_STEP = 0.15;          // extra event strength per year from LATE_HARDER
   // Population model, rates per season (each season runs SUB small steps)
   const SUB = 8;
   const GROW = [1.0, 0.7, 0.5, 0.3];     // grass regrowth, spring..winter
@@ -207,7 +215,7 @@
 
   // ---------- state ----------
   let meadows, paths, hull, R, F, G, season, moves, strikes, state, elapsed;
-  let event, eventMeadow, strikeLog;
+  let event, eventMeadow, strikeLog, plan, yearStrikes, endless;
   let releases, fencesUp, fencesDown, firstInput; // telemetry only
   let anim = null, lockUntil = 0, msgTimer = null;
 
@@ -304,6 +312,8 @@
     // One event in the second year, announced a season ahead.
     const keys = Object.keys(EVENTS);
     event = keys[Math.floor(Math.random() * keys.length)];
+    plan = { [4 + EVENTS[event].season]: event };
+    endless = false; yearStrikes = 0;
     let far = 0;
     meadows.forEach((m, i) => { if (hyp(m.x - CX, m.y - CY) > hyp(meadows[far].x - CX, meadows[far].y - CY)) far = i; });
     eventMeadow = far;
@@ -344,8 +354,32 @@
 
   const totR = () => Math.round(R.reduce((a, b) => a + b, 0));
   const totF = () => Math.round(F.reduce((a, b) => a + b, 0));
-  const eventSeason = () => 4 + EVENTS[event].season; // always in year 2
-  const eventNow = () => season === eventSeason() ? event : null;
+  const eventNow = () => plan[season] || null;
+  const year = s => Math.floor(s / 4) + 1;
+  // How hard an event bites in a late year: 1 until LATE_HARDER, then more.
+  const eventScale = () => 1 + LATE_STEP * Math.max(0, year(season) - LATE_HARDER + 1);
+  // Draw year y's events (y >= 3), one per season they belong to.
+  function planYear(y) {
+    const keys = Object.keys(EVENTS);
+    for (let i = keys.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [keys[i], keys[j]] = [keys[j], keys[i]]; }
+    for (const k of keys.slice(0, Math.min(LATE_MAX_EVENTS, y - 1))) plan[4 * (y - 1) + EVENTS[k].season] = k;
+  }
+  const eventWord = k => k === 'bumper' ? 'bumper spring' : k === 'harsh' ? 'hard winter' : k;
+  function yearEvents(y) {
+    return [0, 1, 2, 3].map(q => plan[4 * (y - 1) + q]).filter(Boolean);
+  }
+  // After the two-year census: the same island goes on into year 3.
+  function keepCounting() {
+    if (!(state === 'won' && !endless)) return;
+    endless = true;
+    planYear(3);
+    yearStrikes = 0;
+    result = null;
+    state = 'planning';
+    endCard.hidden = true;
+    say(`Year 3: ${yearEvents(3).map(eventWord).join(' and ')}. Each is announced a season ahead.`);
+    updateHud();
+  }
 
   // ---------- the two verbs ----------
   function noteInput() { if (firstInput === null) firstInput = elapsed; }
@@ -389,11 +423,12 @@
     if (state !== 'planning') return;
     noteInput();
     const s = season % 4, ev = eventNow(), n = meadows.length, dt = 1 / SUB;
-    const grow = GROW[s] * (ev === 'drought' ? 0.3 : 1);
-    const breed = BREED[s] * (ev === 'bumper' ? 1.5 : 1);
-    const fdie = FDIE[s] * (ev === 'harsh' ? 1.5 : 1);
-    const rdie = RDIE * (ev === 'harsh' ? 2 : 1);
-    if (ev === 'landing') F[eventMeadow] += LANDING;
+    const e = eventScale();
+    const grow = GROW[s] * (ev === 'drought' ? 0.3 / e : 1);
+    const breed = BREED[s] * (ev === 'bumper' ? 1.5 * e : 1);
+    const fdie = FDIE[s] * (ev === 'harsh' ? 1.5 * e : 1);
+    const rdie = RDIE * (ev === 'harsh' ? 2 * e : 1);
+    if (ev === 'landing') F[eventMeadow] += Math.round(LANDING * e);
     const frames = [snap()], hops = [];
     for (let k = 0; k < SUB; k++) {
       for (let i = 0; i < n; i++) {
@@ -446,23 +481,35 @@
     else if (r > R_BAND_HI) strike = 'Too many rabbits';
     else if (f < F_BAND_LO) strike = 'Too few foxes';
     else if (f > F_BAND_HI) strike = 'Too many foxes';
-    if (strike) { strikes++; strikeLog.push(strike); }
+    if (strike) { strikes++; strikeLog.push(strike); yearStrikes++; }
     // Achievements that read the census.
     if (f > 0 && meadows.some((m, i) => R[i] >= HAVEN_R && neighbours(i).every(p => p.fence))) unlock('safe-haven');
     if (s === 3 && !strike && f > 0 && r > 0) unlock('long-winter');
     season++;
     moves = MOVES;
+    let forgiven = false;
+    if (endless && season % 4 === 0) {
+      // A late year ends: a clean one forgives a strike; plan the one after.
+      if (yearStrikes === 0 && strikes > 0) { strikes--; forgiven = true; }
+      yearStrikes = 0;
+      reportYear();
+    }
+    if (endless && season % 4 === 3) planYear(year(season) + 1);
     let reason = null;
     if (f === 0) reason = 'foxes';
     else if (r === 0) reason = 'rabbits';
     else if (strikes >= MAX_STRIKES) reason = 'census';
     if (reason) finish(false, reason);
-    else if (season >= SEASONS) finish(true);
+    else if (season >= SEASONS && !endless) finish(true);
     else {
       state = 'animating';
-      const upcoming = season === eventSeason() - 1 ? 'Next season: ' + EVENTS[event].text
-        : season === eventSeason() ? EVENTS[event].text : '';
-      pendingMsg = strike ? `${strike}! Strike ${strikes} of ${MAX_STRIKES}.` + (upcoming ? ' ' + upcoming : '') : upcoming;
+      const up = [];
+      if (plan[season]) up.push(EVENTS[plan[season]].text);
+      if (plan[season + 1]) up.push('Next season: ' + EVENTS[plan[season + 1]].text);
+      const upcoming = up.join(' ');
+      const head = endless && season % 4 === 0
+        ? `Year ${year(season - 1)} counted.` + (forgiven ? ' A clean year: one strike forgiven.' : '') : '';
+      pendingMsg = [head, strike ? `${strike}! Strike ${strikes} of ${MAX_STRIKES}.` : '', upcoming].filter(Boolean).join(' ');
     }
   }
   let pendingMsg = '';
@@ -472,6 +519,8 @@
     state = 'animating';
     result = { won, reason };
     const used = releases + fencesUp;
+    if (season >= 4 * (YEAR_FIVE)) unlock('year-five');
+    if (season >= 4 * (YEAR_TEN)) unlock('old-island');
     if (won) {
       unlock('census-taken');
       if (strikes === 0) unlock('perfect-count');
@@ -488,6 +537,7 @@
     const r1 = v => Math.round(v * 10) / 10;
     const msg = { type: 'arcade:result', game: GAME_ID,
       outcome: res === 'won' ? 'win' : 'loss', time: r1(elapsed),
+      level: year(Math.max(0, season - 1)),
       stats: { seasons: season, strikes, rabbits: totR(), foxes: totF(), releases,
         fences: fencesUp, unfences: fencesDown, standing: paths.filter(p => p.fence).length,
         first_input: firstInput === null ? -1 : r1(firstInput) } };
@@ -495,22 +545,34 @@
     window.parent.postMessage(msg, '*');
   }
 
+  // A late year counted in full: a won round in telemetry, level = the year.
+  function reportYear() {
+    if (season >= 4 * YEAR_FIVE) unlock('year-five');
+    if (season >= 4 * YEAR_TEN) unlock('old-island');
+    report('won');
+  }
+
   function showEnd() {
     const won = result.won;
     state = won ? 'won' : 'lost';
     lockUntil = performance.now() + END_INPUT_LOCK_MS;
-    endTitle.textContent = won ? 'Census complete' : 'Census failed';
+    endTitle.textContent = won ? 'Census complete' : endless ? 'Census over' : 'Census failed';
     endTitle.className = won ? 'won' : 'lost';
     endDetail.textContent = won
       ? `Two years, ${totR()} rabbits and ${totF()} foxes, ${strikes} strike${strikes === 1 ? '' : 's'}.`
       : result.reason === 'foxes' ? `The last fox died in ${seasonLabel(season - 1)}.`
       : result.reason === 'rabbits' ? `The last rabbit died in ${seasonLabel(season - 1)}.`
       : `Three seasons out of balance, by ${seasonLabel(season - 1)}.`;
+    if (endless) endDetail.textContent += ` ${season} seasons counted on this island.`;
+    if (won) endDetail.textContent += ' The island goes on: each later year brings more surprises, and a clean year forgives a strike.';
+    playAgainBtn.textContent = won && !endless ? 'Keep counting' : 'New island';
     const titles = { 'census-taken': 'Census Taken', 'perfect-count': 'Perfect Count', 'safe-haven': 'Safe Haven',
-      comeback: 'Comeback', 'long-winter': 'Long Winter', 'light-touch': 'Light Touch' };
+      comeback: 'Comeback', 'long-winter': 'Long Winter', 'light-touch': 'Light Touch',
+      'year-five': 'Five Winters', 'old-island': 'Old Island' };
     endAch.textContent = roundEarned.size ? 'Earned: ' + [...roundEarned].map(id => titles[id]).join(', ') : '';
     endCard.hidden = false;
-    speak(`${endTitle.textContent}. ${endDetail.textContent} ${endAch.textContent ? endAch.textContent + '.' : ''} Enter for a new island.`);
+    speak(`${endTitle.textContent}. ${endDetail.textContent} ${endAch.textContent ? endAch.textContent + '.' : ''} ` +
+      (won && !endless ? 'Enter to keep counting, N for a new island.' : 'Enter for a new island.'));
     playAgainBtn.disabled = true;
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
     updateHud();
@@ -636,7 +698,7 @@
     if (performance.now() < lockUntil) return;
     newIsland();
   });
-  playAgainBtn.addEventListener('click', () => newIsland());
+  playAgainBtn.addEventListener('click', () => { if (state === 'won' && !endless) keepCounting(); else newIsland(); });
 
   // § keys
   // Arrows move a cursor between meadows, Enter/Space release rabbits under
@@ -760,7 +822,11 @@
     if (paused || (onButton && (k === 'enter' || k === ' '))) return;
     const over = state === 'won' || state === 'lost';
     if (over) {
-      if ((k === 'enter' || k === 'n') && performance.now() >= lockUntil && !playAgainBtn.disabled) { evt.preventDefault(); newIsland(); speak('New island. ' + meadowInfo(kb.i)); }
+      if ((k === 'enter' || k === 'n') && performance.now() >= lockUntil && !playAgainBtn.disabled) {
+        evt.preventDefault();
+        if (k === 'enter' && state === 'won' && !endless) { keepCounting(); return; }
+        newIsland(); speak('New island. ' + meadowInfo(kb.i));
+      }
       return;
     }
     if (k === 'enter' || k === ' ') {
@@ -974,7 +1040,7 @@
     const f1 = fs(15), f2 = fs(12), y1 = 15, y2 = y1 + f1 + 3, ym = y2 + f2 + 9, yf = ym + f2 + 7;
     ctx.fillStyle = 'rgba(8,20,26,0.92)';
     roundRect(8, 8, W - 16, yf + 8 + f2 / 2 + 4 - 8, 8); ctx.fill();
-    const shown = Math.min(season, SEASONS - 1);
+    const shown = endless ? season : Math.min(season, SEASONS - 1);
     const sIdx = state === 'planning' ? shown : Math.max(0, season - 1);
     ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     ctx.font = `bold ${f1}px -apple-system, Segoe UI, sans-serif`;
@@ -982,7 +1048,7 @@
     ctx.fillText(`${SEASON_NAMES[sIdx % 4]} · Year ${Math.floor(sIdx / 4) + 1}`, 18, y1);
     ctx.font = `${f2}px -apple-system, Segoe UI, sans-serif`;
     ctx.fillStyle = '#a9bcbc';
-    ctx.fillText(`season ${sIdx + 1} of ${SEASONS}` + (eventSeason() === sIdx ? ` · ${event === 'bumper' ? 'bumper spring' : event === 'harsh' ? 'hard winter' : event}` : ''), 18, y2);
+    ctx.fillText(`season ${sIdx + 1}` + (endless ? '' : ` of ${SEASONS}`) + (plan[sIdx] ? ` · ${eventWord(plan[sIdx])}` : ''), 18, y2);
     // strikes: filled with a cross when taken, a ring when not (shape, not hue)
     const sy = y1 + f1 / 2;
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText('strikes', W - 18 - MAX_STRIKES * 20 - 4, sy + 1);

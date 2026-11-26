@@ -66,7 +66,8 @@ window.__seed = s => { __s = s; };
     get meadows() { return meadows; }, get paths() { return paths; }, get R() { return R; }, get F() { return F; },
     get G() { return G; }, get season() { return season; }, get moves() { return moves; }, get strikes() { return strikes; },
     get state() { return state; }, get strikeLog() { return strikeLog; }, get result() { return result; }, get event() { return event; },
-    earned: roundEarned, release, toggleFence, foxIntent, neighbours, newIsland, MAX_FENCES,
+    keepCounting, get plan() { return plan; },
+    earned: unlocked, release, toggleFence, foxIntent, neighbours, newIsland, MAX_FENCES,
     R_BAND_LO, R_BAND_HI, F_BAND_LO, F_BAND_HI,
     next() { runSeason(); if (result) { state = result.won ? 'won' : 'lost'; } else { state = 'planning'; anim = null; } },
   };
@@ -78,13 +79,14 @@ window.__seed = s => { __s = s; };
 }
 
 // Runs inside the page: one round (up to 8 seasons).
-function playInPage({ seed, bot }) {
+function playInPage({ seed, bot, endless }) {
   const D = window.__dbg;
   window.__seed(seed);
   D.newIsland();
+  D.earned.clear();
   const rnd = Math.random, sum = a => a.reduce((x, y) => x + y, 0);
   const trace = [];
-  let used = 0, haven = -1, novSeen = 0;
+  let used = 0, haven = -1, novSeen = 0, wonCampaign = false;
   while (D.state === 'planning') {
     const n = D.meadows.length, r = Math.round(sum(D.R)), f = Math.round(sum(D.F));
     const fenced = () => D.paths.filter(p => p.fence).length;
@@ -151,18 +153,19 @@ function playInPage({ seed, bot }) {
     }
     D.next();
     trace.push([Math.round(sum(D.R)), Math.round(sum(D.F))]);
+    if (endless && D.state === 'won' && D.season < 400) { wonCampaign = true; D.keepCounting(); }
   }
-  return { won: D.state === 'won', reason: D.result && D.result.reason, seasons: D.season,
+  return { won: endless ? wonCampaign : D.state === 'won', reason: D.result && D.result.reason, seasons: D.season,
     strikes: D.strikes, kinds: D.strikeLog.slice(), used, trace, earned: [...D.earned], event: D.event };
 }
 
-async function run(bot, runs, file, browser, workers = 8) {
+async function run(bot, runs, file, browser, workers = 8, endless = false) {
   const results = [];
   let next = 0;
   await Promise.all(Array.from({ length: workers }, async () => {
     const page = await browser.newPage();
     await page.goto(pathToFileURL(file).href);
-    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: 1000 + i, bot }); }
+    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: 1000 + i, bot, endless }); }
     await page.close();
   }));
   return results;
@@ -189,6 +192,23 @@ function report(name, rs) {
     ` || ${Object.entries(ach).sort().map(([k, v]) => `${k} ${pct(v)}%`).join(', ')}`);
 }
 
+// --endless: keep counting after year 2 until the island is lost (or 100
+// years); one line per bot: seasons survived, where runs end.
+const ENDLESS = process.argv.includes('--endless');
+process.argv = process.argv.filter(a => a !== '--endless');
+function reportEndless(name, rs) {
+  const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
+  const pct = n => Math.round(100 * n / rs.length);
+  const ss = rs.map(r => r.seasons).sort((a, b) => a - b);
+  const why = {};
+  for (const r of rs) why[r.reason || 'cap'] = (why[r.reason || 'cap'] || 0) + 1;
+  const ach = {};
+  for (const r of rs) for (const id of r.earned) ach[id] = (ach[id] || 0) + 1;
+  const years = rs.map(r => Math.floor(r.seasons / 4));
+  console.log(`${name.padEnd(7)} census ${pct(rs.filter(r => r.won).length)}% | seasons median ${med(ss)} (p10 ${ss[Math.floor(rs.length / 10)]}, p90 ${ss[Math.floor(rs.length * 0.9)]})` +
+    ` | full years ≥3 ${pct(years.filter(y => y >= 3).length)}% ≥5 ${pct(years.filter(y => y >= 5).length)}% ≥10 ${pct(years.filter(y => y >= 10).length)}%` +
+    ` | ends: ${Object.entries(why).map(([k, v]) => `${k} ${pct(v)}%`).join(' ')} | year-five ${pct(ach['year-five'] || 0)}% old-island ${pct(ach['old-island'] || 0)}%`);
+}
 const runs = +process.argv[2] || 300;
 const names = (process.argv[3] || Object.keys(BOTS).join(',')).split(',');
 const overrides = {};
@@ -200,6 +220,7 @@ const file = buildDebug(overrides);
 const browser = await chromium.launch();
 for (const n of names) {
   if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
-  report(n, await run(BOTS[n], runs, file, browser));
+  if (ENDLESS) reportEndless(n, await run(BOTS[n], runs, file, browser, 8, true));
+  else report(n, await run(BOTS[n], runs, file, browser));
 }
 await browser.close();
