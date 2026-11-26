@@ -913,7 +913,7 @@
   }
   canvas.addEventListener('pointerdown', evt => {
     evt.preventDefault();
-    window.focus();
+    if (!document.hasFocus()) window.focus(); // a tap normally focuses the frame already
     if (state !== 'playing' || paused) return;
     const p = toGame(evt);
     let best = -1, bd = GATE_R;

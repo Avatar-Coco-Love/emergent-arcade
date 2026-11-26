@@ -1,6 +1,6 @@
 # Terrace Garden: design notes
 
-**v4** (2026-10-05, accessibility, PR #106; v3 canvas label, v2 2026-09-29) · playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV ·
+**v5** (2026-11-26, bug fix: `window.focus()` on tap only when the frame lacks focus; newer Chromium blocked it) · v4 (2026-10-05, accessibility, PR #106) · playtest: https://claude.ai/artifact/HJwSo4d4qB6wGrm4RUZhEV ·
 balance: `node scripts/balance-terrace-garden.mjs 100`
 Mechanics: **tilt** (phone tilt, tilt bar, or ← → / A D) and **gate** (tap, or keys),
 sharing the **water depth in every column** of a stepped hillside. A warm-up
@@ -107,12 +107,7 @@ table: history, "v2 balance table". `TRACE=1` prints state every 5 s.
   water 54; bands outlined dark. Cactus 61 dry, 36 wet + bubbles.
 - "spring" label `fs(12)` on a backing (was 9.4 px, unseen: the audit's
   warm-up has no spring). Late scripted gardens: contrast/colour/text 2/2.
-- Reduced motion (`still()`, clock `deco`): no sway, splashes or drift;
-  rings, bubbles, nudge glow steady. Warm-up 1.6% → 0.0%; mid-garden,
-  water flowing, 0.26% → 0.24%, 0.00% with water, plants and spring count
-  hidden (2 runs): the rest is the simulation.
-- Balance identical (old file twice, then new: 16 bots × 100 runs). Keys
-  bot (live region only): warm-up, gardens 1 and 2 first try (83 / 2 spilled), garden 3 lost (spring empty: 0 carried).
+- Reduced motion: no sway, splashes or drift (v4 measurements and balance check: history).
 
 ## Telemetry
 

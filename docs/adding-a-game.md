@@ -195,6 +195,11 @@ needed a later revision to add them. The rules and the audit's thresholds
 are in [accessibility.md](accessibility.md); the stories behind them are
 in [findings.md](findings.md), "Accessibility".
 
+Moving focus: the game runs in a sandboxed iframe, and newer Chromium
+blocks and logs `focus()` without user activation (the monkey and smoke
+tests then fail). Guard it with `document.hasFocus()` and never call
+`window.focus()` from a timer (Murmuration v10, Terrace Garden v5).
+
 - **Keyboard:** every verb has a key path, not only housekeeping keys
   (undo, restart), and the keys are in the manifest's `keyboard` line. Tab
   stays the browser's. Pattern: an arrow cursor, Enter for the point verb,

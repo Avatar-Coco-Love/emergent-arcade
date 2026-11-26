@@ -4,6 +4,15 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/terrace-garden.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## v4 accessibility measurements (moved 2026-11-26)
+
+- Reduced motion (`still()`, clock `deco`): no sway, splashes or drift;
+  rings, bubbles, nudge glow steady. Warm-up 1.6% → 0.0%; mid-garden,
+  water flowing, 0.26% → 0.24%, 0.00% with water, plants and spring count
+  hidden (2 runs): the rest is the simulation.
+- Balance identical (old file twice, then new: 16 bots × 100 runs). Keys
+  bot (live region only): warm-up, gardens 1 and 2 first try (83 / 2 spilled), garden 3 lost (spring empty: 0 carried).
+
 ## v2 balance table (moved from the notes at v4; v4 output identical)
 
 Per garden: first-try win % / any-try win %, median s for wins, median
