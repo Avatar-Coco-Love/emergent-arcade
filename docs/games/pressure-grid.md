@@ -1,15 +1,17 @@
 # Pressure Grid: design notes
 
-**v11** (2026-10-05, accessibility; v10 canvas label) · playtest: https://claude.ai/artifact/WKBg1jZwLxZLnZ97Ben1sf ·
-balance: `node scripts/balance-pressure-grid.mjs` (`--level N`, `--map`, `--full`, `--count`) ·
-browser: `node scripts/playthrough-pressure-grid.mjs` (`--level N`)
+**v12** (2026-11-26, depth pass: Pipeline, Daily) · playtest: https://claude.ai/artifact/L3wkcN93UmuHrLTdLDHEa7 ·
+balance: `node scripts/balance-pressure-grid.mjs` (`--level N`, `--map`, `--full`, `--count`,
+`--pipeline`) · browser: `node scripts/playthrough-pressure-grid.mjs` (`--level N`, `--pipeline`) ·
+boards: `node scripts/gen-pressure-grid-pool.mjs`
 Turn-based level puzzle (plan: `docs/ideas/pressure-grid-plan.md`;
 older: `docs/history/pressure-grid.md`). **Pump** (+4) and **siphon**
 (pour all into a neighbour, 1 lost) share **pressure per cell** with the
 passive **burst** (at 10: empty, +2 to open neighbours, chains) and
 **leak** (above 8: −1 per move). Goal: burst every ring. Stars: 3 at par,
 2 within par + 3, 1 any solve. No fail state: Undo, Restart. 5 levels
-per increment: 1-5 (v8), 6-10 "pressure in motion" (v9).
+per increment: 1-5 (v8), 6-10 "pressure in motion" (v9). After level 5:
+the endless **Pipeline** (v12, below), also the Daily's run.
 
 ## Rules (`// § sim` block in the game; the balance script runs it as is)
 
@@ -49,36 +51,53 @@ leaks → drips. Between moves every cell is ≤ 8.
 
 \* upper bound: the proof runs over budget (see Solver).
 
-## Balance (`balance-pressure-grid.mjs --full --count`)
+## Balance (levels)
 
-| Level | par | optimal lines (first moves) | pump-only | habit | greedy novice (≤40) | random (≤40) |
-|---|---|---|---|---|---|---|
-| 1 first-pop | 3 | 1 (1) | 3 | 3 | 100%, med 3 | 96%, med 13 |
-| 2 chain | 7 | 630 (3) | 7 | 7 | 100%, med 7 | 28%, med 31 |
-| 3 sealed | 5 | 128 (4) | none | 5 | 62%, med 17 | 62%, med 17 |
-| 4 wall | 10 | 186,720 (5) | none | 11 | 56%, med 22 | 17%, med 32 |
-| 5 pipes | 16* | 5.5 × 10⁹ (5) | none | 18 | 9%, med 36 | 0% |
-| 6 drip | 8 | 30 (3) | 8 | 9 | 100%, med 9 | 4%, med 37 |
-| 7 vent | 4 | 16 (6) | 6 | 5 | 100%, med 6 | 78%, med 23 |
-| 8 valves | 7 | 23 (2) | none | 7 | 19%, med 24 | 17%, med 29 |
-| 9 relief | 10 | 675,304 (6) | none | 12 | 14%, med 34 | 13%, med 33 |
-| 10 flow | 10 | 13,251 (8) | none | 11 | 49%, med 25 | 2%, med 39 |
+All ten `ok` against `LEVELS`. Siphon is required on 3-5 and 8-10; the
+habit loses 1-2 moves on 4-7, 9, 10; greedy novices clear 1-2, 6-7, rarely
+5, 8, 9. Full table (optimal lines, novices, ledger): history file,
+"Level balance (v9-v11)".
 
-Greedy novice: pump the fullest unburst ring, else a random move near
-one.
+## Pipeline (v12, `// § pipeline` in the sim block)
 
-- **Siphon is required** on levels 3-5 and 8-10; on 7 it saves 2 moves
-  (the vent is a source only a pour can use). 6 is pump-only, like 1-2.
-- **Habit** (burst rings one at a time in reading order, each by its
-  shortest line) loses 1-2 moves on 4, 5, 6, 7, 9, 10: still 2 stars.
-- **Novices** clear 1-2, 6-7 almost always; 5, 8, 9 rarely within 40.
-- **Passive system loses**: every burst destroys ≥ 2, vents and drips
-  more (`--full` ledger on the solver's line).
-- Browser (`playthrough-pressure-grid.mjs`, 390×844, 844×390): solver
-  lines get ★★★ on all ten; no scroll; pause blocks; results post.
+Endless boards from `POOL` (written by `gen-pressure-grid-pool.mjs`, data
+in `scripts/pressure-grid-pool.json`; never edit by hand). Board k: tier
+`pipeTier(k)` = 1 for boards 1-3, 2 for 4-9, then 3 except every third
+board (2). Each tier shuffled by the run's seed (new shuffle per pass) and
+flipped (mirror / upside down: par holds, 40 flipped boards re-solved).
 
-Solver: A* with an admissible bound, moves within 1 step of an unburst
-ring; details in the history file ("Solver").
+| Tier | boards | pieces | par | habit loses |
+|---|---|---|---|---|
+| 1 warm-up | 60 | rings, walls, seals; 3×2-4×3 inner | 7-8 | 0.37 avg |
+| 2 | 60 | + vents, leaky (25 boards) | 5-11 | 0.22 avg |
+| 3 habit breakers | 107 | + valves (8); habit > par on all | 6-13 | 1.1 avg |
+
+Kept only if: par proven in 1-1.5 s, a pour is needed (pump-only can't
+match par), the new piece matters (made plain, par changes; a valve counts
+if two-way seals or walls change par). Random boards beat the habit only
+~25% of the time, hence tier 3 (finding).
+
+**Spare moves**: start `PIPE_START` 8, at most `PIPE_CAP` 10. Moves over
+par come out; a board at par gives `PIPE_REFUND` 1 back. Undone moves stay
+spent (Restart too). Out of moves on a board = run over. Score = boards
+cleared (board `pipeline`, label "Boards cleared").
+
+`--pipeline` (200 runs; minutes guessed at 2.5 s/move + 12 s/board):
+
+| bot | boards med (p25-p75) | est. min | past 10 min |
+|---|---|---|---|
+| solver | 200 (cap) | 110 | 100% |
+| habit | 26 (24-29) | 15 | 100% |
+| habit + 1-2 on 30% | 15 (12-17) | 9 | 32% |
+| habit + 1-2 always | 4 (4-5) | 3 | 0% |
+| greedy novice | 0 | 1 | 0% |
+
+Tried: 6/9 → habit 24, slip 13, +2 3; 10/12 → 30, 17, 5. Watch human
+boards per run: v9 players used ~2× par on levels 2-4 (worse than +2).
+
+**Daily** (`daily.from` 2026-11-28): `?daily=` opens a Pipeline run seeded
+by FNV-1a(`pressure-grid:date`), no level bar; results carry `daily`,
+`arcade:final` on run over. Later runs that day replay the same boards.
 
 ## Adding levels
 
@@ -88,63 +107,46 @@ here, manifest): history file, "Adding levels".
 ## Score, progress, telemetry
 
 `score`: **total stars** (own `score` in `arcade:result`, board `main`,
-higher, max 30, **epoch 2**). The gallery keeps only the best total:
+higher, **epoch 2**); Pipeline: boards cleared, board `pipeline` (max 1000
+for both). The gallery keeps only the best total:
 on a later visit levels 1..⌈best/3⌉ count as solved (✓ on the button)
 with the total spread over them.
 
 `arcade:result` per solve: `win`, `time` (unpaused s), `level`,
 `level_id`, `run`, `attempt`, `score`, `stats` (`actions`, `par`,
 `siphons`, `max_chain`, `stars`, `undos`, `restarts`). Unsolved levels
-post nothing.
+post nothing. Pipeline: one per board, `level` 11+ (board 1 = 11),
+`level_id` `pipeline`, `board` `pipeline`, `run` per run, `score` =
+cleared; `stats` adds `board`, `tier`, `bank` (spare after it); `loss`
+when out of moves.
 
-Achievements (7): First Pop, Chain Reaction (3+ cells in one move, vents
+Achievements (9): First Pop, Chain Reaction (3+ cells in one move, vents
 not counted), Siphon Strike, Unsealed (valves don't count), Last Drop (a
 final pour that bursts 2 rings), Plumber (15 pours in a visit), All Stars
-(every level).
+(every level), Pipefitter (10 boards in a run: slip bot median 15),
+Mainline (25: habit median 26).
 
-## Layout
+## Layout and accessibility
 
-Top: level buttons and star total (two rows on a phone; the cabinet's
-toasts land here). The board (80-unit cells, refitted per level). Under
-it the message strip (name + hint, or the result; below the board since
-v9 so toasts don't cover it), the status line and Undo / Restart / Next.
-Numbers in every cell, 8+ larger and warm; rings orange, green when
-burst; sealed: steel frame + padlock; valve: pipe walls + chevron; vent:
-purple frame + grille; leaky: a drop; walls hatched. Press previews the
-pump, drag the pour (new value on each changed cell, dashed outline on
-bursts). Waves play 260 ms apart ("chain wave n/m", "vented!", "−1
-leak", "drip"); a press finishes the animation. Keys: below.
-
-## Accessibility (v11, `node scripts/a11y-audit.mjs pressure-grid`: all 6 pass, 3/3 runs)
-
-- Two lightness bands (`fillFor`): 0-7 dark slate to brick, white
-  numbers 8:1+ (0 grey, 6.3:1); 8+ bright amber, dark numbers 10:1+. So
-  near-burst cells differ by lightness (protan: 8 and 4 were both olive).
-  Rings get a dark rim so they show on amber.
-- Labels (chips, leak, drip, vented!, chain wave): dark backing (`tag()`),
-  `fs(n)` ≥ 12.5 CSS px.
-- Keys: arrows move a cursor (the first key shows it on the first ring),
-  Enter/Space pump, S aims a pour (an arrow picks the neighbour, with the
-  preview; Enter or S pours, Esc cancels). Same `doMove` as the pointer.
-  Tab free; Space/Enter on a focused button press it. Solver lines by
-  keys only: ★★★ on all ten.
-- Live region `#say` (`role="status"`, hidden), one line per key or move:
-  "Row 2, column 3: 4, ring."; "Poured 7 left, now 10. 2 cells burst in a
-  chain of 2 waves. 1 ring left."; solve, undo, level.
-- `draw()` marks dirty and the frame loop paints once: a press and its
-  move used to paint twice in one frame (the audit read the stale "0").
+Top: level buttons, the Pipeline button and the star total (two rows on a
+phone). Board, then the message strip (under the board so toasts don't
+cover it), status line, Undo / Restart / Next. Accessibility (v11: keys,
+live region, two lightness bands; a11y audit 6/6) and the full layout
+notes: history file, "Layout and accessibility (v11)".
 
 ## Open ideas / known limits
 
-- Accessibility: done in v11 (above). Not checked with a real screen
-  reader or colour-blind player; do keyboard players find S for pours?
+- Pipeline: is 8 spare moves right for people? Watch boards per run and
+  `stats.bank`; humans used ~2× par on early levels (the +2 bot: 4
+  boards). If runs end at board 1-3, start higher or make tier 1 smaller.
+- Tier 1 par is 7-8: smaller pump-only boards were filtered (a pour is
+  required). A gentler first board might need that rule relaxed.
+- Leaving a run for a level drops it silently (no result).
 - Not hand-played on a phone yet: is the pour found without level 3's
   hint? Are the preview and the vent/valve/leaky marks read?
-- Valve direction binds only on level 8; on 10 the valve route is an
-  optional source. A level where the arrow blocks the obvious pour out
-  of a ring would test it harder.
-- Search cost grows on open boards and with leaky cells; keep maps
-  walled or improve the bound. A scratch generator (random walled maps
-  scored by `solve`/`habit`) found 7 and 9: worth a script for Daily.
+- Valve boards are rare (8 of 107 in tier 3): most random valves are
+  idle or make a board unsolvable. Hand-made valve templates would help.
+- Search cost grows on open boards and with leaky cells; the generator
+  keeps boards ≤ 5×4 inner, walled.
 - Progress across visits is only the best total (see Score). A per-game
   save channel in the gallery would fix it.

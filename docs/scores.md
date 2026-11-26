@@ -38,6 +38,7 @@ game ──arcade:result──▶ gallery (assets/scores.js)
 | `epoch` | **bump it whenever the score's meaning changes** (a revision that makes rounds longer, a new scoring rule). Old bests stay stored but stop showing, and the leaderboard starts empty. |
 | `boards` | optional: one board per level, keyed by `level_id` or `level` (`level-3`) |
 | `boardList` | optional: the boards in order, so the Records picker shows them before any are played; the leaderboard rejects others |
+| `labels` | optional: a board's own label where it counts something else, `{ "pipeline": "Boards cleared" }`; `"daily"` is the Daily card's and banner's (`Scores.label(sp, board)`) |
 
 A game can also post its own number: `score` (and optionally `board`,
 `[a-z0-9-]{1,24}`) in `arcade:result` wins over `from`. That's the way to
@@ -54,7 +55,7 @@ its own `score`, and bumps `epoch`.
 
 | game | score | ceiling |
 |---|---|---|
-| pressure-grid | Stars (own `score`, total over levels, v8 / epoch 2) | 15 (3 per level, 5 levels so far) |
+| pressure-grid | Stars (own `score`, total over levels, v8 / epoch 2); board `pipeline` (v12): boards cleared in a Pipeline run, labelled "Boards cleared" | 30 stars; Pipeline none (max 1000) |
 | orbit-garden | Fastest bloom (time, wins) | none |
 | murmuration | Gates in a chapter (own `score`, boards `ch1` and `ch2`, v9 / epoch 2: chapter 1 unchanged) | 23 (chapter 1; chapter 2 has 19) |
 | ant-trails | Days survived (level, wins) | 200 (v9: endless) |

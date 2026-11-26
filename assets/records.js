@@ -122,7 +122,7 @@ window.ArcadeRecords = (function () {
     const summary = el("summary", { className: "rec-summary" }, [
       thumb(game, true),
       el("span", { className: "rec-main" }, [
-        el("span", { className: "rec-title" }, [el("span", { textContent: game.title }), el("span", { className: "rec-board", textContent: ` ${where ? `${where} · ` : ""}${sp.label}` })]),
+        el("span", { className: "rec-title" }, [el("span", { textContent: game.title }), el("span", { className: "rec-board", textContent: ` ${where ? `${where} · ` : ""}${Scores.label(sp, board)}` })]),
         el("span", { className: "rec-line" }, [lead, you]),
       ]),
     ]);

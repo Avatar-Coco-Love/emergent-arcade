@@ -118,7 +118,7 @@ Each revision:
 | bubble-glass | v7 | 21 boxes in 3 chapters (was 5 levels, ~1.5 min; v5 levels 13/14/16; v6–7 accessibility) | More boxes from the Evolution list (sand types, second bubble, fixtures), grouped in chapters; score = total time over a chapter | Depth pass done (v3–v4), chapter time score; awaiting playtest |
 | ant-trails | v9 | 6 days + endless late summer, colony carried | Endless days after day 6 with rising twists; score = days survived | Depth pass done (v9), awaiting playtest |
 | terrace-garden | v5 | warm-up + 3 gardens | More gardens with new terrace shapes, water carried over; score = water left over the run |  |
-| pressure-grid | v11 | Levels 1–10 with stars (was a 60 s challenge) | Stages with rising targets on new grid shapes; score = eruptions over the run | Levels 1–10 built (v8–v9); 11–20 proposed (`docs/ideas/pressure-grid-plan.md`) |
+| pressure-grid | v12 | Levels 1–10 with stars, then the endless Pipeline (spare moves carried) | Stages with rising targets on new grid shapes; score = eruptions over the run | Depth pass done (v12: Pipeline, score = boards cleared, Daily from 2026-11-28), awaiting playtest; levels 11–20 still proposed |
 | orbit-garden | v9 | Voyage: 8 gardens (rocks, moons, wild planets), then mirrored laps that wither faster | Successive gardens, leftover seeds carry over; score = gardens bloomed | Depth pass done (v9), awaiting playtest |
 | hot-iron | v7 | Practice bar + 6 commissions, then endless; fuel carried | A run of commissions, harder profiles, fuel carried over; score = commissions forged | Depth pass done (v7), awaiting playtest |
 | loom | v4 | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held |  |

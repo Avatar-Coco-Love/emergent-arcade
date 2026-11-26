@@ -1705,3 +1705,17 @@ hunts on a trail near ants in a run with no rain yet ("Hold on it to make
 it rain", 2 per run). Check: `rains` > 0 on days 2–3 in v9 telemetry.
 
 *Evidence: players (n=5); the fix is untested.*
+
+## Random boards rarely beat the habit (Pressure Grid v12)
+
+Pressure Grid's Pipeline deals generated boards with a carried bank of
+spare moves (over par costs, at par refunds 1). The first pool was every
+random walled board that needed a pour and whose new piece mattered: the
+habit bot (burst rings one at a time by their shortest lines) matched par
+on ~75% of them (habit loss 0.2-0.4 a board), so with the refund the
+habit bot's bank never drained: 200 boards (the cap) every run. A third
+tier kept only boards where the habit loses a move (1 in ~5-8 generated
+boards), placed on 2 of every 3 boards from board 10; the habit bot then
+clears a median 26 boards (~15 min), a slipping player 15, and a player
+1-2 over par every board 4. The tier is also the slowest to generate
+(the valve kind barely appears: 8 of 107).

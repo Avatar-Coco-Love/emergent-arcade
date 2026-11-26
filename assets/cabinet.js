@@ -713,7 +713,7 @@ window.ArcadeCabinet = (function () {
 
   function scoreText(sp, board, value) {
     const where = Scores.boardName(board);
-    return `${where ? where + " · " : ""}${sp.label}: ${Scores.format(sp, value)}`;
+    return `${where ? where + " · " : ""}${Scores.label(sp, board)}: ${Scores.format(sp, value)}`;
   }
 
   function announceScore(sc) {
@@ -753,7 +753,7 @@ window.ArcadeCabinet = (function () {
     const best = recordsBoard && Scores.bests(game)[recordsBoard];
     $("bestLine").replaceChildren(
       best
-        ? el("span", {}, [`${sp.label}: `, el("b", { textContent: Scores.format(sp, best.score) }), ` · ${UI.shortDate(best.at.slice(0, 10))}`])
+        ? el("span", {}, [`${Scores.label(sp, recordsBoard)}: `, el("b", { textContent: Scores.format(sp, best.score) }), ` · ${UI.shortDate(best.at.slice(0, 10))}`])
         : el("span", { className: "muted", textContent: sp.wins ? "No best yet: win a round to set one." : "No best yet: finish a round to set one." })
     );
     nameCtl.render(null);

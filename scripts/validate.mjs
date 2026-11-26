@@ -218,6 +218,7 @@ function checkScore(where, g) {
   if (s.boards !== undefined && !["level", "level_id"].includes(s.boards)) fail(`${where}: score.boards must be "level" or "level_id"`);
   if (!Number.isInteger(s.epoch) || s.epoch < 1) fail(`${where}: score.epoch must be an integer >= 1 (bump it when the score's meaning changes)`);
   if (!(Number(s.max) > 0)) fail(`${where}: score.max must be a positive number (the leaderboard drops anything above it)`);
+  if (s.labels !== undefined && (typeof s.labels !== "object" || Array.isArray(s.labels) || Object.entries(s.labels).some(([k, v]) => !/^[a-z0-9-]{1,24}$/.test(k) || typeof v !== "string" || !v.trim() || v.length > 40))) fail(`${where}: score.labels must map board ids (or "daily") to short labels`);
   if (s.boardList !== undefined && (!Array.isArray(s.boardList) || s.boardList.some((b) => !/^[a-z0-9-]{1,24}$/.test(b)))) fail(`${where}: score.boardList must be board ids`);
   if (s.from && s.from.startsWith("stats.") && typeof g.file === "string") {
     const html = (() => { try { return readFileSync(join(gamesDir, g.file), "utf8"); } catch (_) { return ""; } })();

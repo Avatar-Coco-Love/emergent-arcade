@@ -7,6 +7,12 @@
 // checks that arcade:pause blocks a move and that arcade:result is posted.
 //
 //   node scripts/playthrough-pressure-grid.mjs [--level N] [--budget S] [--out <dir>]
+//   node scripts/playthrough-pressure-grid.mjs --pipeline [--boards N]
+//
+// --pipeline: a Daily Pipeline run (?daily=, 390×844): the first N boards
+// (default 4) by the solver's lines, checking each result (board, score,
+// daily, spare moves), then pumps and undoes on the next board until it is
+// out of moves, checking the loss result and arcade:final.
 //
 // Screenshots go to --out (default: a temp dir, printed), never into the
 // repo. Exits non-zero on any failure.
@@ -17,12 +23,15 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { execSync } from "node:child_process";
 import os from "node:os";
-import { solve, levelDefs } from "./balance-pressure-grid.mjs";
+import { solve, levelDefs, sim } from "./balance-pressure-grid.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const opt = (name, d) => { const i = args.indexOf(name); return i < 0 ? d : args[i + 1]; };
 const ONLY = opt("--level", null);
+const PIPE = args.includes("--pipeline");
+const PIPE_BOARDS = +opt("--boards", 4);
+const DAILY = "2026-12-01";
 const BUDGET_MS = 1000 * +opt("--budget", 120);
 const outDir = opt("--out", join(os.tmpdir(), "arcade-playthrough-pressure-grid"));
 mkdirSync(outDir, { recursive: true });
@@ -38,7 +47,7 @@ const { chromium } = await loadPlaywright();
 // § solve
 const levels = [];
 let failed = false;
-levelDefs.forEach((def, idx) => {
+if (!PIPE) levelDefs.forEach((def, idx) => {
   if (ONLY !== null && +ONLY !== idx + 1) return;
   const s = solve(def, { budget: BUDGET_MS });
   if (!s.line) { console.log(`L${idx + 1} ${def.id}: FAIL solver ${s.overBudget ? "over budget" : "found no solution"}`); failed = true; return; }
@@ -49,7 +58,7 @@ levelDefs.forEach((def, idx) => {
 // § server: the repo, plus a host page that embeds the game like the gallery.
 const HOST = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>html,body{margin:0;height:100%;overflow:hidden}iframe{border:0;width:100vw;height:100vh;display:block}</style>
-<iframe id="g" sandbox="allow-scripts" src="/games/pressure-grid.html"></iframe>
+<iframe id="g" sandbox="allow-scripts" src="/games/pressure-grid.html${PIPE ? `?daily=${DAILY}` : ""}"></iframe>
 <script>
   window.msgs = [];
   addEventListener('message', e => { if (e.data && typeof e.data === 'object') msgs.push(e.data); });
@@ -140,7 +149,64 @@ for (const [vw, vh] of SIZES && levels.length ? SIZES : []) {
   }
   await page.close();
 }
+if (PIPE) await pipeline();
 await browser.close();
 server.close();
+
+// § pipeline
+async function pipeline() {
+  let h = 0x811c9dc5; for (const ch of "pressure-grid:" + DAILY) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const errors = [];
+  page.on("pageerror", e => errors.push(e.message));
+  await page.goto(`${base}/__host`);
+  const frame = await (await page.waitForSelector("#g")).contentFrame();
+  await frame.waitForSelector("#stat");
+  const centre = async (w, hh, k) => {
+    const b = await frame.locator("#board").boundingBox();
+    return { x: b.x + ((k % w) + 0.5) * b.width / w, y: b.y + (Math.floor(k / w) + 0.5) * b.height / hh };
+  };
+  async function act(L, [i, j]) {
+    const a = await centre(L.w, L.h, i);
+    await page.mouse.move(a.x, a.y); await page.mouse.down();
+    if (j >= 0) { const b = await centre(L.w, L.h, j); await page.mouse.move(b.x, b.y, { steps: 6 }); }
+    await page.mouse.up();
+  }
+  let bank = sim.C.PIPE_START;
+  for (let k = 0; k <= PIPE_BOARDS; k++) {
+    const def = sim.pipeBoard(h, k), sol = solve(def), problems = [];
+    const before = await page.evaluate(() => msgs.length);
+    const stat = await frame.locator("#stat").textContent();
+    if (!stat.includes(`/${def.par} par`)) problems.push(`stat says "${stat}", par ${def.par}`);
+    if (k < PIPE_BOARDS) {
+      for (const m of sol.line) await act(sol.L, m);
+      bank = sim.pipeBank(bank, def.par, sol.line.length);
+      await page.waitForTimeout(50);
+      const res = (await page.evaluate(n => msgs.slice(n), before)).find(d => d.type === "arcade:result");
+      if (!res) problems.push("no arcade:result");
+      else if (res.outcome !== "win" || res.board !== "pipeline" || res.score !== k + 1 || res.daily !== DAILY || res.stats.bank !== bank)
+        problems.push(`bad result ${JSON.stringify(res).slice(0, 120)}`);
+      if (k === 0) await page.screenshot({ path: join(outDir, `pipeline-${k + 1}.png`) });
+      console.log(`pipeline board ${k + 1} tier ${def.tier} par ${def.par} ${problems.length ? "FAIL " + problems.join("; ") : "ok"} | spare ${bank}`);
+      await frame.locator("#nextBtn").click();
+    } else {
+      // pump an open non-vent cell and undo, until the board is out of moves
+      const L = sol.L, cell = [...Array(L.n).keys()].find(i => L.kind[i] === sim.OPEN && !L.vent[i]);
+      for (let n = 0; n < def.par + bank; n++) { await act(L, [cell, -1]); await frame.locator("#undoBtn").click().catch(() => {}); }
+      await page.waitForTimeout(50);
+      const got = await page.evaluate(n => msgs.slice(n), before);
+      const loss = got.find(d => d.type === "arcade:result"), fin = got.find(d => d.type === "arcade:final");
+      if (!loss || loss.outcome !== "loss" || loss.score !== PIPE_BOARDS) problems.push(`bad loss ${JSON.stringify(loss)}`);
+      if (!fin || fin.score !== PIPE_BOARDS || fin.daily !== DAILY) problems.push(`bad final ${JSON.stringify(fin)}`);
+      const msg = await frame.locator("#msg").textContent();
+      if (!/Out of moves/.test(msg)) problems.push(`msg "${msg}"`);
+      await page.screenshot({ path: join(outDir, `pipeline-over.png`) });
+      console.log(`pipeline run over after ${PIPE_BOARDS} ${problems.length ? "FAIL " + problems.join("; ") : "ok"}`);
+    }
+    if (problems.length) failed = true;
+  }
+  if (errors.length) { failed = true; console.log(`pipeline errors: ${errors[0]}`); }
+  await page.close();
+}
 console.log(`screenshots: ${outDir}`);
 process.exit(failed ? 1 : 0);

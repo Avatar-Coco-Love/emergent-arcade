@@ -246,7 +246,7 @@
     const streak = Daily.streak(date);
     const sub = el("p", { className: "daily-sub" });
     if (mine && mine.done) {
-      sub.append("Your run: ", el("b", { textContent: mine.first != null ? Scores.format(sp, mine.first) : "–" }), ` ${sp.label.toLowerCase()}`);
+      sub.append("Your run: ", el("b", { textContent: mine.first != null ? Scores.format(sp, mine.first) : "–" }), ` ${Scores.label(sp, "daily").toLowerCase()}`);
       if (mine.marks) sub.append(" · ", el("span", { className: "daily-marks", textContent: mine.marks }));
     } else if (mine) {
       sub.textContent = "Your first run is still going: it counts until it ends.";

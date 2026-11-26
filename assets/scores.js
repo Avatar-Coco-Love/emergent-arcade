@@ -69,7 +69,15 @@ window.ArcadeScores = (function () {
       boards: s.boards === "level" || s.boards === "level_id" ? s.boards : "",
       epoch: Number.isInteger(s.epoch) && s.epoch > 0 ? s.epoch : 1,
       max: Number(s.max) > 0 ? Number(s.max) : Infinity,
+      labels: s.labels && typeof s.labels === "object" ? s.labels : {},
     };
+  }
+
+  // A board's own label (manifest `labels`, e.g. an endless mode's "Boards cleared"), else the game's.
+  // "daily" is the Daily Challenge's (its card and banner).
+  function label(sp, board) {
+    const l = sp && sp.labels[board];
+    return typeof l === "string" && l ? l : sp.label;
   }
 
   // arcade:result -> { board, value } or null (no score for this round).
@@ -349,7 +357,7 @@ window.ArcadeScores = (function () {
   }
 
   return {
-    ADJ, NOUN, hash, defaultHandle, isHandle, spec, fromResult, beats, format, boardName,
+    ADJ, NOUN, hash, defaultHandle, isHandle, spec, label, fromResult, beats, format, boardName,
     load, bests, record, merge, handle, newHandle, typedName, setTypedName, nameOwner, publicName, nameLists,
     listed, setListed, me, leaderboards, top, rank, plays, count, boardsOf, headline, standings,
   };
