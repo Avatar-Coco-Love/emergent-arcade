@@ -1,6 +1,8 @@
 // Headless balance bots for Loom.
 //
-// Usage: node scripts/balance-loom.mjs [runs=100] [bot,bot,...] [CONST=value,...]
+// Usage: node scripts/balance-loom.mjs [runs=100] [bot,bot,...] [CONST=value,...] [--endless]
+//   --endless: play on into the Long Weave until its retries run out (or an
+//   hour), one line per bot: shapes held, minutes, where runs stop.
 //   e.g. node scripts/balance-loom.mjs 100 reader,pinner SNAP=0.7,MAX_PINS=4
 //
 // Builds a debug copy of games/loom.html (state on window, seeded
@@ -95,7 +97,7 @@ window.__seed = s => { __s = s; };
     get state() { return state; }, get elapsed() { return elapsed; }, get knots() { return knots; },
     get level() { return level; }, get snaps() { return snaps; }, get pops() { return pops; },
     get pulls() { return pulls; }, get maxPins() { return maxPins; }, get runSnaps() { return runSnaps; },
-    get grabbed() { return grabbed; }, get attempt() { return attempt; }, get shape() { return shape(); },
+    get grabbed() { return grabbed; }, get attempt() { return attempt; }, get weaveOver() { return weaveOver; }, get weaveRetries() { return weaveRetries; }, get shape() { return shape(); },
     strands, SHAPES, snapFrac, RING_RED, WARN, SNAP, PIN_HOLD, MAX_PINS, DOT_R, GRACE, REST,
     earned: unlocked, draw, get canvas() { return canvas; }, step, grab, setFinger, release, tapKnot, next, newRun, pinsIn, coveredBy,
   };
@@ -107,7 +109,7 @@ window.__seed = s => { __s = s; };
 }
 
 // Runs inside the page.
-function playInPage({ seed, bot }) {
+function playInPage({ seed, bot, endless }) {
   const D = window.__dbg; // one run of every shape, up to 3 tries each
   window.__seed(seed);
   D.newRun();
@@ -227,38 +229,55 @@ function playInPage({ seed, bot }) {
   }
 
   const shapes = [];
-  const NS = D.SHAPES.length;
-  for (let lv = 0; lv < NS; lv++) {
+  const NS = endless ? 200 : D.SHAPES.length;
+  let total = 0;
+  for (let lv = 0; lv < NS && total < 3600; lv++) {
     let won = false, tries = 0, time = 0, snaps = 0, pops = 0, pins = 0, pulls = 0;
-    while (!won && tries < 3) {
+    const weave = lv >= D.SHAPES.length; // the game's own retry budget decides
+    while (!won && (weave || tries < 3)) {
       tries++;
       playShape();
       won = D.state === 'won';
       time += D.elapsed; snaps += D.snaps; pops += D.pops; pulls += D.pulls; pins = D.maxPins;
       if (!won && D.state === 'playing') { tries = 99; break; } // timed out
-      if (!won && tries < 3) D.next();
+      if (!won && weave && D.weaveOver) break;
+      if (!won && (weave || tries < 3)) D.next();
     }
-    shapes.push({ won, first: won && tries === 1, tries, time, snaps, pops, pins, pulls });
+    total += time;
+    shapes.push({ name: D.shape.name, won, first: won && tries === 1, tries, time, snaps, pops, pins, pulls });
     if (!won) break;
     D.next();
   }
-  return { shapes, run: shapes.length === NS && shapes[NS - 1].won, earned: [...D.earned] };
+  const held = shapes.filter(x => x.won).length;
+  return { shapes, held, total, run: shapes.length >= D.SHAPES.length && shapes[D.SHAPES.length - 1].won, earned: [...D.earned] };
 }
 
-async function run(bot, runs, file, browser, workers = 8) {
+async function run(bot, runs, file, browser, workers = 8, endless = false) {
   const results = [];
   let next = 0;
   await Promise.all(Array.from({ length: workers }, async () => {
     const page = await browser.newPage();
     await page.goto(pathToFileURL(file).href);
-    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: 1000 + i, bot }); }
+    while (next < runs) { const i = next++; results[i] = await page.evaluate(playInPage, { seed: 1000 + i, bot, endless }); }
     await page.close();
   }));
   return results;
 }
 
+const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
+// Endless: shapes held per run (3 tries a shape), minutes, where runs stop.
+function reportEndless(name, rs) {
+  const pct = n => `${Math.round(100 * n / rs.length)}%`;
+  const held = rs.map(r => r.held), mins = rs.map(r => r.total / 60);
+  const stops = {};
+  for (const r of rs) { const x = r.shapes[r.shapes.length - 1]; if (!x.won) stops[x.name] = (stops[x.name] || 0) + 1; }
+  const ach = {};
+  for (const r of rs) for (const id of r.earned) ach[id] = (ach[id] || 0) + 1;
+  console.log(`${name.padEnd(11)} held median ${med(held)} (p10 ${[...held].sort((a, b) => a - b)[Math.floor(rs.length / 10)]}, max ${Math.max(...held)})` +
+    ` | ${med(mins).toFixed(1)} min median, ${pct(mins.filter(m => m >= 10).length)} ≥10 min | stops: ${Object.entries(stops).map(([k, v]) => `${k} ${v}`).join(', ')}` +
+    ` | ${Object.entries(ach).filter(([k]) => /weave/.test(k)).map(([k, v]) => `${k} ${pct(v)}`).join(', ')}`);
+}
 function report(name, rs) {
-  const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
   const pct = n => `${Math.round(100 * n / rs.length)}%`;
   const ach = {};
   for (const r of rs) for (const id of r.earned) ach[id] = (ach[id] || 0) + 1;
@@ -273,6 +292,8 @@ function report(name, rs) {
   console.log(`${name.padEnd(11)} run ${pct(rs.filter(r => r.run).length).padStart(4)} | shape 1st/any: ${per} | ${achs}`);
 }
 
+const ENDLESS = process.argv.includes('--endless');
+process.argv = process.argv.filter(a => a !== '--endless');
 const runs = +process.argv[2] || 100;
 const names = (process.argv[3] || Object.keys(BOTS).join(',')).split(',');
 const overrides = {};
@@ -283,6 +304,7 @@ const NSHAPES = await (async () => { const pg = await browser.newPage(); await p
   const n = await pg.evaluate(() => window.__dbg.SHAPES.length); await pg.close(); return n; })();
 for (const n of names) {
   if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
-  report(n, await run(BOTS[n], runs, file, browser));
+  if (ENDLESS) reportEndless(n, await run(BOTS[n], runs, file, browser, 8, true));
+  else report(n, await run(BOTS[n], runs, file, browser));
 }
 await browser.close();

@@ -1,18 +1,18 @@
 # Loom: design notes
 
-**v4** (2026-10-05, accessibility: keys, live region, tension by lightness; v3 canvas label; v2 2026-09-29) · playtest: https://claude.ai/artifact/85uz8o6kFYJaZRyVatPwAf ·
+**v5** (2026-11-26, depth pass: the Long Weave; v4 accessibility; v2 2026-09-29) · playtest: https://claude.ai/artifact/B5fo53hcaYyDKNJms4RGyW ·
 balance: `node scripts/balance-loom.mjs 100`
 Verbs: **pull** (drag) and **pin** (tap), sharing **tension in every strand** of a 6×6 knotted net.
 
 ## How it works
 
-- A run is seven silhouettes (Tablecloth, Banner, Sail, Kite, and from v2
+- A run starts with seven silhouettes (Tablecloth, Banner, Sail, Kite, and from v2
   Pennant, Hammock, Arrow), each mirrored left-right at random per run (knot
   numbers too). Win a shape: every dot covered by a knot at once, hands off,
   for 1 s. Lose: 3 slips (a pin popping or a strand snapping), or one frayed
   strand snapping ("Torn!"). A lost shape can be retried from its start.
-  Snapped strands carry over to later shapes. 6 achievements (in
-  `games/games.json`).
+  Snapped strands carry over to later shapes. Then the Long Weave
+  (below). 8 achievements (in `games/games.json`).
 - v2 twists: **dyed knot** (Pennant, Arrow): a blue dot counts only under
   the blue knot, which is not a corner (Pennant: right edge, row 2; Arrow:
   top edge, column 2). **Frayed strands** (Hammock): dashed strands (whole
@@ -60,63 +60,55 @@ Verbs: **pull** (drag) and **pin** (tap), sharing **tension in every strand** of
 ## Layout (400×480)
 
 Net centred at (200, 245); status line on a backing at the top; HUD
-below: shape n/7, pins, slips, Restart shape.
+below: shape n/7 (Weave: n ∞), pins, slips, Weave retries, Restart shape.
 
-## Balance (v2, `node scripts/balance-loom.mjs 100`)
+## The Long Weave (v5, `// § long weave`: `shapeIndex`, `layShape`)
 
-First-try % / any-try %, median seconds for wins. Shapes 1–4 (v1 table) are
-in history.
+From shape 8 the run goes on. Each lap is the seven shapes shuffled (no
+repeat across a lap boundary), each turned 0–3 quarter turns about the
+net's centre (`turnKnot`) and mirrored. Shape n ≥ 8 is laid
+`ENDLESS_GROW` 0.002 × (n − 7) wider about (CX, CY). Snapped strands
+still carry. A lost Weave shape, or Restart (posts `reason: 'restart'`),
+uses one of the run's `WEAVE_RETRIES` 3; with none left "The weave is
+done." and the button starts a new run. The end card has a New run button
+(key N) from shape 7 on. Achievements: Long Weave (`LONG_WEAVE` 10 held),
+Twenty Shapes (`DEEP_WEAVE` 20). Score: shapes held (level), max 300,
+epoch 2. Shapes 1–7 and their random calls are as in v4 (4 bots × 100
+identical).
 
-| Bot | Run | Pennant | Hammock | Arrow |
-|---|---|---|---|---|
-| reader | 100% | 100/100 4 s | 100/100 9 s | 100/100 11 s |
-| slow-hands | 100% | 100/100 | 100/100 | 99/100 |
-| no-rings | 65% | 100/100 | 95/100 | 23/69 |
-| inset-rule | 100% | 100/100 | 100/100 | 99/100 |
-| mapper | 72% | 100/100 | 95/100 | 32/77 |
-| novice | 71% | 100/100 | 92/100 | 40/78 |
-| habit (v1 trick, blind to dye) | 0% | 0/0 | – | – |
-| habit-dye (v1 trick + dye) | 0% | 100/100 | 0/0 (tears) | – |
+## Balance (v5)
 
-Achievement rates: `docs/history/loom.md`, "Shapes (v2)".
+Campaign (shapes 1–7) is v2's table (`docs/history/loom.md`). Endless,
+`node scripts/balance-loom.mjs 100 <bots> --endless` (shapes held per run,
+median / p10 / max, bot minutes, % of runs ≥ 10 min):
 
+| Bot | Held | Minutes | ≥10 min | Runs stop at | long / deep |
+|---|---|---|---|---|---|
+| reader | 27 / 25 / 32 | 11.2 | 65% | Kite 47, Arrow 44 | 100 / 100% |
+| slow-hands | 24 / 21 / 32 | 9.4 | 45% | Kite 60, Arrow 23 | 100 / 96% |
+| inset-rule | 24 / 22 / 32 | 3.6 | 0% | Arrow 84 | 100 / 96% |
+| no-rings | 9 / 6 / 18 | 1.9 | 0% | Arrow 73 | 49 / 0% |
+| novice | 11 / 6 / 19 | 2.0 | 0% | Arrow 63, Kite 34 | 62 / 0% |
+| mapper | 10 / 6 / 17 | 1.9 | 0% | Arrow 69 | 59 / 0% |
 
-## Accessibility (v4, `node scripts/a11y-audit.mjs loom`: all 6 pass, 3/3)
+Reading the load rings is what the Weave pays for (reader 27 vs no-rings
+9). Sweep: GROW 0 → reader and inset-rule never stop (200 shapes);
+0.004 → reader 18. Bots take 6–14 s a shape; humans took 27–41 s in
+v1–v4 telemetry, so a reader-like human's run is ~15–20 minutes.
 
-- Keys (`// § keys`): arrows pick a knot; each net neighbour gets its own
-  arrow (least-turn matching on current positions), so all 36 are
-  reachable (300 pulled nets). On folded nets 43% of steps aren't undone
-  by the opposite arrow, so opposite arrows walk back a trail; C /
-  Shift+C jump corners. Enter/P = `tapKnot`. Hold Space = `grab`, arrows
-  move a lead point (40 → 160 px/s over 0.8 s, 3 px a press, ≤ 40 px
-  ahead) into `setFinger`; Space up = `release`. S status, Enter next.
-  Tab free; Space/Enter on a focused button press it.
-- Live region `#say` (`#msg` aria-hidden): picked knot (pinned + load
-  word, each strand by arrow: slack/taut/straining/over its limit, "On
-  dot 2, 4 right of its centre" or the nearest dot, saying if another
-  knot covers it), a pull's lead and load once the arrows rest, strands
-  turning straining, over-limit strands, pins working loose, pops and
-  snaps by name, covered dots (0.4 s still), start and result.
-- Tension by lightness (L* normal/deutan/protan), steps on the rule's
-  lines: slack 35 (sags, 1.5 px); taut linen 88 → gold 80/82/78; at `WARN`
-  orange-red 60/64/53 → red 54/58/45, +1 px; over `SNAP` white crossbars.
-  Rings: grey 54, gold 80 from half, from `RING_RED` red 53/57/45 4 px on
-  a dark track; over `PIN_HOLD` an outer white ring. v3 had no step at
-  `WARN` (red end protan 48 vs slack 61); the colour cell passed both, on
-  2 scripted late screens too.
-- Reduced motion (`still()`): no flash, shake, blink, lint, flying pins
-  (`Math.random` calls kept). v3's pass was a state pass (settled net
-  0.00% idle); a frozen loose-pin + over-limit scene moves 0.13–0.19% in
-  v3 either way, 0.39–0.41% → 0.00% in v4. `#msg` on a backing, 6.9:1, 13.6 px.
-- Balance identical to v3 (16 bots × 100, old file twice first). Keys-only
-  bot (live region only, 3 runs): Tablecloth 7–8 s, Banner 10–11 s, 0
-  slips; Sail lost (its corner plan misses the taut-edge dots).
+## Accessibility (v4, `node scripts/a11y-audit.mjs loom`: all 6 pass in v5)
+
+Keys in `// § keys` (arrows pick, C corners, Enter/P pin, hold Space +
+arrows pull, S status, Enter next, N new run from v5), live region `#say`,
+tension by lightness, reduced motion via `still()`. Full design and
+measurements: `docs/history/loom.md`, "Accessibility (v4)".
 
 ## Telemetry
 
 One `arcade:result` per shape, with `level` (1–4), `run`, `attempt`,
 `reason` for a loss (`torn` = the third slip was a snap, `slipped` = a pop,
-`frayed` = a frayed strand snapped, v2). **v2 adds three shapes after Kite
+`frayed` = a frayed strand snapped, v2; `restart` = Restart in the Weave, v5).
+**v5: levels 8+ are the Long Weave.** **v2 adds three shapes after Kite
 (levels 5–7).** Levels 1–4 are the same shapes, now mirrored at random.
 and `stats`:
 
@@ -126,10 +118,18 @@ and `stats`:
 | `pulls` | drags | `pins` | pins placed |
 | `max_pins` | most pins in at once | `holes` | snapped strands carried in |
 | `covered` | dots covered at the end | `first_input` | s until the first touch (-1: none) |
-| `keys` (v4) | key pulls + key pins | | |
+| `keys` (v4) | key pulls + key pins | `shape` (v5) | which of the 7 (0 Tablecloth … 6 Arrow) |
+| `wider` (v5) | % wider (Weave) | `turns` (v5) | quarter turns (Weave) |
 
 
 ## Open ideas / known limits
+
+- v5: watch `level` ≥ 8 rounds, where Weave runs stop (`stats.shape`)
+  and whether humans reach 10 minutes. If Kite/Arrow end every run, give
+  each shape its own growth (bots: they have the least headroom).
+- Weave twists not built: a dyed corner from lap 2, frayed rows away from
+  the load path (a random frayed strand makes shapes unwinnable, see
+  history v5).
 
 - Accessibility: a real screen reader and keyboard player are the test.
   Offsets are in game px (knot spacing 32). Sighted players see that a
@@ -140,13 +140,7 @@ and `stats`:
   goes into finding it. Check `first_input` and time per level.
 - Depth ideas from v2 (tacks, a shape where load rings are needed, a shape
   needing strain near `SNAP`): `docs/history/loom.md`, "Depth ideas".
-- The nearest-knot guess fails Banner outright (pins pop). If players stall
-  there, draw a faint "corner" tick on the silhouette's corners, or move
-  Banner's corners nearer the net's corners.
-- More shapes combining twists (dyed knot next to frayed strands; Hammock
-  with a dyed dot).
-- `habit` never adapts after a loss; a human will after one tear. Check in
-  telemetry how many tries Hammock (level 6) takes and whether players get
-  stuck on Pennant (level 5) before seeing the blue knot.
+- More v2-era ideas (Banner corner ticks, combined twists, `habit` vs a
+  human after a tear): `docs/history/loom.md`, "Depth ideas".
 
 History (older versions, balance tables, playtests): `docs/history/loom.md`

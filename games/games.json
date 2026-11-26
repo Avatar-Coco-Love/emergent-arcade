@@ -974,13 +974,13 @@
       "id": "loom",
       "title": "Loom",
       "file": "loom.html",
-      "version": 4,
+      "version": 5,
       "added": "2026-09-29",
-      "updated": "2026-10-05",
+      "updated": "2026-11-26",
       "blurb": "Stretch a knotted net onto a dotted silhouette and pin it there before the pins pop or the strands snap.",
-      "goal": "Hold seven shapes in a row: cover every dot with a knot at once and keep it there for a second. Three slips (a pin popping loose or a strand snapping) lose the shape (one frayed strand snapping loses it at once), and snapped strands stay snapped for the rest of the run.",
-      "howToPlay": "Drag a knot to pull the net: the knot follows your {finger}, and the further your {finger} leads it, the harder you pull. {Tap} a knot to pin it where it is (up to 4 pins); {tap} a pin to take it out, or drag it to pull it out and move that knot. A knot you let go of without a pin slides back as the net relaxes, so pin it quickly. Strands turn from linen to gold as they stretch, then darker and thicker orange to red near their limit; a strand crossed by two white bars is over it and snaps if it stays there. The ring around a pin fills with the load it holds; it turns thick and red when the pin is close to giving, and an outer white ring means it is working loose and about to pop. While you pull, the same ring around your knot shows the load a pin would hold if you pinned it there. A dot only needs a knot somewhere inside its circle, so the near edge needs less stretch than the middle. A taut edge between two pins lines up the knots along it, which can cover extra dots without extra pins. Later shapes add twists: a blue dot only counts under the blue knot, and dashed frayed strands tear at a third of the usual stretch, so keep them slack. Shapes are mirrored at random each run.",
-      "keyboard": "Arrows pick a knot · C next corner · Enter or P pins/unpins · hold Space: arrows pull it · S status · Enter next shape",
+      "goal": "Hold as many shapes in a row as you can: cover every dot with a knot at once and keep it there for a second. Three slips (a pin popping loose or a strand snapping) lose the shape (one frayed strand snapping loses it at once), and snapped strands stay snapped for the rest of the run. After the seventh shape the Long Weave begins: the shapes come back turned and a little wider each time, and the run ends once its three retries are used.",
+      "howToPlay": "Drag a knot to pull the net: the knot follows your {finger}, and the further your {finger} leads it, the harder you pull. {Tap} a knot to pin it where it is (up to 4 pins); {tap} a pin to take it out, or drag it to pull it out and move that knot. A knot you let go of without a pin slides back as the net relaxes, so pin it quickly. Strands turn from linen to gold as they stretch, then darker and thicker orange to red near their limit; a strand crossed by two white bars is over it and snaps if it stays there. The ring around a pin fills with the load it holds; it turns thick and red when the pin is close to giving, and an outer white ring means it is working loose and about to pop. While you pull, the same ring around your knot shows the load a pin would hold if you pinned it there. A dot only needs a knot somewhere inside its circle, so the near edge needs less stretch than the middle. A taut edge between two pins lines up the knots along it, which can cover extra dots without extra pins. Later shapes add twists: a blue dot only counts under the blue knot, and dashed frayed strands tear at a third of the usual stretch, so keep them slack. Shapes are mirrored at random each run. In the Long Weave they also come back turned, and each is laid a little wider than the last, so strands run nearer their limit and pins hold more: watch the rings. A lost shape or a restart there uses one of the run’s three retries.",
+      "keyboard": "Arrows pick a knot · C corner · Enter/P pins · hold Space: arrows pull · S status · Enter next · N new run",
       "mechanics": [
         {
           "name": "pull",
@@ -1026,9 +1026,24 @@
           "id": "true-colours",
           "title": "True Colours",
           "description": "Hold the Arrow without a single slip."
+        },
+        {
+          "id": "long-weave",
+          "title": "Long Weave",
+          "description": "Hold ten shapes in one run."
+        },
+        {
+          "id": "deep-weave",
+          "title": "Twenty Shapes",
+          "description": "Hold twenty shapes in one run."
         }
       ],
       "changes": [
+        {
+          "version": 5,
+          "date": "2026-11-26",
+          "text": "The run goes on after the seventh shape: the Long Weave brings the shapes back turned and a little wider each time, until three retries run out. Score is now shapes held in a run, with no ceiling. Two new achievements. The first seven shapes are unchanged."
+        },
         {
           "version": 4,
           "date": "2026-10-05",
@@ -1055,8 +1070,8 @@
         "better": "higher",
         "from": "level",
         "wins": true,
-        "max": 7,
-        "epoch": 1
+        "max": 300,
+        "epoch": 2
       }
     },
     {

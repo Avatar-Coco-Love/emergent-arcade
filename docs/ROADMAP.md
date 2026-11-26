@@ -121,7 +121,7 @@ Each revision:
 | pressure-grid | v12 | Levels 1–10 with stars, then the endless Pipeline (spare moves carried) | Stages with rising targets on new grid shapes; score = eruptions over the run | Depth pass done (v12: Pipeline, score = boards cleared, Daily from 2026-11-28), awaiting playtest; levels 11–20 still proposed |
 | orbit-garden | v9 | Voyage: 8 gardens (rocks, moons, wild planets), then mirrored laps that wither faster | Successive gardens, leftover seeds carry over; score = gardens bloomed | Depth pass done (v9), awaiting playtest |
 | hot-iron | v7 | Practice bar + 6 commissions, then endless; fuel carried | A run of commissions, harder profiles, fuel carried over; score = commissions forged | Depth pass done (v7), awaiting playtest |
-| loom | v4 | 7 shapes | Endless shapes after 7, snapped strands still carried; score = shapes held |  |
+| loom | v5 | 7 shapes, then the Long Weave (turned, 0.2% wider a shape, 3 retries a run) | Endless shapes after 7, snapped strands still carried; score = shapes held | Depth pass done (v5), awaiting playtest |
 | murmuration | v10 | Ch. 1 (6 nights) + Ch. 2 The High Pass (5 nights), flock carried over (+ Classic night) | Nights in a row with new gate layouts, the flock carried over; score = gates cleared in a migration | Depth pass done (v8–v9), awaiting 3+ players; save/load PR not built (`docs/games/murmuration-story.md`) |
 | wildfire-line | v4 | 1 fire | Fire seasons with more houses and wind shifts; score = houses saved |  |
 | hourglass-delivery | v6 | Endless orders of 6 glasses, harder per order; sand carried | Endless belt that speeds up by glasses filled, not by time; score = glasses filled | Depth pass done (v6), awaiting playtest |
