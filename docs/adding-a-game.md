@@ -193,7 +193,7 @@ Every new game, and every revision that touches what these cover, passes
 these checks. Build them in from the first version: so far each game
 needed a later revision to add them. The rules and the audit's thresholds
 are in [accessibility.md](accessibility.md); the stories behind them are
-in [findings.md](findings.md), "Accessibility".
+in [findings/accessibility.md](findings/accessibility.md).
 
 Moving focus: the game runs in a sandboxed iframe, and newer Chromium
 blocks and logs `focus()` without user activation (the monkey and smoke

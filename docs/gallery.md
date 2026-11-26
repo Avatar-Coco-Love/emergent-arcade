@@ -78,7 +78,7 @@ ideas).
   [daily.md](daily.md)). The gallery's daily banner, above Continue playing,
   links here; hidden while filtering. Its "Play today's" button is the site
   accent; the game's accent is only its stripe (a pink fill failed the
-  colour-blind audit on Surprise Party's day, docs/findings.md).
+  colour-blind audit on Surprise Party's day, docs/findings/accessibility.md).
 - `#/challenge/<id>/<code>`: a class challenge, made on the teacher page:
   that game (one with `daily`) in daily mode with the code's seed, the
   result card with the code, no board ([daily.md](daily.md), "Class
@@ -392,7 +392,7 @@ Rules the audit enforces, from its first run (2026-10-05):
   chips are filled.
 - Game cards are a `<div>`; only the title is a link (`.card-link`), stretched
   over the card by `::after`. A whole-card `<a>` let high-contrast modes
-  recolour all its text (findings, Accessibility).
+  recolour all its text (docs/findings/accessibility.md).
 - Every Tab stop shows a 3:1 focus ring; Play puts focus in the game frame
   and Shift+Tab leaves it (unless the game keeps Tab: Rail Yard).
 - `prefers-reduced-motion` turns off every animation and transition (the

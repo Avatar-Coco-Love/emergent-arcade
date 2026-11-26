@@ -58,7 +58,8 @@ material moves to a file sessions don't read by default.
   numbers; read just the range you need. Mark new sections `// § name`.
 - Never read `games/games.json` whole: `node scripts/games.mjs` (one line
   per game) or `node scripts/games.mjs <id>` (one entry).
-- Findings: `docs/findings.md` is the checklist; full stories are in
+- Findings: `docs/findings.md` indexes the checklist (themes in
+  `docs/findings/`, read the ones the task touches); full stories are in
   `docs/findings-log.md` (grep the heading).
 - Use a subagent when the reading far exceeds the answer: broad searches
   (`Explore`), balance sweeps, bulk edits over many files. Ask for one line
