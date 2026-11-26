@@ -251,7 +251,7 @@
   fogCanvas.width = GX; fogCanvas.height = GY;
   const fogCtx = fogCanvas.getContext('2d');
   let night, spec, t, oil, total, state, runId, attempt, snap, st, lockUntil = 0, tnow = 0;
-  let beam = -Math.PI / 2, aim = -Math.PI / 2, open = true, charging = -1, flareFx = null;
+  let beam = -Math.PI / 2, aim = -Math.PI / 2, open = true, wentOut = false, charging = -1, flareFx = null;
   let ships = [], reefs = [], banks = [], schedule = [], fx = [], hinted = {}, lastFlare = null;
   // Keyboard and speech bookkeeping (§ speech); never read by the simulation.
   const kb = { used: false, settle: false, held: false, jump: null, jumpT: 9, full: false, open: true, dry: false, oilStep: 99, arrivals: [], arriveT: 0 };
@@ -285,7 +285,9 @@
   function toggleShutter() {
     if (state !== 'playing') return;
     touch();
-    if (!open || oil > 0) open = !open;
+    // v5: a lamp that went out stays shut until there is oil to light it.
+    if (open || oil > 0) { open = !open; wentOut = false; }
+    else { say(`No oil to light it yet: each ship that gets home brings ${DOCK_OIL}.`, 3); return; }
     if (!open && !hinted.shut) { hinted.shut = 1; say(`Shuttered: no oil burns, but the sea goes dark. ${how(`${TAP} the lighthouse`, 'Press S')} to open it again.`, 5); }
   }
   function flare(c) {
@@ -324,8 +326,14 @@
     beam += Math.max(-TURN * dt, Math.min(TURN * dt, da));
     if (open) {
       oil -= LAMP * dt;
-      if (oil <= 0) { oil = 0; st.dryS += dt; if (!hinted.dry) { hinted.dry = 1; say('Out of oil: the lamp is dark until a ship brings more home.', 5, true); } }
-    } else st.shutS += dt;
+      // v5: at 0 the lamp goes out (shuts itself), so the oil the next ship
+      // brings home waits in the tank instead of burning off in 4 s.
+      if (oil <= 0) {
+        oil = 0; open = false; wentOut = true;
+        if (!hinted.dry) { hinted.dry = 1; say(`Out of oil: the lamp went out. Ships that get home in the dark still bring oil, and it stays in the tank. ${how(`${TAP} the lighthouse`, 'Press S')} to light it again.`, 6, true); }
+      }
+    } else if (wentOut) st.dryS += dt;
+    else st.shutS += dt;
     if (!open || oil <= 0) st.darkS += dt;
     // Fog drifts back toward the night's density; the beam burns it away where it points.
     const rg = REGROW * spec.regrow * dt;
@@ -397,6 +405,7 @@
   function dock(s) {
     s.done = 'home'; st.home++; total++;
     oil = Math.min(OIL_MAX, oil + DOCK_OIL);
+    if (wentOut && !open && !hinted.relight) { hinted.relight = 1; say(`A ship brought ${DOCK_OIL} oil. ${how(`${TAP} the lighthouse`, 'Press S')} to light the lamp when you need it.`, 5); }
     fx.push({ kind: 'home', x: s.x, y: s.y, t: 0 });
     unlock('safe-harbour');
     if (oil - DOCK_OIL < 3) unlock('last-drop');
@@ -469,7 +478,7 @@
     startPlay();
   }
   function startPlay() {
-    t = 0; ships = []; fx = []; flareFx = null; open = true; charging = -1;
+    t = 0; ships = []; fx = []; flareFx = null; open = true; wentOut = false; charging = -1;
     beam = aim = -Math.PI / 2;
     for (let cy = 0; cy < GY; cy++) for (let cx = 0; cx < GX; cx++) fog[cy * GX + cx] = baseFog((cx + 0.5) * CELL, (cy + 0.5) * CELL);
     st = { home: 0, wrecks: 0, darkS: 0, shutS: 0, dryS: 0, flares: 0, flareOil: 0, litS: 0, blindS: 0, firstInput: -1, jumps: 0 };
@@ -680,7 +689,7 @@
     ctx.beginPath(); ctx.arc(LH.x, LH.y - 4, 7, 0, 7); ctx.fill();
     if (!open) { ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(LH.x, LH.y - 4, 11, 0, 7); ctx.stroke(); }
     // The lamp's state in words beside the tower (lit needs none: the beam shows it).
-    const lamp = charging >= 0 ? 'flare' : !open ? 'shuttered' : oil <= 0 ? 'no oil' : '';
+    const lamp = charging >= 0 ? 'flare' : !open ? (wentOut ? (oil > 0 ? 'lamp out' : 'no oil') : 'shuttered') : '';
     if (lamp) label(lamp, LH.x + 16, H - fs(12) * 0.45, '#e9eef2', 'left', false);
     if (press && press.mode === 'lamp') {
       const u = Math.min(1, (performance.now() - press.t0) / HOLD_MS);
@@ -849,7 +858,7 @@
   }
   function statusWords() {
     const toCome = schedule.length, d = darkOrder();
-    const lampW = !open ? 'shuttered' : oil <= 0 ? 'dry' : 'open';
+    const lampW = !open ? (wentOut ? 'out (light it when you have oil)' : 'shuttered') : 'open';
     let out = `Night ${night}, ${spec.name}. Home ${st.home} of ${spec.ships}, wrecks ${st.wrecks} of ${WRECK_MAX + 1}` +
       `${state === 'playing' ? `, ${toCome ? toCome + ' still to come' : 'no more to come'}` : ''}. Oil ${Math.floor(oil)}, lamp ${lampW}.`;
     if (state !== 'playing') return out;
@@ -919,9 +928,9 @@
     }
     if (lines.length) speak(lines.slice(0, 3).join(' ') + (lines.length > 3 ? ` ${lines.length - 3} more ships changed.` : ''));
     // The lamp: shut, open, dry; oil steps on the way down.
-    const dry = open && oil <= 0;
-    if (open !== kb.open) { kb.open = open; speak(open ? `Lamp open. Oil ${Math.floor(oil)}.` : `Lamp shuttered. Oil ${Math.floor(oil)}.`); }
-    if (dry !== kb.dry) { kb.dry = dry; if (!speech.some(t => t.startsWith('Out of oil'))) speak(dry ? 'The lamp is dry: out of oil until a ship comes home.' : open ? 'The lamp is lit again.' : ''); }
+    const dry = wentOut && oil <= 0;
+    if (open !== kb.open) { kb.open = open; if (!(wentOut && speech.some(t => t.startsWith('Out of oil')))) speak(open ? `Lamp open. Oil ${Math.floor(oil)}.` : wentOut ? 'The lamp went out: no oil.' : `Lamp shuttered. Oil ${Math.floor(oil)}.`); }
+    if (dry !== kb.dry) { kb.dry = dry; if (!dry && wentOut) speak(`Oil ${Math.floor(oil)} in the tank. The lamp is out until you light it.`); }
     // Flare: full charge while held, and what it reached once fired.
     if (charging < 0) kb.full = false;
     else if (!kb.full && tnow - charging >= FLARE_S) {

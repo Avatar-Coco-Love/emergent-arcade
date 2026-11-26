@@ -1,5 +1,16 @@
 # Lighthouse Keeper: history
 
+## v4 accessibility details (moved 2026-11-26)
+
+- Without hue (L*, normal/deutan/protan alike): mast seeing 91 vs blind
+  6 core in a ring; hulls 90, heavy 74 + hold, wreck 32 + cross; lamp 91
+  vs 27 + "shuttered"/"no oil"/"flare"; preview 83 vs 59–67 + "too much".
+- `fs(12)` labels: "harbour" (was 8.5 px), lamp state, flare cost (was
+  10 px, 2.3:1 while charging). Scripted nights 4–8, 12, shut, dry,
+  charging: contrast, colour, text pass.
+- Balance identical (old ×2, new). Keys bot (`#say` only, 4 runs): won
+  nights 1–4/5 first try (N, S, arrows by bearing, flares).
+
 Older versions, superseded balance tables and rationale. Current design:
 `docs/games/lighthouse-keeper.md`. Add new entries at the top of the
 relevant section; sessions don't read this file by default.
