@@ -63,7 +63,7 @@ its own `score`, and bumps `epoch`.
 | hourglass-delivery | Glasses filled (`stats.filled`) | 8 |
 | hot-iron | Fastest forging (time, wins) | none |
 | island-census | Seasons survived (`stats.seasons`) | 8 |
-| loom | Shapes held (level, wins) | 7 |
+| loom | Shapes held (level, wins) | 300 (v5: endless) |
 | terrace-garden | Gardens bloomed (level, wins) | 4 |
 | bubble-glass | Chapter time (own `score`, per chapter, v3 / epoch 2) | none |
 

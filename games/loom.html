@@ -91,6 +91,8 @@
   #endCard p { margin: 0 0 4px; color: #d8cad6; font-size: 0.9rem; }
   #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
   #playAgain:disabled { opacity: 0.4; }
+  #newRun { margin-top: 8px; width: 100%; }
+  #newRun[hidden] { display: none; }
   .bar {
     flex: none;
     display: flex;
@@ -125,6 +127,7 @@
         <p id="endDetail"></p>
         <p id="endAch"></p>
         <button id="playAgain">Next shape</button>
+        <button id="newRun" hidden>New run</button>
       </div>
     </div>
   </div>
@@ -132,6 +135,7 @@
     <span><b id="hudShape"></b> <span id="hudLevel"></span></span>
     <span>Pins <b id="hudPins"></b></span>
     <span>Slips <b id="hudSlips"></b></span>
+    <span id="hudWeave" hidden>Retries <b id="hudRetries"></b></span>
     <button id="resetBtn">Restart shape</button>
   </div>
 <script>
@@ -163,6 +167,15 @@
   const TAP_SLOP_PX = 10;
   const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win/loss
   const STEP = 1 / 60, SUB = 4;
+  // The Long Weave (v5): after the seventh shape the run goes on. Each lap
+  // is the seven shapes in a new order, each turned a random quarter turn
+  // and mirrored, and every shape after the seventh is laid ENDLESS_GROW
+  // wider about the net's centre than the last (more stretch, heavier pins).
+  // A lost Weave shape uses one of the run's WEAVE_RETRIES; with none left
+  // the run is over.
+  const ENDLESS_GROW = 0.002;
+  const WEAVE_RETRIES = 3;         // lost Long Weave shapes retried, per run; then the run ends
+  const LONG_WEAVE = 10, DEEP_WEAVE = 20; // achievements: shapes held in a run
 
   // The run: seven silhouettes in a row. Snapped strands stay snapped. Each
   // dot is [x, y, knot]: the knot the design has in mind (corners to
@@ -226,7 +239,7 @@
       outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
       level: level + 1, run: runId, attempt,
       stats: { snaps, pops, pulls, pins: pinsPlaced, max_pins: maxPins, holes: startHoles.length,
-        covered: coveredCount(), first_input: firstInput === null ? -1 : r1(firstInput), keys: keyUses } };
+        covered: coveredCount(), shape: shapeNo, wider: Math.round((grow() - 1) * 100), turns: turnsNow, first_input: firstInput === null ? -1 : r1(firstInput), keys: keyUses } };
     if (reason) msg.reason = reason;
     window.parent.postMessage(msg, '*');
   }
@@ -258,6 +271,7 @@
 
   const endCard = document.getElementById('endCard');
   const playAgainBtn = document.getElementById('playAgain');
+  const newRunBtn = document.getElementById('newRun');
 
   // Net: knots in a COLS x ROWS grid, strands between horizontal and
   // vertical neighbours (a knotted net, so it shears freely).
@@ -275,12 +289,42 @@
   let lint = [], flyingPins = [], flash = 0;
 
   // The shape being played, mirrored or not.
-  let cur = null;
+  // § long weave
+  let weaveOver = false;
+  let cur = null, lap = [], shapeNo = 0, turnsNow = 0, weaveRetries = 0;
   const mirrorKnot = i => Math.floor(i / COLS) * COLS + (COLS - 1 - i % COLS);
+  // A quarter turn about the net's centre: knot (row r, col c) goes to
+  // (row c, col COLS-1-r), point (x, y) to (CX - (y - CY), CY + (x - CX)).
+  const turnKnot = i => (i % COLS) * COLS + (COLS - 1 - Math.floor(i / COLS));
+  const endless = () => level >= SHAPES.length;
+  const grow = () => 1 + ENDLESS_GROW * Math.max(0, level - SHAPES.length + 1);
+  // Which of the seven the shape at `level` is: in order, then shuffled laps.
+  function shapeIndex() {
+    if (!endless()) return level;
+    const n = (level - SHAPES.length) % SHAPES.length;
+    if (n === 0) {
+      const prev = lap[SHAPES.length - 1];
+      do {
+        lap = SHAPES.map((_, i) => i);
+        for (let i = lap.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lap[i], lap[j]] = [lap[j], lap[i]]; }
+      } while (lap[0] === prev);
+    }
+    return lap[n];
+  }
   function layShape(flip) {
-    const sh = SHAPES[level], fx = x => flip ? W - x : x, fk = flip ? mirrorKnot : i => i;
-    cur = { name: sh.name, note: sh.note, outline: sh.outline.map(([x, y]) => [fx(x), y]),
-      dots: sh.dots.map(d => [fx(d[0]), d[1], fk(d[2]), d[3]]),
+    shapeNo = shapeIndex();
+    const sh = SHAPES[shapeNo], g = grow();
+    const turns = turnsNow = endless() ? Math.floor(Math.random() * 4) : 0;
+    const pt = (x, y) => {
+      if (flip) x = W - x;
+      for (let t = 0; t < turns; t++) [x, y] = [CX - (y - CY), CY + (x - CX)];
+      return [CX + (x - CX) * g, CY + (y - CY) * g];
+    };
+    const fk = i => { if (flip) i = mirrorKnot(i); for (let t = 0; t < turns; t++) i = turnKnot(i); return i; };
+    const wider = Math.round((g - 1) * 100);
+    cur = { name: sh.name, note: endless() ? `Long Weave: ${wider}% wider. ` + (sh.note || '') : sh.note,
+      outline: sh.outline.map(([x, y]) => pt(x, y)),
+      dots: sh.dots.map(d => [...pt(d[0], d[1]), fk(d[2]), d[3]]),
       frayed: (sh.frayed || []).map(([a, b]) => [fk(a), fk(b)]) };
     cur.dyed = cur.dots.filter(d => d[3] === 'dye').map(d => d[2]);
     // Dot numbers for the live region, in reading order (labels only).
@@ -293,7 +337,7 @@
   function holes() { return strands.map((s, i) => s.alive ? -1 : i).filter(i => i >= 0); }
 
   function newRun() {
-    level = 0;
+    level = 0; lap = []; weaveRetries = WEAVE_RETRIES;
     runId = Math.random().toString(36).slice(2, 10);
     runSnaps = 0;
     for (const s of strands) s.alive = true;
@@ -303,7 +347,11 @@
   // Lay the net flat (holes from earlier shapes stay) and start a shape.
   function startLevel(att) {
     attempt = att;
-    if (att === 1) { startHoles = holes(); layShape(Math.random() < 0.5); }
+    if (att === 1) {
+      layShape(Math.random() < 0.5);
+      startHoles = holes();
+    }
+    newRunBtn.hidden = !endless();
     for (let i = 0; i < strands.length; i++) {
       const s = strands[i];
       s.alive = !startHoles.includes(i);
@@ -322,48 +370,61 @@
     state = 'playing';
     endCard.hidden = true;
     say(`${shape().name}: ${shape().note || 'cover every dot.'}`, shape().note ? 4000 : 2500,
-      `${shape().name}, shape ${level + 1} of ${SHAPES.length}: ${shape().note || 'cover every dot.'} ` +
+      `${shape().name}, shape ${level + 1}${endless() ? ', the Long Weave' : ` of ${SHAPES.length}`}: ${shape().note || 'cover every dot.'} ` +
       `${shape().dots.length} dots. S says where they are from the picked knot.`);
     hud();
   }
 
   function hud() {
     document.getElementById('hudShape').textContent = shape().name;
-    document.getElementById('hudLevel').textContent = `${level + 1}/${SHAPES.length}`;
+    document.getElementById('hudLevel').textContent = endless() ? `${level + 1} ∞` : `${level + 1}/${SHAPES.length}`;
     document.getElementById('hudPins').textContent = `${pinsIn()}/${MAX_PINS}`;
     document.getElementById('hudSlips').textContent = `${snaps + pops}/${MAX_SLIPS}`;
+    document.getElementById('hudWeave').hidden = !endless();
+    document.getElementById('hudRetries').textContent = weaveRetries;
   }
 
   function endLevel(result, why) {
     state = result;
+    weaveOver = false;
     if (grabbed !== null) release();
     report(result, why);
     msgEl.textContent = '';
     const title = document.getElementById('endTitle');
     const last = level === SHAPES.length - 1;
     if (result === 'won') {
-      title.textContent = last ? 'Every shape held!' : `${shape().name} held!`;
+      title.textContent = last ? 'Every shape held!' : endless() ? `${shape().name} held! ${level + 1} shapes.` : `${shape().name} held!`;
       const slips = snaps + pops, h = holes().length;
       document.getElementById('endDetail').textContent =
         `${maxPins} pin${maxPins === 1 ? '' : 's'}, ${slips} slip${slips === 1 ? '' : 's'}.` +
-        (last ? ` ${runSnaps} snap${runSnaps === 1 ? '' : 's'} in the whole run.`
+        (last ? ` ${runSnaps} snap${runSnaps === 1 ? '' : 's'} in the whole run.` +
+          ' The Long Weave goes on: the shapes come back turned, a little wider each time.'
           : h ? ` ${h} snapped strand${h === 1 ? '' : 's'} carr${h === 1 ? 'ies' : 'y'} over.` : '');
-      playAgainBtn.textContent = last ? 'New run' : 'Next shape';
+      playAgainBtn.textContent = last ? 'Keep weaving' : 'Next shape';
     } else {
-      title.textContent = why === 'torn' || why === 'frayed' ? 'Torn!' : 'It got away!';
+      title.textContent = why === 'torn' || why === 'frayed' ? 'Torn!' : why === 'restart' ? 'Started over.' : 'It got away!';
       document.getElementById('endDetail').textContent = why === 'frayed'
         ? 'A frayed strand gave way: they can’t take much stretch. Keep them slack.'
         : `${snaps} snap${snaps === 1 ? '' : 's'} and ${pops} popped pin${pops === 1 ? '' : 's'}. ` +
           `${coveredCount()} of ${shape().dots.length} dots were covered.`;
-      playAgainBtn.textContent = 'Try this shape again';
+      if (endless()) {
+        if (weaveRetries > 0) weaveRetries--;
+        else { weaveOver = true; title.textContent = 'The weave is done.'; }
+        document.getElementById('endDetail').textContent += weaveOver
+          ? ` ${level} shapes held this run.`
+          : ` ${weaveRetries} retr${weaveRetries === 1 ? 'y' : 'ies'} left in the Long Weave.`;
+      }
+      playAgainBtn.textContent = weaveOver ? 'New run' : 'Try this shape again';
     }
     title.className = result;
     const n = roundEarned.size;
     document.getElementById('endAch').textContent = n
       ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned` : '';
     speak(`${title.textContent} ${document.getElementById('endDetail').textContent} ` +
-      (n ? `${n} achievement${n === 1 ? '' : 's'} earned. ` : '') + `Enter: ${playAgainBtn.textContent.toLowerCase()}.`);
+      (n ? `${n} achievement${n === 1 ? '' : 's'} earned. ` : '') + `Enter: ${playAgainBtn.textContent.toLowerCase()}.` +
+      (!weaveOver && (endless() || last) ? ' N: new run.' : ''));
     playAgainBtn.disabled = true;
+    newRunBtn.hidden = weaveOver || !(endless() || last);
     endCard.hidden = false;
     setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
     hud();
@@ -371,12 +432,10 @@
 
   function next() {
     if (state === 'won') {
-      if (level === SHAPES.length - 1) { newRun(); return; }
       level++;
       startLevel(1);
-    } else {
-      startLevel(attempt + 1);
-    }
+    } else if (weaveOver) newRun();
+    else startLevel(attempt + 1);
   }
 
   // #msg shows a line for a while; the live region (#say, hidden) gets the
@@ -545,6 +604,8 @@
     if (shape().name === 'Kite' && snaps + pops === 0) unlock('kite-flyer');
     if (shape().name === 'Hammock' && attempt === 1) unlock('old-rope');
     if (shape().name === 'Arrow' && snaps + pops === 0) unlock('true-colours');
+    if (level + 1 === LONG_WEAVE) unlock('long-weave');
+    if (level + 1 === DEEP_WEAVE) unlock('deep-weave');
     if (level === SHAPES.length - 1) {
       unlock('full-run');
       if (runSnaps === 0) unlock('unbroken');
@@ -792,8 +853,13 @@
   canvas.addEventListener('pointerup', evt => up(evt, false));
   canvas.addEventListener('pointercancel', evt => up(evt, true));
 
-  document.getElementById('resetBtn').addEventListener('click', () => startLevel(attempt + 1));
+  // In the Long Weave a restart costs one of the run's retries, like a loss.
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if (endless() && state === 'playing') endLevel('lost', 'restart');
+    else if (!endless()) startLevel(attempt + 1);
+  });
   playAgainBtn.addEventListener('click', next);
+  newRunBtn.addEventListener('click', () => { if (!playAgainBtn.disabled) newRun(); });
 
   // § keys
   // The same two verbs without a pointer. Arrows pick a knot: each of the
@@ -1068,6 +1134,7 @@
     if (paused) return;
     if (state !== 'playing') {
       if (k === 'enter' && !evt.repeat && !playAgainBtn.disabled) { evt.preventDefault(); next(); }
+      else if (k === 'n' && !evt.repeat && !playAgainBtn.disabled && !newRunBtn.hidden) { evt.preventDefault(); newRun(); }
       return;
     }
     if (k === 'space') { evt.preventDefault(); if (!evt.repeat) startPull(); }

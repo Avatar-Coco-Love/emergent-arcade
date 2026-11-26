@@ -16,9 +16,73 @@ top of the relevant section; sessions don't read this file by default.
   C corners, Enter/P pin, hold Space pull), live region, tension bands by
   lightness with a step at `WARN`, crossbars and outer ring marks,
   reduced motion. No gameplay change.
+- v5 (2026-11-26): depth pass, the Long Weave (endless). Tried first and
+  dropped: a uniform growth of 3%/1% a shape (every shape goes from 100%
+  to 0% for the reader between ×1.00 and ×1.10, so even 1% stops it at
+  ~12 shapes; Kite and Arrow have the least headroom); one strand worn
+  through per shape (a shredded net goes slack and gets *easier*, runs of
+  200); one strand frayed per shape (a frayed strand on a load path makes
+  Tablecloth or Kite unwinnable, random deaths at ~8 shapes).
+
+## Balance (v2, moved from the notes in v5; shapes 1–7 unchanged in v5)
+
+First-try % / any-try %, median seconds for wins. Shapes 1–4 (v1 table) are
+in history.
+
+| Bot | Run | Pennant | Hammock | Arrow |
+|---|---|---|---|---|
+| reader | 100% | 100/100 4 s | 100/100 9 s | 100/100 11 s |
+| slow-hands | 100% | 100/100 | 100/100 | 99/100 |
+| no-rings | 65% | 100/100 | 95/100 | 23/69 |
+| inset-rule | 100% | 100/100 | 100/100 | 99/100 |
+| mapper | 72% | 100/100 | 95/100 | 32/77 |
+| novice | 71% | 100/100 | 92/100 | 40/78 |
+| habit (v1 trick, blind to dye) | 0% | 0/0 | – | – |
+| habit-dye (v1 trick + dye) | 0% | 100/100 | 0/0 (tears) | – |
+
+Achievement rates: `docs/history/loom.md`, "Shapes (v2)".
+
+## Accessibility (v4, moved from the notes in v5;, `node scripts/a11y-audit.mjs loom`: all 6 pass, 3/3)
+
+- Keys (`// § keys`): arrows pick a knot; each net neighbour gets its own
+  arrow (least-turn matching on current positions), so all 36 are
+  reachable (300 pulled nets). On folded nets 43% of steps aren't undone
+  by the opposite arrow, so opposite arrows walk back a trail; C /
+  Shift+C jump corners. Enter/P = `tapKnot`. Hold Space = `grab`, arrows
+  move a lead point (40 → 160 px/s over 0.8 s, 3 px a press, ≤ 40 px
+  ahead) into `setFinger`; Space up = `release`. S status, Enter next.
+  Tab free; Space/Enter on a focused button press it.
+- Live region `#say` (`#msg` aria-hidden): picked knot (pinned + load
+  word, each strand by arrow: slack/taut/straining/over its limit, "On
+  dot 2, 4 right of its centre" or the nearest dot, saying if another
+  knot covers it), a pull's lead and load once the arrows rest, strands
+  turning straining, over-limit strands, pins working loose, pops and
+  snaps by name, covered dots (0.4 s still), start and result.
+- Tension by lightness (L* normal/deutan/protan), steps on the rule's
+  lines: slack 35 (sags, 1.5 px); taut linen 88 → gold 80/82/78; at `WARN`
+  orange-red 60/64/53 → red 54/58/45, +1 px; over `SNAP` white crossbars.
+  Rings: grey 54, gold 80 from half, from `RING_RED` red 53/57/45 4 px on
+  a dark track; over `PIN_HOLD` an outer white ring. v3 had no step at
+  `WARN` (red end protan 48 vs slack 61); the colour cell passed both, on
+  2 scripted late screens too.
+- Reduced motion (`still()`): no flash, shake, blink, lint, flying pins
+  (`Math.random` calls kept). v3's pass was a state pass (settled net
+  0.00% idle); a frozen loose-pin + over-limit scene moves 0.13–0.19% in
+  v3 either way, 0.39–0.41% → 0.00% in v4. `#msg` on a backing, 6.9:1, 13.6 px.
+- Balance identical to v3 (16 bots × 100, old file twice first). Keys-only
+  bot (live region only, 3 runs): Tablecloth 7–8 s, Banner 10–11 s, 0
+  slips; Sail lost (its corner plan misses the taut-edge dots).
 
 ## Depth ideas (open; moved from the notes in v4)
 
+- The nearest-knot guess fails Banner outright (pins pop). If players stall
+  there, draw a faint "corner" tick on the silhouette's corners, or move
+  Banner's corners nearer the net's corners.
+- More shapes combining twists (dyed knot next to frayed strands; Hammock
+  with a dyed dot).
+- `habit` never adapts after a loss; a human will after one tear. Check in
+  telemetry how many tries Hammock (level 6) takes and whether players get
+  stuck on Pennant (level 5) before seeing the blue knot.
 - A plan-aware bot aiming at the inner edge (`inset-rule`) wins every shape,
   v2's included; the twists change which knots go where, not the "inner
   edge" part. Not built yet: **tacks** (knots fixed where they lie, never
