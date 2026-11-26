@@ -1,11 +1,11 @@
 # Hourglass Delivery: design notes
 
-**v5** (2026-10-05, accessibility: keys, live region, reduced motion; v4 canvas label) · playtest: https://claude.ai/artifact/UZTvK3z1uFsWPHVTETrCmx (private, republished each push) ·
+**v6** (2026-11-26, depth pass: a run of orders) · playtest: https://claude.ai/artifact/ShajkshW4PgzyNWaUhG3eA (private, republished each push) ·
 balance: `node scripts/balance-hourglass-delivery.mjs 300`
 Verbs: **pour** (hold) and **knock** (flick), sharing the **sand grid**
-(100×150 cells, 4 px each: empty, loose, packed, wall). Win: 8 hourglasses
-cross the belt, at least 6 filled to their line. Lose: the 3rd empty glass
-(round ends at once). 6 achievements (in `games/games.json`).
+(100×150 cells, 4 px each: empty, loose, packed, wall). An order: 6
+hourglasses cross the belt; lose on the 3rd under the line. Orders run on
+(below). 8 achievements (in `games/games.json`).
 
 ## How it works
 
@@ -44,14 +44,13 @@ cross the belt, at least 6 filled to their line. Lose: the 3rd empty glass
 | KNOCK_V / KNOCK_FRICT | 2.5 / 0.08 per step | PUSH_KEEP / AVAL_P / AIR_DRAG | 0.9 / 0.3 / 0.75 |
 | LEDGE_ROWS | [50, 108] ±2 | LEDGE_MIN–MAX / GAP_MIN–MAX | 12–24 / 10–20 cells |
 | PEGS / DUNES × DUNE_N | 6 / 3 × 80 grains | MOUTH_ROW / BELT_ROW | 125 / 140 (y 500 / 560) |
-| MOUTH_HW / BELT_V | 16 px / 40 px/s | GLASSES / FIRST / SPACING | 8 / 6 s / 8 s |
-| LINE / CAP / LOSE_AT | 120 / 150 / 3 | FLICK_PX / FLICK_MS | 25 / 180 ms |
+| MOUTH_HW / BELT_V | 16 px / per order | GLASSES / FIRST / SPACING | 6 / 8 or 4 s / per order |
+| LINE / CAP / LOSE_AT | per order / 150 / 3 | FLICK_PX / FLICK_MS | 25 / 180 ms |
 | SLIDE_N / STOCK_N | 60 / 400 | CLEAN_MAX / BRIM_TOL | 15% / 10 |
 
-A round lasts about 73 s (last glass enters at 62 s and takes 11 s to
-cross). A glass passes under a fixed spout in about a second (~50 grains),
-so pouring alone means sliding the spout along with it through the gaps.
-A knocked pile drops 20–60 grains into it at once.
+An order lasts 6 glasses: about 70 s in order 1 (8 + 5·11 s, then 15 s
+to cross), about 45 s once spacing hits 6 s. A glass passes under a fixed
+spout in 1–1.5 s, so pouring alone means sliding the spout along with it.
 
 ## Layout (400×600)
 
@@ -61,31 +60,54 @@ between them. Three ledges start with packed dunes of 80 grains. The glass
 mouths are at y 500, the belt at y 560. Hopper gauge top-left, order dots
 top-right (gold filled, red missed).
 
-## Balance (`node scripts/balance-hourglass-delivery.mjs 300`, exact since v5)
+## Orders (v6, `// § orders`)
 
-| Bot | Win | 8/8 | Median filled | Median poured / spilled |
+A run of orders, 6 glasses each; 3 glasses under the line fail the order.
+Order k: line `LINE_0` 45 + `LINE_UP` 10·(k−1) up to 130; glasses
+`SPACING_0` 11 − 0.6·(k−1) s apart, down to 6; belt `BELT_0` 24 +
+3·(k−1) px/s, up to 55; first glass at 8 s (order 1) or 4 s. A delivered
+order keeps the grid (packed sand carries) and adds `REFILL` 600 grains
+(cap 2000). A failed order is retried on a fresh layout with its start
+hopper and its glasses taken off the run total. Restart order = retry,
+no result posted. Score: glasses filled in the run (`score`, epoch 2).
+Foreman (5 orders), Night Shift (10). Full Order = all 6 in one order.
+v5 was one order of 8 at line 120, 8 s apart, belt 40.
+
+## Balance (v6)
+
+Bots: v5's `pour`, `both`, plus `sloppy` (both at 3 decisions/s, pour aim
+N(0, 10 px), takes a ready knock half the time) and `sloppy-pour`.
+Single orders (`ORDER=k node scripts/balance-hourglass-delivery.mjs 100`):
+
+| Bot | Order 1 | Order 3 | Order 8 |
+|---|---|---|---|
+| both | 77% | 76% | 64% |
+| sloppy | 79% | 72% | 34% |
+| pour | 72% | 46%* | 17% |
+| sloppy-pour | 53% | 20%* | 0% |
+
+(* order 3 measured with v6's first line 60; order 1 with 45.) Pour-only is
+bimodal on clear columns; an order-1 clear chute didn't help it (not in).
+
+Whole runs (`RUN=1 node scripts/balance-hourglass-delivery.mjs 40`; 3
+losses on one order = gives up):
+
+| Bot | Orders median | Glasses | Play | Done 5 |
 |---|---|---|---|---|
-| idle (no input) | 0% | 0% | 0 | 0 / 0 |
-| pour (pour down a clear column onto where the next glass will be) | 23% | 19% | 0 | 389 / 0 |
-| knock (knock the starting dunes off a ledge end onto a passing glass) | 0% | 0% | 0 | 0 / 38 |
-| both (knock piles onto glasses, pour direct, restock the shelves in between) | 72% | 42% | 7 | 1560 / 396 |
-Pour-only is bimodal: wins (usually 8/8) when the level has a clear column
-from top to belt, fills nothing otherwise (it never pours onto ledges).
-Humans who learn where ledge overflow lands should do better.
-The harness resets the sand scan's row parity (`tick`) each run (v5), so a
-seed plays the same on any worker page; before, knock bots drifted ±2 pts
-between identical runs. Achievement rates (both bot): First Delivery 97%,
-Steady Hand 54%, Full Order 42%, Stockpiler 22%, Landslide 13%, Not a Grain Wasted 3% (pour bot
-22%: it only pours straight into glasses).
+| both | 7 | 110 | 10.9 min | 93% (6.3 min) |
+| sloppy | 6 | 84 | 9.3 min | 83% (6.6 min) |
+| pour | 5 | 94 | 8.2 min | 68% |
+| sloppy-pour | 3 | 39 | 7.0 min | 10% |
 
 ## Telemetry (v3)
 
-Each `arcade:result` also carries (see `docs/telemetry.md`):
+Each `arcade:result` also carries (see `docs/telemetry.md`) `level` (order),
+`run`, `attempt`, `score` (glasses this run), and:
 
 - `reason` on a loss (always the 3rd empty glass; it says why they were
   empty): `idle` (never poured or knocked), `hopper` (the hopper ran dry),
   `empty` (otherwise).
-- `stats`: `filled`, `missed`, `caught` (grains that landed in any glass),
+- `stats`: `line`, `start_hopper`, `filled`, `missed`, `caught` (grains that landed in any glass),
   `knocked_in` (of those, grains moved by a knock), `best` (most grains in
   one glass that left), `poured`, `spilled`, `hopper` (grains left),
   `pour_s` (seconds pouring), `knocks` (flicks that moved sand), `whiffs`
@@ -112,12 +134,7 @@ unchanged" (0.7% → 0.6%): the glasses are the motion (below).
   a glass and its count, the belt), pour start and grains poured, knock
   result, glass rolling in / filled / delivered / empty, hopper every 500,
   the result. `#msg` on a dark backing (it sits where sand falls).
-- Order dots keep each glass's outcome (they went back to grey 2 s after
-  a glass left); missed is a red ×, not only a red dot.
-- Reduced motion (`still()`): belt stripes, dust puffs and the knock
-  ring's swell and fade drawn still. Mid-round idle diff 1.1% → 1.0–1.1%;
-  sand hidden ~1.0%; sand and glasses hidden v4 0.05–0.07%, v5 0.00%
-  (3 seeds): what moves is the simulation.
+- Reduced motion (`still()`): belt stripes, puffs, knock ring drawn still (details in history).
 - No canvas text; DOM text ≥ 13.6 px, 7.9:1+. `stats.keys`: key pours/knocks.
 
 ## Open ideas / known limits
@@ -125,9 +142,8 @@ unchanged" (0.7% → 0.6%): the glasses are the motion (below).
 - Accessibility: a real screen reader and keyboard player are the test.
 - Stockpiler counts all packed grains, including the starting dunes (240).
 - Not a Grain Wasted counts spilled starting-dune sand against your poured total.
-- The top half of the screen is mostly open (one ledge row); a third row
-  made pouring too blind. Possible v2: a few funnels or angled deflectors.
-- Possible v2: a flip animation for delivered hourglasses, a pour-rate boost
-  for holding longer, or a fixed hand-made layout.
+- v6 to watch: order 1 win rate (v2–v5: 0 of 5 rounds, lost at ~33 s with
+  sand in glasses but under 120), orders per run, `attempt`.
+- Older v2 ideas (deflectors, flip animation, hand-made layout): history.
 
 History (older versions, balance tables, playtests): `docs/history/hourglass-delivery.md`

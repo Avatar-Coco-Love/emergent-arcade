@@ -89,7 +89,9 @@
   #endCard h2.lost { color: #ff9a8a; }
   #endCard p { margin: 0 0 4px; color: #e6d7c8; font-size: 0.9rem; }
   #playAgain { margin-top: 12px; width: 100%; font-weight: 600; }
-  #playAgain:disabled { opacity: 0.4; }
+  #playAgain:disabled, #newRun:disabled { opacity: 0.4; }
+  #newRun { margin-top: 8px; width: 100%; }
+  #newRun[hidden] { display: none; }
   .bar {
     flex: none;
     display: flex;
@@ -136,16 +138,18 @@
         <h2 id="endTitle"></h2>
         <p id="endDetail"></p>
         <p id="endAch"></p>
-        <button id="playAgain">Play again</button>
+        <button id="playAgain">Next order</button>
+        <button id="newRun" hidden>New run from order 1</button>
       </div>
     </div>
   </div>
   <div class="bar">
+    <span>Order <b id="hudOrder"></b></span>
     <span>Filled <b id="hudFilled"></b></span>
     <span>Missed <b id="hudMissed"></b></span>
     <span>Sand <span class="meter"><span id="sandFill"></span></span></span>
     <span>Knock <span class="meter"><span id="knockFill"></span></span></span>
-    <button id="resetBtn">New order</button>
+    <button id="resetBtn">Restart order</button>
   </div>
 
 <script>
@@ -181,10 +185,22 @@
   const MOUTH_ROW = 125;           // glass mouths are at y 500: sand crossing here is caught
   const BELT_ROW = 140;            // sand reaching the belt (y 560) is spilled
   const MOUTH_HW = 16;             // half-width of a glass mouth (px)
-  const BELT_V = 40;               // px per second
-  const GLASSES = 8, FIRST = 6, SPACING = 8; // glasses per order, first arrival, seconds apart
-  const LINE = 120, CAP = 150;     // grains to fill a glass / grains it holds
-  const LOSE_AT = 3;               // lose on this many empty glasses
+  const CAP = 150;                 // grains a glass holds
+  const LOSE_AT = 3;               // an order fails on this many glasses under the line
+  // § orders (v6): a run of orders, harder by orders delivered, not by time.
+  // Order k: GLASSES glasses, line LINE_0 + LINE_UP·(k−1) up to LINE_MAX,
+  // SPACING_0 − SPACING_DOWN·(k−1) s apart down to SPACING_MIN, belt
+  // BELT_0 + BELT_UP·(k−1) up to BELT_MAX. The sand on the ledges carries to
+  // the next order and the hopper gets REFILL grains. A failed order is
+  // retried on a fresh layout with the hopper it started with.
+  const GLASSES = 6;
+  const LINE_0 = 45, LINE_UP = 10, LINE_MAX = 130;
+  const SPACING_0 = 11, SPACING_DOWN = 0.6, SPACING_MIN = 6;
+  const BELT_0 = 24, BELT_UP = 3, BELT_MAX = 55;
+  const FIRST_1 = 8, FIRST_N = 4;  // seconds to the first glass: order 1, later orders
+  const REFILL = 600;              // grains added to the hopper for each new order
+  const FOREMAN_AT = 5, NIGHT_AT = 10; // achievements: orders delivered in one run
+  let LINE, SPACING, BELT_V, FIRST; // this order's
 
   // Achievements
   const SLIDE_N = 60;              // Landslide: grains into one glass from one knock
@@ -224,7 +240,8 @@
     const r1 = v => Math.round(v * 10) / 10;
     const msg = { type: 'arcade:result', game: GAME_ID,
       outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
-      stats: { filled, missed, caught, knocked_in: knockedIn, best, poured, spilled,
+      level: order, run: runId, attempt, score: runFilled,
+      stats: { line: LINE, start_hopper: startHopper, filled, missed, caught, knocked_in: knockedIn, best, poured, spilled,
         hopper, pour_s: r1(pourTime), knocks, whiffs, clear_cols: clearCols,
         first_input: firstInput === null ? -1 : r1(firstInput), keys: keyUses } };
     // A loss is always the LOSE_AT-th empty glass; the reason says why they were empty.
@@ -259,6 +276,7 @@
 
   const endCard = document.getElementById('endCard');
   const playAgainBtn = document.getElementById('playAgain');
+  const newRunBtn = document.getElementById('newRun');
 
   const N = GW * GH;
   const grid = new Uint8Array(N);     // EMPTY, LOOSE, PACKED or WALL
@@ -272,6 +290,7 @@
   let ledges, glasses, nextGlass, hopper, poured, spilled, pourAcc, pouring, spoutX;
   let knockCool, knockSerial, knocks, filled, missed, elapsed, state, msgTimer, packedCount;
   let lastKnock, lowSandSaid;
+  let order = 1, runFilled = 0, orderBase = 0, runId = '', attempt = 0, startHopper = HOPPER; // the run
   let caught, knockedIn, best, pourTime, whiffs, clearCols, firstInput, keyUses; // telemetry only
   const roundEarned = new Set();
   const puffs = [];
@@ -320,21 +339,52 @@
     }
   }
 
-  function newRound() {
-    buildLevel();
+  function countClear() {
+    let n = 0;
+    for (let cx = 0; cx < GW; cx++) {
+      let clear = true;
+      for (let cy = 0; cy < BELT_ROW && clear; cy++) if (grid[idx(cx, cy)] === WALL) clear = false;
+      if (clear) n++;
+    }
+    return n;
+  }
+
+  function setOrder(k) {
+    LINE = Math.min(LINE_MAX, LINE_0 + LINE_UP * (k - 1));
+    SPACING = Math.max(SPACING_MIN, SPACING_0 - SPACING_DOWN * (k - 1));
+    BELT_V = Math.min(BELT_MAX, BELT_0 + BELT_UP * (k - 1));
+    FIRST = k === 1 ? FIRST_1 : FIRST_N;
+  }
+
+  // A new run starts at order 1 with a full hopper.
+  function newRun() {
+    order = 1; runFilled = 0; orderBase = 0; attempt = 0; startHopper = HOPPER;
+    runId = Math.random().toString(36).slice(2, 10);
+    newRound();
+  }
+
+  // Next order: the sand stays where it is, the hopper is topped up.
+  function nextOrder() {
+    order++; attempt = 0; orderBase = runFilled;
+    startHopper = Math.min(HOPPER, hopper + REFILL);
+    newRound(true);
+  }
+
+  // Starts the current order: on a fresh layout, or (keep) on the sand left
+  // by the last one.
+  function newRound(keep) {
+    setOrder(order);
+    attempt++;
+    runFilled = orderBase; // a retried order starts its glasses over
+    if (!keep) buildLevel();
     glasses = []; nextGlass = 0;
-    hopper = HOPPER; poured = 0; spilled = 0; pourAcc = 0; pouring = false; spoutX = W / 2;
+    hopper = startHopper; poured = 0; spilled = 0; pourAcc = 0; pouring = false; spoutX = W / 2;
     knockCool = 0; knockSerial = 0; knocks = 0; filled = 0; missed = 0; elapsed = 0;
     packedCount = 0; lastKnock = null; lowSandSaid = false;
     caught = 0; knockedIn = 0; best = 0; pourTime = 0; whiffs = 0; firstInput = null; keyUses = 0;
     // Columns with no ledge or peg from the top to the belt: pouring alone can
     // only fill glasses down these (the pour bot wins only when there is one).
-    clearCols = 0;
-    for (let cx = 0; cx < GW; cx++) {
-      let clear = true;
-      for (let cy = 0; cy < BELT_ROW && clear; cy++) if (grid[idx(cx, cy)] === WALL) clear = false;
-      if (clear) clearCols++;
-    }
+    clearCols = countClear();
     puffs.length = 0;
     outcome.length = 0;
     roundEarned.clear();
@@ -342,21 +392,33 @@
     endCard.hidden = true;
     endGesture();
     heard = { glasses: new Map(), hopper: HOPPER };
-    say(`Fill ${GLASSES - LOSE_AT + 1} of ${GLASSES} hourglasses.`);
+    document.getElementById('hudOrder').textContent = order;
+    say(`Order ${order}: fill ${GLASSES - LOSE_AT + 1} of ${GLASSES} hourglasses to the line (${LINE} grains).`);
   }
 
   function endGame(result) {
     state = result;
+    const won = result === 'won';
+    if (won) {
+      if (order >= FOREMAN_AT) unlock('foreman');
+      if (order >= NIGHT_AT) unlock('night-shift');
+    }
     report(result);
     endGesture();
     msgEl.textContent = '';
     const title = document.getElementById('endTitle');
     title.className = result;
-    title.textContent = result === 'won' ? (filled === GLASSES ? 'Full order!' : 'Order delivered!') : 'Order failed';
+    title.textContent = won ? (filled === GLASSES ? `Full order ${order}!` : `Order ${order} delivered!`) : `Order ${order} failed`;
     const waste = poured ? Math.round(100 * spilled / poured) : 0;
-    document.getElementById('endDetail').textContent = result === 'won'
-      ? `${filled} of ${GLASSES} hourglasses filled. ${waste}% of your sand hit the floor.`
-      : `${missed} hourglasses left empty. ${filled} filled.`;
+    const nextLine = Math.min(LINE_MAX, LINE_0 + LINE_UP * order);
+    document.getElementById('endDetail').textContent = won
+      ? `${filled} of ${GLASSES} filled, ${waste}% of your sand hit the floor. ${runFilled} glasses this run. ` +
+        `Next order: your sand stays put, the hopper gets ${REFILL} more grains, glasses need ${nextLine} and come faster.`
+      : `${missed} glasses under the line, ${filled} filled. ${runFilled} glasses this run. Try order ${order} again on a new layout.`;
+    playAgainBtn.textContent = won ? 'Next order' : 'Try again';
+    playAgainBtn.dataset.next = won ? '1' : '';
+    newRunBtn.hidden = won;
+    newRunBtn.disabled = true;
     const n = roundEarned.size;
     document.getElementById('endAch').textContent = n
       ? `🏆 ${n} achievement${n === 1 ? '' : 's'} earned this round`
@@ -364,7 +426,7 @@
     speak(`${title.textContent} ${document.getElementById('endDetail').textContent} ${document.getElementById('endAch').textContent}`);
     playAgainBtn.disabled = true;
     endCard.hidden = false;
-    setTimeout(() => { playAgainBtn.disabled = false; }, END_INPUT_LOCK_MS);
+    setTimeout(() => { playAgainBtn.disabled = false; newRunBtn.disabled = false; }, END_INPUT_LOCK_MS);
   }
 
   function say(text) {
@@ -555,11 +617,12 @@
         outcome[g.id] = g.n >= LINE;
         if (g.n >= LINE) {
           filled++;
+          runFilled++;
           unlock('first-delivery');
           if (!g.over && g.n <= LINE + BRIM_TOL) unlock('brim');
         } else {
           missed++;
-          say(missed < LOSE_AT ? `An empty glass! ${LOSE_AT - missed} more and the order fails.` : '');
+          say(missed < LOSE_AT ? `Under the line: ${g.n} of ${LINE} grains. ${LOSE_AT - missed} more and the order fails.` : '');
         }
       }
     }
@@ -763,8 +826,10 @@
   canvas.addEventListener('pointerup', evt => { if (evt.pointerId === activeId) endGesture(); });
   canvas.addEventListener('pointercancel', evt => { if (evt.pointerId === activeId) endGesture(); });
 
-  document.getElementById('resetBtn').addEventListener('click', newRound);
-  playAgainBtn.addEventListener('click', newRound);
+  // Restart order: the order from its start on a fresh layout (no result posted).
+  document.getElementById('resetBtn').addEventListener('click', () => { attempt--; newRound(); });
+  playAgainBtn.addEventListener('click', () => { if (playAgainBtn.dataset.next) nextOrder(); else newRound(); });
+  newRunBtn.addEventListener('click', newRun);
 
   // § live region: screen readers hear what changed, at most once a frame
   // (glasses arriving, filled and leaving, the hopper every 500 grains, a
@@ -973,7 +1038,7 @@
     requestAnimationFrame(frame);
   }
 
-  newRound();
+  newRun();
   requestAnimationFrame(frame);
 })();
 // § a11y label

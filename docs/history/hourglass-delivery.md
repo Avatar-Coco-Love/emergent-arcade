@@ -1,5 +1,39 @@
 # Hourglass Delivery: history
 
+## Older open ideas and v5 notes (moved 2026-11-26)
+
+- The top half of the screen is mostly open (one ledge row); a third row
+  made pouring too blind. Possible v2: a few funnels or angled deflectors.
+- Possible v2: a flip animation for delivered hourglasses, a pour-rate boost
+  for holding longer, or a fixed hand-made layout.
+- Order dots keep each glass's outcome (they went back to grey 2 s after
+  a glass left); missed is a red ×, not only a red dot.
+
+## v5 reduced-motion details (moved 2026-11-26)
+
+- Reduced motion (`still()`): belt stripes, dust puffs and the knock
+  ring's swell and fade drawn still. Mid-round idle diff 1.1% → 1.0–1.1%;
+  sand hidden ~1.0%; sand and glasses hidden v4 0.05–0.07%, v5 0.00%
+  (3 seeds): what moves is the simulation.
+
+## Single-order balance, v5 (moved 2026-11-26; `node scripts/balance-hourglass-delivery.mjs 300`, exact since v5)
+
+| Bot | Win | 8/8 | Median filled | Median poured / spilled |
+|---|---|---|---|---|
+| idle (no input) | 0% | 0% | 0 | 0 / 0 |
+| pour (pour down a clear column onto where the next glass will be) | 23% | 19% | 0 | 389 / 0 |
+| knock (knock the starting dunes off a ledge end onto a passing glass) | 0% | 0% | 0 | 0 / 38 |
+| both (knock piles onto glasses, pour direct, restock the shelves in between) | 72% | 42% | 7 | 1560 / 396 |
+Pour-only is bimodal: wins (usually 8/8) when the level has a clear column
+from top to belt, fills nothing otherwise (it never pours onto ledges).
+Humans who learn where ledge overflow lands should do better.
+The harness resets the sand scan's row parity (`tick`) each run (v5), so a
+seed plays the same on any worker page; before, knock bots drifted ±2 pts
+between identical runs. Achievement rates (both bot): First Delivery 97%,
+Steady Hand 54%, Full Order 42%, Stockpiler 22%, Landslide 13%, Not a Grain Wasted 3% (pour bot
+22%: it only pours straight into glasses).
+
+
 Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/hourglass-delivery.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
