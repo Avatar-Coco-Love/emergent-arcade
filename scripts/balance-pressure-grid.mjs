@@ -3,6 +3,7 @@
 // Usage: node scripts/balance-pressure-grid.mjs [--level N] [--full] [--count]
 //          [--line] [--zone R] [--runs N] [--budget S]
 //        node scripts/balance-pressure-grid.mjs --map "row,row,..." [--par N] [--full]
+//        node scripts/balance-pressure-grid.mjs --pipeline [--runs N]   (whole Pipeline runs, one line per bot)
 //
 // Runs the game's own rules: the block between "// § sim" and "// § end sim"
 // in games/pressure-grid.html (no browser needed). A fast copy of play() is
@@ -63,7 +64,8 @@ const block = html.match(/\/\/ § sim[\s\S]*?\/\/ § end sim/);
 if (!block) throw new Error('no "// § sim" … "// § end sim" block in games/pressure-grid.html');
 const S = new Function(block[0] + `
   return { LEVELS, parseLevel, startState, solved, play, pourOk, stars, OPEN, SEALED, WALL,
-    C: { THRESHOLD, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS, LEAKY_DRIP } };`)();
+    POOL, pipeTier, pipeBoard, pipeBank, flipRows,
+    C: { THRESHOLD, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS, LEAKY_DRIP, PIPE_START, PIPE_REFUND, PIPE_CAP } };`)();
 const { THRESHOLD: T, PUMP_ADD, BLAST, SAFE_MAX, SIPHON_LOSS, LEAKY_DRIP } = S.C;
 export const sim = S;
 export const levelDefs = S.LEVELS;
@@ -275,6 +277,19 @@ function novice(L, F, Z, mode, seed) {
   return null;
 }
 
+// Fewest moves with pumps only (null = impossible or over the deadline).
+export function pumpOnlyPar(L, deadline = Infinity) {
+  const F = makeFast(L), r = astar(L, F, bound(L), zones(L), F.start(), false, deadline);
+  return r.line ? r.line.length : null;
+}
+
+// Move counts of `runs` novice runs (null = not solved within 40), for the pool generator.
+export function noviceRuns(L, mode = 'greedy', runs = 50) {
+  const F = makeFast(L), Z = zones(L), out = [];
+  for (let r = 0; r < runs; r++) out.push(novice(L, F, Z, mode, 1000 + r));
+  return out;
+}
+
 function ledger(L, F, line) {
   let q = F.start(), pumped = 0, lostBurst = 0, lostPour = 0, leaks = 0, bursts = 0;
   for (const [i, j] of line) {
@@ -332,7 +347,50 @@ function report(def, label) {
   return par !== null && (def.par == null || par === def.par);
 }
 
-if (MAIN) {
+// § pipeline: whole runs (docs/games/pressure-grid.md, "Pipeline"). Per-board
+// move counts come from scripts/pressure-grid-pool.json (the generator's
+// habit and greedy-novice numbers); the board order is the game's pipeBoard().
+// One line per bot: boards cleared (median, p25-p75), est. minutes, % past 10 min.
+function pipelineReport() {
+  const data = JSON.parse(fs.readFileSync(path.join(path.dirname(SRC), '../scripts/pressure-grid-pool.json'), 'utf8'));
+  const stats = new Map(); data.forEach((tier, t) => tier.forEach(b => stats.set(`${b.par}:${b.map}`, b)));
+  const { PIPE_START, PIPE_CAP } = S.C;
+  console.log(`pool ${S.POOL.map(p => p.length).join('/')} boards · start ${PIPE_START} spare, cap ${PIPE_CAP}, refund at par ${S.C.PIPE_REFUND}`);
+  // spent(board stats, rnd) -> moves a bot uses on a board (Infinity = can't solve)
+  const bots = {
+    solver: b => b.par,
+    habit: b => b.habit,
+    'habit+slip': (b, r) => b.habit + (r() < 0.3 ? 1 + (r() < 0.3 ? 1 : 0) : 0),
+    'habit+2': (b, r) => b.habit + (r() < 0.5 ? 1 : 2),
+    novice: b => b.novice > 40 ? Infinity : b.novice,
+  };
+  const SEC_MOVE = 2.5, SEC_BOARD = 12;   // guessed human pace: v9 players took ~1.3 s per move on levels 2-4, plus reading
+  const RUNS_N = +opt('--runs', 200), MAXB = 200;
+  for (const [name, f] of Object.entries(bots)) {
+    const cleared = [], mins = [];
+    for (let run = 0; run < RUNS_N; run++) {
+      let s = 1 + run * 7777;
+      const r = () => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return (s >>> 8) / 16777216; };
+      const seed = (run * 2654435761) >>> 0;
+      let bank = PIPE_START, k = 0, sec = 0;
+      for (; k < MAXB; k++) {
+        const d = S.pipeBoard(seed, k), b = stats.get(d.src);
+        if (!b) throw new Error(`pool board ${d.src} missing from pressure-grid-pool.json: re-run the generator`);
+        const spent = f(b, r);
+        if (spent > d.par + bank) { sec += (d.par + bank) * SEC_MOVE + SEC_BOARD; break; }
+        sec += spent * SEC_MOVE + SEC_BOARD;
+        bank = S.pipeBank(bank, d.par, spent);
+      }
+      cleared.push(k); mins.push(sec / 60);
+    }
+    cleared.sort((a, b) => a - b); mins.sort((a, b) => a - b);
+    const q = (a, p) => a[Math.floor(p * (a.length - 1))];
+    console.log(`${name.padEnd(11)} boards med ${q(cleared, 0.5)} (p25 ${q(cleared, 0.25)}, p75 ${q(cleared, 0.75)}) · est. min med ${q(mins, 0.5).toFixed(1)} · past 10 min ${Math.round(100 * mins.filter(m => m >= 10).length / mins.length)}%${q(cleared, 0.5) >= MAXB ? ' (capped)' : ''}`);
+  }
+}
+
+if (MAIN && args.includes('--pipeline')) pipelineReport();
+else if (MAIN) {
   if (4 * BLAST >= T) console.log(`WARNING: 4 × BLAST (${4 * BLAST}) >= THRESHOLD (${T}): interior bursts don't lose pressure`);
   let ok = true;
   if (MAP) {

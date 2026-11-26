@@ -40,6 +40,11 @@ Part of the findings checklist; index, evidence tags and how to add one in
   bleeding ~8 birds a night, which a whole-run bot shows (25/60 chapters
   cleared). Add a run mode to the harness before tuning single levels.
   *Per-level win rates hide a carried resource bleeding.* Murmuration v8. bots.
+- In an endless run of generated puzzles with a carried move bank, filter
+  boards by the habit bot: most random boards are solved at par by the
+  one-at-a-time habit (~75% in Pressure Grid), so a refund at par lets the
+  habit run forever. Keep a tier of habit breakers. *Random boards rarely
+  beat the habit.* Pressure Grid v12. bots.
 - Recalibrate which bot stands for a human once humans have played: the
   brief assumed `lure60`, but 2 players won all six v8 nights first try,
   night 6 in 33 s (lure60 58% / 53 s, lure80 93% / 26 s), and called it

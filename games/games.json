@@ -4,10 +4,16 @@
       "id": "pressure-grid",
       "title": "Pressure Grid",
       "file": "pressure-grid.html",
-      "version": 11,
+      "version": 12,
       "added": "2026-09-26",
-      "updated": "2026-10-05",
+      "updated": "2026-11-26",
+      "daily": { "from": "2026-11-28" },
       "changes": [
+        {
+          "version": 12,
+          "date": "2026-11-26",
+          "text": "The Pipeline: after level 5, endless new boards from the pieces you know. Moves over par come out of your spare moves (solve at par to earn one back), and the run ends when a board is out of moves. Score: boards cleared. Pressure Grid also joins the Daily Challenge."
+        },
         {
           "version": 11,
           "date": "2026-10-05",
@@ -77,12 +83,12 @@
           "description": "Drag from a cell to a neighbor to pour all its pressure in, losing 1. The only way into a sealed cell."
         }
       ],
-      "keyboard": "Arrows move · Enter/Space pump · S then an arrow aims a pour, Enter pours · Z undo · R restart · N next level",
+      "keyboard": "Arrows move · Enter/Space pump · S then an arrow aims a pour, Enter pours · Z undo · R restart · N next level or board",
       "sharedState": "Pressure per cell: written by pump and siphon, read by siphon (it pours what is there) and by bursts, which empty a cell at 10 and send +2 to each open neighbor, setting off chains.",
       "topics": ["planning"],
       "accent": "#ff7a3d",
-      "goal": "Burst every ringed cell on each of 10 levels in as few moves as you can. Match par for 3 stars; stars open the next level.",
-      "howToPlay": "Each {tap} adds 4 pressure to a cell. At 10 a cell bursts: it empties and sends +2 to each open neighbor, so a neighbor at 8 bursts too. Drag from a cell to a neighbor to pour everything into it (1 is lost); sealed cells can only be filled this way. Walls stop bursts and pours, and a cell left above 8 leaks 1 per move. Later levels add valves (arrows: pours through them only go the arrow's way), vents (they start at 8; one that bursts empties its neighbors) and leaky cells (they lose 2 after every move). Nothing moves between your moves, so take your time. Undo and Restart are free; fewer moves earn more stars.",
+      "goal": "Burst every ringed cell on each of 10 levels in as few moves as you can (match par for 3 stars), then clear as many boards as you can in the endless Pipeline before your spare moves run out.",
+      "howToPlay": "Each {tap} adds 4 pressure to a cell. At 10 a cell bursts: it empties and sends +2 to each open neighbor, so a neighbor at 8 bursts too. Drag from a cell to a neighbor to pour everything into it (1 is lost); sealed cells can only be filled this way. Walls stop bursts and pours, and a cell left above 8 leaks 1 per move. Later levels add valves (arrows: pours through them only go the arrow's way), vents (they start at 8; one that bursts empties its neighbors) and leaky cells (they lose 2 after every move). Nothing moves between your moves, so take your time. Undo and Restart are free; fewer moves earn more stars. The Pipeline (open after level 5) deals endless boards: each move over par uses one of your spare moves, a board solved at par gives one back, and undone moves stay spent.",
       "achievements": [
         {
           "id": "first-eruption",
@@ -118,6 +124,16 @@
           "id": "all-stars",
           "title": "All Stars",
           "description": "Get 3 stars on every level in one visit."
+        },
+        {
+          "id": "pipefitter",
+          "title": "Pipefitter",
+          "description": "Clear 10 boards in one Pipeline run."
+        },
+        {
+          "id": "mainline",
+          "title": "Mainline",
+          "description": "Clear 25 boards in one Pipeline run."
         }
       ],
       "score": {
@@ -125,8 +141,10 @@
         "better": "higher",
         "format": "count",
         "from": "score",
-        "max": 30,
-        "epoch": 2
+        "max": 1000,
+        "epoch": 2,
+        "boardList": ["main", "pipeline"],
+        "labels": { "pipeline": "Boards cleared", "daily": "Boards cleared" }
       }
     },
     {

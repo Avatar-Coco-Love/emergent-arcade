@@ -37,11 +37,9 @@ them as is.
   (burst A, but keep B below 8).
 - **Levels 16-20, "Systems":** moving walls on a step cycle, and **wells**
   that add double pump. Last level is a multi-stage board.
-- **Endless "Daily" mode (depth pass):** seeded generated boards from the
-  same pieces, run until you fail a board; score = boards cleared with no
-  ceiling. Needed for the 10+ minute target, and the generator's validity
-  comes from the solver below. Share the seed so the leaderboard compares
-  like with like.
+- ~~Endless "Daily" mode (depth pass)~~: built in v12 as the Pipeline
+  (a pool of solver-checked boards, spare moves carried, Daily run);
+  see the notes, "Pipeline".
 
 ## Decisions (maintainer, 2026-10-01)
 

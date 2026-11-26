@@ -278,7 +278,7 @@ window.ArcadeDaily = (function () {
   function shareText(game, date, d, code) {
     const sp = scores().spec(game);
     const lines = [code ? `Emergent Arcade class challenge ${codeLabel(code)} · ${game.title}` : `Emergent Arcade Daily #${number(date)} · ${game.title}`];
-    lines.push(d.first != null ? `${sp.label}: ${scores().format(sp, d.first)}` : "No score this time");
+    lines.push(d.first != null ? `${scores().label(sp, "daily")}: ${scores().format(sp, d.first)}` : "No score this time");
     if (d.marks) lines.push(d.marks);
     const n = code ? 0 : streak(date);
     if (n > 1) lines.push(`🔥 ${n} days in a row`);
@@ -343,8 +343,9 @@ window.ArcadeDaily = (function () {
     g.fillText(game.title, tx, ay + 70);
     const sp = scores().spec(game);
     g.fillStyle = "#9a9aae";
-    fit(sp.label, 600, 38);
-    g.fillText(sp.label, tx, ay + 150);
+    const label = scores().label(sp, "daily");
+    fit(label, 600, 38);
+    g.fillText(label, tx, ay + 150);
     g.fillStyle = "#ffffff";
     const value = d.first != null ? scores().format(sp, d.first) : "–";
     fit(value, 800, 150);

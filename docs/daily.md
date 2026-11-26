@@ -72,6 +72,7 @@ more as the daily and fails if a result lacks the date.
 | coat-check | Endless shifts from the day's seed | coats returned | a lost shift |
 | counterfeit-scale | Endless cases from the day's seed | cases cracked | 3 strikes |
 | surprise-party | a Party Season from the day's seed | parties | out of envelopes |
+| pressure-grid | a Pipeline run from the day's seed (from 2026-11-28) | boards cleared | a board out of moves |
 
 ## Class challenge
 
@@ -142,8 +143,8 @@ teacher picked, for one class. Made on the teacher page
   first-run level median for newcomers; if it's 1, start daily runs with a
   gentler first level, or show the rules first.
 - More games in the rotation: each depth-pass revision with a seeded
-  generator can join (Rail Yard's Daily yard, Pressure Grid's Daily mode
-  in their notes). Set `from` a few days out.
+  generator can join (Rail Yard's Daily yard in its notes; Pressure Grid
+  joined in v12). Set `from` a few days out.
 - A "yesterday" line in the banner (yesterday's game and winner) and a
   daily row in the Records view.
 - Class challenges: a "class results" page where students type their
