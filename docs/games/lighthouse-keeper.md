@@ -1,6 +1,6 @@
 # Lighthouse Keeper: design notes
 
-**v4** (2026-10-05, accessibility; v2 2026-10-03 gameplay) · playtest: https://claude.ai/artifact/KcKMZ1aX9ZqmRBDhqpCQmT ·
+**v5** (2026-11-26, fix: a dry lamp goes out; v2 2026-10-03 gameplay) · playtest: https://claude.ai/artifact/NdDknpPH7nRvtp5FF29eP2 ·
 balance: `node scripts/balance-lighthouse-keeper.mjs 50`
 Verbs: **turn** (drag), **shutter** (tap the lighthouse), **flare** (hold the
 lighthouse), sharing **fog per cell** and **the lamp's oil**. A run of
@@ -26,7 +26,12 @@ nights: 8 scripted, then endless; oil carries over. Score = ships home.
 - **Turn:** drag anywhere on the sea: the lamp turns toward the pointer at
   `TURN` rad/s (a tick shows where it is heading).
 - **Shutter:** tap the lighthouse: lamp shut (no oil, no light) or open.
-  The open lamp burns `LAMP`/s; at 0 oil it is dark until a ship docks.
+  The open lamp burns `LAMP`/s. At 0 oil it goes out (shuts itself,
+  `wentOut`; v5) and can't be lit until a ship brings oil home, which then
+  waits in the tank until a tap lights it (before: a dry lamp stayed open
+  and each refill burned off in ~4 s). `dry_s` = time out.
+  Bots (v5 vs v4, same seeds): skilled identical (57); noshutter 44 vs 44
+  (100 runs; 50 runs read 36 vs 44: drift noise); novice 22 vs 23.
 - **Flare:** hold the lighthouse ≥ `HOLD_MS`, release to fire: charge c
   over `FLARE_S` sets radius `FLARE_R0`→`FLARE_R1` and cost
   `FLARE_MIN`→`FLARE_MAX` oil (the preview ring shows both). Centre 0.9 ×
@@ -65,16 +70,9 @@ nights: 8 scripted, then endless; oil carries over. Score = ships home.
   hold a safe course), wrecks, home, lamp shut/open/dry, oil < 40/20/10/5,
   flares (oil, ships reached), the beam once it arrives (ships lit,
   nearest in the dark, which way), the result.
-- Without hue (L*, normal/deutan/protan alike): mast seeing 91 vs blind
-  6 core in a ring; hulls 90, heavy 74 + hold, wreck 32 + cross; lamp 91
-  vs 27 + "shuttered"/"no oil"/"flare"; preview 83 vs 59–67 + "too much".
-- `fs(12)` labels: "harbour" (was 8.5 px), lamp state, flare cost (was
-  10 px, 2.3:1 while charging). Scripted nights 4–8, 12, shut, dry,
-  charging: contrast, colour, text pass.
+- Without hue, labels, keys bot: details in history (v4 audit).
 - Reduced motion (`still()`, clock `deco`): night 7 decoration 0.5% →
   0.00%; ships + fog hidden 0.02% (HUD oil): the rest is the simulation.
-- Balance identical (old ×2, new). Keys bot (`#say` only, 4 runs): won
-  nights 1–4/5 first try (N, S, arrows by bearing, flares).
 
 ## Key constants (`games/lighthouse-keeper.html`, top of the script)
 
@@ -135,7 +133,8 @@ lamp was dry 5+ s), and `stats`:
 
 2026-10-05 (`fetch-telemetry --game lighthouse-keeper`): 3 players, all
 touch. Night 1 won 3/3; night 2 lost 2/2 by oil (dark 9 s, shut 1 s);
-no classroom reports.
+no classroom reports. v2 note (2026-10-04): "lost oil on Night 2, then it
+kept going from 5 back to zero immediately" → v5.
 
 ## Open ideas / known limits
 
