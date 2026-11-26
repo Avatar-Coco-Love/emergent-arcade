@@ -26,6 +26,13 @@ const BOTS = {
   pour: { pour: true },              // pour down clear columns onto where each glass will be (or onto it anyway)
   knock: { knock: true },            // knock the starting dunes off ledge ends onto passing glasses
   both: { pour: true, knock: true, stock: true }, // knock piles onto glasses, pour direct, restock ledges in between
+  // Human-ish (v6): the human data so far (all rounds lost at ~33 s, sand in
+  // glasses but under the line) fits slower decisions and loose aim.
+  //   sloppy: both, deciding 3x a second (not 10), pour aim off by
+  //     N(0, aimNoise) px, and a ready knock taken with chance knockP per decision.
+  //   sloppy-pour: sloppy without stocking or knocking.
+  sloppy: { pour: true, knock: true, stock: true, every: 20, aimNoise: 10, knockP: 0.5 },
+  'sloppy-pour': { pour: true, every: 20, aimNoise: 10 },
 };
 
 function buildDebug(overrides) {
@@ -41,7 +48,7 @@ Math.random = function() { __s |= 0; __s = __s + 0x6D2B79F5 | 0; let t = Math.im
   t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 window.__seed = s => { __s = s; };
 </script>`;
-  const tail = '  newRound();\n  requestAnimationFrame(frame);\n})();';
+  const tail = '  newRun();\n  requestAnimationFrame(frame);\n})();';
   if (!html.includes(tail)) throw new Error('game file layout changed: update buildDebug()');
   html = html.replace('<script>\n(function() {', seed + '\n<script>\n(function() {');
   html = html.replace(tail, `
@@ -51,13 +58,17 @@ window.__seed = s => { __s = s; };
     get filled() { return filled; }, get missed() { return missed; }, get poured() { return poured; },
     get spilled() { return spilled; }, get knocks() { return knocks; }, get packedCount() { return packedCount; },
     setPour(on, x) { pouring = on; if (x !== undefined) spoutX = x; },
-    grid, GW, CELL, W, BELT_V, MOUTH_ROW, MOUTH_HW, LINE, CAP, POUR_RATE, GRAV, VMAX,
+    grid, GW, CELL, W, MOUTH_ROW, MOUTH_HW, CAP, POUR_RATE, GRAV, VMAX, GLASSES,
+    get BELT_V() { return BELT_V; }, get LINE() { return LINE; }, get order() { return order; },
+    get runFilled() { return runFilled; }, get hopperNow() { return hopper; }, unlockedAll: unlocked,
+    setOrder(k, h) { order = k; startHopper = h === undefined ? HOPPER : h; },
+    newRun, nextOrder,
     earned: roundEarned, step, knock, newRound,
     // The sand scan's row parity carries over between rounds; reset it so a
     // seed plays the same whichever worker page runs it.
     resetTick() { tick = 0; stamp.fill(0); },
   };
-  newRound();
+  newRun();
 })();`);
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'hourglass-')), 'debug.html');
   fs.writeFileSync(out, html);
@@ -69,7 +80,9 @@ function playInPage({ seed, bot }) {
   const D = window.__dbg;
   window.__seed(seed);
   D.resetTick();
-  D.newRound();
+  if (bot.runStep === 'next') D.nextOrder();
+  else if (bot.runStep === 'retry') D.newRound();
+  else { D.setOrder(bot.order || 1); D.newRound(); }
   const dt = 1 / 60, C = D.CELL, GW = D.GW, G = D.grid, MR = D.MOUTH_ROW;
   const LOOSE = 1, PACKED = 2, WALL = 3;
   // Seconds for a grain to fall from row r to the glass mouths down a clear column.
@@ -100,12 +113,16 @@ function playInPage({ seed, bot }) {
     return { n, cx: n ? sx / n : 0 };
   }
   let tick = 0;
+  let rs = seed * 7919 + 17;
+  const rnd = () => { rs = rs + 0x6D2B79F5 | 0; let t = Math.imul(rs ^ rs >>> 15, 1 | rs);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const gauss = () => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
   const INFLIGHT = D.POUR_RATE * FALL0 * 0.8;
   while (D.state === 'playing') {
-    if (tick++ % 6 === 0) { // 10 decisions per second
+    if (tick++ % (bot.every || 6) === 0) { // 10 decisions per second (sloppy: 3)
       let pourAt = null;
       // Knock a pile off a ledge end with a clear drop onto where a glass will be.
-      if (bot.knock && D.knockCool <= 0) {
+      if (bot.knock && D.knockCool <= 0 && (!bot.knockP || rnd() < bot.knockP)) {
         let best = null;
         for (const l of D.ledges) {
           const p = pile(l);
@@ -153,11 +170,13 @@ function playInPage({ seed, bot }) {
         }
         if (best) pourAt = best.x;
       }
+      if (pourAt !== null && bot.aimNoise) pourAt += gauss() * bot.aimNoise;
       D.setPour(pourAt !== null, pourAt === null ? undefined : pourAt);
     }
     D.step(dt);
   }
-  return { won: D.state === 'won', filled: D.filled, missed: D.missed, t: D.elapsed, poured: D.poured,
+  D.setPour(false);
+  return { won: D.state === 'won', order: D.order, filled: D.filled, missed: D.missed, t: D.elapsed, poured: D.poured,
     spilled: D.spilled, knocks: D.knocks, earned: [...D.earned] };
 }
 
@@ -180,9 +199,47 @@ function report(name, rs) {
   for (const r of rs) for (const id of r.earned) ach[id] = (ach[id] || 0) + 1;
   const achs = Object.entries(ach).map(([k, v]) => `${k} ${pct(v)}`).join(', ');
   const wins = rs.filter(r => r.won);
-  console.log(`${name.padEnd(6)} win ${pct(wins.length).padStart(4)} | 8/8 ${pct(rs.filter(r => r.filled === 8).length).padStart(4)}` +
+  console.log(`${name.padEnd(6)} win ${pct(wins.length).padStart(4)} | all ${pct(rs.filter(r => r.filled === 6).length).padStart(4)}` +
     ` | filled ${med(rs.map(r => r.filled))} | poured ${med(rs.map(r => r.poured))} spilled ${med(rs.map(r => r.spilled))}` +
     ` | knocks ${med(rs.map(r => r.knocks))} | ${achs}`);
+}
+
+// RUN=1: whole runs. Each order is one playInPage call on the same page;
+// after a win the next order starts on the same sand, after a loss the bot
+// retries on a fresh layout (up to RETRIES losses per order, then it gives
+// up), at most MAXORDER orders. ORDER=k: single rounds at order k instead.
+const RETRIES = +(process.env.RETRIES || 3), MAXORDER = +(process.env.MAXORDER || 15);
+async function runRuns(bot, runs, file, browser, workers = 8) {
+  const results = [];
+  let next = 0;
+  await Promise.all(Array.from({ length: workers }, async () => {
+    const page = await browser.newPage();
+    await page.goto(pathToFileURL(file).href);
+    while (next < runs) {
+      const i = next++;
+      let total = 0, losses = 0, k = 0, step = 'first', lossAt = {}, done = 0, t5 = null;
+      for (;;) {
+        const r = await page.evaluate(playInPage, { seed: 1000 + i * 100 + k++, bot: { ...bot, runStep: step, order: 1 } });
+        total += r.t;
+        if (r.won) { losses = 0; done = r.order; if (r.order === 5) t5 = total; step = 'next'; if (r.order >= MAXORDER) break; }
+        else { lossAt[r.order] = (lossAt[r.order] || 0) + 1; if (++losses >= RETRIES) break; step = 'retry'; }
+      }
+      const filled = await page.evaluate(() => window.__dbg.runFilled);
+      results[i] = { done, filled, total, t5, lossAt };
+    }
+    await page.close();
+  }));
+  return results;
+}
+function reportRuns(name, rs) {
+  const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
+  const pct = n => `${Math.round(100 * n / rs.length)}%`;
+  const losses = {};
+  for (const r of rs) for (const [j, n] of Object.entries(r.lossAt)) losses[j] = (losses[j] || 0) + n;
+  const r5 = rs.filter(r => r.t5 !== null);
+  console.log(`${name.padEnd(11)} orders median ${med(rs.map(r => r.done))} | glasses ${med(rs.map(r => r.filled))}` +
+    ` | play ${Math.round(med(rs.map(r => r.total)) / 6) / 10} min | done 5: ${pct(r5.length)} in ${Math.round(med(r5.map(r => r.t5)) / 6) / 10} min` +
+    ` | losses by order ${Object.entries(losses).map(([j, n]) => `${j}:${n}`).join(' ')}`);
 }
 
 const runs = +process.argv[2] || 200;
@@ -193,6 +250,8 @@ const file = buildDebug(overrides);
 const browser = await chromium.launch();
 for (const n of names) {
   if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
-  report(n, await run(BOTS[n], runs, file, browser));
+  if (process.env.RUN) { reportRuns(n, await runRuns(BOTS[n], runs, file, browser)); continue; }
+  const b = process.env.ORDER ? { ...BOTS[n], order: +process.env.ORDER } : BOTS[n];
+  report(n, await run(b, runs, file, browser));
 }
 await browser.close();

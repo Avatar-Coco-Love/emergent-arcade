@@ -643,10 +643,15 @@
       "id": "hourglass-delivery",
       "title": "Hourglass Delivery",
       "file": "hourglass-delivery.html",
-      "version": 5,
+      "version": 6,
       "added": "2026-09-27",
-      "updated": "2026-10-05",
+      "updated": "2026-11-26",
       "changes": [
+        {
+          "version": 6,
+          "date": "2026-11-26",
+          "text": "A run of orders: 6 glasses each, starting with a low line and a slow belt, then fuller glasses that come faster. Your ledge sand carries over and the hopper refills a little. Score: glasses filled in one run. Two new achievements."
+        },
         {
           "version": 5,
           "date": "2026-10-05",
@@ -674,8 +679,8 @@
         }
       ],
       "blurb": "Pour sand onto brass ledges, let it pile up, then knock it loose to fill the hourglasses rolling past.",
-      "goal": "Fill at least 6 of the 8 hourglasses on the belt. A third empty glass ends the round.",
-      "howToPlay": "{Hold} anywhere to pour sand from the top at your {finger}; {slide} while holding to move the spout. Sand falls, slides off slopes and piles up on the ledges, and sand that sits still for a moment packs down (it turns darker) and holds its shape. Flick (a quick {swipe}) to knock the sand where your {swipe} starts loose and shove it the way you {swiped}: a whole pile can slide off the end of its ledge at once. Hourglasses roll along the belt at the bottom, and any sand that falls into one counts toward its line. Pouring straight down is slow and the glasses keep moving, so load up a ledge ahead of time and knock the pile off just as a glass rolls underneath. The hopper holds 2000 grains, shown top left.",
+      "goal": "Deliver order after order. Each order is 6 hourglasses: fill at least 4 to their line, and a third glass that leaves under the line fails the order (try it again). Each new order needs fuller glasses that come faster, and the sand on your ledges stays for the next one.",
+      "howToPlay": "{Hold} anywhere to pour sand from the top at your {finger}; {slide} while holding to move the spout. Sand falls, slides off slopes and piles up on the ledges, and sand that sits still for a moment packs down (it turns darker) and holds its shape. Flick (a quick {swipe}) to knock the sand where your {swipe} starts loose and shove it the way you {swiped}: a whole pile can slide off the end of its ledge at once. Hourglasses roll along the belt at the bottom, and any sand that falls into one counts toward its line. Pouring straight down is slow and the glasses keep moving, so load up a ledge ahead of time and knock the pile off just as a glass rolls underneath. The hopper holds 2000 grains, shown top left, and gets 600 more with each new order. The sand you leave packed on the ledges carries over to the next order.",
       "keyboard": "Arrows move the cursor · hold Space pours · K then an arrow knocks · G next glass, L next ledge · Enter plays again",
       "mechanics": [
         {
@@ -716,20 +721,32 @@
         {
           "id": "full-order",
           "title": "Full Order",
-          "description": "Fill all 8 hourglasses."
+          "description": "Fill all 6 hourglasses in an order."
         },
         {
           "id": "brim",
           "title": "Steady Hand",
           "description": "Deliver a glass filled to its line with at most 10 grains to spare."
+        },
+        {
+          "id": "foreman",
+          "title": "Foreman",
+          "description": "Deliver 5 orders in one run."
+        },
+        {
+          "id": "night-shift",
+          "title": "Night Shift",
+          "description": "Deliver 10 orders in one run."
         }
       ],
       "score": {
         "label": "Glasses filled",
         "better": "higher",
-        "from": "stats.filled",
-        "max": 8,
-        "epoch": 1
+        "format": "count",
+        "from": "score",
+        "wins": false,
+        "max": 2000,
+        "epoch": 2
       }
     },
     {
