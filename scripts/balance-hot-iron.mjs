@@ -102,7 +102,7 @@ Math.random = function() { __s |= 0; __s = __s + 0x6D2B79F5 | 0; let t = Math.im
   t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 window.__seed = s => { __s = s; };
 </script>`;
-  const tail = '  newBar(profile);\n  requestAnimationFrame(frame);\n})();';
+  const tail = '  newRun();\n  requestAnimationFrame(frame);\n})();';
   if (!html.includes(tail)) throw new Error('game file layout changed: update buildDebug()');
   html = html.replace('<script>\n(function() {', seed + '\n<script>\n(function() {');
   html = html.replace(tail, `
@@ -112,9 +112,14 @@ window.__seed = s => { __s = s; };
     get strikes() { return strikes; }, get clangs() { return clangs; }, get stuck() { return stuck; },
     get heatTime() { return heatTime; },
     N, T_WORK, T_BURN, TOL, TH_MIN, FUEL_MAX, STRIKE_BASE, STRIKE_GAIN, FLOW_T0, FLOW_SPAN, FLOW_NEED,
-    PROFILES, softness, earned: roundEarned, step, strike, setHeat, newBar,
+    PROFILES, softness, earned: roundEarned, step, strike, setHeat, newBar, newRun, jobFor, COMMISSIONS,
+    get job() { return job; }, get forged() { return forged; }, get profile() { return profile; },
+    get startFuel() { return startFuel; }, get warned() { return warned; }, unlockedAll: unlocked,
+    // Single-bar mode: commission c (2..7 = each shape at standard size) with fuel f.
+    setJob(c, f) { job = c; forged = 0; startFuel = f === undefined ? FUEL_MAX : f; newBar(); },
+    playAgain() { newBar(); },
   };
-  newBar(0);
+  newRun();
 })();`);
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'hot-iron-')), 'debug.html');
   fs.writeFileSync(out, html);
@@ -125,7 +130,7 @@ window.__seed = s => { __s = s; };
 function playInPage({ seed, bot }) {
   const D = window.__dbg;
   window.__seed(seed);
-  D.newBar(seed % D.PROFILES.length);
+  if (!bot.runBar) D.setJob(2 + seed % 6); // single bar: each shape at standard size
   let s = seed * 7919;
   const rand = () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s);
     t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -287,7 +292,7 @@ function playInPage({ seed, bot }) {
   if (heating !== null) setHeat(null);
   return {
     won: D.state === 'won', lost: D.state === 'lost', time: D.elapsed, fuelLeft: D.fuel / D.FUEL_MAX,
-    cracks: D.cracks, strikes: D.strikes, profile: seed % D.PROFILES.length,
+    cracks: D.cracks, strikes: D.strikes, profile: D.profile,
     off: S.filter((x, i) => Math.abs(x.th - D.target[i]) > D.TOL).length, earned: [...D.earned],
     burned: N - S.reduce((a, x) => a + x.th, 0), clangs: D.clangs, stuck: D.stuck, heat: D.heatTime, taps,
   };
@@ -305,6 +310,51 @@ async function run(bot, runs, file, browser, workers = 8) {
   return results;
 }
 
+// RUN=1: whole runs. Each bar is one playInPage call on the same page; after
+// a win the next commission starts, after a loss the bot retries the same one
+// (up to RETRIES losses per commission, then it gives up), at most MAXJOB
+// commissions or MAXTIME s of play. Novice habits apply to the first bar only.
+const RETRIES = +(process.env.RETRIES || 3), MAXJOB = +(process.env.MAXJOB || 16), MAXTIME = 3600;
+async function runRuns(bot, runs, file, browser, workers = 8) {
+  const results = [];
+  let next = 0;
+  await Promise.all(Array.from({ length: workers }, async () => {
+    const page = await browser.newPage();
+    await page.goto(pathToFileURL(file).href);
+    while (next < runs) {
+      const i = next++;
+      await page.evaluate(() => window.__dbg.newRun());
+      let total = 0, losses = 0, bar = 0, t7 = null, t10 = null, startFuels = [], lossAt = {};
+      for (;;) {
+        const job = await page.evaluate(() => window.__dbg.job);
+        if (job > MAXJOB || total > MAXTIME) break;
+        startFuels.push(await page.evaluate(() => window.__dbg.startFuel));
+        const r = await page.evaluate(playInPage, { seed: 1000 + i * 100 + bar++, bot: { ...bot, runBar: true, novice: bot.novice && bar === 1 } });
+        total += r.time;
+        if (r.won) { losses = 0; if (job === 7) t7 = total; if (job === 10) t10 = total; }
+        else { lossAt[job] = (lossAt[job] || 0) + 1; if (++losses >= RETRIES || !r.lost) break; }
+        await page.evaluate(() => window.__dbg.playAgain());
+      }
+      const forged = await page.evaluate(() => window.__dbg.forged);
+      results[i] = { forged, total, t7, t10, lossAt, earned: [...await page.evaluate(() => [...window.__dbg.unlockedAll])] };
+    }
+    await page.close();
+  }));
+  return results;
+}
+
+function reportRuns(name, rs) {
+  const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
+  const pct = n => `${Math.round(100 * n / rs.length)}%`;
+  const reach7 = rs.filter(r => r.t7 !== null), reach10 = rs.filter(r => r.t10 !== null);
+  const losses = {};
+  for (const r of rs) for (const [j, n] of Object.entries(r.lossAt)) losses[j] = (losses[j] || 0) + n;
+  console.log(`${name.padEnd(11)} forged median ${med(rs.map(r => r.forged))} (p25 ${[...rs.map(r => r.forged)].sort((a, b) => a - b)[rs.length >> 2]})` +
+    ` | play ${Math.round(med(rs.map(r => r.total)) / 60 * 10) / 10} min` +
+    ` | done 7: ${pct(reach7.length)} in ${Math.round(med(reach7.map(r => r.t7)) / 6) / 10} min, 10: ${pct(reach10.length)}` +
+    ` | losses by job ${Object.entries(losses).map(([j, n]) => `${j}:${n}`).join(' ')}`);
+}
+
 function report(name, rs) {
   const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
   const pct = n => `${Math.round(100 * n / rs.length)}%`;
@@ -313,7 +363,7 @@ function report(name, rs) {
   const achs = Object.entries(ach).map(([k, v]) => `${k} ${pct(v)}`).join(', ');
   const wins = rs.filter(r => r.won), losses = rs.filter(r => r.lost);
   const why = `cracked ${pct(rs.filter(r => r.cracks >= 3).length)}, no fuel ${pct(rs.filter(r => r.lost && r.cracks < 3).length)}, timeout ${pct(rs.filter(r => !r.won && !r.lost).length)}`;
-  const perProfile = [0, 1, 2, 3].map(p => { const g = rs.filter(r => r.profile === p); return g.length ? Math.round(100 * g.filter(r => r.won).length / g.length) : '-'; }).join('/');
+  const perProfile = [0, 1, 2, 3, 4, 5].map(p => { const g = rs.filter(r => r.profile === p); return g.length ? Math.round(100 * g.filter(r => r.won).length / g.length) : '-'; }).join('/');
   console.log(`${name.padEnd(11)} win ${pct(wins.length).padStart(4)} (by shape ${perProfile}) | ${why}` +
     ` | wins: ${Math.round(med(wins.map(r => r.time)))}s, ${med(wins.map(r => r.strikes))} strikes, fuel left ${Math.round(100 * med(wins.map(r => r.fuelLeft)))}%` +
     ` | cracks ${med(rs.map(r => r.cracks))}, off ${med(rs.map(r => r.off))}, burned ${med(rs.map(r => r.burned)).toFixed(2)}` +
@@ -329,6 +379,7 @@ const file = buildDebug(overrides);
 const browser = await chromium.launch();
 for (const n of names) {
   if (!BOTS[n]) throw new Error(`unknown bot ${n}; bots: ${Object.keys(BOTS).join(', ')}`);
+  if (process.env.RUN) { reportRuns(n, await runRuns(BOTS[n], runs, file, browser)); continue; }
   const rs = await run(BOTS[n], runs, file, browser);
   if (process.env.TAPS) for (const r of rs.slice(0, 4)) console.log(r.profile, r.taps.join(" "));
   report(n, rs);

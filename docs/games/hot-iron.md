@@ -1,6 +1,6 @@
 # Hot Iron: design notes
 
-**v6** (2026-10-05, accessibility; v4 2026-09-29 last gameplay change) · playtest: https://claude.ai/artifact/3mZPmYr3oLFViotYbWxQhz ·
+**v7** (2026-11-26, depth pass: a run of commissions) · playtest: https://claude.ai/artifact/MJxJk64gsbA1FpCLAaY1vz ·
 balance: `node scripts/balance-hot-iron.mjs 300`
 **Heat** (hold) and **strike** (tap) share **temperature and thickness per
 bar segment** (16 segments, thickness starts at 1). Win: every segment within
@@ -60,37 +60,48 @@ Anvil face in the middle, bar at y 215. Flow arrows at y 285, green
 on-target dot under each segment (y 315). Heat legend at the bottom. Any
 press in a segment's column counts.
 
-## Balance (v4, ±3 pts)
+## Commissions (v7, `// § commissions`)
 
-Bots: `glow-red` (telemetry match: 1.5 s think, strikes at 0.27–0.47),
-`glow-col` (strikes up to `T_WORK` + 0.02, pessimistic), `glow-hinted`
-(glow-red until first crack, then waits for the hammer mark), `habit-nb`.
+A run: commission 1 is a practice Double taper (TRANSPORT 4) where a
+dull-red blow only rings and warns (`warned`, no crack rings shown; Clean
+Work needs 0 warnings). Then Chisel, Double taper, Waisted, Leaf,
+Spearhead, Twin waist (TRANSPORT 6). From 8 on, endless: shapes in that
+order, TRANSPORT + `ENDLESS_TRANSPORT` (0.3) per commission, amplitude cap
+`ENDLESS_AMP` 0.45, refill `REFILL` 40 − `REFILL_DROP` 2 per commission,
+down to `REFILL_MIN` 20. Fuel left carries over, start fuel = min(60,
+left + refill). A loss retries the same commission with its start fuel
+(Try again; or New run). Restart bar = retry, no result posted.
+Score: commissions forged in the run (`score`, epoch 2). Achievements
+Journeyman (5) and Master Smith (10).
 
-| Bot | v4 win | Notes |
-|---|---|---|
-| reader | 99% (DT/Leaf/Waist/Chisel 100/97/100/100) | 96 s, 38 strikes, 41% fuel left |
-| reader 0.5× / 2× | 100 / 100% | |
-| slow-hands / slow-early | 99 / 99% | |
-| novice / novice-slow | 99 / 92% | |
-| **glow-red** | **68%** (65/53/69/83) | losses: cracks, 97 s |
-| **glow-col** | **36%** (39/23/21/63) | losses: cracks, 63 s |
-| **glow-hinted** | **98%** | 1 crack (the one that teaches) |
-| glow / glow-slow | 69 / 72% | |
-| nosteer, glow-nosteer | 0% | cracked 98–100% |
-| blind / blind-seam / habit-nb | 0% | fuel out 90–100% |
-| idle | 0% | never ends |
+## Balance (v7)
 
-Achievements (reader): Forged
-99%, Clean Work 93%, Thrifty 28% at the 45% mark (40% → 52%, 50% → 8%),
-Steer 100%. glow-hinted: Clean 21%, Thrifty 34%.
+Single bar, each standard shape (`node scripts/balance-hot-iron.mjs 120`;
+shapes DT/Leaf/Waist/Chisel/Spear/Twin): reader 100% all, 96 s; novice
+100%; glow-hinted 100%; glow-red 58% (60/60/65/80/65/20: Twin waist is
+the hard one, so it is commission 7).
+
+Whole runs (`RUN=1 MAXJOB=20 node scripts/balance-hot-iron.mjs 40 …`;
+3 losses on one commission = gives up):
+
+| Bot | Forged median | Done 7 | Time to 7 | Done 10 |
+|---|---|---|---|---|
+| reader | 11 | 100% | 11 min | 100% |
+| glow-hinted | 10 | 100% | 14.8 min | 73% |
+| slow-hands | 9 | 93% | 13 min | 30% |
+| glow-red | 6 | 30% | 19 min | 0% (ENDLESS 0.5) |
+
+Endless wall is at 11–12 for the reader (refill falls below what a bar
+burns). ENDLESS_TRANSPORT 0.5 put it at 10–11.
 
 ## Telemetry
 
-`arcade:result`: `reason` on a loss (`cracks` or `fuel`). `stats`: `profile`
-(0 Double taper, 1 Leaf, 2 Waisted, 3 Chisel), `off`, `err` (mean |th −
+`arcade:result`: `level` (commission), `run`, `attempt`, `score` (forged
+so far), `reason` on a loss (`cracks` or `fuel`). `stats`: `profile` (0 Double
+taper, 1 Leaf, 2 Waisted, 3 Chisel, 4 Spear, 5 Twin), `start_fuel`, `warned`, `off`, `err` (mean |th −
 target| × 100), `strikes`, `cracks`, `clangs`, `stuck`, `hints`, `heat_s`,
 `fuel` (s left), `burned` (%), `thin`, `first_input` (s, −1 if none).
-`node scripts/fetch-telemetry.mjs --game hot-iron`. Reset posts no result.
+`node scripts/fetch-telemetry.mjs --game hot-iron`. Restart bar posts no result.
 
 ## Accessibility (v6, `node scripts/a11y-audit.mjs hot-iron`)
 
@@ -110,34 +121,25 @@ screens (every band on the bar, 2 cracks, flows, cursor, hint showing).
   ("Segment 5 now cherry, ready to strike"), each blow ("Thinned segment
   5 … Metal went all left. 9 of 16 on the outline"; clang, crack + cracks
   left, stuck), fuel at 75/50/45 (Thrifty)/25/10%, the result.
-- Reduced motion (`still()`): no shake, no sparks (their `Math.random`
-  calls stay), ready marks and legend highlight steady instead of
-  blinking, bounce ring still. The old pass was timing: sparks live < 1 s
-  after a blow (0.00% idle 6.5 s later, any setting), but a white-hot bar
-  throws them while it burns: 0.18% → 0.11% under the setting, = 0.11%
-  with sparks hidden (3 runs): the rest is the bar cooling and burning.
+- Reduced motion (`still()`): no shake or sparks, marks steady (details in history).
 - `#msg` on a dark backing; no canvas text. DOM text 13.6 px+, 6.9:1+.
-- Bots identical to v5 (21 bots × 200 runs; old file twice first).
-- Keys-only bot (live region only, strikes when the words say ready): 0
-  cracks in 122 blows; Double taper forged (236 s, Clean Work), Chisel
-  lost to fuel at 15/16.
 
 ## Player data
 
-v3 (one new touch player, 5 rounds, all lost to cracks, ~40% of blows on
-dull red) is in `docs/history/hot-iron.md`; v4 was made from it. v4 + v5
-(2026-10-05): 5 players, 6 rounds, 0 wins, all lost to cracks (median 3
-cracks in 19–38 strikes, 33–49 s, `hints` 3.5–4). Not enough rounds to judge v4 yet.
+v1–v6 (to 2026-11-26): about 13 players, ~18 rounds, 1 win; nearly all
+losses to cracks, the v6 one in 6 s. Only rating: 2★, "unsure how to make
+the blade thicker". Details in history.
 
 ## Open ideas / known limits
 
 - Accessibility: a real screen reader and keyboard player are the test.
   Black vs dull red differ little in lightness (L* 18 vs 21); the crack
   mark carries it.
-- v4 telemetry to watch: cracks per strike (v3 ~40%), first-try wins, round
-  length (v3 12–35 s), `hints`. If losses are still cracks within 30 s, add
-  a warm-up first bar teaching one verb at a time (strike locked until a
-  hammer mark has shown once, then a thicken step).
+- v7 telemetry to watch: does commission 1 get won (level 1 win rate),
+  `warned` on it, cracks on commission 2, levels reached per run. v6's one
+  round was lost in 6 s to 3 cracks after 1 s of heat: the practice bar is
+  the answer to that. If commission 2 still cracks out, lock strikes on
+  bar 1 until a hammer mark has shown.
 - glow-col (36%) is the pessimistic v4 reading; the marks should close the
   gap, but bots can't model reading them.
 - If humans still lose to fuel, 70 s is the next step (novice-slow 25% →

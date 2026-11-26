@@ -1,5 +1,51 @@
 # Hot Iron: history
 
+## v6 accessibility details (moved 2026-11-26)
+
+- Bots identical to v5 (21 bots × 200 runs; old file twice first).
+- Keys-only bot (live region only, strikes when the words say ready): 0
+  cracks in 122 blows; Double taper forged (236 s, Clean Work), Chisel
+  lost to fuel at 15/16.
+- Reduced motion (`still()`): no shake, no sparks (their `Math.random`
+  calls stay), ready marks and legend highlight steady instead of
+  blinking, bounce ring still. The old pass was timing: sparks live < 1 s
+  after a blow (0.00% idle 6.5 s later, any setting), but a white-hot bar
+  throws them while it burns: 0.18% → 0.11% under the setting, = 0.11%
+  with sparks hidden (3 runs): the rest is the bar cooling and burning.
+
+## Player data up to v6 (moved 2026-11-26)
+
+v3 (one new touch player, 5 rounds, all lost to cracks, ~40% of blows on
+dull red) is in `docs/history/hot-iron.md`; v4 was made from it. v4 + v5
+(2026-10-05): 5 players, 6 rounds, 0 wins, all lost to cracks (median 3
+cracks in 19–38 strikes, 33–49 s, `hints` 3.5–4). Not enough rounds to judge v4 yet.
+
+
+## Single-bar balance (v4–v6, ±3 pts; moved 2026-11-26 for v7)
+
+Bots: `glow-red` (telemetry match: 1.5 s think, strikes at 0.27–0.47),
+`glow-col` (strikes up to `T_WORK` + 0.02, pessimistic), `glow-hinted`
+(glow-red until first crack, then waits for the hammer mark), `habit-nb`.
+
+| Bot | v4 win | Notes |
+|---|---|---|
+| reader | 99% (DT/Leaf/Waist/Chisel 100/97/100/100) | 96 s, 38 strikes, 41% fuel left |
+| reader 0.5× / 2× | 100 / 100% | |
+| slow-hands / slow-early | 99 / 99% | |
+| novice / novice-slow | 99 / 92% | |
+| **glow-red** | **68%** (65/53/69/83) | losses: cracks, 97 s |
+| **glow-col** | **36%** (39/23/21/63) | losses: cracks, 63 s |
+| **glow-hinted** | **98%** | 1 crack (the one that teaches) |
+| glow / glow-slow | 69 / 72% | |
+| nosteer, glow-nosteer | 0% | cracked 98–100% |
+| blind / blind-seam / habit-nb | 0% | fuel out 90–100% |
+| idle | 0% | never ends |
+
+Achievements (reader): Forged
+99%, Clean Work 93%, Thrifty 28% at the 45% mark (40% → 52%, 50% → 8%),
+Steer 100%. glow-hinted: Clean 21%, Thrifty 34%.
+
+
 Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/hot-iron.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
