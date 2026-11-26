@@ -77,7 +77,7 @@ material moves to a file sessions don't read by default.
   screenshots only when a check fails.
 - Diffs: `--stat` first. GitHub tools: `minimal_output`, small pages.
 
-## Session workflow (one PR per conversation)
+## Session workflow (a few PRs per conversation)
 
 - Propose before building: investigate first, then tell the user what you
   found, your ideas and the option you recommend, and wait for their input
@@ -88,6 +88,12 @@ material moves to a file sessions don't read by default.
   open PR, tell the user at the start and ask: merge, update or close.
   If it says the live site is behind main, tell the user first: merged work
   isn't live until the Pages deploy finishes (a stuck run blocks the queue).
+- Owner's standing approval (2026-11-26): a conversation may ship a few
+  PRs, one topic each, with subagents doing the heavy reading so the main
+  context stays small. Propose the plan at the start and wait for "go";
+  then work through it. Merge your own PR once CI is green and it is
+  mergeable (merge commit), check the Pages deploy, then restart the
+  branch from `origin/main` for the next PR.
 - Never push to a branch whose PR is already merged or closed.
 - No PR is left open without the user knowing: the handoff names every PR
   this conversation leaves open, and says what it waits on.
