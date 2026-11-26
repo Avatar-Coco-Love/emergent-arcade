@@ -1,6 +1,6 @@
 # Pressure Grid: design notes
 
-**v12** (2026-11-26, depth pass: Pipeline, Daily) · playtest: PLAYTEST_LINK ·
+**v12** (2026-11-26, depth pass: Pipeline, Daily) · playtest: https://claude.ai/artifact/L3wkcN93UmuHrLTdLDHEa7 ·
 balance: `node scripts/balance-pressure-grid.mjs` (`--level N`, `--map`, `--full`, `--count`,
 `--pipeline`) · browser: `node scripts/playthrough-pressure-grid.mjs` (`--level N`, `--pipeline`) ·
 boards: `node scripts/gen-pressure-grid-pool.mjs`
