@@ -1,6 +1,6 @@
 # Ripple Tank: design notes
 
-**v1** (2026-11-27, new game) · playtest: (private Artifact, link added at publish) ·
+**v1** (2026-11-27, new game) · playtest: [private Artifact](https://claude.ai/artifact/96UkjYJ9V3f7Cca9HF73NY) ·
 balance: `node scripts/balance-ripple-tank.mjs 200` (~2 min; `50 skilled,novice` for a quick look)
 Verbs: **place** (drag, or {tap} a pad) and **retime** ({tap} a dipper), sharing
 **the interference pattern** (one wave height per point, the sum of every
