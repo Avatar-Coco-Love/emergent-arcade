@@ -1719,3 +1719,21 @@ boards), placed on 2 of every 3 boards from board 10; the habit bot then
 clears a median 26 boards (~15 min), a slipping player 15, and a player
 1-2 over par every board 4. The tier is also the slowest to generate
 (the valve kind barely appears: 8 of 107).
+
+## Free placement made the timing verb optional (Ripple Tank, pre-build)
+
+2026-11-27. Ripple Tank's two verbs are place a wave source and retime it
+(1/8 turn steps); lanterns need cancellation, bells a crest. With sources
+free to stand on any of 400 lattice spots, the best-move bot that never
+retimes (`noTune`) solved as many ponds as the one that does (17 vs 17
+median, 100 runs): a one-step move already shifts a source's phase by about
+a sixth of a turn at every light, so position alone can tune. Limiting
+sources to ~10 lily pads per pond (n + 8) made `noTune` fail from pond 2 and
+the never-move bot (`tuneOnly`) from pond 4, while a two-ply bot still
+clears the campaign. The pads also made par exact (the solver enumerates
+pads × relative timings in ~10 ms). Related: a perfect solver never loses
+when every level grants par + spare, so the skilled bot must be imperfect
+(two-ply lookahead) for the endless run to end.
+
+*Evidence: bots (balance-ripple-tank.mjs); no players yet.*
+

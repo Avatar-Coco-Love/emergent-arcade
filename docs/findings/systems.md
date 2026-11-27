@@ -110,6 +110,12 @@ Part of the findings checklist; index, evidence tags and how to add one in
   *A blocking verb is worth one action per branch it guards.* Surprise
   Party. bots.
 
+- A fine position verb stands in for a timing verb: if a placed source
+  can stand anywhere, moving it a step shifts its phase too, and a bot that
+  never retimes does as well as one that does. Limit the spots (lily pads)
+  until the never-retime bot loses. *Free placement made the timing verb
+  optional.* Ripple Tank. bots.
+
 - In an order puzzle, amounts that only add up make the order free (4a +
   2b reaches 10 whatever the order); order costs come from what takes or
   empties (pours, bursts, caps). Land the key interaction exactly on the

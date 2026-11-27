@@ -135,6 +135,7 @@ Each revision:
 | coat-check | v4 | 12 shifts + Endless, Daily | Built with depth | Built with depth |
 | counterfeit-scale | v4 | 12 cases + Endless, Daily | Built with depth | Built with depth |
 | surprise-party | v4 | 15 houses + Party Season, Daily | Built with depth | Built with depth |
+| ripple-tank | v1 | 8 ponds + endless, ripples carried, Daily | Built with depth (score = ponds solved in a run) | Built with depth |
 
 Accessibility passes (2026-10-05..07) bumped versions without gameplay
 changes; telemetry counts reset with them.

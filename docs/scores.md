@@ -66,6 +66,7 @@ its own `score`, and bumps `epoch`.
 | loom | Shapes held (level, wins) | 300 (v5: endless) |
 | terrace-garden | Gardens bloomed (level, wins) | 4 |
 | bubble-glass | Chapter time (own `score`, per chapter, v3 / epoch 2) | none |
+| ripple-tank | Ponds solved in a run (own `score`, v1) | none (max 1000) |
 
 ## Showing the best inside a game (optional)
 
