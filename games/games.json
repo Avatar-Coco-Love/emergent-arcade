@@ -2122,7 +2122,7 @@
       "id": "ripple-tank",
       "title": "Ripple Tank",
       "file": "ripple-tank.html",
-      "version": 1,
+      "version": 2,
       "added": "2026-11-27",
       "updated": "2026-11-27",
       "daily": {
@@ -2130,28 +2130,33 @@
       },
       "changes": [
         {
+          "version": 2,
+          "date": "2026-11-27",
+          "text": "Clearer: the goal is always on screen, the first two ponds point at where to {tap}, the busy + and − marks are gone, lights no longer show lit on an empty pond, the bars under the lights keep clear of pads, and the budget is called moves."
+        },
+        {
           "version": 1,
           "date": "2026-11-27",
           "text": "New game: set dippers on lily pads and time their ripples so the waves cancel at every lantern and crest at every bell."
         }
       ],
-      "blurb": "Ripples from your dippers cancel and stack. Put them on lily pads and time them so every lantern sits in calm water and every bell on a crest.",
-      "goal": "Solve as many ponds as you can in one run. A pond is solved when every lantern is in calm water and every bell is on a crest at the same moment. Each move spends a ripple and unused ripples carry on; run out on one of the 8 campaign ponds and you try it again from its start, run out on an endless pond and the run ends.",
-      "howToPlay": "Dippers bob in the water and send out rings of ripples, all at the same pace. Where two ripples arrive in step the water crests (marked +); where they arrive out of step they cancel and the water lies calm (marked with a flat dash). {Tap} a lily pad to put a dipper from your hand on it, or drag a dipper to another pad: the water and the lights change as you drag, and nothing is spent until you let go on a new pad. {Tap} a dipper to step its timing by an eighth of a beat (the yellow hand); the first {tap} costs a ripple, more {taps} on the same dipper are free. Each light has a gauge with a line: a lantern's swell must stay left of its line, a bell's must pass it. Rocks block ripples and cast shadows. Each pond gives you its par plus a few spare ripples; solve at par to bank more for the hard ponds.",
+      "blurb": "Ripples from your dippers stack into big waves or cancel into calm. Put them on lily pads and time them so every bell rings and every lantern glows.",
+      "goal": "Ring every bell (it needs big waves) and light every lantern (it needs calm water), all at the same moment. Each pond gives you a few moves; spare moves carry on to the next pond. Run out on one of the 8 campaign ponds and you try it again; run out on an endless pond and the run ends.",
+      "howToPlay": "Each dipper sends out rings of ripples. Where two ripples arrive in step they stack into a big wave; where they arrive out of step they cancel and the water goes calm. {Tap} a lily pad to put a dipper from your hand on it, or drag a dipper to another pad: the lights change as you drag, and nothing is spent until you let go. {Tap} a dipper to change its timing (its yellow hand turns); {taps} in a row on the same dipper count as one move. The bar under each light shows how close it is: a lantern needs its bar left of the white line, a bell past it. The first two ponds show you where to {tap}.",
       "keyboard": "Arrows pick a pad · Enter puts in, lifts, drops · T / Shift+T retime · 1-3 dippers · L lights · I status · N next",
       "mechanics": [
         {
           "name": "place",
           "verb": "drag",
-          "description": "{Tap} a lily pad to put a dipper in, or drag a dipper to another pad. Where it stands decides how far its ripples travel to each light."
+          "description": "{Tap} a lily pad to put a dipper in, or drag a dipper to another pad. Where it stands decides when its ripples reach each light."
         },
         {
           "name": "retime",
           "verb": "tap",
-          "description": "{Tap} a dipper to step its timing by 1/8 of a beat, shifting where its ripples cancel or add. The first {tap} costs a ripple; more {taps} on the same dipper are free."
+          "description": "{Tap} a dipper to change its timing by 1/8 of a beat, shifting where its ripples stack or cancel. {Taps} in a row on one dipper count as one move."
         }
       ],
-      "sharedState": "The interference pattern: one wave height at every point of the pond, the sum of every dipper's ripples. Placing sets each ripple's distance (its delay and strength) at every light, retiming shifts all of one dipper's delays at once; the lanterns and bells read only the sum, and both verbs spend the same ripple budget.",
+      "sharedState": "The interference pattern: one wave height at every point of the pond, the sum of every dipper's ripples. Placing sets each ripple's distance (its delay and strength) at every light, retiming shifts all of one dipper's delays at once; the lanterns and bells read only the sum, and both verbs spend the same moves.",
       "topics": [
         "waves",
         "planning"
