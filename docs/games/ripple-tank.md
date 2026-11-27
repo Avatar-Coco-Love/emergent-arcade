@@ -1,10 +1,10 @@
 # Ripple Tank: design notes
 
-**v1** (2026-11-27, new game) · playtest: [private Artifact](https://claude.ai/artifact/96UkjYJ9V3f7Cca9HF73NY) ·
+**v2** (2026-11-27, clarity fix from owner playtest) · playtest: [private Artifact](https://claude.ai/artifact/4YYfRFGUM3AHXC9eCHM8d1) ·
 balance: `node scripts/balance-ripple-tank.mjs 200` (~2 min; `50 skilled,novice` for a quick look)
 Verbs: **place** (drag, or {tap} a pad) and **retime** ({tap} a dipper), sharing
 **the interference pattern** (one wave height per point, the sum of every
-dipper's ripples) and the ripple budget. Lanterns need calm (swell ≤ 3), bells
+dipper's ripples) and the move budget (called "ripples" in code and telemetry; "moves" on screen since v2). Lanterns need calm (swell ≤ 3), bells
 a crest (≥ 13), all at once. 8 campaign ponds (a lost one is retried from its
 start), then endless ponds until one runs out of ripples. Score: ponds solved
 in the run. Daily from 2026-12-01 (endless from pond 1, date seed). Topics:
@@ -14,8 +14,8 @@ in the run. Daily from 2026-12-01 (endless from pond 1, date seed). Topics:
 
 - Field (`// § sim`): A(p) = Σ g(r)·shade·e^{i(k·r + φ)}, g(r) = √(R0 / max(r, R0)),
   k = 2π/λ, φ = timing × 45°. Swell = round(|A|×10). The water shows
-  Re(A·e^{-iωt}) (reduced motion: |A| as lightness, still); marks on a 26×26
-  grid: a flat dash where swell ≤ 3, a + where ≥ 13 (shape, not colour).
+  Re(A·e^{-iωt}) (reduced motion: |A| as lightness, still). No calm/crest
+  marks since v2 (they covered the pond); state is read at the lights.
 - Rocks: a dipper's ripple is 0 where the straight line to the point crosses
   a rock, with a 0.03 soft edge (no reflection).
 - Dippers stand only on **lily pads** (n + 8 per pond, ≥ 0.12 apart). A
@@ -60,13 +60,30 @@ dippers) or 8 − k/2 (2), at least 4 / 2.
 
 ## Layout
 
-HUD (pond, ripples, solved, best) · square pond (fills the space) · message
+HUD (pond, moves, solved, best) · goal line (v2: names the kinds of light this pond has, with their icons) · square pond (fills the space) · message
 strip (hint, result) · status line (lights x/y, par, in hand, "retiming is
 free") · Next / Try again / New run, and "Start at pond 9" on pond 1 when the
-gallery's best is 8+. Each light has a gauge under it (above near the bottom
-edge): a bar for its swell out of 20, a white line at its threshold, the
+gallery's best is 8+. Each light has a gauge under it, or above when that covers fewer pads,
+dippers or lights (`gaugeY`): a bar for its swell out of 20, a white line at its threshold, the
 side that counts shaded. Lit lantern: pale fill + rays; ringing bell: pale
-fill + arcs; unlit: dark fill, light outline.
+fill + arcs; unlit: dark fill, light outline. With no dipper in the water every light
+shows unlit (display only; the sim still counts a lantern in still water as calm).
+
+## v2: clarity fix (2026-11-27)
+
+Owner playtest: "didn't make much sense how to play, a bit glitchy, a lot
+going on, no clear direction". Changes, sim untouched (balance table still holds):
+- Removed the 26×26 dash/plus grid (pond 3 opened as a wall of dashes,
+  pond 8 as a wall of +).
+- Goal line always on screen; budget renamed "moves".
+- Guide (`// § guide`) on campaign ponds 1-2: a pulsing ring on the pad
+  from `pond.sol`, then on the dipper to retime; "Not that pad" if put
+  elsewhere; solved message says why it worked (stack / cancel).
+- Lights unlit on an empty pond; gauges dodge pads.
+- Hints rewritten to say the goal first. Retime streak rule kept (making
+  every {tap} cost would change par and balance), worded as "{taps} in a
+  row on one dipper count as one move".
+- Watch: v2 attempts on ponds 1-3 and `taps` > 0 on pond 2.
 
 ## Balance (v1, 200 runs; seconds: drop 9-10, retime 2.5 + 1.5 a step, 5 per pond)
 
