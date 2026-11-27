@@ -450,6 +450,7 @@ const VERB_WORDS = { tap: /\b(tap|click|press)/i, drag: /\b(drag|draw|pull|slide
 // the keyboard check says "recheck" until this table is updated.
 const ALL = "all";
 const KEY_COVER = {
+  "ripple-tank": ["Arrows pick a pad · Enter puts in, lifts, drops · T / Shift+T retime · 1-3 dippers · L lights · I status · N next", ALL],
   "pressure-grid": ["Arrows move · Enter/Space pump · S then an arrow aims a pour, Enter pours · Z undo · R restart · N next level or board", ALL],
   "ant-trails": ["Arrows move the cursor · hold Space: trail · hold W: wash · H nest, N next food · F fast-forward · Enter next day", ALL],
   "terrace-garden": ["← → or A / D tilt · ↑ ↓ pick a gate, Enter or G opens or shuts it · 0–4 that gate (0 spring) · S status", ALL],

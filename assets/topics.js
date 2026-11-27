@@ -20,6 +20,7 @@ window.ArcadeTopics = (function () {
     { id: "ecology", kind: "subject", label: "ecology", about: "Populations that eat, breed, starve and move." },
     { id: "collective-behaviour", kind: "subject", label: "collective behaviour", about: "Many simple agents whose shared signals make the group's behaviour." },
     { id: "contagion", kind: "subject", label: "contagion", about: "Something that spreads from neighbour to neighbour: fire, fear." },
+    { id: "waves", kind: "subject", label: "waves", about: "Ripples that spread, add up where they meet in step and cancel where they meet out of step." },
     { id: "information-theory", kind: "subject", label: "information theory", about: "Each action is a question; how much its answer can tell you is the puzzle." },
     { id: "planning", kind: "skill", label: "planning", about: "Working out a sequence of moves ahead, under a budget." },
     { id: "deduction", kind: "skill", label: "deduction", about: "Proving the answer from what you have observed." },

@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+// § crash report: uncaught errors go to the arcade's telemetry (docs/telemetry.md, "Errors").
+(function () {
+  var sent = 0;
+  function report(message, line, col) {
+    if (window.parent === window || sent++ >= 3) return;
+    try {
+      window.parent.postMessage({ type: 'arcade:error', game: 'ripple-tank', message: String(message).slice(0, 300), line: line | 0, col: col | 0 }, '*');
+    } catch (_) {}
+  }
+  window.addEventListener('error', function (e) { report(e.message, e.lineno, e.colno); });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    report('Unhandled rejection: ' + (r && r.message ? r.message : r), 0, 0);
+  });
+})();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ripple Tank</title>
+<style>
+  :root {
+    --bg: #081116;
+    --panel: #14202a;
+    --line: #2b3b47;
+    --text: #e6eef2;
+    --muted: #9fb0ba;
+    --accent: #5cc8d6;
+    --warm: #ffe3a0;
+  }
+  * { box-sizing: border-box; }
+  /* Fill whatever window the game is given; the pond scales to fit both width and height. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .hud { flex: none; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; font-size: 0.9rem; }
+  .hud b { color: var(--accent); font-weight: 600; }
+  .hud .rip { color: var(--warm); }
+  #wrap { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #pond { display: block; touch-action: none; border-radius: 10px; }
+  /* Messages get their own strip under the pond (the cabinet's toasts cover the top). */
+  #msg { flex: none; min-height: 3.9em; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 0.9rem; line-height: 1.3; }
+  #msg b { color: var(--accent); }
+  .bar { flex: none; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+  button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 14px; font-size: 0.9rem; cursor: pointer; font-family: inherit;
+  }
+  button:active { transform: scale(0.97); }
+  button.primary { border-color: var(--accent); background: #10333a; color: #fff; }
+  .stat { flex: none; color: var(--muted); font-size: 0.8rem; text-align: center; min-height: 1.2em; }
+  /* The live region: read by screen readers, not shown (pinned so it adds no scroll). */
+  .sr { position: fixed; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+  <div class="hud" id="hud"></div>
+  <div id="wrap">
+    <canvas id="pond" role="img" aria-label="Ripple Tank pond. Tap or click a lily pad to put in a dipper, drag a dipper to move it, tap or click a dipper to retime it. Keys: arrows pick a pad, Enter places, lifts or drops a dipper, T retimes."></canvas>
+  </div>
+  <div id="msg"></div>
+  <div class="stat" id="stat"></div>
+  <div class="bar">
+    <button id="skipBtn" hidden>Start at pond 9</button>
+    <button id="nextBtn" class="primary" hidden>Next pond</button>
+  </div>
+  <div class="sr" id="say" role="status" aria-live="polite"></div>
+
+<script>
+(function() {
+  const GAME_ID = 'ripple-tank';
+  // § sim: rules, ponds and the generator. Pure functions, no DOM: scripts/balance-ripple-tank.mjs runs this block as is.
+  const G = 20;                  // dippers sit on a G×G lattice over the 1×1 pond
+  const R0 = 0.15;               // a ripple keeps full height out to R0, then fades as 1/sqrt(r)
+  const PHASES = 8;              // a retime steps a dipper's timing by 1/8 turn
+  const CALM = 3, CREST = 13;    // swell = |A|×10 rounded: a lantern needs ≤ CALM, a bell ≥ CREST
+  const SOL_CALM = 1, SOL_CREST = 15; // the planted solution clears the lines by this much
+  const TARGET_GAP = 0.08;       // no dipper this close to a lantern or bell
+  const SOL_GAP = 0.13;          // targets sit at least this far from the planted dippers
+  const ROCK_PAD = 0.02;         // no dipper this close to a rock
+  const ROCK_SOFT = 0.03;        // width of a shadow's soft edge
+  const BANK_CAP = 12;           // ripples never carry above this
+  const PADS = 8;                // lily pads beyond the dippers' count: dippers sit only on pads
+  const CAMPAIGN = [
+    { name: 'First bell', n: 2, right: 1, hand: 1, lanterns: 0, bells: 1, lambda: 0.3, sameTime: true, extra: 4,
+      hint: '{Tap} a lily pad near the bell to put in your second dipper: where both ripples arrive together, the water crests and the bell rings.' },
+    { name: 'Still water', n: 2, right: 1, hand: 1, lanterns: 1, bells: 0, lambda: 0.3, offTime: true, minWays: 30, extra: 4,
+      hint: 'A lantern needs calm water. {Tap} a dipper to change its timing: where two ripples arrive out of step they cancel.' },
+    { name: 'Two lanterns', n: 2, hand: 2, lanterns: 2, bells: 1, lambda: 0.3, minWays: 16, extra: 3,
+      hint: 'Bells need crests, lanterns need calm. Drag a dipper to another pad to move it; the lights change as you drag.' },
+    { name: 'Short waves', n: 2, given: 2, lanterns: 1, bells: 2, lambda: 0.22, minWays: 16, extra: 3,
+      hint: 'Shorter waves here: the calm lines lie closer together.' },
+    { name: 'The rock', n: 2, given: 1, hand: 1, rocks: 1, lanterns: 2, bells: 1, lambda: 0.26, minWays: 12, extra: 3,
+      hint: 'A rock blocks ripples: the water behind it only hears the dippers it can see.' },
+    { name: 'Third dipper', n: 3, given: 1, hand: 2, lanterns: 1, bells: 2, lambda: 0.3, minWays: 60, extra: 3,
+      hint: 'Three dippers: one more ripple to cancel or to add.' },
+    { name: 'Shoal', n: 3, right: 1, given: 1, hand: 1, rocks: 2, lanterns: 1, bells: 2, lambda: 0.24, minWays: 30, extra: 3,
+      hint: 'Two rocks: their shadows hide a light from some pads.' },
+    { name: 'Full pond', n: 3, right: 1, given: 2, lanterns: 2, bells: 2, lambda: 0.22, minWays: 60, extra: 3,
+      hint: 'Four lights at once. After this pond the run goes on with endless ponds.' },
+  ];
+  const LAMBDAS = [0.3, 0.26, 0.22, 0.19];
+  // Endless pond k (from 0): more lights, shorter waves, rocks, fewer spare ripples.
+  function endlessSpec(k, r) {
+    const n = k < 3 ? 2 : k % 3 === 1 ? 2 : 3;
+    const lights = Math.min(n === 2 ? 4 : 6, 3 + Math.floor(k / 5));
+    const bells = Math.max(1, Math.min(lights - 1, Math.round(lights * (0.3 + 0.3 * r()))));
+    const given = Math.floor(r() * (n + 1));
+    return { name: `Pond ${k + 1}`, n, given, hand: n - given, lanterns: lights - bells, bells,
+      lambda: LAMBDAS[Math.min(LAMBDAS.length - 1, Math.floor(r() * Math.min(4, 2 + k / 5)))],
+      rocks: k < 2 ? 0 : Math.floor(r() * 3), extra: k < 4 ? 2 : k < 16 ? 1 : 0, minWays: n === 2 ? Math.max(2, 8 - (k >> 1)) : Math.max(4, 16 - k) };
+  }
+
+  function mix(a, b) { let h = (a ^ Math.imul(b + 0x9e3779b9, 0x85ebca6b)) >>> 0; h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0; return (h ^ (h >>> 16)) >>> 0; }
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function hashStr(str) { let h = 0x811c9dc5; for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0; return h; }
+  const latX = i => (i % G + 0.5) / G, latY = i => ((i / G | 0) + 0.5) / G;
+  const latAt = (x, y) => Math.max(0, Math.min(G - 1, Math.floor(y * G))) * G + Math.max(0, Math.min(G - 1, Math.floor(x * G)));
+
+  // How much of a ripple from (sx,sy) reaches (px,py) past the rocks: 0 in a shadow, 1 in the open.
+  function shade(rocks, sx, sy, px, py) {
+    let f = 1;
+    for (const k of rocks) {
+      const dx = px - sx, dy = py - sy, L2 = dx * dx + dy * dy || 1e-9;
+      const t = Math.max(0, Math.min(1, ((k.x - sx) * dx + (k.y - sy) * dy) / L2));
+      const d = Math.hypot(sx + t * dx - k.x, sy + t * dy - k.y);
+      if (d <= k.r) return 0;
+      if (d < k.r + ROCK_SOFT) f *= (d - k.r) / ROCK_SOFT;
+    }
+    return f;
+  }
+  // One dipper's ripple at a point, timing 0: [re, im] of g(r)·e^{ikr}.
+  function wave(pond, sx, sy, px, py) {
+    const r = Math.hypot(px - sx, py - sy);
+    const a = Math.sqrt(R0 / Math.max(r, R0)) * (pond.rocks.length ? shade(pond.rocks, sx, sy, px, py) : 1);
+    const th = pond.k * r;
+    return [a * Math.cos(th), a * Math.sin(th)];
+  }
+  const COS = [...Array(PHASES).keys()].map(p => Math.cos(2 * Math.PI * p / PHASES));
+  const SIN = [...Array(PHASES).keys()].map(p => Math.sin(2 * Math.PI * p / PHASES));
+  // Complex height at a point from the dippers in the water.
+  function fieldAt(pond, dippers, px, py) {
+    let re = 0, im = 0;
+    for (const d of dippers) {
+      if (d.at < 0) continue;
+      const [a, b] = wave(pond, latX(d.at), latY(d.at), px, py);
+      re += a * COS[d.ph] - b * SIN[d.ph]; im += a * SIN[d.ph] + b * COS[d.ph];
+    }
+    return [re, im];
+  }
+  const swellOf = (re, im) => Math.round(Math.hypot(re, im) * 10);
+  const okAt = (t, s) => t.kind === 'lantern' ? s <= CALM : s >= CREST;
+  // Per-lattice-point, per-target contributions (timing 0), so a move is a few multiplies.
+  function pondTable(pond) {
+    const T = pond.targets.length, tab = new Float64Array(G * G * T * 2);
+    for (let i = 0; i < G * G; i++) for (let t = 0; t < T; t++) {
+      const [a, b] = wave(pond, latX(i), latY(i), pond.targets[t].x, pond.targets[t].y);
+      tab[(i * T + t) * 2] = a; tab[(i * T + t) * 2 + 1] = b;
+    }
+    return tab;
+  }
+  // Raw |A| at each target.
+  function targetAmps(pond, dippers) {
+    const T = pond.targets.length, tab = pond.tab || (pond.tab = pondTable(pond)), out = new Array(T);
+    for (let t = 0; t < T; t++) {
+      let re = 0, im = 0;
+      for (const d of dippers) {
+        if (d.at < 0) continue;
+        const a = tab[(d.at * T + t) * 2], b = tab[(d.at * T + t) * 2 + 1];
+        re += a * COS[d.ph] - b * SIN[d.ph]; im += a * SIN[d.ph] + b * COS[d.ph];
+      }
+      out[t] = Math.hypot(re, im);
+    }
+    return out;
+  }
+  const targetSwells = (pond, dippers) => targetAmps(pond, dippers).map(a => Math.round(a * 10));
+  const solvedBy = (pond, dippers) => targetSwells(pond, dippers).every((s, t) => okAt(pond.targets[t], s));
+  // Can dipper `who` stand on lattice point i?
+  function legalSpot(pond, dippers, i, who) {
+    if (pond.pads && !pond.pads.includes(i)) return false;
+    const x = latX(i), y = latY(i);
+    if (pond.targets.some(t => Math.hypot(t.x - x, t.y - y) < TARGET_GAP)) return false;
+    if (pond.rocks.some(k => Math.hypot(k.x - x, k.y - y) < k.r + ROCK_PAD)) return false;
+    return !dippers.some((d, j) => j !== who && d.at === i);
+  }
+  // A move: { drop: d, at } (place from the hand or move; costs 1 if it lands somewhere new)
+  // or { tune: d, steps } (costs 1, free when it continues a retime of the same dipper).
+  function moveCost(move, last) {
+    if (move.tune !== undefined) return last && last.tune === move.tune ? 0 : 1;
+    return 1;
+  }
+  function applyMove(pond, dippers, move) {
+    const out = dippers.map(d => ({ at: d.at, ph: d.ph }));
+    if (move.tune !== undefined) {
+      const d = out[move.tune];
+      if (!d || d.at < 0) return null;
+      d.ph = ((d.ph + move.steps) % PHASES + PHASES) % PHASES;
+    } else {
+      const d = out[move.drop];
+      if (!d || d.at === move.at || !legalSpot(pond, out, move.at, move.drop)) return null;
+      d.at = move.at;
+    }
+    return out;
+  }
+
+  // The cheapest way from these dippers to a solved pond: every choice of pads (a dipper in the
+  // water stays in; one in the hand may stay there) and relative timings. Returns
+  // { cost, ways, at, ph } (ways = solving layouts) or null. Swaps that need a spare pad are not charged.
+  function solve(pond, dippers, limit, fixedTime) {
+    const T = pond.targets.length, tab = pond.tab || (pond.tab = pondTable(pond)), n = dippers.length;
+    const pads = pond.pads, at = new Array(n), ph = new Array(n).fill(0);
+    let bestC = limit === undefined ? Infinity : limit + 1, best = null, ways = 0;
+    const re = new Float64Array(T), im = new Float64Array(T);
+    function check() {
+      for (let t = 0; t < T; t++) {
+        let x = 0, y = 0;
+        for (let d = 0; d < n; d++) {
+          if (at[d] < 0) continue;
+          const a = tab[(at[d] * T + t) * 2], b = tab[(at[d] * T + t) * 2 + 1];
+          x += a * COS[ph[d]] - b * SIN[ph[d]]; y += a * SIN[ph[d]] + b * COS[ph[d]];
+        }
+        if (!okAt(pond.targets[t], Math.round(Math.hypot(x, y) * 10))) return false;
+      }
+      return true;
+    }
+    function cost() {
+      let c = 0;
+      for (let d = 0; d < n; d++) if (at[d] !== dippers[d].at) c++;
+      let tunes = n;
+      for (let g = 0; g < PHASES; g++) {
+        let m = 0;
+        for (let d = 0; d < n; d++) if (at[d] >= 0 && (ph[d] + g) % PHASES !== dippers[d].ph) m++;
+        if (m < tunes) tunes = m;
+      }
+      return c + tunes;
+    }
+    function phases(d, first) {
+      if (d === n) {
+        if (check()) {
+          ways++;
+          const c = cost();
+          if (c < bestC) { bestC = c; best = { cost: c, at: at.slice(), ph: ph.slice() }; }
+        }
+        return;
+      }
+      if (at[d] < 0) return phases(d + 1, first);
+      if (fixedTime) { ph[d] = dippers[d].ph; return phases(d + 1, false); }
+      if (first) { ph[d] = 0; return phases(d + 1, false); }
+      for (let p = 0; p < PHASES; p++) { ph[d] = p; phases(d + 1, false); }
+    }
+    function place(d) {
+      if (d === n) { if (at.some(a => a >= 0)) phases(0, true); return; }
+      if (dippers[d].at < 0) { at[d] = -1; place(d + 1); }
+      for (const i of pads) {
+        let used = false;
+        for (let e = 0; e < d; e++) if (at[e] === i) { used = true; break; }
+        if (used) continue;
+        at[d] = i; place(d + 1);
+      }
+    }
+    place(0);
+    if (best) best.ways = ways;
+    return best;
+  }
+
+  // Plant a solution (lattice spots + timings), then put lanterns where it is calm and bells where it
+  // crests, with margins; then scatter the start (given dippers moved, the rest in the hand).
+  function makePond(spec, seed) {
+    let minWays = spec.minWays || 1;
+    for (let attempt = 0; attempt < 600; attempt++) {
+      if (attempt && attempt % 150 === 0) minWays = Math.max(1, minWays >> 1);
+      const r = rng(mix(seed, attempt));
+      const pond = { name: spec.name, hint: spec.hint || '', n: spec.n, lambda: spec.lambda, k: 2 * Math.PI / spec.lambda,
+        extra: spec.extra, rocks: [], targets: [], seed };
+      for (let i = 0, tries = 0; i < (spec.rocks || 0) && tries < 50; tries++) {
+        const rock = { x: 0.22 + 0.56 * r(), y: 0.22 + 0.56 * r(), r: 0.05 + 0.03 * r() };
+        if (pond.rocks.every(o => Math.hypot(o.x - rock.x, o.y - rock.y) > o.r + rock.r + 0.12)) { pond.rocks.push(rock); i++; }
+      }
+      if (pond.rocks.length < (spec.rocks || 0)) continue;
+      const sol = [];
+      for (let d = 0, tries = 0; d < spec.n && tries < 200; tries++) {
+        const i = latAt(0.1 + 0.8 * r(), 0.1 + 0.8 * r());
+        if (!legalSpot(pond, sol, i, -1) || sol.some(o => Math.hypot(latX(o.at) - latX(i), latY(o.at) - latY(i)) < 0.22)) continue;
+        sol.push({ at: i, ph: spec.sameTime ? 0 : d === 0 ? 0 : Math.floor(r() * PHASES) });
+        d++;
+      }
+      if (sol.length < spec.n) continue;
+      if (spec.offTime) sol[1].ph = 2 + Math.floor(r() * 5);
+      const L = [], B = [];
+      for (let c = 0; c < 700; c++) {
+        const x = 0.07 + 0.86 * r(), y = 0.07 + 0.86 * r();
+        if (pond.rocks.some(k => Math.hypot(k.x - x, k.y - y) < k.r + 0.04)) continue;
+        if (sol.some(o => Math.hypot(latX(o.at) - x, latY(o.at) - y) < SOL_GAP)) continue;
+        const s = swellOf(...fieldAt(pond, sol, x, y));
+        if (s <= SOL_CALM) L.push({ kind: 'lantern', x, y });
+        else if (s >= SOL_CREST) B.push({ kind: 'bell', x, y });
+      }
+      const pick = (list, m) => {
+        for (const p of list) {
+          if (m <= 0) break;
+          if (pond.targets.every(o => Math.hypot(o.x - p.x, o.y - p.y) > 0.16)) { pond.targets.push(p); m--; }
+        }
+        return m === 0;
+      };
+      if (!pick(B, spec.bells) || !pick(L, spec.lanterns)) continue;
+      // Start: `right` dippers on their planted spot, `given` elsewhere in the water, the rest in the hand.
+      const start = [], right = spec.right || 0, given = spec.given || 0;
+      let ok = true;
+      for (let d = 0; d < spec.n; d++) {
+        if (d < right) { start.push({ at: sol[d].at, ph: sol[d].ph }); continue; }
+        if (d < right + given) {
+          let at = -1;
+          for (let tries = 0; tries < 100 && at < 0; tries++) {
+            const i = latAt(0.08 + 0.84 * r(), 0.08 + 0.84 * r());
+            if (legalSpot(pond, start, i, -1) && !sol.some(o => o.at === i) && Math.hypot(latX(i) - latX(sol[d].at), latY(i) - latY(sol[d].at)) > 0.2) at = i;
+          }
+          if (at < 0) { ok = false; break; }
+          start.push({ at, ph: 0 });
+        } else start.push({ at: -1, ph: 0 });
+      }
+      if (!ok || solvedBy(pond, start)) continue;
+      // Lily pads: the planted spots, the start's spots, and PADS more, spread out.
+      const pads = [...new Set([...sol.map(o => o.at), ...start.filter(d => d.at >= 0).map(d => d.at)])];
+      for (let tries = 0; tries < 400 && pads.length < spec.n + (spec.pads || PADS); tries++) {
+        const i = latAt(0.06 + 0.88 * r(), 0.06 + 0.88 * r());
+        if (legalSpot(pond, [], i, -1) && pads.every(j => Math.hypot(latX(i) - latX(j), latY(i) - latY(j)) > 0.12)) pads.push(i);
+      }
+      pond.pads = pads.sort((a, b) => a - b);
+      pond.start = start; pond.tab = null;
+      // Par: the cheapest solution (one ripple per dipper placed or moved, one per dipper retimed).
+      const best = solve(pond, start);
+      if (!best || best.cost < (spec.minPar || 1) || best.ways < minWays) continue;
+      // A pond that teaches retiming can't be solved as well without it.
+      if (spec.offTime) { const plain = solve(pond, start, best.cost, true); if (plain) continue; }
+      pond.par = best.cost; pond.ways = best.ways; pond.sol = best;
+      return pond;
+    }
+    // Never stuck: drop a light and try again (no seed has needed this in the balance runs).
+    if (spec.lanterns + spec.bells > 1) return makePond(Object.assign({}, spec, spec.lanterns > spec.bells ? { lanterns: spec.lanterns - 1 } : { bells: spec.bells - 1 }), mix(seed, 99));
+    throw new Error('no pond for ' + JSON.stringify(spec));
+  }
+  const CAMPAIGN_SEED = hashStr('ripple-tank:campaign');
+  // Pond `idx` (from 0) of a run: the campaign's eight are the same for everyone; endless ponds come from the run's seed.
+  function pondFor(runSeed, idx, endlessFrom) {
+    if (idx < endlessFrom) return makePond(CAMPAIGN[idx], mix(CAMPAIGN_SEED, idx));
+    const k = idx - endlessFrom, s = mix(runSeed, 7919 * (k + 1));
+    return Object.assign(makePond(endlessSpec(k, rng(s)), s), { endless: k });
+  }
+  // Ripples on arrival at a pond: what was carried, plus par and the pond's spare ripples, capped.
+  const grant = (bank, pond) => Math.min(BANK_CAP, bank + pond.par + pond.extra);
+  // § end sim
+  // § words: the gallery fills {tap} in the manifest; the game does its own.
+  const COARSE = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  const words = s => s.replace(/\{Tap\}/g, COARSE ? 'Tap' : 'Click').replace(/\{tap\}/g, COARSE ? 'tap' : 'click');
+  const REDUCED = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+
+  // § messaging: achievements, results, pause, bests from the gallery.
+  const embedded = () => window.parent !== window;
+  const unlocked = new Set();
+  function unlock(id) {
+    if (unlocked.has(id)) return;
+    unlocked.add(id);
+    if (embedded()) window.parent.postMessage({ type: 'arcade:achievement', game: GAME_ID, id: id }, '*');
+  }
+  let paused = false, best = 0;
+  window.addEventListener('message', evt => {
+    const d = evt.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'arcade:pause') { paused = true; cancelDrag(); }
+    if (d.type === 'arcade:resume') paused = false;
+    if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {
+      const b = Number(d.bests.main);
+      if (b > 0 && b < 1e4) best = Math.max(best, Math.round(b));
+      renderUI();
+    }
+  });
+  // One result per pond: level = pond number in the run, score = ponds solved so far this run.
+  function postResult(outcome) {
+    if (!embedded()) return;
+    const msg = { type: 'arcade:result', game: GAME_ID, outcome, time: Math.round(P.ms / 100) / 10,
+      level: run.idx + 1, level_id: run.idx < run.from ? `pond-${run.idx + 1}` : 'endless', run: run.id,
+      attempt: P.attempt, score: run.solved,
+      stats: { pond: run.idx + 1, dippers: pond.n, lights: pond.targets.length, par: pond.par, moves: P.moves,
+        places: P.places, drags: P.drags, tunes: P.tunes, taps: P.taps, bank: run.bank, rocks: pond.rocks.length,
+        wave: Math.round(pond.lambda * 100), ways: pond.ways, endless: pond.endless === undefined ? 0 : pond.endless + 1 } };
+    if (outcome === 'loss') msg.reason = 'ripples';
+    if (DAILY) msg.daily = DAILY;
+    window.parent.postMessage(msg, '*');
+  }
+
+  // § daily: ?daily=YYYY-MM-DD is the arcade's Daily Challenge (docs/daily.md): an endless run seeded by the date.
+  const DAILY = (/[?&]daily=(\d{4}-\d\d-\d\d)(?:&|$)/.exec(location.search) || [])[1] || '';
+  const dailySeed = () => hashStr(GAME_ID + ':' + DAILY);
+  function postFinal() {
+    if (DAILY && embedded()) window.parent.postMessage({ type: 'arcade:final', game: GAME_ID, daily: DAILY, run: run.id, score: run.solved }, '*');
+  }
+
+  // § state
+  const SKIP_AT = CAMPAIGN.length;  // a player whose best covers the campaign may start at the first endless pond
+  const SKIP_BANK = 8;              // ripples carried into it (the skilled bot leaves the campaign with 9-12)
+  const DRAG_PX = 10;               // movement before a press on a dipper becomes a drag
+  const rid = () => Math.random().toString(36).slice(2, 10) || 'run';
+  // run: { id, seed, idx (pond from 0), from (first endless pond), solved, bank, arrive, over, tunesEver }
+  let run = null, pond = null, dips = [], last = null, P = null;
+  let drag = null;                  // pointer gesture: { who, from, cur, place, moved, x0, y0, id }
+  const kb = { on: false, pad: 0, carry: -1, from: -1 };
+  function newRun() {
+    run = { id: rid(), seed: DAILY ? dailySeed() : (Math.random() * 2 ** 32) >>> 0, idx: 0,
+      from: DAILY ? 0 : CAMPAIGN.length, solved: 0, bank: 0, over: false, tunesEver: 0 };
+    loadPond(true);
+  }
+  function loadPond(fresh) {
+    const attempt = fresh ? 1 : P.attempt + 1;
+    if (fresh) { pond = pondFor(run.seed, run.idx, run.from); run.arrive = grant(run.bank, pond); }
+    run.bank = run.arrive;
+    dips = pond.start.map(d => ({ at: d.at, ph: d.ph }));
+    last = null; drag = null; kb.carry = -1;
+    P = { attempt, moves: 0, places: 0, drags: 0, tunes: 0, taps: 0, ms: 0, done: false, lost: false, doneAt: 0 };
+    const first = dips.findIndex(d => d.at >= 0);
+    kb.pad = Math.max(0, pond.pads.indexOf(first >= 0 ? dips[first].at : pond.pads[0]));
+    fieldDirty = true;
+    fit(); renderUI();
+    setMsg(pondIntro());
+    say(`${pondTitle()}. ${plain(pondIntro())} ${lightsLine(targetSwells(pond, dips))} ${run.bank} ripples.`);
+  }
+  const pondTitle = () => run.idx < run.from ? `Pond ${run.idx + 1} of ${run.from}, ${pond.name}` : `Endless pond ${pond.endless + 1}`;
+  function pondIntro() {
+    if (run.idx < run.from) return words(pond.hint);
+    if (pond.endless === 0) return DAILY ? 'Daily ponds: the same for everyone today. Light every lantern and ring every bell; unused ripples carry on.'
+      : 'Endless ponds from here: each brings par and a few spare ripples. Run out on a pond and the run ends.';
+    return `${pond.targets.length} lights, ${pond.n} dippers${pond.rocks.length ? `, ${pond.rocks.length} rock${pond.rocks.length > 1 ? 's' : ''}` : ''}. Par ${pond.par}.`;
+  }
+  const plain = s => s.replace(/<[^>]*>/g, '');
+
+  function doMove(move) {
+    if (!P || P.done || paused) return false;
+    const nd = applyMove(pond, dips, move);
+    if (!nd) return false;
+    const cost = moveCost(move, last);
+    if (cost > run.bank) { say('No ripples left for that.'); return false; }
+    const placed = move.drop !== undefined && dips[move.drop].at < 0;
+    dips = nd; last = move; run.bank -= cost; P.moves += cost;
+    if (move.tune !== undefined) { P.taps++; P.tunes += cost; run.tunesEver++; }
+    else if (placed) P.places++; else P.drags++;
+    fieldDirty = true;
+    const sw = targetSwells(pond, dips);
+    checkStill(sw);
+    const said = moveWords(move, cost, placed);
+    if (sw.every((s, t) => okAt(pond.targets[t], s))) solvedPond(said);
+    else if (run.bank <= 0 && !freeFix()) lostPond(said);
+    else {
+      say(`${said} ${lightsLine(sw)} ${run.bank} ripple${run.bank === 1 ? '' : 's'} left${run.bank === 0 ? ': keep retiming this dipper, it is free' : ''}.`);
+      if (!run.tunesEver && run.idx >= 1 && dips.every(d => d.at >= 0) && P.moves >= 2) setMsg(words('Stuck? {Tap} a dipper to retime it. The first {tap} costs a ripple; more {taps} on the same dipper are free.'));
+    }
+    renderUI();
+    return true;
+  }
+  // Out of ripples after a retime: the streak is free, so the pond stays open if some timing of that dipper solves it.
+  function freeFix() {
+    if (!last || last.tune === undefined) return false;
+    for (let s = 1; s < PHASES; s++) if (solvedBy(pond, applyMove(pond, dips, { tune: last.tune, steps: s }))) return true;
+    return false;
+  }
+  function checkStill(sw) {
+    if (dips.filter(d => d.at >= 0).length < 2) return;
+    pond.targets.forEach((t, i) => {
+      if (t.kind !== 'lantern' || sw[i] > CALM) return;
+      const alone = dips.filter(d => d.at >= 0).map(d => swellOf(...fieldAt(pond, [d], t.x, t.y)));
+      if (Math.max(...alone) > CALM) unlock('still-water');
+    });
+  }
+  function solvedPond(said) {
+    P.done = true; P.doneAt = performance.now(); kb.carry = -1;
+    run.solved++;
+    if (run.idx >= 2 && P.moves <= pond.par) unlock('clean-ripples');
+    if (pond.n === 3) unlock('trio');
+    if (run.idx === CAMPAIGN.length - 1 && run.from === CAMPAIGN.length) unlock('pond-keeper');
+    if (run.solved >= 20) unlock('deep-water');
+    best = Math.max(best, run.solved);
+    postResult('win');
+    const atPar = P.moves <= pond.par;
+    setMsg(`<b>Solved</b> in ${P.moves} ripple${P.moves === 1 ? '' : 's'} (par ${pond.par})${atPar ? ', at par' : ''}. ${run.bank} carried on.`);
+    say(`${said} Every light is right: pond solved in ${P.moves} ripples, par ${pond.par}. ${run.bank} ripples carried on. Enter or N for the next pond.`);
+    nextBtn.textContent = 'Next pond';
+  }
+  function lostPond(said) {
+    P.done = true; P.lost = true; P.doneAt = performance.now(); kb.carry = -1;
+    postResult('loss');
+    if (run.idx < run.from) {
+      setMsg('<b>Out of ripples.</b> Try the pond again from its start.');
+      say(`${said} Out of ripples. ${lightsLine(targetSwells(pond, dips))} Enter or N tries the pond again.`);
+      nextBtn.textContent = 'Try again';
+    } else {
+      run.over = true;
+      postFinal();
+      setMsg(`<b>Out of ripples.</b> The run is over: ${run.solved} pond${run.solved === 1 ? '' : 's'} solved.`);
+      say(`${said} Out of ripples. The run is over: ${run.solved} ponds solved. Enter or N starts a new run.`);
+      nextBtn.textContent = 'New run';
+    }
+  }
+  function next() {
+    if (!P.done || performance.now() - P.doneAt < 900) return;
+    if (!P.lost) { run.idx++; loadPond(true); }
+    else if (run.over) newRun();
+    else loadPond(false);
+  }
+  function skip() {
+    if (!canSkip()) return;
+    run.idx = SKIP_AT; run.solved = SKIP_AT; run.bank = SKIP_BANK;
+    loadPond(true);
+  }
+  const canSkip = () => !DAILY && best >= SKIP_AT && run && run.idx === 0 && P && P.moves === 0 && !P.done;
+
+  // § live region: one short line per move, key or pond, written from the state, never per frame.
+  const sayEl = document.getElementById('say');
+  let sayFlip = false;
+  function say(text) { sayFlip = !sayFlip; sayEl.textContent = text + (sayFlip ? '' : ' '); }
+  const zone = (x, y) => { const v = ['top', 'middle', 'bottom'][Math.min(2, y * 3 | 0)], h = ['left', 'centre', 'right'][Math.min(2, x * 3 | 0)]; return v === 'middle' ? (h === 'centre' ? 'centre' : `middle ${h}`) : `${v} ${h}`; };
+  const padName = i => { const k = pond.pads.indexOf(i); return `pad ${k + 1}, ${zone(latX(i), latY(i))}`; };
+  const timing = ph => ph === 0 ? 'timing 0' : `timing ${ph} eighth${ph > 1 ? 's' : ''}`;
+  function lightName(t) {
+    const same = pond.targets.filter(o => o.kind === t.kind);
+    return `${t.kind} ${same.indexOf(t) + 1}`;
+  }
+  function lightsLine(sw) {
+    const off = pond.targets.map((t, i) => [t, sw[i]]).filter(([t, s]) => !okAt(t, s));
+    const lit = pond.targets.length - off.length;
+    if (!off.length) return 'Every light is right.';
+    return `${lit} of ${pond.targets.length} right. Not yet: ` + off.map(([t, s]) => `${lightName(t)}, swell ${s}, needs ${t.kind === 'lantern' ? `${CALM} or less` : `${CREST} or more`}`).join('; ') + '.';
+  }
+  function moveWords(move, cost, placed) {
+    if (move.tune !== undefined) return `Dipper ${move.tune + 1} retimed to ${timing(dips[move.tune].ph)}${cost ? '' : ', free'}.`;
+    return `Dipper ${move.drop + 1} ${placed ? 'in' : 'moved'} on ${padName(move.at)}.`;
+  }
+  function padWords(i) {
+    const who = dips.findIndex(d => d.at === i);
+    const s = swellOf(...fieldAt(pond, dips, latX(i), latY(i)));
+    if (who >= 0) return `${padName(i)}: dipper ${who + 1}, ${timing(dips[who].ph)}.`;
+    return `${padName(i)}: empty, swell ${s}.${dips.some(d => d.at < 0) ? ' Enter puts a dipper in.' : ''}`;
+  }
+  function statusWords() {
+    const hand = dips.filter(d => d.at < 0).length;
+    return `${pondTitle()}. ${lightsLine(targetSwells(pond, dips))} ${run.bank} ripples, par ${pond.par}. ${hand ? `${hand} dipper${hand > 1 ? 's' : ''} in hand. ` : ''}${run.solved} ponds solved this run.`;
+  }
+
+  // § ui: HUD, message strip, status line
+  const hudEl = document.getElementById('hud'), msgEl = document.getElementById('msg'), statEl = document.getElementById('stat');
+  const nextBtn = document.getElementById('nextBtn'), skipBtn = document.getElementById('skipBtn');
+  function setMsg(html) { msgEl.innerHTML = `<span>${html}</span>`; }
+  function renderUI() {
+    if (!run) return;
+    const title = run.idx < run.from ? `Pond ${run.idx + 1}/${run.from} · ${pond.name}` : `${DAILY ? 'Daily' : 'Endless'} pond ${pond.endless + 1}`;
+    hudEl.innerHTML = `<span><b>${title}</b></span><span class="rip">Ripples ${run.bank}</span><span>Solved ${run.solved}</span>${best ? `<span>Best ${best}</span>` : ''}`;
+    const sw = targetSwells(pond, dips), lit = sw.filter((s, t) => okAt(pond.targets[t], s)).length;
+    const hand = dips.filter(d => d.at < 0).length;
+    statEl.textContent = `Lights ${lit}/${pond.targets.length} · par ${pond.par}${hand ? ` · ${hand} in hand` : ''}${last && last.tune !== undefined && !P.done ? ` · retiming dipper ${last.tune + 1} is free` : ''}`;
+    nextBtn.hidden = !P.done;
+    skipBtn.hidden = !canSkip();
+  }
+  nextBtn.addEventListener('click', next);
+  skipBtn.addEventListener('click', skip);
+
+  // § field: the water's complex height on a grid, recomputed only when the dippers (or the preview) change
+  const FW = 90;
+  const fRe = new Float32Array(FW * FW), fIm = new Float32Array(FW * FW), fAmp = new Float32Array(FW * FW);
+  let fieldDirty = true, fieldKey = '';
+  const off = document.createElement('canvas'); off.width = off.height = FW;
+  const offCtx = off.getContext('2d'), img = offCtx.createImageData(FW, FW);
+  function shownDips() {
+    if (drag && drag.moved !== null) {
+      const v = dips.map(d => ({ at: d.at, ph: d.ph }));
+      if (drag.cur >= 0) v[drag.who].at = drag.cur; else if (drag.place) v[drag.who].at = -1;
+      return v;
+    }
+    if (kb.carry >= 0) { const v = dips.map(d => ({ at: d.at, ph: d.ph })); v[kb.carry].at = pond.pads[kb.pad]; return v; }
+    return dips;
+  }
+  function computeField(ds) {
+    const key = ds.map(d => d.at + ':' + d.ph).join(',');
+    if (!fieldDirty && key === fieldKey) return;
+    fieldDirty = false; fieldKey = key;
+    for (let cy = 0; cy < FW; cy++) for (let cx = 0; cx < FW; cx++) {
+      const [re, im] = fieldAt(pond, ds, (cx + 0.5) / FW, (cy + 0.5) / FW), j = cy * FW + cx;
+      fRe[j] = re; fIm[j] = im; fAmp[j] = Math.hypot(re, im);
+    }
+  }
+
+  // § drawing
+  const canvas = document.getElementById('pond'), ctx = canvas.getContext('2d'), wrap = document.getElementById('wrap');
+  let S = 300, dpr = 1;
+  function fit() {
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    S = Math.max(160, Math.floor(Math.min(w, h)));
+    dpr = window.devicePixelRatio || 1;
+    canvas.style.width = canvas.style.height = S + 'px';
+    canvas.width = canvas.height = Math.round(S * dpr);
+  }
+  const OMEGA = 2 * Math.PI / 1.8;   // one ripple period on screen (decoration; the rules use amplitude only)
+  let clock = 0;
+  const PAD_R = 0.032, DIP_R = 0.026;
+  function paint() {
+    if (!pond) return;
+    const ds = shownDips();
+    computeField(ds);
+    const still = REDUCED.matches, c = Math.cos(OMEGA * clock), s = Math.sin(OMEGA * clock), D = img.data;
+    for (let j = 0; j < FW * FW; j++) {
+      // Lightness: reduced motion shows the swell itself; otherwise the moving surface.
+      const lt = still ? 0.1 + 0.55 * Math.min(1, fAmp[j] / 1.6) : 0.4 + 0.32 * Math.tanh(fRe[j] * c + fIm[j] * s);
+      D[j * 4] = 8 + 110 * lt; D[j * 4 + 1] = 30 + 160 * lt; D[j * 4 + 2] = 48 + 170 * lt; D[j * 4 + 3] = 255;
+    }
+    offCtx.putImageData(img, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(off, 0, 0, S, S);
+    // Calm and crest marks (shape, not colour): a flat dash where a lantern would be calm, a plus where a bell would ring.
+    const M = 26, ms = S / M;
+    ctx.lineCap = 'round';
+    for (let my = 0; my < M; my++) for (let mx = 0; mx < M; mx++) {
+      const x = (mx + 0.5) / M, y = (my + 0.5) / M, a = fAmp[Math.min(FW - 1, y * FW | 0) * FW + Math.min(FW - 1, x * FW | 0)];
+      const sw = Math.round(a * 10), px = x * S, py = y * S;
+      if (sw <= CALM) {
+        ctx.strokeStyle = 'rgba(4,12,18,0.75)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(px - ms * 0.22, py); ctx.lineTo(px + ms * 0.22, py); ctx.stroke();
+      } else if (sw >= CREST) {
+        const r = ms * 0.2;
+        ctx.strokeStyle = 'rgba(4,12,18,0.8)'; ctx.lineWidth = 3.2;
+        ctx.beginPath(); ctx.moveTo(px - r, py); ctx.lineTo(px + r, py); ctx.moveTo(px, py - r); ctx.lineTo(px, py + r); ctx.stroke();
+        ctx.strokeStyle = 'rgba(245,252,255,0.95)'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(px - r, py); ctx.lineTo(px + r, py); ctx.moveTo(px, py - r); ctx.lineTo(px, py + r); ctx.stroke();
+      }
+    }
+    // Rocks
+    for (const k of pond.rocks) {
+      ctx.fillStyle = '#6e7275'; ctx.strokeStyle = '#2c2f31'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(k.x * S, k.y * S, k.r * S, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#8d9194'; ctx.beginPath(); ctx.arc((k.x - k.r * 0.3) * S, (k.y - k.r * 0.3) * S, k.r * 0.35 * S, 0, 7); ctx.fill();
+    }
+    // Lily pads
+    const pr = Math.max(9, PAD_R * S);
+    pond.pads.forEach((i, k) => {
+      const x = latX(i) * S, y = latY(i) * S;
+      ctx.fillStyle = '#6f8a64'; ctx.strokeStyle = '#18261a'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, pr, -1.2, 4.6); ctx.closePath(); ctx.fill(); ctx.stroke();
+      if (drag && drag.moved && drag.cur === i) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, pr + 4, 0, 7); ctx.stroke(); }
+    });
+    // Lights and their gauges (the line is where the light changes)
+    const sw = targetSwells(pond, ds);
+    pond.targets.forEach((t, i) => drawLight(t, sw[i]));
+    // Dippers
+    ds.forEach((d, j) => { if (d.at >= 0) drawDipper(latX(d.at) * S, latY(d.at) * S, d.ph, j); });
+    // Keyboard cursor
+    if (kb.on && !P.done) {
+      const i = pond.pads[kb.pad], x = latX(i) * S, y = latY(i) * S, r = pr + 7;
+      ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.strokeRect(x - r, y - r, 2 * r, 2 * r);
+      ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.setLineDash([4, 3]); ctx.strokeRect(x - r, y - r, 2 * r, 2 * r); ctx.setLineDash([]);
+    }
+  }
+  function drawDipper(x, y, ph, j) {
+    const r = Math.max(11, DIP_R * S), ang = -Math.PI / 2 + ph * 2 * Math.PI / PHASES;
+    if (!REDUCED.matches) {
+      const bob = 0.5 + 0.5 * Math.cos(OMEGA * clock - ph * 2 * Math.PI / PHASES);
+      ctx.strokeStyle = `rgba(230,240,245,${0.25 + 0.35 * bob})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, r * (1.25 + 0.25 * bob), 0, 7); ctx.stroke();
+    }
+    ctx.fillStyle = '#0d181e'; ctx.strokeStyle = '#e8f0f3'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.stroke();
+    // Timing: eight ticks, the hand points at this dipper's step.
+    ctx.strokeStyle = '#7d8d96'; ctx.lineWidth = 1.5;
+    for (let p = 0; p < PHASES; p++) {
+      const a = -Math.PI / 2 + p * 2 * Math.PI / PHASES;
+      ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.78, y + Math.sin(a) * r * 0.78); ctx.lineTo(x + Math.cos(a) * r * 0.95, y + Math.sin(a) * r * 0.95); ctx.stroke();
+    }
+    ctx.strokeStyle = '#ffe3a0'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x + Math.cos(ang) * r * 0.45, y + Math.sin(ang) * r * 0.45); ctx.lineTo(x + Math.cos(ang) * r * 0.95, y + Math.sin(ang) * r * 0.95); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = `700 ${Math.max(12, r * 0.85)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(j + 1), x, y + 1);
+  }
+  function drawLight(t, s) {
+    const x = t.x * S, y = t.y * S, r = Math.max(10, 0.03 * S), ok = okAt(t, s);
+    ctx.lineWidth = 2.5;
+    ctx.fillStyle = ok ? (t.kind === 'lantern' ? '#ffeab0' : '#eef4ff') : '#1c2328';
+    ctx.strokeStyle = ok ? '#1a1408' : '#e8eef0';
+    ctx.beginPath();
+    if (t.kind === 'lantern') { ctx.moveTo(x, y - r); ctx.lineTo(x + r * 0.75, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r * 0.75, y); ctx.closePath(); }
+    else { ctx.moveTo(x - r * 0.8, y + r * 0.6); ctx.quadraticCurveTo(x - r * 0.7, y - r, x, y - r); ctx.quadraticCurveTo(x + r * 0.7, y - r, x + r * 0.8, y + r * 0.6); ctx.closePath(); }
+    ctx.fill(); ctx.stroke();
+    if (ok) {
+      // Lit: a ring of rays round a lantern, sound arcs beside a bell.
+      ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = 2;
+      if (t.kind === 'lantern') for (let a = 0; a < 8; a++) { const u = a * Math.PI / 4; ctx.beginPath(); ctx.moveTo(x + Math.cos(u) * r * 1.2, y + Math.sin(u) * r * 1.2); ctx.lineTo(x + Math.cos(u) * r * 1.55, y + Math.sin(u) * r * 1.55); ctx.stroke(); }
+      else for (const side of [-1, 1]) { ctx.beginPath(); ctx.arc(x, y, r * 1.35, side < 0 ? Math.PI * 0.8 : -Math.PI * 0.2, side < 0 ? Math.PI * 1.2 : Math.PI * 0.2); ctx.stroke(); }
+    }
+    // Gauge: a bar for the swell here, with the light's line; the side of the line that counts is hatched.
+    const gw = Math.max(40, 0.1 * S), gh = Math.max(7, 0.016 * S), gx = x - gw / 2, gy = t.y > 0.85 ? y - r - 8 - gh : y + r + 6;
+    const MAXS = 20, line = (t.kind === 'lantern' ? CALM + 0.5 : CREST - 0.5) / MAXS;
+    ctx.fillStyle = '#0b1014'; ctx.fillRect(gx - 2, gy - 2, gw + 4, gh + 4);
+    ctx.fillStyle = '#2d3a42';
+    if (t.kind === 'lantern') ctx.fillRect(gx, gy, gw * line, gh); else ctx.fillRect(gx + gw * line, gy, gw * (1 - line), gh);
+    ctx.fillStyle = ok ? '#f2f5f6' : '#8b979e';
+    ctx.fillRect(gx, gy + gh * 0.25, gw * Math.min(1, s / MAXS), gh * 0.5);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(gx + gw * line - 1, gy - 3, 2, gh + 6);
+  }
+
+  // § input: press a pad to put a dipper in, drag a dipper to move it, tap a dipper to retime it
+  function toPond(evt) { const b = canvas.getBoundingClientRect(); return { x: (evt.clientX - b.left) / S, y: (evt.clientY - b.top) / S }; }
+  function nearestPad(x, y, who, reach) {
+    let bestI = -1, bestD = reach;
+    for (const i of pond.pads) {
+      const d = Math.hypot(latX(i) - x, latY(i) - y);
+      if (d < bestD && (dips[who].at === i || legalSpot(pond, dips, i, who))) { bestD = d; bestI = i; }
+    }
+    return bestI;
+  }
+  canvas.addEventListener('pointerdown', evt => {
+    if (paused || !P || P.done || drag) return;
+    const p = toPond(evt);
+    kb.carry = -1;
+    let who = -1, bd = 0.05;
+    dips.forEach((d, j) => { if (d.at >= 0) { const dd = Math.hypot(latX(d.at) - p.x, latY(d.at) - p.y); if (dd < bd) { bd = dd; who = j; } } });
+    if (who >= 0) drag = { who, from: dips[who].at, cur: dips[who].at, place: false, moved: false, x0: evt.clientX, y0: evt.clientY, id: evt.pointerId };
+    else {
+      const hand = dips.findIndex(d => d.at < 0);
+      if (hand < 0) { say('All dippers are in. Drag one to move it, or tap it to retime it.'.replace('tap', COARSE ? 'tap' : 'click')); return; }
+      const pad = nearestPad(p.x, p.y, hand, 0.075);
+      if (pad < 0) { say('Dippers stand on lily pads: put one on a pad.'); return; }
+      drag = { who: hand, from: -1, cur: pad, place: true, moved: false, x0: evt.clientX, y0: evt.clientY, id: evt.pointerId };
+    }
+    try { canvas.setPointerCapture(evt.pointerId); } catch (_) {}
+    draw();
+  });
+  canvas.addEventListener('pointermove', evt => {
+    if (!drag || evt.pointerId !== drag.id) return;
+    if (!drag.moved && Math.hypot(evt.clientX - drag.x0, evt.clientY - drag.y0) < DRAG_PX) return;
+    drag.moved = true;
+    const p = toPond(evt), cur = nearestPad(p.x, p.y, drag.who, 0.09);
+    if (cur !== drag.cur) { drag.cur = cur; draw(); }
+  });
+  function endDrag(evt) {
+    if (!drag || (evt && evt.pointerId !== drag.id)) return;
+    const g = drag; drag = null;
+    if (!g.place && !g.moved) { doMove({ tune: g.who, steps: 1 }); draw(); return; }
+    if (g.cur >= 0 && g.cur !== g.from) doMove({ drop: g.who, at: g.cur });
+    else say(g.place ? 'Not put in: no free pad there.' : `Dipper ${g.who + 1} put back, no ripple spent.`);
+    draw();
+  }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', () => cancelDrag());
+  function cancelDrag() { if (drag) { drag = null; draw(); } }
+
+  // Keys: arrows pick a pad (a least-turn pick among the pads), Enter places / lifts / drops, T retimes.
+  const ARROWS = { ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1], ArrowLeft: [-1, 0] };
+  function padToward(k, dx, dy, ok) {
+    const i0 = pond.pads[k];
+    let bestK = -1, bestV = Infinity;
+    pond.pads.forEach((i, j) => {
+      if (j === k || !ok(i)) return;
+      const vx = latX(i) - latX(i0), vy = latY(i) - latY(i0), d = Math.hypot(vx, vy), cos = (vx * dx + vy * dy) / d;
+      if (cos < 0.35) return;
+      const v = d * (1 + 2.5 * (1 - cos));
+      if (v < bestV) { bestV = v; bestK = j; }
+    });
+    return bestK;
+  }
+  window.addEventListener('keydown', evt => {
+    if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab' || !P) return;
+    const onButton = evt.target && evt.target.tagName === 'BUTTON';
+    if (evt.key in ARROWS) {
+      evt.preventDefault();
+      if (onButton) evt.target.blur();
+      if (paused || P.done) return;
+      const [dx, dy] = ARROWS[evt.key];
+      if (!kb.on) { kb.on = true; say(padWords(pond.pads[kb.pad])); draw(); return; }
+      const ok = kb.carry >= 0 ? i => i === kb.from || legalSpot(pond, dips, i, kb.carry) : () => true;
+      const k = padToward(kb.pad, dx, dy, ok);
+      if (k < 0) { say(`No ${kb.carry >= 0 ? 'free ' : ''}pad that way.`); return; }
+      kb.pad = k;
+      if (kb.carry >= 0) { const sw = targetSwells(pond, shownDips()); say(`Dipper ${kb.carry + 1} over ${padName(pond.pads[k])}. ${lightsLine(sw)} Enter drops.`); }
+      else say(padWords(pond.pads[k]));
+      draw();
+      return;
+    }
+    if (paused) return;
+    const key = evt.key.toLowerCase();
+    if ((key === 'n' || key === 'enter') && P.done) { evt.preventDefault(); next(); return; }
+    if (key === 'i') { say(statusWords()); return; }
+    if (onButton && (key === 'enter' || key === ' ')) return;
+    if (P.done) return;
+    if (key === 'enter' || key === ' ') { evt.preventDefault(); if (!evt.repeat) keyAct(); }
+    else if (key === 't') { if (!evt.repeat || true) keyTune(evt.shiftKey ? -1 : 1); }
+    else if (key === 'escape' && kb.carry >= 0) { kb.pad = pond.pads.indexOf(kb.from); kb.carry = -1; say('Put back, no ripple spent.'); draw(); }
+    else if (key >= '1' && key <= '3') {
+      const d = dips[+key - 1];
+      if (!d) return;
+      if (d.at < 0) { say(`Dipper ${key} is still in your hand.`); return; }
+      kb.on = true; kb.pad = pond.pads.indexOf(d.at); say(padWords(d.at)); draw();
+    } else if (key === 'l') {
+      kb.light = ((kb.light ?? -1) + 1) % pond.targets.length;
+      const t = pond.targets[kb.light], s = targetSwells(pond, dips)[kb.light];
+      say(`${lightName(t)}, ${zone(t.x, t.y)}: swell ${s}, ${okAt(t, s) ? (t.kind === 'lantern' ? 'calm, lit' : 'ringing') : `needs ${t.kind === 'lantern' ? `${CALM} or less` : `${CREST} or more`}`}.`);
+    }
+  });
+  function keyAct() {
+    if (!kb.on) { kb.on = true; say(`${padWords(pond.pads[kb.pad])} Arrows pick a pad, Enter places, lifts or drops, T retimes.`); draw(); return; }
+    const i = pond.pads[kb.pad];
+    if (kb.carry >= 0) {
+      const who = kb.carry; kb.carry = -1;
+      if (i === kb.from) { say('Put back, no ripple spent.'); draw(); return; }
+      doMove({ drop: who, at: i }); draw(); return;
+    }
+    const who = dips.findIndex(d => d.at === i);
+    if (who >= 0) {
+      kb.carry = who; kb.from = i;
+      say(`Lifted dipper ${who + 1}. Arrows choose a free pad, the lights change as it goes; Enter drops, Escape puts it back.`);
+      draw(); return;
+    }
+    const hand = dips.findIndex(d => d.at < 0);
+    if (hand < 0) { say('All dippers are in. Pick one with 1 to 3 or the arrows, then Enter lifts it.'); return; }
+    if (!legalSpot(pond, dips, i, hand)) { say('That pad is too close to a light.'); return; }
+    doMove({ drop: hand, at: i }); draw();
+  }
+  function keyTune(steps) {
+    if (kb.carry >= 0) { say('Drop the dipper first, or Escape.'); return; }
+    const who = dips.findIndex(d => d.at === pond.pads[kb.pad]);
+    if (!kb.on || who < 0) { kb.on = true; say('Put the cursor on a dipper to retime it (1 to 3 jump to them).'); draw(); return; }
+    doMove({ tune: who, steps }); draw();
+  }
+
+  // § clock: animation and unpaused play time (for telemetry)
+  let lastT = performance.now(), dirty = true;
+  const draw = () => { dirty = true; };
+  function frame(now) {
+    const dt = Math.min(100, now - lastT); lastT = now;
+    if (!paused) {
+      if (P && !P.done) P.ms += dt;
+      if (!REDUCED.matches) { clock += dt / 1000; dirty = true; }
+    }
+    if (dirty) { dirty = false; paint(); }
+    requestAnimationFrame(frame);
+  }
+  new ResizeObserver(() => { fit(); draw(); }).observe(wrap);
+  window.addEventListener('resize', () => { fit(); draw(); });
+  newRun();
+  requestAnimationFrame(frame);
+})();
+// § a11y label
+// The canvas label names the verbs, with the word for this device.
+{
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const t = fine ? 'click' : 'tap', T = fine ? 'Click' : 'Tap';
+  document.getElementById('pond').setAttribute('aria-label', `Ripple Tank pond. ${T} a lily pad to put in a dipper, drag a dipper to another pad to move it, ${t} a dipper to retime it. Lanterns need calm water, bells need crests. Keys: arrows pick a pad, Enter places, lifts or drops a dipper, T or Shift+T retimes, 1 to 3 jump to a dipper, L reads the lights, I status, N next pond.`);
+}
+</script>
+</body>
+</html>

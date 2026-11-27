@@ -73,6 +73,7 @@ more as the daily and fails if a result lacks the date.
 | counterfeit-scale | Endless cases from the day's seed | cases cracked | 3 strikes |
 | surprise-party | a Party Season from the day's seed | parties | out of envelopes |
 | pressure-grid | a Pipeline run from the day's seed (from 2026-11-28) | boards cleared | a board out of moves |
+| ripple-tank | endless ponds from the day's seed (from 2026-12-01) | ponds solved | a pond out of ripples |
 
 ## Class challenge
 
