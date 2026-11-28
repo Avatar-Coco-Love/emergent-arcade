@@ -1,6 +1,6 @@
 # Terrace Garden: design notes
 
-**v6** (2026-11-28, depth pass: gardens 4–5, the endless Long Summer, Daily from 2026-12-03, score epoch 2; playtest: https://claude.ai/artifact/KX7S2QbzYdDtjt2pMMYBps) · v5 (2026-11-26, focus fix) ·
+**v6** (2026-11-28, depth pass: gardens 4–5, endless Long Summer, Daily from 12-03, score epoch 2; playtest: https://claude.ai/artifact/KX7S2QbzYdDtjt2pMMYBps) · v5 (2026-11-26, focus fix) ·
 balance: `node scripts/balance-terrace-garden.mjs 60` (`BRIEF=1`, `SUMMER=1` summer only, `LOSSES=1`, `GEN=1` rebuilds the pool)
 Mechanics: **tilt** (phone tilt, tilt bar, or ← → / A D) and **gate** (tap, or keys),
 sharing the **water depth in every column** of a stepped hillside. A warm-up,
