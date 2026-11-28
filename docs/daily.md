@@ -74,6 +74,7 @@ more as the daily and fails if a result lacks the date.
 | surprise-party | a Party Season from the day's seed | parties | out of envelopes |
 | pressure-grid | a Pipeline run from the day's seed (from 2026-11-28) | boards cleared | a board out of moves |
 | ripple-tank | endless ponds from the day's seed (from 2026-12-01) | ponds solved | a pond out of ripples |
+| terrace-garden | a Long Summer from the day's seed (from 2026-12-03) | gardens bloomed | the 4th lost garden (3 spare tries) |
 
 ## Class challenge
 

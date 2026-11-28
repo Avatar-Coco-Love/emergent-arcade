@@ -4,6 +4,47 @@ Older versions, superseded balance tables, playtest logs and rationale for
 past revisions. Current design: `docs/games/terrace-garden.md`. Add new entries at the
 top of the relevant section; sessions don't read this file by default.
 
+## v5 notes: stuck hint, tilt input, layout (moved 2026-11-28)
+
+- Stuck hint (`watchStall`/`findHint`): after `STALL_T` s with no gate
+  flowing, slosh, or growth, points at a move for the topmost thirsty plant
+  (else the cactus): gold chevrons + pulsing tilt bar, gate ring, or Restart
+  button, plus a line naming the input. Spilling off the bottom while tilted
+  right warns "Ease off ▶". White tick on each stake shows current depth.
+  Logic detail: history, v2 section.
+- Tilt input: target −1..1. Keys ±1 while held. Tilt bar (PC drag, touch
+  without motion) follows the finger and springs back. Phone tilt is gravity
+  along the screen width (`deviceorientation` + screen angle), zeroed at
+  each garden's start, `MOTION_DEAD` 3° dead zone, full at `MOTION_FULL` 20°.
+  iOS shows "Enable tilt". The mouse never tilts.
+
+
+Layout (400×600):
+
+Spring tank top-left, valve over column 0; gates are valves at terrace ends
+(tap radius 30). Tilt gauge top centre, message under it. Below: tilt bar
+(not on phones with motion), Garden, Bloomed, Spring, Enable tilt, Restart.
+
+
+## v4 accessibility notes (moved from the notes at v6, 2026-11-28; v4, `node scripts/a11y-audit.mjs terrace-garden`: all 6 pass, 3/3)
+
+- Keys (`// § keys`, outside the sim): hold ← → / A D tilt. ↑ ↓ pick a
+  stop (spring, gates, bottom lip): white ring on a dark one, key numbers
+  once keys are used. Enter/G = `tapGate`; 0–4 pick + toggle (0 = spring).
+  S status, Enter next garden. Tab free; Enter/Space on a button press it.
+- Live region `#say` (`#msg` aria-hidden; `speak()` queues, flushed once a
+  frame): the stop (open/shut, water, deeper end, each plant's depth vs
+  band and place: left … right), toggles, tilt start, "Level again" 0.9 s
+  after release, plants growing/stopping/drowning/blooming/wilting (held
+  0.7 s, ≤ 1 line per plant per 2 s), hints with key numbers, the result.
+- Without hue (L* normal/deutan/protan): stems growing 82, thirsty 60 with
+  a drooping head, drowning 32 with bubbles; bloom = petals. Gates open 71
+  (|) vs shut 46 (—). Depth tick white 100 with a dark edge 6 vs band 75,
+  water 54; bands outlined dark. Cactus 61 dry, 36 wet + bubbles.
+- "spring" label `fs(12)` on a backing (was 9.4 px, unseen: the audit's
+  warm-up has no spring). Late scripted gardens: contrast/colour/text 2/2.
+- Reduced motion: no sway, splashes or drift (v4 measurements and balance check: history).
+
 ## v4 accessibility measurements (moved 2026-11-26)
 
 - Reduced motion (`still()`, clock `deco`): no sway, splashes or drift;

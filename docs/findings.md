@@ -25,5 +25,5 @@ entry. Keep each theme file under ~8 KB; split a theme before it passes that.
 | Time pressure and input | [findings/time-and-input.md](findings/time-and-input.md) | 7 | real time, hold/drag verbs, decay, tilt |
 | Bots vs people | [findings/bots-vs-people.md](findings/bots-vs-people.md) | 4 | trusting bot win rates, writing a `novice` or habit bot |
 | Onboarding and readability | [findings/onboarding.md](findings/onboarding.md) | 6 | first round, hints, messages, layout |
-| Depth and replay | [findings/depth-and-replay.md](findings/depth-and-replay.md) | 11 | levels, carry-over, achievements, Daily, depth pass |
+| Depth and replay | [findings/depth-and-replay.md](findings/depth-and-replay.md) | 12 | levels, carry-over, achievements, Daily, depth pass |
 | Accessibility | [findings/accessibility.md](findings/accessibility.md) | 38 | keyboard, live region, colour, motion, audit |
