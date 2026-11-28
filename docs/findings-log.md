@@ -1737,3 +1737,22 @@ when every level grants par + spare, so the skilled bot must be imperfect
 
 *Evidence: bots (balance-ripple-tank.mjs); no players yet.*
 
+
+## A raw generator made gardens no bot could finish (Terrace Garden v6)
+
+The Long Summer first drew each garden at run time from a seeded generator
+(random columns, bands, twists, a spring sized from what the plants drink
+and stand in). The reader bot lost about half its summer gardens for
+reasons a player can't fix: stuck forever (a jammed gate with the spring's
+water stranded behind the sills above), a tender shoot under the waterfall
+from the gate above, the spring running dry on a jam garden, and carried
+water piling up to ~2800 so later gardens were free. Fixes that worked:
+generate offline in the balance harness (`GEN=1`), keep a candidate only
+if three bot runs (reader twice with different misjudging, slow-hands
+once; the Daily's first tier also keys) win it with 85% of the listed
+water, ship the kept rows as a table in the game, and give the spring a
+share of the listed tank that shrinks per garden (1 → 0.4) so carried
+water is spent instead of banked. Kept 24/46, 30/57, 30/111 candidates by
+tier. Reader then: median 10 summer gardens, runs ending mostly dry.
+
+*Evidence: bots (balance-terrace-garden.mjs); no players yet.*

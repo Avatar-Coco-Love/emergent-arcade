@@ -184,6 +184,8 @@
     <span>Garden <b id="hudGarden"></b></span>
     <span>Bloomed <b id="hudBloom"></b></span>
     <span>Spring <b id="hudSpring"></b></span>
+    <span hidden>Tries <b id="hudTries"></b></span>
+    <button id="skipBtn" hidden>Start at the Long Summer</button>
     <button id="motionBtn" hidden>Enable tilt</button>
     <button id="resetBtn">Restart garden</button>
   </div>
@@ -216,12 +218,18 @@
   const GATE_R = 30;               // reach of a tap to the nearest gate (px)
   const STALL_T = 3;               // s of nothing flowing or growing before a hint shows (1.5 in the warm-up)
   const END_INPUT_LOCK_MS = 1000;  // ignore taps right after a win/loss
+  const TENDER_T = 3.5;            // s too deep before a tender shoot washes out (the garden is lost)
+  const SPARE = 3;                 // lost gardens the Long Summer forgives in a run; the next loss ends it
+  const SUMMER_DM = 0.05, SUMMER_MIN = 0.4; // the summer spring's share of its listed tank: drop per garden, floor
+  const SKIP_CARRY = 120;          // spring water carried into the Long Summer when starting there
   const STEP = 1 / 60, SUB = 4;
   const VIS = Math.atan(SLOPE / CW); // the drawing leans this far at full tilt, so water looks level
 
-  // The run: a warm-up and three gardens. Each plant is [terrace, column,
-  // lo, hi] (the depth it grows in); dry: true wants no water at all. Spring
-  // water left in the tank at a win carries on to the next garden. The
+  // The campaign: a warm-up and five gardens, then the Long Summer (§ summer).
+  // Each plant is [terrace, column, lo, hi] (the depth it grows in), then
+  // true for a cactus (wants no water at all) or 'tender' (washes out after
+  // TENDER_T s too deep). jam: a gate stuck open. Spring water left in the
+  // tank at a win carries on to the next garden. The
   // warm-up has no spring: its water starts on the top terrace (pre), its
   // terraces sit closer (top/bot floors), and its gate stays locked until
   // the first plant blooms, so it teaches tilt first, then gate + tilt.
@@ -234,7 +242,42 @@
       plants: [[0, 3, 8, 20], [1, 1, 18, 32], [1, 9, 2, 7], [2, 6, 10, 22], [3, 8, 4, 12], [4, 2, 10, 20]] },
     { name: 'The dry corner', note: 'The cactus blooms only while its corner stays dry.', tank: 400, n: 5, leak: -1,
       plants: [[0, 8, 6, 14], [1, 2, 12, 26], [1, 9, 0, 0, true], [2, 5, 16, 30], [3, 1, 3, 8], [3, 9, 12, 24], [4, 6, 8, 18]] },
+    { name: 'The jammed gate', note: 'Gate 2 is jammed open: tilt ◀ to hold water on terrace 2.', tank: 520, n: 5, leak: -1, jam: 2,
+      plants: [[0, 4, 8, 18], [1, 2, 12, 24], [2, 7, 6, 16], [3, 3, 12, 26], [4, 8, 6, 14]] },
+    { name: 'Tender shoots', note: 'Tender shoots (dashed stakes) wash out if they stay too deep.', tank: 420, n: 5, leak: -1,
+      plants: [[0, 6, 8, 18], [1, 3, 8, 20, 'tender'], [2, 8, 6, 14], [3, 2, 14, 28], [3, 8, 4, 14, 'tender'], [4, 5, 8, 18]] },
   ];
+  const CAMP = GARDENS.length;     // gardens from here on are the Long Summer's, made from the run's seed
+
+  // § summer: the Long Summer's gardens, endless, from the run's seed. Each
+  // comes from SUMMER_POOL: 5 terraces, made by scripts/balance-terrace-garden.mjs
+  // (GEN=1) and kept only if its bot wins with 15% less water than listed.
+  // Rows: [tank, leaking terrace (-1 none), jammed gate (0 none), plants
+  // [terrace, column, lo, hi, kind (1 cactus, 2 tender)]]. Tiers by twist
+  // count: summer gardens 1-2 draw from tier 1, 3-5 from tier 2, then tier 3.
+  // The spring gets the listed tank times a share that shrinks by
+  // SUMMER_DM per garden down to SUMMER_MIN; water carried over adds to it.
+  function mix(a, b) { let h = (a ^ Math.imul(b + 0x9e3779b9, 0x85ebca6b)) >>> 0; h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0; return (h ^ (h >>> 16)) >>> 0; }
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function hashStr(str) { let h = 0x811c9dc5; for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0; return h; }
+  const SUMMER_POOL = [[[460,-1,0,[[0,2,0,0,1],[0,11,10,22],[1,1,10,22],[2,8,20,32],[3,3,11,23],[4,5,3,15]]],[500,-1,0,[[0,0,0,0,1],[0,5,4,16],[1,9,5,17],[2,7,15,27],[3,5,13,25],[4,5,9,21]]],[690,3,0,[[0,6,5,17],[1,6,19,31],[2,4,5,17],[3,6,7,19],[4,11,6,18]]],[550,-1,1,[[0,4,10,22],[1,9,16,28],[2,10,8,20],[3,9,8,20],[4,4,10,22]]],[630,2,0,[[0,1,15,27],[1,6,14,26],[2,8,15,27],[3,7,11,23],[4,4,4,16]]],[470,-1,0,[[0,0,0,0,1],[0,11,19,31],[1,0,17,29],[2,6,10,22],[3,11,11,23],[4,11,9,21]]],[500,-1,0,[[0,8,9,21],[1,4,15,29,2],[2,9,4,16],[3,4,18,30],[4,3,14,26]]],[600,1,0,[[0,4,3,15],[1,4,17,29],[2,6,7,19],[3,10,4,16],[4,11,4,16]]],[410,-1,0,[[0,7,8,20],[1,0,13,27,2],[2,0,19,31],[3,10,12,24],[4,8,7,19]]],[500,-1,0,[[0,4,18,30],[1,1,10,22],[2,1,15,27],[3,11,8,20],[4,1,12,26,2]]],[600,3,0,[[0,9,5,17],[1,5,11,23],[2,0,14,26],[3,0,12,24],[4,11,8,20]]],[390,-1,0,[[0,1,0,0,1],[0,11,18,30],[1,7,6,18],[2,9,6,18],[3,10,13,25],[4,10,4,16]]],[470,-1,1,[[0,1,12,24],[1,0,19,31],[2,10,9,21],[3,10,9,21],[4,1,9,21]]],[490,-1,3,[[0,10,14,26],[1,8,6,18],[2,0,5,17],[3,9,5,17],[4,3,3,15]]],[640,-1,2,[[0,6,14,26],[1,4,6,18],[2,1,7,19],[3,11,5,17],[4,11,11,23]]],[660,1,0,[[0,4,8,20],[1,3,16,28],[2,5,3,15],[3,5,17,29],[4,10,3,15]]],[520,-1,0,[[0,6,8,20],[1,11,6,18],[2,5,15,29,2],[3,9,20,32],[4,2,10,22]]],[540,2,0,[[0,8,15,27],[1,11,8,20],[2,9,4,16],[3,3,4,16],[4,8,10,22]]],[530,2,0,[[0,0,12,24],[1,7,9,21],[2,11,11,23],[3,0,11,23],[4,10,6,18]]],[420,-1,0,[[0,9,17,29],[1,2,9,21],[2,11,3,15],[3,7,10,24,2],[4,11,9,21]]],[430,-1,0,[[0,2,0,0,1],[0,11,6,18],[1,0,20,32],[2,4,9,21],[3,10,16,28],[4,6,5,17]]],[520,-1,1,[[0,0,3,15],[1,10,10,22],[2,3,11,23],[3,10,16,28],[4,8,9,21]]],[580,-1,0,[[0,1,3,15],[1,5,20,32],[2,9,12,24],[3,0,4,18,2],[4,10,10,22]]],[480,-1,0,[[0,6,11,23],[1,2,13,25],[2,9,19,31],[3,4,7,21,2],[4,6,5,17]]]],[[620,2,0,[[0,7,9,20],[1,6,8,21,2],[1,11,15,26],[2,0,17,30,2],[3,9,11,22],[4,7,15,26]]],[750,1,0,[[0,5,18,30,2],[1,0,14,24],[1,7,14,26,2],[2,1,13,23],[3,9,16,26],[4,1,10,20],[4,4,14,24]]],[730,1,0,[[0,7,9,21,2],[1,6,6,18,2],[2,0,4,14],[2,4,22,32],[3,2,3,13],[3,9,8,18],[4,6,9,19]]],[510,-1,0,[[0,0,7,18],[0,6,5,16],[1,2,0,0,1],[1,6,10,23,2],[2,3,6,19,2],[3,7,10,21],[4,6,6,17]]],[600,3,0,[[0,0,11,22],[0,9,6,19,2],[1,8,18,29],[2,1,16,27],[3,0,8,19],[4,2,8,21,2]]],[610,-1,2,[[0,9,16,27],[1,0,8,21,2],[2,3,4,15],[3,5,7,20,2],[4,4,3,14],[4,8,12,23]]],[720,2,1,[[0,4,4,15],[1,2,19,30],[1,9,13,24],[2,2,14,25],[3,10,15,26],[4,4,11,22]]],[640,-1,3,[[0,0,7,18],[0,10,15,26],[1,3,4,17,2],[2,0,9,22,2],[3,3,21,32],[4,6,10,21]]],[700,2,0,[[0,11,14,24],[1,1,16,26],[1,4,19,29],[2,10,16,26],[3,6,5,17,2],[3,11,4,14],[4,5,13,25,2]]],[490,-1,0,[[0,0,14,25],[1,0,6,19,2],[1,9,0,0,1],[2,2,18,29],[3,5,8,21,2],[4,4,11,22],[4,7,7,18]]],[820,2,1,[[0,4,4,15],[1,3,5,16],[2,9,21,32],[3,6,16,27],[3,11,19,30],[4,6,6,17]]],[690,-1,2,[[0,8,3,13],[1,4,4,14],[2,1,5,15],[3,4,17,29,2],[3,10,18,28],[4,2,3,15,2],[4,11,15,25]]],[760,2,2,[[0,4,9,20],[1,2,10,21],[2,6,10,21],[3,8,17,28],[4,5,7,18],[4,8,8,19]]],[670,-1,3,[[0,5,11,22],[1,11,16,27],[2,3,6,17],[3,4,11,22],[3,9,0,0,1],[4,5,13,24],[4,10,9,20]]],[660,-1,2,[[0,0,0,0,1],[0,11,15,26],[1,0,12,23],[2,8,8,19],[3,5,12,23],[4,4,9,20],[4,8,8,19]]],[630,-1,2,[[0,2,17,28],[1,3,3,14],[2,2,0,0,1],[2,6,9,20],[2,10,5,16],[3,0,18,29],[4,1,10,21]]],[610,-1,1,[[0,4,7,20,2],[1,1,7,20,2],[2,5,6,17],[2,8,18,29],[3,0,10,21],[4,0,9,20]]],[740,1,0,[[0,5,6,16],[1,6,17,29,2],[1,9,18,28],[2,1,9,21,2],[3,3,5,15],[4,2,16,26],[4,10,15,25]]],[620,3,0,[[0,4,15,26],[0,8,10,21],[1,7,3,14],[2,1,0,0,1],[2,11,17,28],[3,3,19,30],[4,0,3,14]]],[640,1,0,[[0,6,10,21],[0,11,6,19,2],[1,4,17,30,2],[2,7,3,14],[3,8,20,31],[4,9,11,22]]],[750,1,0,[[0,2,0,0,1],[0,6,20,31],[0,9,18,29],[1,7,18,29],[2,6,21,32],[3,2,20,31],[4,6,5,16]]],[510,-1,0,[[0,4,15,28,2],[1,2,17,28],[2,1,0,0,1],[2,9,3,14],[3,5,3,14],[3,8,11,22],[4,6,10,23,2]]],[650,1,0,[[0,4,18,29],[1,0,3,14],[2,3,6,19,2],[3,2,6,19,2],[4,2,11,22],[4,8,12,23]]],[750,3,3,[[0,3,6,16],[1,11,3,13],[2,2,9,19],[3,4,11,21],[3,10,7,17],[4,0,7,17],[4,5,3,13]]],[760,3,0,[[0,6,10,20],[1,5,19,31,2],[2,2,22,32],[3,4,8,18],[3,8,18,28],[3,11,6,16],[4,6,4,16,2]]],[850,3,1,[[0,4,3,14],[1,5,19,30],[1,9,5,16],[2,9,15,26],[3,0,21,32],[4,6,8,19]]],[850,3,3,[[0,6,19,30],[1,2,7,18],[1,9,6,17],[2,2,6,17],[3,8,7,18],[4,11,6,17]]],[630,2,0,[[0,1,8,19],[0,9,0,0,1],[1,2,10,21],[1,9,14,25],[2,6,10,21],[3,1,3,14],[4,0,5,16]]],[530,-1,0,[[0,6,6,16],[1,2,0,0,1],[1,7,7,17],[1,11,18,28],[2,8,19,29],[3,0,7,19,2],[3,9,22,32],[4,1,14,26,2]]],[560,2,0,[[0,10,14,25],[1,7,8,21,2],[2,1,19,30],[3,1,7,20,2],[4,0,12,23],[4,9,15,26]]]],[[890,2,2,[[0,1,16,25],[0,5,16,25],[0,10,23,32],[1,0,6,15],[1,3,9,18],[2,0,7,16],[3,1,0,0,1],[3,11,3,12],[4,0,16,25]]],[730,1,0,[[0,8,20,29],[1,7,19,30,2],[2,4,19,30,2],[3,3,20,29],[3,6,3,12],[3,9,0,0,1],[4,2,11,20],[4,6,8,17],[4,10,9,18]]],[710,-1,1,[[0,4,9,21,2],[1,2,0,0,1],[1,5,13,23],[1,10,21,31],[2,5,5,15],[2,11,5,15],[3,3,6,18,2],[4,5,11,21]]],[830,2,1,[[0,3,12,24,2],[1,6,4,14],[2,1,5,15],[2,6,14,24],[2,10,22,32],[3,7,19,29],[4,6,12,24,2]]],[820,3,2,[[0,4,18,26],[0,10,19,27],[1,2,14,24,2],[2,10,3,11],[3,10,22,30],[4,0,13,23,2],[4,4,14,22]]],[800,2,2,[[0,9,3,15,2],[1,0,13,23],[2,5,7,17],[3,0,15,25],[3,7,16,26],[4,1,5,17,2],[4,10,6,16]]],[620,-1,2,[[0,7,9,19],[0,10,16,28,2],[1,2,8,18],[2,2,0,0,1],[2,7,7,19,2],[3,2,13,23],[4,2,5,15],[4,9,5,15]]],[650,-1,2,[[0,8,7,15],[1,1,13,23,2],[1,4,8,16],[2,0,0,0,1],[2,7,13,21],[2,10,18,26],[3,2,10,18],[4,2,11,21,2]]],[810,3,2,[[0,2,0,0,1],[0,10,18,27],[1,1,15,24],[1,4,6,15],[2,8,19,28],[3,3,8,17],[3,11,22,31],[4,0,14,23],[4,11,4,13]]],[770,-1,1,[[0,3,6,17,2],[1,0,18,27],[1,9,0,0,1],[2,1,22,31],[2,4,12,21],[2,7,3,12],[3,0,22,31],[3,5,16,27,2],[4,8,8,17]]],[780,1,3,[[0,7,9,17],[1,0,11,19],[2,2,10,20,2],[3,10,24,32],[4,0,17,25],[4,4,14,24,2],[4,9,3,11]]],[720,2,2,[[0,0,15,25],[0,10,19,29],[1,2,13,23],[2,7,12,22],[3,2,0,0,1],[3,11,9,19],[4,11,8,18]]],[780,-1,2,[[0,4,17,25],[0,8,24,32],[0,11,21,31,2],[1,1,12,20],[1,4,6,14],[2,4,19,27],[2,9,0,0,1],[3,6,4,14,2],[4,3,11,19],[4,6,13,21]]],[890,3,2,[[0,0,0,0,1],[0,7,21,31],[1,2,13,23],[2,2,22,32],[2,5,19,29],[3,10,8,18],[4,4,5,15],[4,8,8,18]]],[870,2,1,[[0,0,16,24],[0,3,9,17],[1,8,22,30],[2,4,13,21],[2,11,20,28],[3,4,16,26,2],[3,10,6,14],[4,4,15,23],[4,7,7,17,2]]],[810,3,2,[[0,0,18,26],[0,3,15,25,2],[1,0,13,21],[1,3,5,13],[2,2,5,15,2],[2,8,6,14],[2,11,5,13],[3,3,12,20],[4,10,9,17]]],[770,3,3,[[0,6,8,18],[0,9,22,32],[1,0,0,0,1],[1,8,5,15],[2,4,4,14],[3,9,12,22],[4,8,5,15],[4,11,8,18]]],[720,-1,3,[[0,2,0,0,1],[0,6,10,19],[0,10,6,15],[1,0,12,21],[1,5,14,23],[2,2,12,21],[3,2,19,30,2],[4,2,12,23,2]]],[910,3,3,[[0,5,21,30],[0,9,23,32],[1,4,13,22],[1,8,9,18],[2,2,12,21],[3,2,11,22,2],[4,4,13,24,2]]],[800,1,3,[[0,2,17,26],[0,10,15,24],[1,0,6,17,2],[1,8,3,12],[2,1,10,21,2],[3,9,23,32],[4,1,4,13],[4,8,4,13]]],[930,1,3,[[0,2,7,15],[0,6,16,24],[0,9,0,0,1],[1,4,3,11],[1,8,17,25],[2,2,9,17],[3,1,8,16],[3,11,5,13],[4,0,4,12],[4,11,3,11]]],[880,2,2,[[0,3,21,32,2],[0,11,7,16],[1,3,12,21],[2,1,6,15],[2,6,15,24],[2,9,14,23],[3,0,8,19,2],[4,10,15,24]]],[830,2,1,[[0,2,12,21],[1,6,14,23],[2,6,4,13],[3,3,10,21,2],[4,0,16,25],[4,3,17,26],[4,6,9,20,2]]],[650,1,0,[[0,1,22,32],[1,1,4,16,2],[2,0,0,0,1],[2,7,14,24],[2,10,13,23],[3,2,8,18],[4,2,5,17,2],[4,9,3,13]]],[900,3,1,[[0,1,5,13],[0,4,7,15],[1,0,0,0,1],[1,8,7,15],[1,11,8,16],[2,4,19,27],[2,9,22,30],[3,5,5,13],[4,7,11,19],[4,10,5,13]]],[830,3,2,[[0,9,16,27,2],[1,1,15,24],[1,4,6,15],[2,3,21,32,2],[3,2,11,20],[3,5,8,17],[3,9,9,18],[4,2,12,21]]],[810,3,2,[[0,1,6,16],[0,9,8,18],[1,4,7,17],[2,1,7,17],[2,9,0,0,1],[3,3,6,16],[4,2,4,14],[4,6,12,22]]],[770,2,0,[[0,2,0,0,1],[0,8,15,24],[1,2,17,26],[1,5,17,28,2],[2,3,17,26],[2,11,8,17],[3,5,6,17,2],[4,3,15,24],[4,7,12,21]]],[930,3,1,[[0,2,5,13],[1,2,19,27],[1,5,16,24],[2,0,15,23],[2,4,18,26],[2,7,20,30,2],[3,10,21,29],[4,0,12,22,2],[4,6,16,24]]],[790,3,2,[[0,3,15,26,2],[1,2,11,20],[2,1,17,28,2],[3,8,21,30],[4,0,10,19],[4,3,17,26],[4,8,10,19]]]]]; // § pool (generated)
+  const TWISTS = { leak: 'The cracked terrace leaks.', jam: 'A gate is jammed open.', cactus: 'Keep the cactus dry.', tender: 'Tender shoots wash out if too deep.' };
+  function poolGarden(row, name, share) {
+    const [tank, leak, jam, ps] = row;
+    const g = { name, n: 5, leak, jam, tank: Math.round(tank * share / 10) * 10,
+      plants: ps.map(([t, c, lo, hi, kind]) => kind === 1 ? [t, c, 0, 0, true] : kind === 2 ? [t, c, lo, hi, 'tender'] : [t, c, lo, hi]) };
+    g.note = [leak >= 0 && 'leak', jam && 'jam', g.plants.some(p => p[4] === true) && 'cactus', g.plants.some(p => p[4] === 'tender') && 'tender']
+      .filter(Boolean).map(t => TWISTS[t]).join(' ') || 'Water each plant to its green mark.';
+    return g;
+  }
+  function summerGarden(seed, k) {
+    const tier = k < 2 ? 0 : k < 5 ? 1 : 2, from = [0, 2, 5][tier], list = SUMMER_POOL[tier];
+    // A seeded shuffle of the tier, walked in order (repeats only after the whole tier).
+    const r = rng(mix(seed, 100 + tier)), order = list.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    const row = list[order[(k - from) % list.length]];
+    return poolGarden(row, `Summer garden ${k + 1}`, Math.max(SUMMER_MIN, 1 - SUMMER_DM * k));
+  }
 
   const canvas = document.getElementById('hill');
   const ctx = canvas.getContext('2d');
@@ -270,11 +313,14 @@
     const r1 = v => Math.round(v * 10) / 10;
     const msg = { type: 'arcade:result', game: GAME_ID,
       outcome: result === 'won' ? 'win' : 'loss', time: r1(elapsed),
-      level: level + 1, run: runId, attempt, tilt: tiltSource(),
+      level: level + 1, level_id: level < CAMP ? `g${level}` : 'summer', run: runId, attempt, tilt: tiltSource(),
+      score: bloomedRun,
       stats: { spilled: spilled, leaked: leaked, drunk: drunk, left: tank, start: tankStart,
         gate_taps: gateTaps, gate_keys: gateKeys, tilt_s: tiltKeys + tiltBar + tiltMotion, bloomed: bloomedCount(),
-        plants: plants.length, first_input: firstInput === null ? -1 : r1(firstInput), hints: hints } };
+        plants: plants.length, first_input: firstInput === null ? -1 : r1(firstInput), hints: hints,
+        summer: level < CAMP ? 0 : level - CAMP + 1, spare, twists: twistCount(garden()) } };
     if (reason) msg.reason = reason;
+    if (DAILY) msg.daily = DAILY;
     window.parent.postMessage(msg, '*');
   }
 
@@ -302,11 +348,25 @@
   // The gallery pauses the game while one of its panels covers it.
   let paused = false;
   window.addEventListener('message', evt => {
-    if (evt.data && evt.data.type === 'arcade:pause') { paused = true; keys.clear(); }
-    if (evt.data && evt.data.type === 'arcade:resume') paused = false;
+    const d = evt.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'arcade:pause') { paused = true; keys.clear(); }
+    if (d.type === 'arcade:resume') paused = false;
+    if (d.type === 'arcade:best' && d.bests && typeof d.bests === 'object') {
+      const b = Number(d.bests.main);
+      if (b > 0 && b < 1e4) best = Math.max(best, Math.round(b));
+    }
   });
 
+  // § daily: ?daily=YYYY-MM-DD is the arcade's Daily Challenge (docs/daily.md): a Long Summer seeded by the date.
+  const DAILY = (/[?&]daily=(\d{4}-\d\d-\d\d)(?:&|$)/.exec(location.search) || [])[1] || '';
+  const dailySeed = () => hashStr(GAME_ID + ':' + DAILY);
+  function postFinal() {
+    if (DAILY && window.parent !== window) window.parent.postMessage({ type: 'arcade:final', game: GAME_ID, daily: DAILY, run: runId, score: bloomedRun }, '*');
+  }
+
   const endCard = document.getElementById('endCard');
+  const skipBtn = document.getElementById('skipBtn');
   const playAgainBtn = document.getElementById('playAgain');
 
   // ---------- state ----------
@@ -315,24 +375,34 @@
   // terrace k-1. The bottom terrace has no gate, only its lip.
   let terraces = [], gates = [], plants = [];
   let level, runId, attempt, carry, tank, tankStart, state, msgTimer;
+  // The run: seed (the Long Summer's gardens), bloomed (gardens bloomed this
+  // run, the score; the warm-up doesn't count), spare (losses the summer
+  // still forgives), over (the summer ended the run), cur (this garden).
+  let seed = 0, bloomedRun = 0, spare = SPARE, over = false, cur = null, best = 0;
   let elapsed, spilled, leaked, drunk, gateTaps, gateKeys = 0, firstInput;
   let tilt = 0, tiltTarget = 0, tiltKeys = 0, tiltBar = 0, tiltMotion = 0;
   let stall = 0, hint = null, hints = 0;
   let splash = [], deco = 0;
 
-  function garden() { return GARDENS[level]; }
+  function garden() { return cur; }
+  const twistCount = g => (g.leak >= 0) + (g.jam > 0) + g.plants.some(p => p[4] === true) + g.plants.some(p => p[4] === 'tender');
+  const inSummer = () => level >= CAMP;
   function bloomedCount() { return plants.filter(p => p.bloom).length; }
   function waterOn(i) { let v = 0; for (const d of terraces[i].h) v += d; return v; }
 
-  function newRun() {
-    level = 0;
-    carry = 0;
-    runId = Math.random().toString(36).slice(2, 10);
+  function newRun(at) {
+    level = DAILY ? CAMP : at || 0;
+    carry = level === CAMP && !DAILY ? SKIP_CARRY : 0;
+    bloomedRun = DAILY ? 0 : Math.max(0, level - 1);
+    spare = SPARE; over = false;
+    seed = DAILY ? dailySeed() : (Math.random() * 2 ** 32) >>> 0;
+    runId = Math.random().toString(36).slice(2, 10) || 'run';
     startLevel(1);
   }
 
   function startLevel(att) {
     attempt = att;
+    if (att === 1) cur = level < CAMP ? GARDENS[level] : summerGarden(seed, level - CAMP);
     const g = garden();
     const off = (W - 28 - TW) / (g.n - 1), y0 = g.top || TOP_Y, y1 = g.bot || BOT_Y;
     terraces = [];
@@ -346,8 +416,9 @@
       terraces[i].land = Math.min(NC - 1, Math.floor((x - terraces[i + 1].x0) / CW));
     }
     gates = [];
-    for (let k = 0; k < g.n; k++) gates.push({ open: false, opened: 0, flow: 0 });
-    plants = g.plants.map(([t, c, lo, hi, dry]) => ({ t, c, lo, hi, dry: !!dry, grow: 0, bloom: false, mood: 'dry' }));
+    for (let k = 0; k < g.n; k++) gates.push({ open: k === g.jam, jam: k === g.jam, opened: 0, flow: 0 });
+    plants = g.plants.map(([t, c, lo, hi, kind]) => ({ t, c, lo, hi, dry: kind === true, tender: kind === 'tender',
+      soak: 0, grow: 0, bloom: false, mood: 'dry' }));
     tank = g.tank + carry;
     tankStart = tank;
     elapsed = 0; spilled = 0; leaked = 0; drunk = 0; gateTaps = 0; gateKeys = 0; firstInput = null;
@@ -364,7 +435,10 @@
   }
 
   function hud() {
-    document.getElementById('hudGarden').textContent = garden().warm ? 'warm-up' : `${level}/${GARDENS.length - 1}`;
+    document.getElementById('hudGarden').textContent = garden().warm ? 'warm-up' : inSummer() ? `summer ${level - CAMP + 1}` : `${level}/${CAMP - 1}`;
+    document.getElementById('hudTries').textContent = spare;
+    document.getElementById('hudTries').parentElement.hidden = !inSummer();
+    skipBtn.hidden = !canSkip();
     document.getElementById('hudBloom').textContent = `${bloomedCount()}/${plants.length}`;
     document.getElementById('hudSpring').textContent = Math.round(tank);
     document.getElementById('hudSpring').parentElement.hidden = !!garden().warm;
@@ -373,29 +447,40 @@
   function endLevel(result, why) {
     state = result;
     keys.clear();
+    const summer = inSummer();
+    if (result === 'won' && !garden().warm) bloomedRun++;
+    if (result !== 'won' && summer) { if (spare > 0) spare--; else over = true; }
     report(result, why);
+    if (over) postFinal();
+    if (result === 'won' && !garden().warm && bloomedRun > best) best = bloomedRun;
     msgEl.textContent = '';
     const title = document.getElementById('endTitle');
-    const last = level === GARDENS.length - 1;
+    const last = level === CAMP - 1;
     const sp = Math.round(spilled), lk = Math.round(leaked);
     nudge(null);
     if (result === 'won') {
       if (spilled < 0.5 && !garden().warm) unlock('no-spill');
       if (gates.every(g => g.opened <= 1) && !garden().warm) unlock('gatekeeper');
       if (last) unlock('full-bloom');
+      if (summer && level - CAMP >= 4) unlock('long-summer');
       title.textContent = last ? 'The whole hillside bloomed!' : `${garden().name}: in bloom!`;
-      carry = last ? 0 : tank;
+      carry = tank;
       document.getElementById('endDetail').textContent = garden().warm
-        ? 'Tilt to shape the water, gates to send it down. Next: three gardens, each with a spring to share out.'
+        ? `Tilt to shape the water, gates to send it down. Next: ${CAMP - 1} gardens, each with a spring to share out.`
         : `${sp ? sp + ' water spilled' : 'Not a drop spilled'}${lk ? `, ${lk} leaked` : ''}.` +
-          (last ? '' : ` ${Math.round(tank)} left in the spring carries on to the next garden.`);
-      playAgainBtn.textContent = last ? 'New run' : 'Next garden';
+          ` ${Math.round(tank)} left in the spring carries on to the next garden.` +
+          (last ? ` Next: the Long Summer, gardens that never run out, ${SPARE} spare tries.` : '') +
+          (summer ? ` ${bloomedRun} garden${bloomedRun === 1 ? '' : 's'} bloomed this run.` : '');
+      playAgainBtn.textContent = last ? 'Start the Long Summer' : 'Next garden';
     } else {
-      title.textContent = why === 'restart' ? 'Garden restarted' : 'Out of water';
+      const drown = why === 'drowned';
+      title.textContent = over ? 'The summer is over' : why === 'restart' ? 'Garden restarted' : drown ? 'A tender shoot washed out' : 'Out of water';
       document.getElementById('endDetail').textContent =
         `${bloomedCount()} of ${plants.length} plants bloomed. ${sp} water spilled off the edge` +
-        `${lk ? `, ${lk} leaked` : ''}, ${Math.round(drunk)} drunk.`;
-      playAgainBtn.textContent = 'Try this garden again';
+        `${lk ? `, ${lk} leaked` : ''}, ${Math.round(drunk)} drunk.` +
+        (over ? ` ${bloomedRun} garden${bloomedRun === 1 ? '' : 's'} bloomed this run.`
+          : summer ? ` ${spare ? `${spare} spare tr${spare === 1 ? 'y' : 'ies'} left.` : 'Last try: lose this one and the summer ends.'}` : '');
+      playAgainBtn.textContent = over ? 'New run' : 'Try this garden again';
     }
     title.className = result;
     const n = roundEarned.size;
@@ -412,19 +497,31 @@
 
   function next() {
     if (state === 'won') {
-      if (level === GARDENS.length - 1) { newRun(); return; }
       level++;
       startLevel(1);
+    } else if (over) {
+      newRun();
     } else {
       startLevel(attempt + 1);
     }
   }
 
+  // A player whose best run covered the campaign may start a run at the
+  // Long Summer (with SKIP_CARRY in the spring), before touching the warm-up.
+  const canSkip = () => !DAILY && best >= CAMP - 1 && level === 0 && state === 'playing' && firstInput === null;
+  function skip() { if (canSkip()) newRun(CAMP); }
+
   // Restart garden: counts as a lost try once the player has done anything.
   // Ignored while the end card shows (it has its own button).
   function restart() {
     if (state !== 'playing' || paused) return;
-    if (firstInput !== null) { endLevel('lost', 'restart'); next(); }
+    // In the Long Summer it costs a spare try; the last one shows the run's end card.
+    if (firstInput !== null) {
+      endLevel('lost', 'restart');
+      if (over) return;
+      next();
+      if (inSummer()) say(`Restarted: ${spare ? `${spare} spare tr${spare === 1 ? 'y' : 'ies'} left` : 'last try'}.`, 3000);
+    }
     else startLevel(attempt);
   }
 
@@ -461,6 +558,7 @@
     if (k === 0 && garden().warm) return;
     if (locked(k)) { say('First tilt ◀ to water the top plant.'); return; }
     const g = gates[k];
+    if (g.jam) { say(`Gate ${k} is jammed open. Tilt ◀ to hold water above it.`, 3000); return; }
     g.open = !g.open;
     if (g.open) g.opened++;
     gateTaps++;
@@ -532,6 +630,8 @@
       }
       if (p.bloom) continue;
       p.mood = d < p.lo ? 'dry' : d > p.hi ? 'deep' : 'ok';
+      // A tender shoot under too much water for TENDER_T s washes out.
+      if (p.tender) p.soak = p.mood === 'deep' ? p.soak + h : Math.max(0, p.soak - h);
       if (p.mood !== 'ok') continue;
       const q = Math.min(d, DRINK * h);
       terraces[p.t].h[p.c] -= q;
@@ -580,6 +680,7 @@
     for (let s = 0; s < SUB; s++) flowStep(h);
     grow(dt);
     if (plants.every(p => p.bloom)) { endLevel('won'); return; }
+    if (plants.some(p => p.tender && p.soak >= TENDER_T)) { endLevel('lost', 'drowned'); return; }
     if (hopeless()) { endLevel('lost', 'dry'); return; }
     watchStall(dt);
   }
@@ -602,6 +703,17 @@
       return;
     }
     if (hint && hint.spill) { hint = null; nudge(null); }
+    // A tender shoot going under: point at the way out right away.
+    const sunk = plants.find(p => p.tender && !p.bloom && p.soak > 0.3);
+    if (sunk) {
+      if (!(hint && hint.sunk)) {
+        hint = { ...drainHint(sunk), sunk: true }; hints++; nudge(hint);
+        say('A tender shoot is drowning! Drain it', 2500, `${plantName(sunk).replace(/^./, c => c.toUpperCase())} is drowning: ${hint.gate ? `open gate ${hint.gate}` : `tilt ${hint.tilt < 0 ? 'left' : 'right'}`}.`);
+      }
+      stall = 0;
+      return;
+    }
+    if (hint && hint.sunk) { hint = null; nudge(null); }
     let slosh = 0;
     for (const T of terraces) for (const v of T.f) slosh = Math.max(slosh, Math.abs(v));
     const busy = gates.some(g => g.flow > 1) || slosh > 3 ||
@@ -624,6 +736,14 @@
       ? `Hint: ${gates[k].open ? 'shut' : 'open'} ${k ? 'gate ' + k : 'the spring'}${touchScreen ? '' : `, key ${k}`}.` : 'Hint: stuck. Restart the garden.');
   }
 
+  // Too deep over plant p: open the gate below its terrace if that drains
+  // it, else tilt the water away from it.
+  function drainHint(p) {
+    const below = p.t < terraces.length - 1 ? p.t + 1 : 0, side = p.c < (NC - 1) / 2 ? -1 : 1;
+    if (below && !gates[below].open && side > 0) return { gate: below };
+    return { tilt: -side };
+  }
+
   function findHint() {
     let p = plants.filter(q => !q.bloom && !q.dry).sort((a, b) => a.t - b.t)[0];
     if (!p) p = plants.find(q => q.dry && !q.bloom);
@@ -634,6 +754,7 @@
       if (below && !gates[below].open && waterOn(p.t) / NC > (p.dry ? 0 : p.hi)) return { gate: below };
       return { tilt: -side };
     }
+    if (below && gates[below].jam && waterOn(p.t) >= minStand(p.lo, p.c)) return { tilt: -1 };
     if (waterOn(p.t) >= minStand(p.lo, p.c) + 5) {
       if (side > 0 && below && gates[below].open) return { gate: below };
       return { tilt: side };
@@ -832,6 +953,15 @@
       ctx.beginPath(); ctx.moveTo(x1 + 3, top); ctx.quadraticCurveTo(x1 + 12, top, colX(L, T.land), L.y - L.h[T.land]); ctx.stroke();
     }
     drawValve(x1 + 3, T.y - WALL - 12, g.open, locked(i + 1));
+    // A jammed gate: bound with a rope (a dark-edged cross over the valve).
+    if (g.jam) {
+      const vx = x1 + 3, vy = T.y - WALL - 12;
+      for (const [c, w] of [['#0b1412', 4.5], ['#e0c080', 2]]) {
+        ctx.strokeStyle = c; ctx.lineWidth = w;
+        ctx.beginPath(); ctx.moveTo(vx - 11, vy - 11); ctx.lineTo(vx + 11, vy + 11);
+        ctx.moveTo(vx + 11, vy - 11); ctx.lineTo(vx - 11, vy + 11); ctx.stroke();
+      }
+    }
   }
 
   function drawPlant(p) {
@@ -844,6 +974,19 @@
     ctx.strokeStyle = '#0b1412'; ctx.lineWidth = 1;
     if (p.dry) { ctx.fillRect(x + 5, y - 3, 6, 3); ctx.strokeRect(x + 4.5, y - 3.5, 7, 4); }
     else { ctx.fillRect(x + 5, y - p.hi, 6, p.hi - p.lo); ctx.strokeRect(x + 4.5, y - p.hi - 0.5, 7, p.hi - p.lo + 1); }
+    // A tender shoot's stake: white dashes around its band, and while it is
+    // under too much water a ring that closes as it washes out.
+    if (p.tender && !p.bloom) {
+      ctx.setLineDash([3, 2]); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(x + 2.5, y - p.hi - 2.5, 11, p.hi - p.lo + 5);
+      ctx.setLineDash([]);
+      if (p.soak > 0) {
+        const cy = y - p.hi - 12, a = Math.min(1, p.soak / TENDER_T);
+        ctx.fillStyle = 'rgba(10,17,19,0.85)'; ctx.beginPath(); ctx.arc(x + 8, cy, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x + 8, cy, 5.5, -Math.PI / 2, -Math.PI / 2 + (1 - a) * Math.PI * 2); ctx.stroke();
+      }
+    }
     // How deep the water over the roots is now: a white tick with a dark
     // edge (white L* 100 against the band's 75 and the water's 54).
     if (!p.bloom || p.dry) {
@@ -913,7 +1056,6 @@
   }
   canvas.addEventListener('pointerdown', evt => {
     evt.preventDefault();
-    if (!document.hasFocus()) window.focus(); // a tap normally focuses the frame already
     if (state !== 'playing' || paused) return;
     const p = toGame(evt);
     let best = -1, bd = GATE_R;
@@ -934,10 +1076,12 @@
   // simulation. Tab stays free; Space/Enter on a focused button press it.
   const keys = new Set();
   const LEFT = ['ArrowLeft', 'a', 'A'], RIGHT = ['ArrowRight', 'd', 'D'];
+  // Shift with an arrow tilts halfway (a gentler slosh for tender shoots and the lip).
+  let shiftHeld = false;
   function keyTilt() {
     let v = 0;
     for (const k of keys) v += LEFT.includes(k) ? -1 : 1;
-    return Math.max(-1, Math.min(1, v));
+    return Math.max(-1, Math.min(1, v)) * (shiftHeld ? 0.5 : 1);
   }
   const kb = { pick: 0, shown: false, settle: -1 };
   const firstStop = () => garden().warm ? 1 : 0;
@@ -947,7 +1091,8 @@
   }
   // Where a plant stands on its terrace (12 columns), so a tilt can aim.
   const where = c => c <= 2 ? 'left' : c >= 9 ? 'right' : c <= 5 ? 'centre-left' : 'centre-right';
-  const plantName = p => `terrace ${p.t + 1}'s ${where(p.c)} ${p.dry ? 'cactus' : 'plant'}`;
+  const kindName = p => p.dry ? 'cactus' : p.tender ? 'tender shoot' : 'plant';
+  const plantName = p => `terrace ${p.t + 1}'s ${where(p.c)} ${kindName(p)}`;
   // Depth in whole px, never contradicting the plant's state ("just under
   // 14" rather than "14 deep, too shallow, wants 14 to 28").
   // The state is the truth: water can move between a sim step and the words.
@@ -973,16 +1118,16 @@
     if (k === 0) return `Spring valve, ${gates[0].open ? 'open' : 'shut'}. ${Math.round(tank)} water in the spring.`;
     const t = k - 1, T = terraces[t];
     const head = k === n ? `Bottom terrace ${n}, no gate: water over its lip spills.`
-      : `Gate ${k}, ${locked(k) ? 'locked' : gates[k].open ? 'open' : 'shut'}, at the end of terrace ${k}.`;
+      : `Gate ${k}, ${locked(k) ? 'locked' : gates[k].jam ? 'jammed open' : gates[k].open ? 'open' : 'shut'}, at the end of terrace ${k}.`;
     const ps = plants.filter(p => p.t === t).sort((a, b) => a.c - b.c);
     const lean = T.h[0] - T.h[NC - 1];
     const side = Math.abs(lean) < 2 ? '' : `, deeper at the ${lean > 0 ? 'left' : 'right'}`;
     return `${head} Terrace ${k}${T.leaky ? ' (cracked, leaking)' : ''} holds ${Math.round(waterOn(t))} water${side}.` +
-      (ps.length ? ' ' + ps.map(p => `${where(p.c).replace(/^./, c => c.toUpperCase())} ${p.dry ? 'cactus' : 'plant'} ${plantWords(p)}.`).join(' ') : '');
+      (ps.length ? ' ' + ps.map(p => `${where(p.c).replace(/^./, c => c.toUpperCase())} ${kindName(p)} ${plantWords(p)}.`).join(' ') : '');
   }
   function statusWords() {
     const g = garden(), left = plants.filter(p => !p.bloom || p.dry);
-    return `${g.warm ? 'Warm-up' : `Garden ${level} of ${GARDENS.length - 1}, ${g.name}`}. ${bloomedCount()} of ${plants.length} bloomed.` +
+    return `${g.warm ? 'Warm-up' : inSummer() ? `${g.name} of the Long Summer, ${bloomedRun} bloomed this run, ${spare} spare tries` : `Garden ${level} of ${CAMP - 1}, ${g.name}`}. ${bloomedCount()} of ${plants.length} bloomed.` +
       (g.warm ? '' : ` Spring ${Math.round(tank)}, valve ${gates[0].open ? 'open' : 'shut'}.`) +
       ` Open gates: ${gates.map((x, k) => k && x.open ? k : '').filter(Boolean).join(', ') || 'none'}.` +
       (left.length ? ' ' + left.map(p => `${plantName(p).replace(/^./, c => c.toUpperCase())} ${plantWords(p)}.`).join(' ') : '');
@@ -990,6 +1135,7 @@
   function toggleKey(k) {
     if (k === terraces.length) return speak('The bottom terrace has no gate.');
     const was = gates[k].open;
+    if (gates[k].jam) return speak(`Gate ${k} is jammed open. Hold the left arrow to keep water on terrace ${k}.`);
     tapGate(k);
     if (gates[k].open === was) return;
     gateKeys++;
@@ -997,6 +1143,7 @@
     speak(`Gate ${k} ${gates[k].open ? `open: terrace ${k} drains onto terrace ${k + 1}` : `shut: it holds terrace ${k}'s water up to the gate's top`}.`);
   }
   window.addEventListener('keydown', evt => {
+    shiftHeld = evt.shiftKey;
     if (evt.ctrlKey || evt.metaKey || evt.altKey || evt.key === 'Tab') return;
     const onButton = evt.target && evt.target.tagName === 'BUTTON';
     const k = evt.key.length === 1 ? evt.key.toLowerCase() : evt.key;
@@ -1040,6 +1187,7 @@
     }
   });
   window.addEventListener('keyup', evt => {
+    shiftHeld = evt.shiftKey;
     if (!keys.has(evt.key)) return;
     keys.delete(evt.key);
     if (!keys.size && state === 'playing') kb.settle = 0.9;
@@ -1067,7 +1215,7 @@
         : m === 'wet' ? `${name} is wet, ${d} deep, and wilting.` : `${name} is dry again.`);
       else if (m === 'bloom') speak(`${name} bloomed. ${bloomedCount()} of ${plants.length}.`);
       else if (m === 'ok') speak(`${name} is growing: ${d} deep, wants ${p.lo} to ${p.hi}.`);
-      else if (m === 'deep') speak(`${name} is drowning: ${d} deep, wants at most ${p.hi}.`);
+      else if (m === 'deep') speak(`${name} is drowning: ${d} deep, wants at most ${p.hi}${p.tender ? '. Drain it fast or it washes out' : ''}.`);
       else if (was !== 'dry') speak(`${name} stopped growing: ${d} deep, wants at least ${p.lo}.`);
     }
   }
@@ -1164,6 +1312,7 @@
 
   document.getElementById('resetBtn').addEventListener('click', restart);
   playAgainBtn.addEventListener('click', next);
+  skipBtn.addEventListener('click', skip);
 
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
@@ -1194,7 +1343,7 @@
 {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const t = fine ? 'click' : 'tap';
-  document.getElementById('hill').setAttribute('aria-label', `Terrace Garden. Tilt ${fine ? 'with the bar under the hillside' : 'the phone (or slide the bar under the hillside)'} to slosh the water, ${t} a gate to open or close it. Keys: hold ← → or A / D to tilt, ↑ ↓ pick a gate, Enter or G opens or shuts it, 0 to 4 open or shut gate 0 to 4 (0 is the spring), S status.`);
+  document.getElementById('hill').setAttribute('aria-label', `Terrace Garden. Tilt ${fine ? 'with the bar under the hillside' : 'the phone (or slide the bar under the hillside)'} to slosh the water, ${t} a gate to open or close it. Keys: hold ← → or A / D to tilt (with Shift, half as far), ↑ ↓ pick a gate, Enter or G opens or shuts it, 0 to 4 open or shut gate 0 to 4 (0 is the spring), S status.`);
 }
 </script>
 </body>

@@ -56,3 +56,8 @@ Part of the findings checklist; index, evidence tags and how to add one in
   lure ring; with (1 − (fear/PANIC)³) it fell to 0-2 and only panic or a
   startle beside a rock costs birds. *Linear fear scaling made rocks kill
   half-scared birds.* Murmuration v9. bots.
+- For endless generated levels of a physics game, don't trust the
+  generator at run time: build candidates in the harness, keep the ones
+  several bots win with less resource than listed, and ship the kept table.
+  Shrink the listed resource per level so carry-over is spent, not banked.
+  *A raw generator made gardens no bot could finish.* Terrace Garden v6. bots.
